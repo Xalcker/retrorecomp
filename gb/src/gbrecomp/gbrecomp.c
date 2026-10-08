@@ -277,8 +277,8 @@ typedef struct {
     int r[8];
     int bank;           /* último valor escrito al registro de banco ($2000-$3FFF) */
     int stk_hi[16], stk_lo[16], depth;
-    u16 mem_addr[8];    /* celdas de RAM con valor conocido (p. ej. hROMBank) */
-    int mem_val[8], nmem;
+    u16 mem_addr[16];   /* celdas de RAM con valor conocido (p. ej. hROMBank) */
+    int mem_val[16], nmem;
 } Regs;
 
 static void regs_unknown(Regs *s)
@@ -308,10 +308,13 @@ static void mem_store(Regs *s, long addr, int v)
     if (addr < 0xC000) return;      /* solo RAM interna */
     for (int i = 0; i < s->nmem; i++)
         if (s->mem_addr[i] == addr) { s->mem_val[i] = v; return; }
-    if (s->nmem < 8) {
-        s->mem_addr[s->nmem] = (u16)addr;
-        s->mem_val[s->nmem++] = v;
+    if (s->nmem == 16) {    /* llena: se olvida la más vieja */
+        memmove(s->mem_addr, s->mem_addr + 1, 15 * sizeof s->mem_addr[0]);
+        memmove(s->mem_val, s->mem_val + 1, 15 * sizeof s->mem_val[0]);
+        s->nmem = 15;
     }
+    s->mem_addr[s->nmem] = (u16)addr;
+    s->mem_val[s->nmem++] = v;
 }
 
 static int mem_load(const Regs *s, long addr)
@@ -694,6 +697,126 @@ static int bank_iface(u32 bank)
     return iface_len[bank] - 1 >= MIN_JP_RUN ? iface_len[bank] - 1 : 0;
 }
 
+/* Banco efectivo de un número escrito al registro de banco */
+static u32 mbc_bank(int v)
+{
+    u32 b = (u32)v % nbanks;
+    return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
+}
+
+/*
+ * Despachadores con el destino en una tabla de la ROM: rutinas del banco 0
+ * que, sin ramificarse, calculan HL y el banco a partir de lo que trae quien
+ * las llama y terminan en `jp hl` (el cambio de estado de Warlocked: `ld a, N`
+ * + `jp $0554` lee dirección y banco del registro N de una tabla en $0521).
+ * Se simulan con los registros conocidos de cada llamador, leyendo los bytes
+ * de la ROM cuando la dirección es constante. Las llamadas internas se saltan
+ * (dejan los registros desconocidos, pero no la pila ni la RAM conocida).
+ * Si el destino depende del A del llamador, además se recorre la tabla entera
+ * (A = 0, 1, 2...) hasta la primera entrada inválida: a algunos estados solo
+ * se llega desde otros que el estático todavía no conoce.
+ */
+static signed char far_cache[0x4000];   /* 0: sin ver, 1: candidata, -1: no */
+static u8 far_enumerated[0x4000];
+static unsigned stat_sim_targets, stat_sim_entries;
+
+/* Byte de la ROM en una dirección constante (V_UNK si no se sabe el banco) */
+static int rom_byte(const Regs *s, long addr)
+{
+    if (addr < 0 || addr >= 0x8000) return V_UNK;
+    if (addr < 0x4000) return rom[addr];
+    if (!IS_CONST(s->bank)) return V_UNK;
+    return bank_ptr(mbc_bank(s->bank))[addr - 0x4000];
+}
+
+/* 1 y el destino si se resolvió; 0 si llegó a `jp hl` sin conocerlo; -1 si
+ * la rutina no termina así */
+static int simulate_far_jump(u16 entry, Regs s, int via_call, u32 *tbank, u16 *taddr)
+{
+    s.depth = 0;
+    if (via_call && s.depth < 16) {     /* la dirección de regreso */
+        s.stk_hi[0] = s.stk_lo[0] = V_UNK;
+        s.depth = 1;
+    }
+    u16 pc = entry;
+    int carry = -1;     /* acarreo conocido (para `add` + `adc` de 16 bits) */
+    for (int step = 0; step < 256 && pc < 0x4000; step++) {
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(0, pc, b, &in)) return -1;
+        u8 op = b[0];
+        switch (in.kind) {
+        case INS_JP_HL: {
+            long hl = pair_value(&s, R_H, R_L);
+            if (hl < 0 || hl >= 0x8000) return 0;
+            if (hl >= 0x4000 && !IS_CONST(s.bank)) return 0;
+            *tbank = hl < 0x4000 ? 0 : mbc_bank(s.bank);
+            *taddr = (u16)hl;
+            return 1;
+        }
+        case INS_JP: case INS_JR:
+            if (in.cond) return -1;
+            pc = in.target;
+            continue;
+        case INS_CALL: case INS_RST:
+            if (in.cond) return -1;
+            for (int i = 0; i < 8; i++) s.r[i] = V_UNK;
+            carry = -1;
+            pc = (u16)(pc + in.len);
+            continue;
+        case INS_NORMAL:
+            break;
+        default:
+            return -1;
+        }
+        /* add / adc sobre A, llevando el acarreo: `add a, e` + `ld e, a` +
+         * `ld a, d` + `adc a, 0` suma un índice a una dirección de 16 bits */
+        if ((op >= 0x80 && op < 0x90) || op == 0xC6 || op == 0xCE) {
+            int v = op == 0xC6 || op == 0xCE ? b[1] : (op & 7) == 6 ? V_UNK : s.r[op & 7];
+            int with_carry = (op >= 0x88 && op < 0x90) || op == 0xCE;
+            int a = s.r[R_A];
+            if (IS_CONST(a) && IS_CONST(v) && (!with_carry || carry >= 0)) {
+                int r = a + v + (with_carry ? carry : 0);
+                s.r[R_A] = r & 0xFF;
+                carry = r > 0xFF;
+            } else {
+                s.r[R_A] = V_UNK;
+                carry = -1;
+            }
+            pc = (u16)(pc + in.len);
+            continue;
+        }
+        /* Lo demás que toca el acarreo lo deja desconocido */
+        if ((op >= 0x90 && op < 0xC0) || op == 0xD6 || op == 0xDE || op == 0xE6 || op == 0xEE ||
+            op == 0xF6 || op == 0xFE || op == 0x07 || op == 0x0F || op == 0x17 || op == 0x1F ||
+            op == 0x27 || op == 0x37 || op == 0x3F || op == 0xCB || op == 0x09 || op == 0x19 ||
+            op == 0x29 || op == 0x39 || op == 0xE8 || op == 0xF8 || op == 0xF1)
+            carry = -1;
+        /* Lecturas de la ROM en direcciones constantes */
+        int d = (op >> 3) & 7;
+        long hl = pair_value(&s, R_H, R_L);
+        if (op == 0x0A || op == 0x1A) {
+            long a = op == 0x0A ? pair_value(&s, R_B, R_C) : pair_value(&s, R_D, R_E);
+            if (a >= 0 && a < 0x8000) { s.r[R_A] = rom_byte(&s, a); pc++; continue; }
+        } else if (op == 0xFA) {
+            long a = b[1] | b[2] << 8;
+            if (a < 0x8000) { s.r[R_A] = rom_byte(&s, a); pc += 3; continue; }
+        } else if (hl >= 0 && hl < 0x8000 && (op == 0x2A || op == 0x3A)) {
+            s.r[R_A] = rom_byte(&s, hl);
+            set_pair(&s, R_H, R_L, (hl + (op == 0x2A ? 1 : -1)) & 0xFFFF);
+            pc++;
+            continue;
+        } else if (hl >= 0 && hl < 0x8000 && op >= 0x40 && op < 0x80 && (op & 7) == 6 && op != 0x76) {
+            s.r[d] = rom_byte(&s, hl);
+            pc++;
+            continue;
+        }
+        regs_step(&s, b);
+        pc = (u16)(pc + in.len);
+    }
+    return -1;
+}
+
 /* La instrucción (no de control) deja A intacto */
 static int keeps_a(u8 op)
 {
@@ -714,13 +837,6 @@ static int keeps_a(u8 op)
     default:
         return 0;
     }
-}
-
-/* Banco efectivo de un número escrito al registro de banco */
-static u32 mbc_bank(int v)
-{
-    u32 b = (u32)v % nbanks;
-    return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
 }
 
 static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
@@ -869,6 +985,44 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                     add_table(bank, (u16)(addr + in.len), 1);
                     return;
                 }
+            }
+            /* Despachador con el destino en una tabla de la ROM: se simula con
+             * los registros de aquí */
+            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.cond == 0 &&
+                in.target < 0x4000 && far_cache[in.target] >= 0) {
+                u32 fb;
+                u16 fa;
+                int r = simulate_far_jump(in.target, st, in.kind != INS_JP, &fb, &fa);
+                if (!far_cache[in.target]) far_cache[in.target] = r < 0 ? -1 : 1;
+                int saved = push_ctx;
+                if (r > 0) {
+                    push_ctx = fb != 0 ? (int)fb : saved;
+                    *flag_at(fb, fa) |= F_TARGET;
+                    push_work(fb, fa);
+                    stat_sim_targets++;
+                }
+                /* ¿El destino depende de A? Entonces A es un índice: la tabla
+                 * entera, hasta la primera entrada que no sea código posible */
+                if (r > 0 && IS_CONST(st.r[R_A]) && !far_enumerated[in.target]) {
+                    Regs alt = st;
+                    u32 ab;
+                    u16 aa;
+                    alt.r[R_A] = (st.r[R_A] + 1) & 0xFF;
+                    if (simulate_far_jump(in.target, alt, in.kind != INS_JP, &ab, &aa) > 0 &&
+                        (ab != fb || aa != fa)) {
+                        far_enumerated[in.target] = 1;
+                        for (int v = 0; v < 256; v++) {
+                            alt.r[R_A] = v;
+                            if (simulate_far_jump(in.target, alt, in.kind != INS_JP, &ab, &aa) <= 0) break;
+                            if (ab >= nbanks || !in_region(ab, aa) || (aa >= 0x0104 && aa < 0x0150)) break;
+                            push_ctx = ab != 0 ? (int)ab : V_UNK;
+                            *flag_at(ab, aa) |= F_TARGET;
+                            push_work(ab, aa);
+                            stat_sim_entries++;
+                        }
+                    }
+                }
+                push_ctx = saved;
             }
             /* Rutinas especiales del banco 0 (ver routine_kind) */
             int breg = 0, kind = RK_NONE;
@@ -1754,6 +1908,9 @@ int main(int argc, char **argv)
         printf("saltos en filas de jp (tablas de vectores): %u\n", stat_jp_rows);
     if (stat_iface_calls)
         printf("llamadas a la interfaz común de varios bancos: %u\n", stat_iface_calls);
+    if (stat_sim_targets)
+        printf("saltos resueltos simulando un despachador con tabla en la ROM: %u (y %u entradas de sus tablas)\n",
+               stat_sim_targets, stat_sim_entries);
     if (stat_inline_calls)
         printf("llamadas con argumentos en línea: %u (%u con destino en los argumentos)\n",
                stat_inline_calls, stat_inline_targets);

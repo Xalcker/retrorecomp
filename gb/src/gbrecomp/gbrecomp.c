@@ -1015,12 +1015,14 @@ static void emit_dispatch(const char *dir)
     fclose(f);
 }
 
-static void emit_info(const char *dir, const char *sha1, const char *title, unsigned ninsns)
+static void emit_info(const char *dir, const char *sha1, const char *title, const char *name,
+                      unsigned ninsns)
 {
     FILE *f = open_out(dir, "gen/recomp_info.c");
     fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n\n");
     fprintf(f, "const char recomp_rom_sha1[41] = \"%s\";\n", sha1);
     fprintf(f, "const char recomp_rom_title[] = \"%s\";\n", title);
+    fprintf(f, "const char recomp_name[] = \"%s\";\n", name);
     fprintf(f, "const unsigned recomp_instructions = %u;\n", ninsns);
     fclose(f);
 }
@@ -1082,7 +1084,7 @@ static void emit_makefile(const char *dir, const char *name)
         "export TMP  := $(TMPDIR_WIN)\n"
         "export TEMP := $(TMPDIR_WIN)\n"
         "EXE := .exe\n"
-        "SDL_LIBS := -static $(shell pkg-config --libs --static sdl2)\n"
+        "SDL_LIBS := -static $(shell pkg-config --libs --static sdl2) -lcomdlg32\n"
         "else\n"
         "SDL_LIBS := $(shell pkg-config --libs sdl2)\n"
         "endif\n"
@@ -1096,9 +1098,11 @@ static void emit_makefile(const char *dir, const char *name)
         "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
         "build/gen_%%.o: gen/%%.c runtime/recomp.h runtime/cpu_ops.h runtime/gb.h | build\n"
         "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
-        "build/main_sdl.o: platform/main_sdl.c $(wildcard runtime/*.h) | build\n"
+        "build/main_sdl.o: platform/main_sdl.c platform/files.h platform/inputs.h $(wildcard runtime/*.h) | build\n"
         "\t$(CC) $(CFLAGS) $(INC) $(SDL_CFLAGS) -c -o $@ $<\n\n"
-        "%s$(EXE): build/main_sdl.o $(RT_OBJ) $(GEN_OBJ)\n"
+        "build/files.o: platform/files.c platform/files.h | build\n"
+        "\t$(CC) $(CFLAGS) -c -o $@ $<\n\n"
+        "%s$(EXE): build/main_sdl.o build/files.o $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) -o $@ $^ $(SDL_LIBS)\n\n"
         "# Prueba diferencial: código recompilado contra el intérprete\n"
         "difftest$(EXE): platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
@@ -1243,14 +1247,14 @@ int main(int argc, char **argv)
 
     emit_code(out);
     emit_dispatch(out);
-    emit_info(out, sha1, title, ninsns);
+    emit_info(out, sha1, title, exe_name, ninsns);
     emit_makefile(out, exe_name);
 
     static const char *const runtime_files[] = {
         "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
         "sha1.c", "sha1.h", "recomp.h", "console.h", "save.c", NULL,
     };
-    static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", NULL };
+    static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", "files.c", "files.h", NULL };
     static const char *const generated_files[] = { "interp_ops.inc", NULL };
     copy_list(base, "src/runtime", runtime_files, out, "runtime");
     copy_list(base, "src/platform", platform_files, out, "platform");

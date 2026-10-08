@@ -236,6 +236,9 @@ void gb_copy_state(GB *dst, const GB *src);
  * `now` es la hora Unix actual, para adelantar el reloj al cargar.
  * Devuelven 1 si todo bien. */
 int gb_has_battery(const GB *g);
+/* En memoria: devuelve un búfer (malloc) con el contenido del .sav */
+u8  *gb_save_serialize(GB *g, long long now, size_t *size);
+int  gb_save_deserialize(GB *g, const u8 *data, size_t size, long long now);
 int gb_save_write(GB *g, const char *path, long long now);
 int gb_save_read(GB *g, const char *path, long long now);
 

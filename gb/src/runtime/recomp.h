@@ -24,6 +24,7 @@
 RecompFn recomp_lookup(GB *g, u16 pc);
 extern const char recomp_rom_sha1[41];
 extern const char recomp_rom_title[];
+extern const char recomp_name[];          /* nombre del proyecto (carpeta de datos) */
 extern const unsigned recomp_instructions;   /* instrucciones recompiladas */
 
 #endif

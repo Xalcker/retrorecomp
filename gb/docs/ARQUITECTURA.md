@@ -330,9 +330,30 @@ ella y vuelve a probar.
 
 `runtime/save.c` usa el formato de BGB y VBA-M: la RAM del cartucho tal cual y,
 si hay reloj, 48 bytes con sus registros y la hora Unix. Al cargar, el reloj se
-adelanta el tiempo real que pasó. El ejecutable carga `juego.sav` (junto a la
-ROM) al iniciar y lo guarda al salir y cada 5 segundos si cambió. Escribe a un
-temporal y lo renombra, para que un corte no dañe la partida anterior.
+adelanta el tiempo real que pasó. El runtime solo serializa a memoria
+(`gb_save_serialize` / `gb_save_deserialize`); el ejecutable escribe el archivo
+a un temporal y lo renombra, para que un corte no dañe la partida anterior. Se
+carga al iniciar y se guarda al salir y cada 5 segundos si cambió.
+
+### La ROM se pide una sola vez
+
+El ejecutable busca la ROM, en orden: el argumento, la copia guardada en la
+carpeta de datos del juego, y `rom.gb` junto al ejecutable o en la carpeta
+actual. Si no la encuentra, la pide con el diálogo de abrir archivo (Windows) o
+arrastrándola a la ventana. Valida el SHA1 y, si es la correcta, guarda una
+copia en la carpeta de datos; las siguientes veces ya no la pide.
+`--forget-rom` borra esa copia.
+
+La carpeta de datos la da SDL: `%APPDATA%\GBRecomp\<juego>\` en Windows,
+`~/.local/share/GBRecomp/<juego>/` en Linux y
+`~/Library/Application Support/GBRecomp/<juego>/` en macOS. Ahí van también las
+partidas (`<juego>.sav`). Las rutas se manejan en UTF-8 (`platform/files.c`),
+así que funcionan aunque lleven acentos.
+
+No se extraen gráficos ni otros datos por separado: el código recompilado y el
+intérprete de respaldo necesitan la ROM completa (los juegos leen datos de
+cualquier parte de ella), y un recompilador genérico no sabe dónde empieza y
+termina cada recurso de un juego en particular.
 
 Para probar: `tests/inputs/pokered_save.txt` empieza una partida nueva en
 Pokémon y guarda. `difftest --save-out` escribe el `.sav`, y

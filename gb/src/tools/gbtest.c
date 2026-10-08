@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../runtime/console.h"
 #include "../runtime/gb.h"
 #include "png.h"
 
@@ -69,6 +70,7 @@ static int serial_contains(GB *g, const char *text)
 
 int main(int argc, char **argv)
 {
+    console_utf8();
     const char *rom_path = NULL, *expect = NULL, *dump = NULL;
     double seconds = 30;
     int show_serial = 0, no_block = 0, mooneye = 0;

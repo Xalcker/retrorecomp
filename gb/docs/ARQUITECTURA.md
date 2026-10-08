@@ -243,14 +243,21 @@ ejecutable graba con `--record` y reproduce con `--play`, y `difftest
 pseudoaleatorias reproducibles para completar guiones escritos a mano. En
 `tests/inputs/tetris_b.txt` hay un guion que entra al modo B y juega.
 
+`sh tests/difftest_tetris.sh tetris.gb` regenera Tetris y corre la prueba
+diferencial con todas las partidas de `tests/inputs/` y tres semillas.
+
 ### Cobertura de las pruebas
 
-Lo que las pruebas ejecutan del código real (`difftest --executed`) con tres
-sesiones aleatorias de 20,000 cuadros y el guion del modo B: **53.2 %**. Las
-entradas aleatorias no completan líneas, así que nunca llegan a subir de
-nivel, hacer un Tetris, ver los finales ni capturar récords altos. El
-multijugador necesita un segundo Game Boy por cable. Hay que grabar partidas
-reales para cubrirlo. El código no ejecutado se generó con el mismo emisor que
+Lo que las pruebas ejecutan del código real (`difftest --executed`):
+
+| Entradas | Código ejecutado |
+|---|---|
+| 3 sesiones aleatorias de 20,000 cuadros + guion del modo B | 53.2 % |
+| + una partida real grabada (`tests/inputs/partida1.txt`, 29,963 cuadros) | **58.9 %** |
+
+Casi todo lo que falta es el multijugador (pantallas de victoria y derrota,
+cursores de Luigi, `Handshake`), que necesita un segundo Game Boy por cable:
+habrá que conectar dos máquinas por un serial emulado. El código no ejecutado se generó con el mismo emisor que
 el intérprete, así que sus instrucciones son confiables; lo que no se ha
 probado es su flujo de control (etiquetas, cortes de función).
 

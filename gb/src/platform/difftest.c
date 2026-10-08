@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "console.h"
 #include "inputs.h"
 #include "recomp.h"
 #include "sha1.h"
@@ -297,6 +298,7 @@ static unsigned char *read_file(const char *path, long *size)
 
 int main(int argc, char **argv)
 {
+    console_utf8();
     const char *rom_path = NULL, *uncovered = NULL, *screens = NULL;
     const char *executed_path = NULL, *input_path = NULL;
     int frames_given = 0;

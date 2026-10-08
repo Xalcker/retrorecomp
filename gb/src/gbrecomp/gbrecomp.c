@@ -39,6 +39,7 @@
 #endif
 
 #include "../emit/sm83_emit.h"
+#include "../runtime/console.h"
 #include "../runtime/sha1.h"
 
 typedef uint8_t u8;
@@ -719,6 +720,7 @@ static void sanitize(char *s)
 
 int main(int argc, char **argv)
 {
+    console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     char base[1024];
 
@@ -812,7 +814,7 @@ int main(int argc, char **argv)
 
     static const char *const runtime_files[] = {
         "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
-        "sha1.c", "sha1.h", "recomp.h", NULL,
+        "sha1.c", "sha1.h", "recomp.h", "console.h", NULL,
     };
     static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", NULL };
     static const char *const generated_files[] = { "interp_ops.inc", NULL };

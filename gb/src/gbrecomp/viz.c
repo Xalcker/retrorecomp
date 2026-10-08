@@ -84,7 +84,8 @@ int ev_write(const char *path)
                "# entrada BB:AAAA -> BB:AAAA       (?? si no se sabe el banco)\n"
                "# sin-banco BB:AAAA -> AAAA        salto al área de bancos sin banco conocido\n"
                "# jp-hl BB:AAAA                    salto indirecto sin tabla reconocida\n"
-               "# traza BB:AAAA [conocida]\n");
+               "# traza BB:AAAA [conocida]\n"
+               "# args BB:AAAA LARGO                argumentos en línea después de una llamada\n");
     for (size_t i = 0; i < nev; i++) {
         const Event *e = &evs[i];
         switch (e->type) {
@@ -119,6 +120,9 @@ int ev_write(const char *path)
             break;
         case EV_TRACE:
             fprintf(f, "traza %02X:%04X%s\n", e->bank, e->addr, e->aux ? " conocida" : "");
+            break;
+        case EV_ARGS:
+            fprintf(f, "args %02X:%04X %u\n", e->bank, e->addr, e->len);
             break;
         }
     }
@@ -351,7 +355,7 @@ static void render(void)
     sgr(cat_color[CAT_DATA]);
     put("≡");
     sgr("0");
-    put(" tabla (datos)  ");
+    put(" tabla o argumentos (datos)  ");
     sgr("91");
     put("!");
     sgr("0");
@@ -457,6 +461,9 @@ static int apply(const Event *e, int *walk_origin)
         break;
     case EV_TENTRY:
         paint(e->bank, e->addr, 2, CAT_DATA);
+        break;
+    case EV_ARGS:
+        paint(e->bank, e->addr, e->len, CAT_DATA);
         break;
     case EV_UNRESOLVED:
     case EV_INDIRECT:

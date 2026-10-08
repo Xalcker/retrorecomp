@@ -580,7 +580,13 @@ En modo CGB el runtime tiene:
 - **Doble velocidad:** KEY1 + STOP. Hay dos relojes: `g->hw_cyc` en ciclos del
   CPU (timer, serial, DMA de OAM) y `g->rt` en tiempo real (PPU y APU). En doble
   velocidad cada M-ciclo del CPU dura 2 puntos en lugar de 4, y el secuenciador
-  del APU usa el bit 13 de DIV para seguir a 512 Hz.
+  del APU usa el bit 13 de DIV para seguir a 512 Hz. Todo lo que mide tiempo
+  real usa `g->rt`: un cuadro (`gb_run_frame`) dura `gb_frame_cycles()`, que
+  son 70,224 ciclos del CPU o el doble en doble velocidad, y el RTC del MBC3
+  cuenta `gb_realtime()`. Antes los dos contaban ciclos del CPU: en doble
+  velocidad los juegos iban a la mitad de velocidad (la mitad de un cuadro por
+  cada cuadro de la ventana, con el audio entrecortado) y el RTC al doble.
+  difftest no lo notaba porque sus dos máquinas avanzan igual.
 - **PPU:** atributos de fondo en el banco 1 del mapa (paleta, banco del
   mosaico, giros y prioridad), banco y paleta CGB de los sprites, prioridad de
   sprites por índice de OAM (OPRI) y LCDC.0 como prioridad maestra del fondo.

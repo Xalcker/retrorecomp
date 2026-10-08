@@ -71,7 +71,7 @@ int gb_save_deserialize(GB *g, const u8 *data, size_t size, long long now)
         }
         long long saved = (long long)get_le(p + 40, rest == 48 ? 8 : 4);
         if (now > saved) mbc_rtc_advance(g, (u64)(now - saved));
-        g->mbc.rtc_last_cyc = g->cyc;
+        g->mbc.rtc_last_rt = gb_realtime(g);
         g->mbc.rtc_sub = 0;
     }
     g->sram_dirty = 0;

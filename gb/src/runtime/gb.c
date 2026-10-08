@@ -669,9 +669,21 @@ void gb_run(GB *g, u64 until)
     }
 }
 
+u64 gb_frame_cycles(const GB *g)
+{
+    return g->double_speed ? 2 * GB_CYCLES_FRAME : GB_CYCLES_FRAME;
+}
+
+u64 gb_realtime(const GB *g)
+{
+    return rt_at(g, g->cyc);
+}
+
+/* Un cuadro de pantalla. Si el juego cambia de velocidad a mitad del cuadro,
+ * ese cuadro dura un poco de más o de menos; los siguientes ya van bien. */
 void gb_run_frame(GB *g)
 {
-    gb_run(g, g->cyc + GB_CYCLES_FRAME);
+    gb_run(g, g->cyc + gb_frame_cycles(g));
 }
 
 /* ------------------------------------------------------------------ */

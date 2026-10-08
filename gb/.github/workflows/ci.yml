@@ -1,0 +1,74 @@
+# Compila GBRecomp en Linux, macOS y Windows, corre la batería de pruebas de
+# hardware con las ROMs de prueba libres y recompila una de ellas para
+# comprobar que el proyecto generado compila y no tiene diferencias.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libsdl2-dev
+
+      - name: Dependencias (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2 pkg-config
+
+      - name: Dependencias (Windows, MSYS2 UCRT64)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make
+            unzip
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-pkgconf
+
+      - name: Compilar
+        run: make -j4
+
+      - name: ROMs de prueba (c-sp/game-boy-test-roms v7.0)
+        run: |
+          curl -fsSL -o roms.zip https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip
+          mkdir -p testroms
+          unzip -q roms.zip -d testroms
+          # Por si el zip trae una carpeta raíz
+          if [ ! -d testroms/blargg ] && [ "$(ls testroms | wc -l)" = 1 ]; then
+            d=testroms/$(ls testroms); mv "$d"/* testroms/; rmdir "$d"
+          fi
+          ls testroms
+
+      - name: Pruebas de hardware
+        run: sh tests/run_tests.sh
+
+      - name: Proyecto generado (cpu_instrs de Blargg)
+        run: |
+          ./gbrecomp testroms/blargg/cpu_instrs/cpu_instrs.gb -o out/cpu_instrs --name cpu_instrs
+          make -C out/cpu_instrs -j4
+          out/cpu_instrs/difftest testroms/blargg/cpu_instrs/cpu_instrs.gb --frames 3600 --seed 1
+
+      - name: Paquete
+        run: make dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gbrecomp-${{ runner.os }}
+          path: dist/*.tar.gz

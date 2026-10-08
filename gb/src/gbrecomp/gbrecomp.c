@@ -1,8 +1,8 @@
 /*
- * gbrecomp: recompilador estático de ROMs de Game Boy (DMG) a C99.
+ * gbrecomp: recompilador estático de ROMs de Game Boy (DMG, Color y Super
+ * Game Boy) a C99.
  *
- * Uso:
- *   gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre] [--codemap archivo]
+ * Uso: gbrecomp juego.gb -o salida/ [opciones]   (ver --help)
  *
  *   --codemap escribe qué bytes de la ROM se descubrieron como código (para
  *   compararlo con un desensamblado; ver tools/truth/).
@@ -41,6 +41,32 @@
 #include "../emit/sm83_emit.h"
 #include "../runtime/console.h"
 #include "../runtime/sha1.h"
+#include "embedded.h"
+
+#ifndef GBRECOMP_VERSION
+#define GBRECOMP_VERSION "dev"
+#endif
+
+static const char usage_text[] =
+    "gbrecomp " GBRECOMP_VERSION ": recompila una ROM de Game Boy (DMG, Color o Super Game Boy)\n"
+    "a un proyecto C99 con SDL2.\n"
+    "\n"
+    "uso: gbrecomp juego.gb -o salida/ [opciones]\n"
+    "  -o carpeta         dónde escribir el proyecto (se crea si no existe)\n"
+    "  --name nombre      nombre del ejecutable y de la carpeta de datos\n"
+    "                     (por omisión, el título de la cabecera)\n"
+    "  --trace archivo    direcciones ejecutadas que no se descubrieron (las que\n"
+    "                     escribe el juego con --uncovered); se agregan como\n"
+    "                     puntos de entrada. Repite el ciclo hasta que no queden.\n"
+    "  --codemap archivo  qué bytes se tomaron como código (para compararlo con\n"
+    "                     un desensamblado)\n"
+    "  --dis BB:AAAA:N    desensambla N instrucciones del banco BB en $AAAA\n"
+    "  --verbose          detalles del descubrimiento\n"
+    "  --version, --help\n"
+    "\n"
+    "Luego: cd salida && make. Las instrucciones están en salida/LEEME.txt.\n"
+    "El proyecto no contiene datos de la ROM: el ejecutable carga la tuya y\n"
+    "valida su SHA1.\n";
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -1046,28 +1072,57 @@ static void make_dir(const char *path)
     if (MKDIR(tmp) != 0 && errno != EEXIST) die("no se pudo crear %s: %s", tmp, strerror(errno));
 }
 
-static void copy_file(const char *from, const char *to)
+/* Escribe el runtime y la plataforma que gbrecomp lleva adentro */
+static void write_embedded(const char *dir)
 {
-    FILE *in = fopen(from, "rb");
-    if (!in) die("no se encontró %s (¿falta compilar con make?)", from);
-    FILE *out = fopen(to, "wb");
-    if (!out) die("no se pudo crear %s", to);
-    char buf[8192];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof buf, in)) > 0) fwrite(buf, 1, n, out);
-    fclose(in);
-    fclose(out);
+    char to[1024];
+    for (const EmbeddedFile *e = embedded_files; e->name; e++) {
+        snprintf(to, sizeof to, "%s/%s", dir, e->name);
+        FILE *f = fopen(to, "wb");
+        if (!f) die("no se pudo crear %s", to);
+        if (fwrite(e->data, 1, e->size, f) != e->size) die("no se pudo escribir %s", to);
+        fclose(f);
+    }
 }
 
-static void copy_list(const char *base, const char *subdir, const char *const *names,
-                      const char *dir, const char *dest)
+/* Instrucciones para compilar el proyecto generado */
+static void emit_readme(const char *dir, const char *name, const char *title, const char *sha1)
 {
-    char from[1024], to[1024];
-    for (int i = 0; names[i]; i++) {
-        snprintf(from, sizeof from, "%s/%s/%s", base, subdir, names[i]);
-        snprintf(to, sizeof to, "%s/%s/%s", dir, dest, names[i]);
-        copy_file(from, to);
-    }
+    FILE *f = open_out(dir, "LEEME.txt");
+    fprintf(f,
+        "%s (%s), recompilado por gbrecomp %s\n"
+        "SHA1 de la ROM: %s\n"
+        "\n"
+        "Este proyecto no contiene datos de la ROM. El ejecutable la pide la\n"
+        "primera vez (diálogo de abrir archivo en Windows; en Linux y macOS,\n"
+        "arrástrala a la ventana o pásala como argumento), valida su SHA1 y guarda\n"
+        "una copia en la carpeta de datos del juego.\n"
+        "\n"
+        "Compilar (C99 + SDL2):\n"
+        "  Windows: MSYS2 UCRT64\n"
+        "      pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2 make\n"
+        "      make\n"
+        "    El ejecutable queda enlazado de forma estática (no necesita DLLs).\n"
+        "  Linux (Debian/Ubuntu):\n"
+        "      sudo apt install build-essential pkg-config libsdl2-dev\n"
+        "      make\n"
+        "  macOS (Homebrew):\n"
+        "      brew install sdl2 pkg-config\n"
+        "      make\n"
+        "  Con varios núcleos: make -j8\n"
+        "\n"
+        "Uso: %s [rom.gb] [--scale N] [--model dmg|cgb|sgb] [--palette up+a]\n"
+        "            [--record archivo | --play archivo] [--interp]\n"
+        "  Controles: flechas, Z = B, X = A, Enter = Start, Retroceso = Select,\n"
+        "  Esc = salir. La partida (.sav) se guarda sola.\n"
+        "\n"
+        "Prueba diferencial (código recompilado contra el intérprete):\n"
+        "  ./difftest rom.gb --frames 6000 --seed 1\n"
+        "\n"
+        "El código en gen/ es una traducción del programa de la ROM: úsalo para\n"
+        "jugar tu propia copia; no lo distribuyas si el juego es comercial.\n",
+        title, name, GBRECOMP_VERSION, sha1, name);
+    fclose(f);
 }
 
 static void emit_makefile(const char *dir, const char *name)
@@ -1139,16 +1194,17 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
-    char base[1024];
 
-    /* La base (src/ y build/gen/) está junto al ejecutable de gbrecomp */
-    snprintf(base, sizeof base, "%s", argv[0]);
-    char *slash = strrchr(base, '/');
-    char *bslash = strrchr(base, '\\');
-    if (bslash && (!slash || bslash > slash)) slash = bslash;
-    if (slash) *slash = 0;
-    else strcpy(base, ".");
-
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
+            printf("%s", usage_text);
+            return 0;
+        }
+        if (!strcmp(argv[i], "--version")) {
+            printf("gbrecomp %s\n", GBRECOMP_VERSION);
+            return 0;
+        }
+    }
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace = argv[++i];
@@ -1156,12 +1212,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis = argv[++i];
-        else if (!strcmp(argv[i], "--base") && i + 1 < argc) snprintf(base, sizeof base, "%s", argv[++i]);
-        else if (argv[i][0] == '-') die("opción desconocida: %s", argv[i]);
+        else if (argv[i][0] == '-') die("opción desconocida: %s (ver gbrecomp --help)", argv[i]);
         else rom_path = argv[i];
     }
     if (!rom_path || (!out && !dis)) {
-        fprintf(stderr, "uso: gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre] [--codemap archivo]\n");
+        fprintf(stderr, "%s", usage_text);
         return 2;
     }
 
@@ -1249,16 +1304,8 @@ int main(int argc, char **argv)
     emit_dispatch(out);
     emit_info(out, sha1, title, exe_name, ninsns);
     emit_makefile(out, exe_name);
-
-    static const char *const runtime_files[] = {
-        "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
-        "sha1.c", "sha1.h", "recomp.h", "console.h", "save.c", "sgb.c", "compat.c", NULL,
-    };
-    static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", "files.c", "files.h", NULL };
-    static const char *const generated_files[] = { "interp_ops.inc", NULL };
-    copy_list(base, "src/runtime", runtime_files, out, "runtime");
-    copy_list(base, "src/platform", platform_files, out, "platform");
-    copy_list(base, "build/gen", generated_files, out, "runtime");
+    emit_readme(out, exe_name, title, sha1);
+    write_embedded(out);
 
     printf("ROM: %s (%s), %u bancos, SHA1 %s\n", rom_path, title, nbanks, sha1);
     printf("código: %u instrucciones (%u bytes, %.1f%% de la ROM) en %zu funciones\n",

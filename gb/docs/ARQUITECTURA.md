@@ -138,7 +138,32 @@ cd salida && make
 ```
 
 `salida/` trae `gen/` (código generado), `runtime/` (copia del runtime),
-`platform/` (SDL2 y difftest) y un `Makefile`. No contiene datos de la ROM.
+`platform/` (SDL2 y difftest), un `Makefile` y `LEEME.txt` (cómo compilar en
+cada sistema). No contiene datos de la ROM.
+
+## Empaquetado (fase 6)
+
+- **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y
+  el intérprete generado. `src/tools/embed.c` los convierte en arreglos de C
+  (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
+  `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
+- **Versión:** sale de `git describe` (`gbrecomp --version`).
+- **`make dist`:** deja `dist/gbrecomp-<versión>.tar.gz` con `gbrecomp`, el
+  README y este documento.
+- **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2,
+  enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
+- **Integración continua** (`.github/workflows/ci.yml`), en Linux, macOS y
+  Windows:
+  - Compila todo.
+  - Baja las ROMs de prueba libres (c-sp/game-boy-test-roms v7.0) y corre
+    la batería.
+  - Recompila `cpu_instrs` de Blargg, compila el proyecto generado y corre
+    `difftest`.
+  - Publica el paquete como artefacto.
+
+Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería da 130
+de 130 en ambos, y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
 

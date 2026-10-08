@@ -17,16 +17,46 @@ endif
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
-.PHONY: all clean test
+.PHONY: all clean test dist
 all: $(BUILD)/libgbrt.a gbtest$(EXE) gbrecomp$(EXE)
 
 # Corredor de ROMs de prueba sin ventana
 gbtest$(EXE): src/tools/gbtest.c src/tools/png.c src/tools/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtest.c src/tools/png.c $(BUILD)/libgbrt.a
 
-# El recompilador (necesita build/gen/interp_ops.inc para copiarlo al proyecto)
-gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/emit/sm83_emit.h src/runtime/sha1.c $(BUILD)/gen/interp_ops.inc
-	$(CC) $(CFLAGS) -o $@ src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/runtime/sha1.c
+# Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+
+# Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
+EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
+                  recomp.h console.h save.c sgb.c compat.c
+EMBED_PLATFORM := main_sdl.c difftest.c inputs.h files.c files.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(BUILD)/gen/interp_ops.inc
+EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f)) \
+              runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc
+
+$(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+
+# El recompilador: un solo ejecutable, con el runtime adentro
+gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/emit/sm83_emit.c src/emit/sm83_emit.h \
+                src/runtime/sha1.c $(BUILD)/gen/embedded.c
+	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -o $@ \
+		src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
+
+# Paquete para distribuir: gbrecomp y la documentación
+DIST := dist/gbrecomp-$(VERSION)
+dist: gbrecomp$(EXE)
+	rm -rf $(DIST)
+	mkdir -p $(DIST)
+	cp gbrecomp$(EXE) README.md $(DIST)/
+	cp docs/ARQUITECTURA.md $(DIST)/
+	tar -czf $(DIST).tar.gz -C dist gbrecomp-$(VERSION)
+	@echo "Listo: $(DIST).tar.gz"
 
 test: gbtest$(EXE)
 	sh tests/run_tests.sh
@@ -51,4 +81,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) gbtest$(EXE) gbrecomp$(EXE)
+	rm -rf $(BUILD) dist gbtest$(EXE) gbrecomp$(EXE)

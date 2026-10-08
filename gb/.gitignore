@@ -1,0 +1,6 @@
+build/
+testroms/
+*.exe
+gbtest
+*.gb
+*.sav

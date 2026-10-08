@@ -44,8 +44,10 @@ en temporización, y la prueba diferencial aísla errores del *recompilador*.
 ## Temporización
 
 - `g->cyc` cuenta T-ciclos del CPU y siempre es múltiplo de 4.
-- Cada acceso a memoria suma 4 ciclos y luego accede: el hardware ya avanzó
-  hasta el final del M-ciclo del acceso (validado con `mem_timing` de Blargg).
+- Cada acceso a memoria ocurre al **inicio** de su M-ciclo (el hardware se ve
+  como estaba antes de esos 4 ciclos) y luego suma 4 ciclos. Es la convención
+  del hardware real y la que exige la PPU; con ella pasan las pruebas de
+  temporización de CPU, timer y PPU a la vez.
 - **Hardware perezoso:** timer, PPU, APU, serial y DMA solo avanzan en
   `gb_sync`, que se llama:
   - antes de cualquier acceso a I/O, VRAM, OAM, RAM de cartucho o durante DMA
@@ -66,7 +68,9 @@ para forzar la revisión. El despacho de interrupción toma 5 M-ciclos y decide
 el vector después de empujar el byte alto de PC (si esa escritura cambió IE,
 salta a `$0000`).
 
-`HALT` adelanta el reloj directo al siguiente evento. El bug de HALT (IME=0 con
+`HALT` adelanta el reloj directo al siguiente evento. Detenido, el CPU muestrea
+IF 2 ciclos dentro de cada M-ciclo (el primero tras `HALT`, al inicio) y
+despierta al terminar ese M-ciclo. El bug de HALT (IME=0 con
 interrupción pendiente) hace que la siguiente instrucción se ejecute en el
 intérprete con el PC sin avanzar.
 
@@ -368,21 +372,69 @@ CONTINUAR: aparece PLAYER AAAAAAA.
   que cayeron al intérprete durante la partida (para `gbrecomp --trace`).
 - `gbtest --input` reproduce entradas grabadas (lo usa `rtc3test`).
 
+## PPU precisa (fase 5)
+
+`runtime/ppu.c` es una PPU con FIFO de píxeles que avanza punto por punto. La
+línea de tiempo de cada línea (cuándo cambian LY, STAT y la comparación con
+LYC, cuándo disparan las interrupciones, cuándo se bloquean OAM y VRAM para
+leer o escribir) y la del modo 3 (fetcher de 6 puntos, 8 píxeles basura,
+descarte por SCX, pausa por sprites, ventana) siguen al hardware tal como lo
+miden las pruebas de Mooneye y Mealybug. Se usó el emulador SameBoy (licencia
+MIT) como referencia de tiempos; la implementación es propia.
+
+Cada registro se lee en el punto en que el hardware lo usa (SCX/SCY y los bits
+de mapas y datos al leer cada mosaico; paletas y bits de fondo/sprites al
+sacar cada píxel), y las escrituras del CPU surten efecto en su punto exacto
+del M-ciclo (`ppu_write_timed`). Para poder aplicar las que entran antes del
+M-ciclo, durante la sincronización la PPU se queda 2 puntos atrás y se pone al
+corriente antes de cada lectura o revisión de interrupciones:
+
+| Registro | Surte efecto (respecto al inicio del M-ciclo, S) |
+|---|---|
+| BGP, OBP0, OBP1 | S−2: (viejo \| nuevo); S−1: nuevo |
+| LCDC | S−2: bits de mapas y datos; S−1: el resto (incluido encender/apagar) |
+| SCX, SCY | S−2 |
+| STAT | S: todas las fuentes habilitadas (falla del DMG); S+1: el valor |
+| IF | S+1 |
+| WX | S (y cuenta como "recién cambiado" ese punto) |
+| resto | S |
+
+Otros detalles del DMG que se reproducen:
+- La interrupción de modo 2 dispara un punto antes de que STAT muestre el modo
+  2, y la de HBlank un punto después del fin del modo 3.
+- La línea 153 muestra LY = 153 solo unos puntos.
+- La primera línea tras encender el LCD no tiene modo 2 y es más corta.
+- WY se revisa al inicio de cada línea y, tras escribir LCDC o WY, en una
+  rejilla de 8 puntos.
+- Al arrancar, la VRAM tiene el logo de la cabecera y el ® como lo deja la boot
+  ROM (algunos juegos y pruebas usan esos mosaicos).
+
+Velocidad: con la PPU por punto, Tetris corre a unas 27 veces el tiempo real
+(antes 47). Sobra, pero hay margen de optimización si hiciera falta.
+
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **107 de 115** pruebas que aplican a DMG.
+`sh tests/run_tests.sh`: **115 de 115** pruebas que aplican a DMG.
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
-  `mem_timing-2` y `halt_bug` pasan.
-- Mooneye: pasan todas las de temporización de instrucciones, interrupciones,
-  HALT, timer (salvo `rapid_toggle`), DMA, arranque, serial y MBC1/2/5,
-  incluido MBC1 multicart.
-- `mbc3-tester` (incluye MBC30) y las tres partes de `rtc3test` pasan.
-- dmg-acid2 pasa (pantalla idéntica).
+  `mem_timing-2` y `halt_bug`.
+- Mooneye: todas las de aceptación para DMG (CPU, interrupciones, HALT, timer,
+  DMA, arranque, serial, PPU) y las de MBC1/2/5, incluido MBC1 multicart.
+- `mbc3-tester` (incluye MBC30) y las tres partes de `rtc3test`.
+- dmg-acid2 (pantalla idéntica).
 
-Pendientes conocidos:
+`sh tests/run_mealybug.sh`: **18 de 24** pruebas de Mealybug con referencia DMG
+(cambios de registros a mitad de línea). Las que faltan son fallas muy
+específicas del DMG al cambiar LCDC o la ventana a mitad del dibujo:
 
-| Prueba | Causa | Fase |
-|---|---|---|
-| `ppu/intr_2_*`, `lcdon_*`, `stat_lyc_onoff` | Temporización fina de modos de la PPU (duración del modo 3, primera línea tras encender el LCD) | 5 |
-| `timer/rapid_toggle` | Interrupción una vuelta tarde; caso límite de encender/apagar TAC | 5 |
+| Prueba | Diferencia |
+|---|---|
+| `m3_lcdc_bg_en_change` | 4 píxeles (columna 0) |
+| `m3_lcdc_obj_size_change`, `..._scx` | 15 y 30 píxeles |
+| `m3_lcdc_win_en_change_multiple_wx` | 45 píxeles |
+| `m3_lcdc_obj_en_change_variant` | 96 píxeles |
+| `m3_window_timing_wx_0` | 126 píxeles |
+
+Blargg `dmg_sound`: **9 de 12**. Fallan las tres de rarezas del canal de onda
+del DMG (leer o escribir la RAM de onda mientras suena, y la corrupción al
+dispararlo mientras toca), que los juegos casi no usan.

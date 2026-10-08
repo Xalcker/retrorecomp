@@ -638,6 +638,15 @@ static void ppu_dot(GB *g)
     if (++p->dot >= p->line_len) end_line(g);
 }
 
+/* Puntos que se pueden saltar sin que pase nada (HBlank y casi todo el
+ * VBlank); el último punto de la línea siempre se procesa */
+static u32 idle_dots(const Ppu *p)
+{
+    if (p->wy_pending || p->wx_just_changed || p->rendering || p->hblank_irq_dot) return 0;
+    if (p->ly < 144 ? (p->lcd_first_line || p->dot < 90) : p->dot < 13) return 0;
+    return p->line_len - 1 - p->dot;
+}
+
 void ppu_advance(GB *g, u64 until)
 {
     Ppu *p = &g->ppu;
@@ -646,6 +655,14 @@ void ppu_advance(GB *g, u64 until)
         return;
     }
     while (p->cyc < until) {
+        u32 n = idle_dots(p);
+        if (n > 1) {
+            u64 k = until - p->cyc < n ? until - p->cyc : n;
+            p->dot += (u32)k;
+            p->wy_mod = (u8)(p->wy_mod + k);
+            p->cyc += k;
+            continue;
+        }
         ppu_dot(g);
         p->cyc++;
     }
@@ -783,7 +800,7 @@ void ppu_write_timed(GB *g, u8 reg, u8 v, u64 s)
             /* Los bits que lee el fetcher (mapas y datos de mosaicos) ya cuentan
              * desde aquí; calibrado con m3_lcdc_bg_map_change */
             const u8 fetch_bits = LCDC_BG9C00 | LCDC_TILE8000 | LCDC_WIN9C00;
-            u8 first = (u8)((old | (v & LCDC_BGON)) & ~fetch_bits) | (v & fetch_bits);
+            u8 first = (u8)((old & ~fetch_bits) | (v & fetch_bits));
             ppu_write(g, IO_LCDC, first);
         }
         ppu_advance(g, s - 1);

@@ -291,6 +291,17 @@ particular:
    la fila de `jp` con la que empiezan algunos bancos, se explora en cada uno
    de ellos. En Shantae, los bancos `$2C-$3F` empiezan con la misma tabla de 9
    saltos.
+6. **Despachador con el destino en una tabla de la ROM**: una rutina del banco
+   0 que, sin ramificarse, calcula HL y el banco a partir de lo que trae quien
+   la llama y termina en `jp hl`. Se simula con los registros conocidos de
+   cada llamador, leyendo los bytes reales de la ROM cuando la dirección es
+   constante y llevando el acarreo de `add` + `adc` (índices de 16 bits). Las
+   llamadas internas se saltan conservando la pila y la RAM conocida. Si el
+   destino depende de A, A es un índice y se recorre la tabla entera hasta la
+   primera entrada inválida, porque a algunos destinos solo se llega desde
+   otros que todavía no se conocen. En Warlocked, `ld a, N` + `jp $0554`
+   cambia de estado con una tabla de registros de 3 bytes (dirección y banco)
+   en `$0521`.
 
 Además, un `ld rr, nn` + `push rr` cuenta como dirección de regreso si, a lo
 más 12 instrucciones después, viene un `jp hl`, `ret` o `jp` sin que en medio
@@ -318,11 +329,20 @@ Todos corren bien (en el intérprete) y la traza los resuelve:
 | Trampolín con el banco en una variable de RAM en lugar de un registro | Duke Nukem | 8.8 % → 99.9 % |
 | Código copiado a RAM (WRAM y HRAM) | International Superstar Soccer | 37 % → 72 % (lo de RAM no se puede recompilar estáticamente) |
 
+El seguimiento de registros recuerda hasta 16 celdas de RAM; cuando se llena,
+olvida la más vieja (antes eran 8 y las nuevas se ignoraban: la rutina de
+Warlocked escribe en 9 antes de leer el banco de `[$C600]`).
+
 Shantae estaba en esta tabla por las llamadas con argumentos en línea (4.9 %
 sin traza). Con las heurísticas 3 a 5 llega a 86-90 % sin traza (3 semillas de
 6000 cuadros, sin diferencias), y el estático encuentra 41,916 instrucciones
 en lugar de 925. Lo que le falta lo mostró `--coverage`: el bucle desenrollado
 de arriba y código al que solo se llega por punteros en datos.
+
+Warlocked (sin la tabla de arriba, no estaba en la prueba en lote) pasó de
+8.4 % a 99.9 % recompilado sin traza con la heurística 6 (3 semillas de 6000
+cuadros, sin diferencias): el estático encuentra 40,432 instrucciones en lugar
+de 2,815, y lo que queda en el intérprete es casi todo código en HRAM.
 
 `difftest` dice en qué zona ejecuta el intérprete (ROM, RAM del cartucho, WRAM,
 HRAM), para distinguir código no descubierto de código en RAM.

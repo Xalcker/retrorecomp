@@ -174,24 +174,49 @@ static void png_chunk(FILE *f, const char *type, const u8 *data, u32 len)
     fwrite(crc, 1, 4, f);
 }
 
-/* La pantalla cabe en un solo bloque deflate sin compresión (23,184 bytes) */
+/* Captura en PNG RGB sin compresión (bloques "stored" de deflate) */
 static void save_screen(GB *g, const char *path)
 {
     static const u8 shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
-    static u8 z[2 + 5 + (GB_SCREEN_W + 1) * GB_SCREEN_H + 4];
-    const u8 *fb = gb_framebuffer(g);
-    u32 raw_len = (GB_SCREEN_W + 1) * GB_SCREEN_H, a = 1, b = 0;
+    enum { STRIDE = GB_SCREEN_W * 3 + 1, RAW = STRIDE * GB_SCREEN_H,
+           BLOCKS = (RAW + 65534) / 65535 };
+    static u8 raw[RAW];
+    static u8 z[2 + RAW + BLOCKS * 5 + 4];
+    const u16 *fb = gb_framebuffer(g);
+
+    for (int y = 0; y < GB_SCREEN_H; y++) {
+        u8 *row = raw + y * STRIDE;
+        row[0] = 0;     /* sin filtro */
+        for (int x = 0; x < GB_SCREEN_W; x++) {
+            u16 v = fb[y * GB_SCREEN_W + x];
+            u8 *px = row + 1 + x * 3;
+            if (!g->cgb) {
+                px[0] = px[1] = px[2] = shade[v & 3];
+            } else {
+                for (int c = 0; c < 3; c++) {
+                    unsigned ch = (v >> (5 * c)) & 31;
+                    px[c] = (u8)((ch << 3) | (ch >> 2));
+                }
+            }
+        }
+    }
+
     u8 *p = z;
+    u32 a = 1, b = 0;
     *p++ = 0x78; *p++ = 0x01;
-    *p++ = 1; *p++ = (u8)raw_len; *p++ = (u8)(raw_len >> 8);
-    *p++ = (u8)~raw_len; *p++ = (u8)(~raw_len >> 8);
-    for (int y = 0; y < GB_SCREEN_H; y++)
-        for (int x = -1; x < GB_SCREEN_W; x++) {
-            u8 v = x < 0 ? 0 : shade[fb[y * GB_SCREEN_W + x] & 3];
+    for (u32 done = 0; done < RAW;) {
+        u32 n = RAW - done > 65535 ? 65535 : RAW - done;
+        *p++ = done + n == RAW ? 1 : 0;
+        *p++ = (u8)n; *p++ = (u8)(n >> 8);
+        *p++ = (u8)~n; *p++ = (u8)(~n >> 8);
+        for (u32 i = 0; i < n; i++) {
+            u8 v = raw[done + i];
             *p++ = v;
             a = (a + v) % 65521;
             b = (b + a) % 65521;
         }
+        done += n;
+    }
     put_be32(p, b << 16 | a);
 
     FILE *f = fopen(path, "wb");
@@ -202,6 +227,7 @@ static void save_screen(GB *g, const char *path)
     put_be32(ihdr, GB_SCREEN_W);
     put_be32(ihdr + 4, GB_SCREEN_H);
     ihdr[8] = 8;
+    ihdr[9] = 2;    /* RGB */
     png_chunk(f, "IHDR", ihdr, 13);
     png_chunk(f, "IDAT", z, sizeof z);
     png_chunk(f, "IEND", NULL, 0);

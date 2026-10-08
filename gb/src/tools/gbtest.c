@@ -42,6 +42,20 @@ static unsigned char *read_file(const char *path, long *size)
 
 static const unsigned char shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
 
+/* Color de un píxel del framebuffer: en DMG, tono gris; en CGB, RGB555 con
+ * cada canal ampliado a 8 bits como (x << 3) | (x >> 2) */
+static void pixel_rgb(const GB *g, u16 v, unsigned char out[3])
+{
+    if (!g->cgb) {
+        out[0] = out[1] = out[2] = shade[v & 3];
+        return;
+    }
+    for (int c = 0; c < 3; c++) {
+        unsigned x = (v >> (5 * c)) & 31;
+        out[c] = (unsigned char)((x << 3) | (x >> 2));
+    }
+}
+
 static int compare_screen(GB *g, const char *path)
 {
     int w, h;
@@ -55,10 +69,13 @@ static int compare_screen(GB *g, const char *path)
         free(rgb);
         return -1;
     }
-    const u8 *fb = gb_framebuffer(g);
+    const u16 *fb = gb_framebuffer(g);
     int diffs = 0;
-    for (int i = 0; i < w * h; i++)
-        if (rgb[i * 3] != shade[fb[i] & 3]) diffs++;
+    for (int i = 0; i < w * h; i++) {
+        unsigned char px[3];
+        pixel_rgb(g, fb[i], px);
+        if (memcmp(px, rgb + i * 3, 3) != 0) diffs++;
+    }
     free(rgb);
     return diffs;
 }
@@ -161,10 +178,10 @@ int main(int argc, char **argv)
     }
 
     if (dump) {
-        static unsigned char gray[GB_SCREEN_W * GB_SCREEN_H];
-        const u8 *fb = gb_framebuffer(&g);
-        for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++) gray[i] = shade[fb[i] & 3];
-        png_write_gray(dump, gray, GB_SCREEN_W, GB_SCREEN_H);
+        static unsigned char rgb[GB_SCREEN_W * GB_SCREEN_H * 3];
+        const u16 *fb = gb_framebuffer(&g);
+        for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++) pixel_rgb(&g, fb[i], rgb + i * 3);
+        png_write_rgb(dump, rgb, GB_SCREEN_W, GB_SCREEN_H);
     }
 
     if (show_serial && g.serial.out_len) {

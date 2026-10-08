@@ -14,6 +14,20 @@
 /* Mapa de memoria rápido                                              */
 /* ------------------------------------------------------------------ */
 
+/* Byte de WRAM para una dirección de $C000-$FDFF ($E000+ refleja $C000):
+ * $C000-$CFFF es el banco 0 y $D000-$DFFF el banco elegido (1 en DMG) */
+static u8 *wram_at(GB *g, u16 a)
+{
+    u16 off = (u16)((a - 0xC000) & 0x1FFF);
+    if (off < 0x1000) return &g->wram[off];
+    return &g->wram[g->wram_bank * 0x1000 + (off - 0x1000)];
+}
+
+static u8 *vram_at(GB *g, u16 a)
+{
+    return &g->vram[g->vram_bank * 0x2000 + ((a - 0x8000) & 0x1FFF)];
+}
+
 void gb_remap(GB *g)
 {
     memset(g->rpage, 0, sizeof g->rpage);
@@ -27,7 +41,7 @@ void gb_remap(GB *g)
         g->rpage[0x40 + p] = bankx + p * 256;
     }
     for (int p = 0xC0; p < 0xFE; p++) {
-        u8 *page = g->wram + ((p - 0xC0) & 0x1F) * 256;
+        u8 *page = wram_at(g, (u16)(p << 8));
         g->rpage[p] = page;
         g->wpage[p] = page;
     }
@@ -42,9 +56,9 @@ static u8 dma_source_read(GB *g, u16 a)
 {
     if (a < 0x4000) return g->rom[(size_t)g->mbc.bank0 * 0x4000 + a];
     if (a < 0x8000) return g->rom[(size_t)g->mbc.bankx * 0x4000 + (a - 0x4000)];
-    if (a < 0xA000) return g->vram[a - 0x8000];
+    if (a < 0xA000) return *vram_at(g, a);
     if (a < 0xC000) return mbc_sram_read(g, a);
-    return g->wram[(a - 0xC000) & 0x1FFF];  /* $E000+ refleja WRAM */
+    return *wram_at(g, a);     /* $E000+ refleja WRAM */
 }
 
 static void dma_start(GB *g, u8 v)
@@ -179,23 +193,43 @@ void gb_set_pad(GB *g, u8 pad)
  */
 #define PPU_HOLD 2
 
+/*
+ * Dos relojes: g->hw_cyc cuenta ciclos del CPU (el timer, el serial y el DMA de
+ * OAM van a ese ritmo) y g->rt cuenta puntos de tiempo real (la PPU y el APU).
+ * Son iguales salvo en doble velocidad (CGB), donde un M-ciclo del CPU dura
+ * 2 puntos en vez de 4.
+ */
+static u32 dots_per_mcycle(const GB *g)
+{
+    return g->double_speed ? 2 : 4;
+}
+
+/* Tiempo real que corresponde a un ciclo del CPU cercano (ya sincronizado) */
+static u64 rt_at(const GB *g, u64 cpu)
+{
+    u64 d = cpu >= g->hw_cyc ? cpu - g->hw_cyc : 0;
+    return g->rt + (g->double_speed ? d / 2 : d);
+}
+
 static void sync_hardware(GB *g)
 {
     while (g->hw_cyc < g->cyc) {
+        u32 dots = dots_per_mcycle(g);
         g->hw_cyc += 4;
+        g->rt += dots;
         timer_mcycle(g);
         if (g->serial.active) serial_mcycle(g);
         else g->serial.last_sys = g->timer.sys;
         if (g->dma.active) dma_mcycle(g);
-        ppu_advance(g, g->hw_cyc - PPU_HOLD);
-        apu_mcycle(g);
+        ppu_advance(g, g->rt - PPU_HOLD);
+        apu_mcycle(g, dots);
     }
 }
 
 void gb_sync(GB *g)
 {
     sync_hardware(g);
-    ppu_advance(g, g->hw_cyc);
+    ppu_advance(g, g->rt);
 }
 
 static u64 next_hw_event(GB *g)
@@ -203,8 +237,11 @@ static u64 next_hw_event(GB *g)
     u64 t = g->stop_at;
     u64 x = timer_next_event(g);
     if (x < t) t = x;
-    x = ppu_next_event(g);
-
+    x = ppu_next_event(g);      /* en tiempo real: se pasa a ciclos del CPU */
+    if (x != UINT64_MAX) {
+        u64 d = x > g->rt ? x - g->rt : 0;
+        x = g->hw_cyc + (g->double_speed ? d * 2 : d);
+    }
     if (x < t) t = x;
     if (g->serial.active) {
         /* Siguiente flanco del bit 8, más los bits que faltan */
@@ -215,10 +252,20 @@ static u64 next_hw_event(GB *g)
     return t;
 }
 
+/* El CPU queda detenido mientras la HDMA copia */
+static void hdma_wait(GB *g)
+{
+    if (!g->hdma_stall) return;
+    g->cyc += g->hdma_stall;
+    g->hdma_stall = 0;
+    gb_sync(g);
+}
+
 int gb_check(GB *g)
 {
     Cpu *c = &g->cpu;
     gb_sync(g);
+    hdma_wait(g);
     if (g->cyc >= g->stop_at) return 1;
     if (c->ime && PENDING(g)) return 1;
     if (c->ei_pend) {
@@ -235,9 +282,120 @@ int gb_check(GB *g)
 /* Bus: ruta lenta                                                     */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Game Boy Color: HDMA y registros propios                            */
+/* ------------------------------------------------------------------ */
+
+/* Copia un bloque de 16 bytes de HDMA (el origen no puede ser VRAM) */
+static void hdma_block(GB *g)
+{
+    for (int i = 0; i < 16; i++) {
+        u16 src = (u16)(g->hdma_src + i);
+        u8 v = (src >= 0x8000 && src < 0xA000) ? 0xFF : dma_source_read(g, src);
+        g->vram[g->vram_bank * 0x2000 + ((g->hdma_dst + i) & 0x1FFF)] = v;
+    }
+    g->hdma_src = (u16)(g->hdma_src + 16);
+    g->hdma_dst = (u16)(0x8000 | ((g->hdma_dst + 16) & 0x1FFF));
+    /* El CPU espera 8 µs por bloque: 32 ciclos, o 64 en doble velocidad */
+    g->hdma_stall += g->double_speed ? 64 : 32;
+    g->next_event = 0;
+}
+
+/* Llamado por la PPU al empezar cada HBlank de las líneas visibles */
+void gb_hdma_hblank(GB *g)
+{
+    if (!g->hdma_hblank || g->cpu.halted) return;
+    hdma_block(g);
+    if (g->hdma_left == 0) {
+        g->hdma_hblank = 0;
+        g->hdma_left = 0x7F;    /* terminó: HDMA5 se lee $FF */
+    } else {
+        g->hdma_left--;
+    }
+}
+
+static void hdma_write(GB *g, u8 v)
+{
+    if (g->hdma_hblank && !(v & 0x80)) {
+        g->hdma_hblank = 0;     /* cancelar: HDMA5 queda con bit 7 = 1 */
+        return;
+    }
+    g->hdma_left = v & 0x7F;
+    if (v & 0x80) {
+        g->hdma_hblank = 1;
+        /* Con el LCD apagado no hay HBlank: el primer bloque va de inmediato */
+        if (!(g->io[IO_LCDC] & 0x80)) gb_hdma_hblank(g);
+        return;
+    }
+    /* DMA general: todo de una vez, con el CPU detenido */
+    for (int n = g->hdma_left; n >= 0; n--) hdma_block(g);
+    g->hdma_left = 0x7F;
+}
+
+static int cgb_palette_blocked(GB *g)
+{
+    return (g->io[IO_LCDC] & 0x80) && g->ppu.mode == 3;
+}
+
+static u8 cgb_io_read(GB *g, u8 reg)
+{
+    switch (reg) {
+    case 0x4D: return (u8)(0x7E | (g->double_speed ? 0x80 : 0) | (g->key1 & 1));
+    case 0x4F: return (u8)(0xFE | g->vram_bank);
+    case 0x55: return g->hdma_hblank ? g->hdma_left : (u8)(0x80 | g->hdma_left);
+    case 0x56: return (u8)((g->io[0x56] & 0xC1) | 0x3C);
+    case 0x68: return (u8)(g->bcps | 0x40);
+    case 0x69: return cgb_palette_blocked(g) ? 0xFF : g->bg_pal[g->bcps & 0x3F];
+    case 0x6A: return (u8)(g->ocps | 0x40);
+    case 0x6B: return cgb_palette_blocked(g) ? 0xFF : g->obj_pal[g->ocps & 0x3F];
+    case 0x6C: return (u8)(0xFE | g->opri);
+    case 0x70: return (u8)(0xF8 | (g->io[0x70] & 7));
+    case 0x72: case 0x73: case 0x74: return g->undoc[reg - 0x72];
+    case 0x75: return (u8)(0x8F | g->undoc[3]);
+    case 0x76: case 0x77: return 0x00;
+    default: return 0xFF;
+    }
+}
+
+/* Escribe en una paleta CGB; el índice avanza aunque la escritura se ignore */
+static void palette_write(GB *g, u8 *pal, u8 *ps, u8 v)
+{
+    if (!cgb_palette_blocked(g)) pal[*ps & 0x3F] = v;
+    if (*ps & 0x80) *ps = (u8)(0x80 | ((*ps + 1) & 0x3F));
+}
+
+/* Devuelve 1 si el registro es del CGB (y ya lo manejó) */
+static int cgb_io_write(GB *g, u8 reg, u8 v)
+{
+    switch (reg) {
+    case 0x4D: g->key1 = v & 1; return 1;
+    case 0x4F: g->vram_bank = v & 1; return 1;
+    case 0x51: g->hdma_src = (u16)((g->hdma_src & 0x00FF) | v << 8); return 1;
+    case 0x52: g->hdma_src = (u16)((g->hdma_src & 0xFF00) | (v & 0xF0)); return 1;
+    case 0x53: g->hdma_dst = (u16)(0x8000 | ((v & 0x1F) << 8) | (g->hdma_dst & 0x00FF)); return 1;
+    case 0x54: g->hdma_dst = (u16)((g->hdma_dst & 0xFF00) | (v & 0xF0)); return 1;
+    case 0x55: hdma_write(g, v); return 1;
+    case 0x56: g->io[0x56] = v; return 1;
+    case 0x68: g->bcps = v & 0xBF; return 1;
+    case 0x69: palette_write(g, g->bg_pal, &g->bcps, v); return 1;
+    case 0x6A: g->ocps = v & 0xBF; return 1;
+    case 0x6B: palette_write(g, g->obj_pal, &g->ocps, v); return 1;
+    case 0x6C: g->opri = v & 1; return 1;
+    case 0x70:
+        g->io[0x70] = v & 7;
+        g->wram_bank = (v & 7) ? (u8)(v & 7) : 1;
+        gb_remap(g);
+        return 1;
+    case 0x72: case 0x73: case 0x74: g->undoc[reg - 0x72] = v; return 1;
+    case 0x75: g->undoc[3] = v & 0x70; return 1;
+    default: return 0;
+    }
+}
+
 static u8 io_read(GB *g, u8 reg)
 {
     if (reg >= 0x10 && reg < 0x40) return apu_read(g, (u16)(0xFF00 | reg));
+    if (g->cgb && reg >= 0x4C) return cgb_io_read(g, reg);
     switch (reg) {
     case IO_P1:   return (u8)(0xC0 | (g->io[IO_P1] & 0x30) | joypad_lines(g));
     case IO_SB:   return g->io[IO_SB];
@@ -257,6 +415,7 @@ static u8 io_read(GB *g, u8 reg)
 static void io_write(GB *g, u8 reg, u8 v)
 {
     if (reg >= 0x10 && reg < 0x40) { apu_write(g, (u16)(0xFF00 | reg), v); return; }
+    if (g->cgb && reg >= 0x4C && cgb_io_write(g, reg, v)) return;
     switch (reg) {
     case IO_P1:
         g->io[IO_P1] = v & 0x30;
@@ -288,10 +447,10 @@ u8 gb_read_slow(GB *g, u16 a)
     if (a < 0x8000) return g->rom[(size_t)g->mbc.bankx * 0x4000 + (a - 0x4000)];
     if (a < 0xA000) {
         if (g->block_vram && ppu_vram_blocked(g, 0)) return 0xFF;
-        return g->vram[a - 0x8000];
+        return *vram_at(g, a);
     }
     if (a < 0xC000) return mbc_sram_read(g, a);
-    if (a < 0xFE00) return g->wram[(a - 0xC000) & 0x1FFF];
+    if (a < 0xFE00) return *wram_at(g, a);
     if (a < 0xFEA0) {
         if (g->dma.running) return 0xFF;
         if (g->block_vram && ppu_oam_blocked(g, 0)) return 0xFF;
@@ -309,13 +468,13 @@ void gb_write_slow(GB *g, u16 a, u8 v)
         /* Registro de la PPU: cada uno surte efecto en su punto del M-ciclo */
         sync_hardware(g);
         g->next_event = 0;
-        ppu_write_timed(g, (u8)a, v, g->cyc);
+        ppu_write_timed(g, (u8)a, v, g->rt);
         return;
     }
     if (a == 0xFF0F) {
         /* IF: la escritura gana a lo que la PPU pida en el mismo punto */
         sync_hardware(g);
-        ppu_advance(g, g->cyc + 1);
+        ppu_advance(g, g->rt + 1);
         IF_REG(g) = v & 0x1F;
         g->next_event = 0;
         return;
@@ -327,11 +486,11 @@ void gb_write_slow(GB *g, u16 a, u8 v)
     if (a < 0x8000) { mbc_write(g, a, v); return; }
     if (a < 0xA000) {
         if (g->block_vram && ppu_vram_blocked(g, 1)) return;
-        g->vram[a - 0x8000] = v;
+        *vram_at(g, a) = v;
         return;
     }
     if (a < 0xC000) { mbc_sram_write(g, a, v); return; }
-    if (a < 0xFE00) { g->wram[(a - 0xC000) & 0x1FFF] = v; return; }
+    if (a < 0xFE00) { *wram_at(g, a) = v; return; }
     if (a < 0xFEA0) {
         if (g->dma.running) return;
         if (g->block_vram && ppu_oam_blocked(g, 1)) return;
@@ -346,7 +505,7 @@ void gb_write_slow(GB *g, u16 a, u8 v)
 u8 gb_peek(GB *g, u16 a)
 {
     if (a < 0x8000 || (a >= 0xA000 && a < 0xFE00)) return dma_source_read(g, a);
-    if (a < 0xA000) return g->vram[a - 0x8000];
+    if (a < 0xA000) return *vram_at(g, a);
     if (a < 0xFEA0) return g->oam[a - 0xFE00];
     if (a < 0xFF00) return 0x00;
     if (a == 0xFFFF) return g->ie;
@@ -400,6 +559,14 @@ void gb_stop(GB *g)
     Cpu *c = &g->cpu;
     gb_sync(g);
     timer_write(g, IO_DIV, 0);
+    if (g->cgb && (g->key1 & 1)) {
+        /* Cambio de velocidad: el CPU se detiene unos 2050 M-ciclos */
+        g->double_speed = !g->double_speed;
+        g->key1 = 0;
+        g->cyc += 2050 * 4;
+        g->next_event = 0;
+        return;
+    }
     if (!g->pad) c->stopped = 1;
     g->next_event = 0;
 }
@@ -423,6 +590,7 @@ void gb_run(GB *g, u64 until)
     for (;;) {
         if (g->cyc >= g->next_event) {
             gb_sync(g);
+            hdma_wait(g);
             if (g->cyc >= g->stop_at) break;
             u8 pend = PENDING(g);
 
@@ -433,7 +601,7 @@ void gb_run(GB *g, u64 until)
                      * terminar ese M-ciclo */
                     u64 sample = c->halt_first ? g->cyc : g->cyc + 2;
                     c->halt_first = 0;
-                    ppu_advance(g, sample);
+                    ppu_advance(g, rt_at(g, sample));
                     if (PENDING(g)) {
                         c->halted = 0;
                         g->cyc += 4;
@@ -518,8 +686,16 @@ static void boot_vram(GB *g)
 
 const char *gb_init(GB *g, const u8 *rom, u32 size)
 {
+    return gb_init_model(g, rom, size, GB_MODEL_AUTO);
+}
+
+const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
+{
     memset(g, 0, sizeof *g);
     if (size < 0x150) return "la ROM es demasiado chica";
+    /* Automático: color si el cartucho lo admite (cabecera $143, bit 7) */
+    g->cgb = model == GB_MODEL_AUTO ? (rom[0x143] & 0x80) != 0 : model == GB_MODEL_CGB;
+    g->wram_bank = 1;
 
     /* Copia con tamaño de potencia de 2 (al menos 2 bancos) */
     u32 banks = 2;
@@ -538,12 +714,20 @@ const char *gb_init(GB *g, const u8 *rom, u32 size)
     ppu_reset(g);
     apu_reset(g);
 
-    /* Estado al terminar la boot ROM del DMG */
+    /* Estado al terminar la boot ROM */
     Cpu *c = &g->cpu;
-    c->a = 0x01; c->f = 0xB0;
-    c->b = 0x00; c->c = 0x13;
-    c->d = 0x00; c->e = 0xD8;
-    c->h = 0x01; c->l = 0x4D;
+    if (g->cgb) {
+        /* CGB con un juego de color: A = $11 identifica al Game Boy Color */
+        c->a = 0x11; c->f = 0x80;
+        c->b = 0x00; c->c = 0x00;
+        c->d = 0xFF; c->e = 0x56;
+        c->h = 0x00; c->l = 0x0D;
+    } else {
+        c->a = 0x01; c->f = 0xB0;
+        c->b = 0x00; c->c = 0x13;
+        c->d = 0x00; c->e = 0xD8;
+        c->h = 0x01; c->l = 0x4D;
+    }
     c->sp = 0xFFFE;
     c->pc = 0x0100;
 
@@ -555,7 +739,15 @@ const char *gb_init(GB *g, const u8 *rom, u32 size)
     g->io[IO_BGP] = 0xFC;
     g->io[IO_DMA] = 0xFF;
     g->p1_lines = 0x0F;
-    boot_vram(g);
+    if (g->cgb) {
+        /* La boot ROM del CGB deja las paletas en blanco */
+        memset(g->bg_pal, 0xFF, sizeof g->bg_pal);
+        memset(g->obj_pal, 0xFF, sizeof g->obj_pal);
+        g->io[0x70] = 1;
+        g->hdma_left = 0x7F;
+    } else {
+        boot_vram(g);
+    }
     gb_remap(g);
     return NULL;
 }
@@ -570,7 +762,7 @@ void gb_free(GB *g)
     g->serial.out = NULL;
 }
 
-const u8 *gb_framebuffer(const GB *g)
+const u16 *gb_framebuffer(const GB *g)
 {
     return g->ppu.buf[g->ppu.front];
 }

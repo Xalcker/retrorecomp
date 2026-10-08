@@ -195,6 +195,16 @@ static u8 read_pad(void)
 /* Tonos del LCD del DMG, del más claro al más oscuro */
 static const Uint32 palette[4] = { 0xFFE0F8D0, 0xFF88C070, 0xFF346856, 0xFF081820 };
 
+/* Color del Game Boy Color (RGB555, rojo en los bits bajos) a ARGB8888 */
+static Uint32 rgb555_to_argb(u16 v)
+{
+    Uint32 r = v & 31, g = (v >> 5) & 31, b = (v >> 10) & 31;
+    r = (r << 3) | (r >> 2);
+    g = (g << 3) | (g >> 2);
+    b = (b << 3) | (b >> 2);
+    return 0xFF000000u | r << 16 | g << 8 | b;
+}
+
 int main(int argc, char *argv[])
 {
     const char *rom_arg = NULL;
@@ -332,8 +342,9 @@ int main(int argc, char *argv[])
         if (audio && SDL_GetQueuedAudioSize(audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
             SDL_QueueAudio(audio, samples, (Uint32)(n * 2 * sizeof(float)));
 
-        const u8 *fb = gb_framebuffer(&gb);
-        for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++) pixels[i] = palette[fb[i] & 3];
+        const u16 *fb = gb_framebuffer(&gb);
+        for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++)
+            pixels[i] = gb.cgb ? rgb555_to_argb(fb[i]) : palette[fb[i] & 3];
         SDL_UpdateTexture(tex, NULL, pixels, GB_SCREEN_W * sizeof(Uint32));
         SDL_RenderClear(ren);
         SDL_RenderCopy(ren, tex, NULL, NULL);

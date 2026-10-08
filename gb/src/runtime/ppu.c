@@ -104,9 +104,10 @@ static void finish_frame(GB *g)
     p->frames++;
 }
 
+/* Lectura de VRAM de la PPU: `addr` va de 0 a $3FFF (banco 1 desde $2000) */
 static u8 vram(GB *g, u16 addr)
 {
-    return g->vram[addr & 0x1FFF];
+    return g->vram[addr & 0x3FFF];
 }
 
 /* ------------------------------------------------------------------ */
@@ -139,10 +140,14 @@ static void add_object(GB *g, int index)
 /* Modo 3                                                              */
 /* ------------------------------------------------------------------ */
 
-static void bg_push_row(Ppu *p, u8 lo, u8 hi)
+static void bg_push_row(Ppu *p, u8 lo, u8 hi, u8 attr)
 {
-    for (int b = 7; b >= 0; b--)
-        p->bg_fifo[(p->bg_head + p->bg_size++) & 15] = (u8)(((lo >> b) & 1) | (((hi >> b) & 1) << 1));
+    for (int i = 0; i < 8; i++) {
+        int b = (attr & 0x20) ? i : 7 - i;     /* CGB: giro horizontal */
+        int slot = (p->bg_head + p->bg_size++) & 15;
+        p->bg_fifo[slot] = (u8)(((lo >> b) & 1) | (((hi >> b) & 1) << 1));
+        p->bg_attr[slot] = attr;
+    }
 }
 
 static void start_rendering(GB *g)
@@ -151,7 +156,7 @@ static void start_rendering(GB *g)
     p->rendering = 1;
     p->bg_head = 0;
     p->bg_size = 0;
-    bg_push_row(p, 0, 0);       /* 8 píxeles basura que se descartan */
+    bg_push_row(p, 0, 0, 0);    /* 8 píxeles basura que se descartan */
     p->obj_head = 0;
     p->obj_size = 0;
     p->lcd_x = 0;
@@ -174,7 +179,10 @@ static u16 tile_row_addr(GB *g)
     Ppu *p = &g->ppu;
     u16 base = (LCDC(g) & LCDC_TILE8000) ? (u16)(p->fetch_tile * 16)
                                          : (u16)(0x1000 + (s8)p->fetch_tile * 16);
-    return (u16)(base + (fetcher_y(g) & 7) * 2);
+    u8 row = fetcher_y(g) & 7;
+    if (p->fetch_attr & 0x40) row ^= 7;         /* CGB: giro vertical */
+    if (p->fetch_attr & 0x08) base += 0x2000;   /* CGB: banco 1 */
+    return (u16)(base + row * 2);
 }
 
 /* Un punto del fetcher del fondo/ventana */
@@ -198,6 +206,7 @@ static void fetcher_step(GB *g)
     }
     case 1:
         p->fetch_tile = vram(g, p->fetch_addr);
+        p->fetch_attr = g->cgb ? vram(g, (u16)(p->fetch_addr + 0x2000)) : 0;
         p->fetch_state = 2;
         return;
     case 2:
@@ -220,7 +229,7 @@ static void fetcher_step(GB *g)
     default:
         p->fetch_state = FETCH_PUSH;
         if (p->bg_size > 0) return;
-        if (p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) {
+        if (!g->cgb && p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) {
             /* Falla del DMG: con la ventana apagada a mitad de línea, en la
              * columna de WX se mete un solo píxel de color 0 */
             u8 logical = POS(p->pos + 7);
@@ -231,7 +240,7 @@ static void fetcher_step(GB *g)
                 return;
             }
         }
-        bg_push_row(p, p->fetch_data[0], p->fetch_data[1]);
+        bg_push_row(p, p->fetch_data[0], p->fetch_data[1], p->fetch_attr);
         p->fetch_state = 0;
         return;
     }
@@ -254,6 +263,7 @@ static void end_rendering(GB *g)
     p->mode_irq = 0;
     p->hblank_irq_dot = (u16)(p->dot + 1);
     p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
+    if (g->cgb && p->ly < 144) gb_hdma_hblank(g);
 }
 
 /* Saca un píxel de la FIFO (si se puede) */
@@ -263,19 +273,20 @@ static void render_pixel(GB *g)
     u8 lcdc = LCDC(g);
 
     /* Un sprite en X = 0 pendiente detiene la salida */
-    if (p->n_objs && (lcdc & LCDC_OBJON) && p->objs_x[p->n_objs - 1] == 0) return;
+    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb) && p->objs_x[p->n_objs - 1] == 0) return;
     if (!p->bg_size) return;
 
-    u8 bg;
+    u8 bg, bg_attr = 0;
     if (p->insert_bg_pixel) {
         p->insert_bg_pixel = 0;
         bg = 0;
     } else {
         bg = p->bg_fifo[p->bg_head];
+        bg_attr = p->bg_attr[p->bg_head];
         p->bg_head = (p->bg_head + 1) & 15;
         p->bg_size--;
     }
-    ObjPixel o = { 0, 0 };
+    ObjPixel o = { 0, 0, 0 };
     if (p->obj_size) {
         o = p->obj_fifo[p->obj_head];
         p->obj_head = (p->obj_head + 1) & 7;
@@ -300,11 +311,25 @@ static void render_pixel(GB *g)
         return;
     }
 
-    if (!(lcdc & LCDC_BGON)) bg = 0;    /* DMG: sin fondo, color 0 */
-    u8 color = (g->io[IO_BGP] >> (bg * 2)) & 3;
-    if (o.pixel && (lcdc & LCDC_OBJON) && !((o.attr & 0x80) && bg)) {
-        u8 pal = (o.attr & 0x10) ? g->io[IO_OBP1] : g->io[IO_OBP0];
-        color = (pal >> (o.pixel * 2)) & 3;
+    u16 color;
+    if (g->cgb) {
+        /* CGB: LCDC.0 es la prioridad maestra del fondo; con él apagado los
+         * sprites siempre quedan encima */
+        int bg_wins = (lcdc & LCDC_BGON) && bg && ((bg_attr & 0x80) || (o.attr & 0x80));
+        if (o.pixel && (lcdc & LCDC_OBJON) && !bg_wins) {
+            const u8 *c = &g->obj_pal[(o.attr & 7) * 8 + o.pixel * 2];
+            color = (u16)(c[0] | c[1] << 8) & 0x7FFF;
+        } else {
+            const u8 *c = &g->bg_pal[(bg_attr & 7) * 8 + bg * 2];
+            color = (u16)(c[0] | c[1] << 8) & 0x7FFF;
+        }
+    } else {
+        if (!(lcdc & LCDC_BGON)) bg = 0;    /* DMG: sin fondo, color 0 */
+        color = (g->io[IO_BGP] >> (bg * 2)) & 3;
+        if (o.pixel && (lcdc & LCDC_OBJON) && !((o.attr & 0x80) && bg)) {
+            u8 pal = (o.attr & 0x10) ? g->io[IO_OBP1] : g->io[IO_OBP0];
+            color = (pal >> (o.pixel * 2)) & 3;
+        }
     }
     if (p->lcd_x < GB_SCREEN_W && p->ly < GB_SCREEN_H)
         p->back[p->ly * GB_SCREEN_W + p->lcd_x] = color;
@@ -313,8 +338,12 @@ static void render_pixel(GB *g)
 }
 
 /* Mezcla el sprite recién leído en la FIFO de sprites */
-static void overlay_object(Ppu *p, u8 lo, u8 hi)
+static void overlay_object(GB *g, u8 lo, u8 hi)
 {
+    Ppu *p = &g->ppu;
+    /* CGB (con OPRI = 0): gana el de menor índice de OAM; DMG: el que ya estaba */
+    int by_index = g->cgb && !g->opri;
+    u8 index = p->objs[p->n_objs - 1];
     while (p->obj_size < 8) {
         p->obj_fifo[(p->obj_head + p->obj_size) & 7].pixel = 0;
         p->obj_size++;
@@ -324,9 +353,10 @@ static void overlay_object(Ppu *p, u8 lo, u8 hi)
         int bit = flip ? i : 7 - i;     /* i = columna dentro del sprite */
         u8 px = (u8)(((lo >> bit) & 1) | (((hi >> bit) & 1) << 1));
         ObjPixel *t = &p->obj_fifo[(p->obj_head + i) & 7];
-        if (px && !t->pixel) {          /* gana el que ya estaba */
+        if (px && (!t->pixel || (by_index && t->index > index))) {
             t->pixel = px;
             t->attr = p->obj_flags;
+            t->index = index;
         }
     }
 }
@@ -337,7 +367,9 @@ static u16 object_row_addr(GB *g)
     int h16 = (LCDC(g) & LCDC_OBJ16) != 0;
     u8 row = (u8)((p->ly - p->objs_y[p->n_objs - 1]) & (h16 ? 0xF : 7));
     if (p->obj_flags & 0x40) row ^= h16 ? 0xF : 7;
-    return (u16)((h16 ? p->obj_tile & 0xFE : p->obj_tile) * 16 + row * 2);
+    u16 addr = (u16)((h16 ? p->obj_tile & 0xFE : p->obj_tile) * 16 + row * 2);
+    if (g->cgb && (p->obj_flags & 0x08)) addr += 0x2000;    /* CGB: banco 1 */
+    return addr;
 }
 
 /* El fetcher ya terminó su mosaico y hay píxeles: se puede leer el sprite */
@@ -365,7 +397,7 @@ static void window_check(GB *g)
     } else if (wx < 166) {
         if (wx == POS(p->pos + 7)) {
             activate = 1;
-        } else if (wx == POS(p->pos + 6) && !p->wx_just_changed) {
+        } else if (!g->cgb && wx == POS(p->pos + 6) && !p->wx_just_changed) {
             /* Desfase del DMG entre la PPU y el LCD */
             activate = 1;
             if (p->lcd_x > 0) p->lcd_x--;
@@ -415,7 +447,7 @@ static void mode3_dot(GB *g)
         p->obj_state = OBJ_D;
         return;
     case OBJ_D:
-        overlay_object(p, p->obj_lo, vram(g, (u16)(object_row_addr(g) + 1)));
+        overlay_object(g, p->obj_lo, vram(g, (u16)(object_row_addr(g) + 1)));
         p->n_objs--;
         p->obj_state = OBJ_NONE;
         p->resume = 1;      /* el punto siguiente no revisa la ventana */
@@ -433,7 +465,8 @@ static void mode3_dot(GB *g)
     } else {
         window_check(g);
         if (p->resume == 2) return;
-        if (g->io[IO_WX] == POS(p->pos + 7) && p->wx_triggered && !p->window_fetching &&
+        if (g->io[IO_WX] == POS(p->pos + 7) && (!g->cgb || g->io[IO_WX] == 0) &&
+            p->wx_triggered && !p->window_fetching &&
             p->fetch_state == 0 && p->bg_size == 8)
             p->insert_bg_pixel = 1;
     }
@@ -441,7 +474,7 @@ static void mode3_dot(GB *g)
     /* Sprites: se descartan los que ya pasaron; el que coincide se lee */
     u8 mx = object_match_x(p);
     while (p->n_objs && p->objs_x[p->n_objs - 1] < mx) p->n_objs--;
-    if (p->n_objs && (lcdc & LCDC_OBJON) && p->objs_x[p->n_objs - 1] == mx) {
+    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb) && p->objs_x[p->n_objs - 1] == mx) {
         /* El fetcher termina el mosaico que estaba leyendo; luego, 6 puntos */
         int idle = fetcher_idle(p);
         fetcher_step(g);
@@ -523,7 +556,7 @@ static void visible_line_dot(GB *g)
             break;
         default:
             if (d >= 6 && d < 84 && !(d & 1)) add_object(g, (int)(d - 6) / 2);
-            if (d == 80) {
+            if (d == 80 && !g->cgb) {
                 /* Al leer la entrada 37: VRAM se bloquea para leer y la OAM se
                  * libera para escribir hasta el modo 3 */
                 p->vram_rb = 1;
@@ -586,14 +619,22 @@ static void vblank_line_dot(GB *g)
     case 2:
         p->ly_reg = 153;
         break;
+    case 4:
+        if (g->cgb) {       /* CGB: LY sigue en 153 hasta el punto 8 */
+            p->ly_cmp = 153;
+            stat_update(g);
+        }
+        break;
     case 6:
-        p->ly_reg = 0;
-        p->ly_cmp = 153;
-        stat_update(g);
+        if (!g->cgb) {
+            p->ly_reg = 0;
+            p->ly_cmp = 153;
+            stat_update(g);
+        }
         break;
     case 8:
         p->ly_reg = 0;
-        p->ly_cmp = -1;
+        p->ly_cmp = g->cgb ? 153 : -1;
         stat_update(g);
         break;
     case 12:
@@ -631,7 +672,7 @@ static void ppu_dot(GB *g)
     p->wx_just_changed = 0;
     /* Tras escribir LCDC o WY, WY se vuelve a comparar en la rejilla de 8 puntos */
     p->wy_mod++;
-    if (p->wy_pending && ((p->wy_mod + 2) & 7) == 0) {
+    if (p->wy_pending && ((p->wy_mod + (g->cgb ? 0 : 2)) & 7) == 0) {
         p->wy_pending = 0;
         if (!p->wy_triggered) wy_check(g);
     }
@@ -728,7 +769,8 @@ void ppu_write(GB *g, u8 reg, u8 v)
             p->ly_cmp = 0;
             p->wy_triggered = 0;
             p->rendering = 0;
-            memset(p->back, 0, GB_SCREEN_W * GB_SCREEN_H);
+            for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++)
+                p->back[i] = g->cgb ? 0x7FFF : 0;   /* pantalla en blanco */
             p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
             finish_frame(g);
         } else if (!(old & LCDC_ON) && (v & LCDC_ON)) {
@@ -781,6 +823,29 @@ void ppu_write(GB *g, u8 reg, u8 v)
 void ppu_write_timed(GB *g, u8 reg, u8 v, u64 s)
 {
     Ppu *p = &g->ppu;
+    if (g->cgb) {
+        /* CGB (D/E) a velocidad normal: paletas DMG en s-2; LYC y WX en
+         * s+1; STAT conserva un punto el bit de LYC viejo; el resto en s */
+        switch (reg) {
+        case IO_BGP: case IO_OBP0: case IO_OBP1:
+            ppu_advance(g, s - 2);
+            break;
+        case IO_LYC: case IO_WX:
+            ppu_advance(g, s + 1);
+            break;
+        case IO_STAT:
+            ppu_advance(g, s);
+            ppu_write(g, IO_STAT, (u8)((g->io[IO_STAT] & 0x40) | (v & ~0x40)));
+            ppu_advance(g, s + 1);
+            break;
+        default:
+            ppu_advance(g, s);
+            break;
+        }
+        ppu_write(g, reg, v);
+        if (reg == IO_LCDC || reg == IO_WY) p->wy_pending = 1;
+        return;
+    }
     switch (reg) {
     case IO_BGP: case IO_OBP0: case IO_OBP1:
         ppu_advance(g, s - 2);

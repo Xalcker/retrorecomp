@@ -98,7 +98,8 @@ typedef struct {
 
 typedef struct {
     u8 pixel;           /* color 0-3 antes de la paleta (0 = transparente) */
-    u8 attr;            /* atributos del sprite (bit 4 paleta, bit 7 prioridad) */
+    u8 attr;            /* atributos del sprite (paleta, banco, prioridad) */
+    u8 index;           /* índice de OAM (prioridad en CGB) */
 } ObjPixel;
 
 typedef struct {
@@ -139,17 +140,19 @@ typedef struct {
     u8 lcd_x;           /* columna de pantalla */
     u8 resume;          /* el punto siguiente continúa tras sprite o ventana */
     u8 bg_fifo[16];
+    u8 bg_attr[16];     /* CGB: atributos del mosaico de cada píxel */
     u8 bg_head, bg_size;
     ObjPixel obj_fifo[8];
     u8 obj_head, obj_size;
     u8 fetch_state;     /* 0-5: mosaico, dato bajo y dato alto (2 puntos c/u); 6: empujar */
     u16 fetch_addr;
-    u8 fetch_tile, fetch_data[2];
+    u8 fetch_tile, fetch_attr, fetch_data[2];
     u8 obj_state;       /* lectura de sprite en curso (ver ppu.c) */
     u8 obj_tile, obj_flags, obj_lo;
 
-    u8 *back;           /* cuadro en construcción */
-    u8 buf[2][GB_SCREEN_W * GB_SCREEN_H];
+    u16 *back;          /* cuadro en construcción */
+    /* Cuadros: en DMG cada valor es un tono 0-3; en CGB, color RGB555 */
+    u16 buf[2][GB_SCREEN_W * GB_SCREEN_H];
     int front;          /* índice de buf con el último cuadro completo */
     u64 frames;         /* cuadros completos (VBlank) */
 } Ppu;
@@ -212,7 +215,9 @@ typedef void (*RecompFn)(GB *g);
 struct GB {
     Cpu cpu;
     u64 cyc;            /* T-ciclos ejecutados por el CPU */
-    u64 hw_cyc;         /* hasta dónde avanzó el hardware */
+    u64 hw_cyc;         /* hasta dónde avanzó el hardware (ciclos del CPU) */
+    u64 rt;             /* tiempo real del hardware en puntos (4,19 MHz): la PPU y
+                         * el APU van a este ritmo aunque el CPU vaya al doble */
     u64 next_event;     /* el CPU debe llamar a gb_check al llegar aquí */
     u64 stop_at;        /* fin de la corrida actual (gb_run) */
 
@@ -224,9 +229,14 @@ struct GB {
     int sram_dirty;
     Mbc mbc;
 
-    /* Memoria interna */
-    u8 vram[0x2000];
-    u8 wram[0x2000];
+    /* Modelo: 0 = DMG, 1 = Game Boy Color (en modo CGB) */
+    int cgb;
+
+    /* Memoria interna (en DMG solo se usan el banco 0 de VRAM y 8 KB de WRAM) */
+    u8 vram[0x4000];    /* 2 bancos de 8 KB */
+    u8 wram[0x8000];    /* 8 bancos de 4 KB:  el 0,  el elegido */
+    u8 vram_bank;       /* VBK (CGB) */
+    u8 wram_bank;       /* SVBK (CGB): 1-7 */
     u8 oam[0xA0];
     u8 hram[0x7F];
     u8 io[0x80];
@@ -236,6 +246,18 @@ struct GB {
      * la página tiene efectos (I/O, VRAM, OAM, MBC, DMA en curso). */
     const u8 *rpage[256];
     u8 *wpage[256];
+
+    /* Game Boy Color */
+    u8 bg_pal[64], obj_pal[64];   /* 8 paletas x 4 colores x 2 bytes (RGB555) */
+    u8 bcps, ocps;      /* índice y autoincremento de las paletas */
+    u8 key1;            /* bit 0: cambio de velocidad pedido */
+    int double_speed;
+    u8 opri;            /* prioridad de sprites: 0 = por índice de OAM */
+    u8 undoc[4];        /* registros sin documentar - */
+    u16 hdma_src, hdma_dst;
+    u8 hdma_left;       /* bloques de 16 bytes que faltan, menos 1 */
+    int hdma_hblank;    /* DMA por HBlank en curso */
+    u32 hdma_stall;     /* ciclos que el CPU debe esperar por la DMA */
 
     Timer timer;
     Ppu ppu;
@@ -266,6 +288,13 @@ struct GB {
 /* Prepara la máquina con la ROM dada (no se copia: debe seguir viva).
  * Devuelve 0 si todo bien o un mensaje de error. */
 const char *gb_init(GB *g, const u8 *rom, u32 size);
+
+/* Igual, eligiendo el modelo: color automático según la cabecera, o forzado */
+enum { GB_MODEL_AUTO = -1, GB_MODEL_DMG = 0, GB_MODEL_CGB = 1 };
+const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model);
+
+/* PPU → HDMA: empieza un HBlank de una línea visible (CGB) */
+void gb_hdma_hblank(GB *g);
 void gb_free(GB *g);
 
 /* Copia el estado de src en dst (que ya pasó por gb_init con la misma ROM).
@@ -289,8 +318,9 @@ void gb_run(GB *g, u64 hasta);
 /* Ejecuta un cuadro (70224 ciclos) */
 void gb_run_frame(GB *g);
 
-/* Último cuadro completo: 160×144 bytes, tonos 0 (claro) a 3 (oscuro). */
-const u8 *gb_framebuffer(const GB *g);
+/* Último cuadro completo, 160×144: en DMG tonos 0 (claro) a 3 (oscuro); en
+ * CGB colores RGB555 (5 bits por canal, rojo en los bits bajos). */
+const u16 *gb_framebuffer(const GB *g);
 
 /* Cambia los botones presionados (puede disparar la interrupción de joypad) */
 void gb_set_pad(GB *g, u8 pad);
@@ -350,7 +380,7 @@ int  ppu_vram_blocked(GB *g, int write);
 int  ppu_oam_blocked(GB *g, int write);
 
 void apu_reset(GB *g);
-void apu_mcycle(GB *g);
+void apu_mcycle(GB *g, u32 dots);   /* avanza `dots` puntos de tiempo real */
 void apu_div_event(GB *g);
 u8   apu_read(GB *g, u16 addr);
 void apu_write(GB *g, u16 addr, u8 value);

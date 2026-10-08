@@ -324,7 +324,7 @@ static void chunk(FILE *f, const char *type, const unsigned char *data, size_t l
     fwrite(c, 1, 4, f);
 }
 
-int png_write_gray(const char *path, const unsigned char *pixels, int w, int h)
+static int png_write(const char *path, const unsigned char *pixels, int w, int h, int channels)
 {
     FILE *f = fopen(path, "wb");
     if (!f) return 0;
@@ -335,9 +335,11 @@ int png_write_gray(const char *path, const unsigned char *pixels, int w, int h)
     put32(ihdr, (unsigned)w);
     put32(ihdr + 4, (unsigned)h);
     ihdr[8] = 8;
+    ihdr[9] = channels == 3 ? 2 : 0;     /* RGB o gris */
     chunk(f, "IHDR", ihdr, 13);
 
-    size_t raw_len = (size_t)(w + 1) * h;
+    size_t stride = (size_t)w * channels;
+    size_t raw_len = (stride + 1) * h;
     size_t blocks = (raw_len + 65534) / 65535;
     size_t z_len = 2 + raw_len + blocks * 5 + 4;
     unsigned char *z = malloc(z_len), *p = z;
@@ -351,8 +353,8 @@ int png_write_gray(const char *path, const unsigned char *pixels, int w, int h)
         *p++ = (unsigned char)~n; *p++ = (unsigned char)(~n >> 8);
         for (size_t i = 0; i < n; i++) {
             size_t k = done + i;
-            size_t y = k / (size_t)(w + 1), x = k % (size_t)(w + 1);
-            unsigned char v = x == 0 ? 0 : pixels[y * w + x - 1];
+            size_t y = k / (stride + 1), x = k % (stride + 1);
+            unsigned char v = x == 0 ? 0 : pixels[y * stride + x - 1];
             *p++ = v;
             a = (a + v) % 65521;
             b = (b + a) % 65521;
@@ -365,4 +367,14 @@ int png_write_gray(const char *path, const unsigned char *pixels, int w, int h)
     chunk(f, "IEND", NULL, 0);
     fclose(f);
     return 1;
+}
+
+int png_write_gray(const char *path, const unsigned char *pixels, int w, int h)
+{
+    return png_write(path, pixels, w, h, 1);
+}
+
+int png_write_rgb(const char *path, const unsigned char *pixels, int w, int h)
+{
+    return png_write(path, pixels, w, h, 3);
 }

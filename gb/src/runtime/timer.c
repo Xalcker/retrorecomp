@@ -27,7 +27,9 @@ static void tima_increment(Timer *t)
 /* El bit 12 del contador (bit 4 de DIV) marca el ritmo del secuenciador del APU */
 static void check_apu(GB *g, u16 old, u16 now)
 {
-    if ((old & 0x1000) && !(now & 0x1000))
+    /* En doble velocidad DIV corre al doble: se usa el bit 13 para seguir a 512 Hz */
+    u16 bit = g->double_speed ? 0x2000 : 0x1000;
+    if ((old & bit) && !(now & bit))
         apu_div_event(g);
 }
 

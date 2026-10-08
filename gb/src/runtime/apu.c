@@ -221,21 +221,21 @@ static void push_sample(Apu *a, float l, float r)
     a->ring_head = next;
 }
 
-void apu_mcycle(GB *g)
+void apu_mcycle(GB *g, u32 dots)
 {
     Apu *a = &g->apu;
     const double cycles_per_sample = (double)GB_CPU_HZ / GB_SAMPLE_RATE;
 
     if (a->power) {
-        clock_channels(g, 4);
+        clock_channels(g, (int)dots);
         if (a->enabled)
             for (int n = 0; n < 4; n++)
-                a->sum[n] += channel_output(g, n) * 4;
+                a->sum[n] += channel_output(g, n) * (double)dots;
     }
     if (!a->enabled) return;
 
-    a->sum_cycles += 4;
-    a->sample_acc += 4;
+    a->sum_cycles += dots;
+    a->sample_acc += dots;
     if (a->sample_acc < cycles_per_sample) return;
     a->sample_acc -= cycles_per_sample;
 

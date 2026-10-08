@@ -119,6 +119,8 @@ typedef struct {
 
     /* Ventana */
     u8 wy_triggered;    /* WY coincidió con LY en este cuadro */
+    u8 wy_pending;      /* revisar WY en el siguiente punto de la rejilla de 8 */
+    u8 wy_mod;          /* puntos desde que se encendió el LCD, módulo 256 */
     u8 wx_triggered;    /* el fetcher está en la ventana */
     u8 window_fetching; /* se acaba de activar la ventana */
     u8 insert_bg_pixel; /* falla del DMG: se intercala un píxel de fondo */

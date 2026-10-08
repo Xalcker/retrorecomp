@@ -629,6 +629,12 @@ static void ppu_dot(GB *g)
     if (p->ly < 144) visible_line_dot(g);
     else vblank_line_dot(g);
     p->wx_just_changed = 0;
+    /* Tras escribir LCDC o WY, WY se vuelve a comparar en la rejilla de 8 puntos */
+    p->wy_mod++;
+    if (p->wy_pending && ((p->wy_mod + 2) & 7) == 0) {
+        p->wy_pending = 0;
+        if (!p->wy_triggered) wy_check(g);
+    }
     if (++p->dot >= p->line_len) end_line(g);
 }
 
@@ -713,6 +719,7 @@ void ppu_write(GB *g, u8 reg, u8 v)
             p->ly_reg = 0;
             p->dot = 0;
             p->line_len = 449;
+            p->wy_mod = 0;
             p->lcd_first_line = 1;
             p->rendering = 0;
             p->hblank_irq_dot = 0;
@@ -730,6 +737,7 @@ void ppu_write(GB *g, u8 reg, u8 v)
         return;
     case IO_WY:
         g->io[IO_WY] = v;
+        p->wy_pending = 1;
         return;
     case IO_LY:
         return;     /* solo lectura */
@@ -745,7 +753,8 @@ void ppu_write(GB *g, u8 reg, u8 v)
  * con Mealybug; mismos tiempos que SameBoy):
  *   BGP, OBP0, OBP1  s-2: se ve (viejo | nuevo); s-1: el nuevo
  *   LCDC             s-2: viejo con el bit de fondo nuevo; s-1: el nuevo
- *   SCX              s-2      SCY  s-1
+ *   SCX, SCY         s-2 (SCY: un punto antes que en SameBoy; calibrado con
+ *                    m3_scy_change)
  *   STAT             s: todas las fuentes habilitadas (falla de escritura
  *                    del DMG, puede pedir la interrupción); s+1: el valor
  *   WX               s, y durante ese punto cuenta como "recién cambiado"
@@ -770,9 +779,16 @@ void ppu_write_timed(GB *g, u8 reg, u8 v, u64 s)
         if (!(v & LCDC_OBJON) && p->rendering &&
             (p->pos == 0 || (p->obj_state != OBJ_NONE && p->obj_state != OBJ_D)))
             old &= (u8)~LCDC_OBJON;
-        ppu_write(g, IO_LCDC, (u8)(old | (v & LCDC_BGON)));
+        {
+            /* Los bits que lee el fetcher (mapas y datos de mosaicos) ya cuentan
+             * desde aquí; calibrado con m3_lcdc_bg_map_change */
+            const u8 fetch_bits = LCDC_BG9C00 | LCDC_TILE8000 | LCDC_WIN9C00;
+            u8 first = (u8)((old | (v & LCDC_BGON)) & ~fetch_bits) | (v & fetch_bits);
+            ppu_write(g, IO_LCDC, first);
+        }
         ppu_advance(g, s - 1);
         ppu_write(g, IO_LCDC, v);
+        p->wy_pending = 1;
         if ((old & LCDC_WINON) && !(v & LCDC_WINON) && p->window_fetching) p->no_win_glitch = 1;
         break;
     }
@@ -781,7 +797,7 @@ void ppu_write_timed(GB *g, u8 reg, u8 v, u64 s)
         ppu_write(g, reg, v);
         break;
     case IO_SCY:
-        ppu_advance(g, s - 1);
+        ppu_advance(g, s - 2);
         ppu_write(g, reg, v);
         break;
     case IO_STAT:

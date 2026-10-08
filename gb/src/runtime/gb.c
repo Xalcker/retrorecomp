@@ -488,6 +488,34 @@ void gb_run_frame(GB *g)
 /* Ciclo de vida                                                       */
 /* ------------------------------------------------------------------ */
 
+/*
+ * VRAM como la deja la boot ROM del DMG: el logo de la cabecera del cartucho
+ * ampliado al doble (mosaicos 1 a 24) y el símbolo ® (mosaico $19), con su
+ * mapa en $9904. Algunos juegos y pruebas usan esos mosaicos.
+ */
+static void boot_vram(GB *g)
+{
+    static const u8 registered[8] = { 0x3C, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x3C };
+    for (int i = 0; i < 48; i++) {
+        u8 b = g->rom[0x104 + i];
+        for (int half = 0; half < 2; half++) {
+            u8 nib = half ? (b & 0x0F) : (b >> 4);
+            u8 wide = 0;
+            for (int bit = 0; bit < 4; bit++)
+                if (nib & (1 << bit)) wide |= (u8)(3 << (bit * 2));
+            int addr = 0x10 + i * 8 + half * 4;
+            g->vram[addr] = wide;       /* cada fila se dibuja dos veces */
+            g->vram[addr + 2] = wide;
+        }
+    }
+    for (int i = 0; i < 8; i++) g->vram[0x190 + i * 2] = registered[i];
+    for (int t = 0; t < 12; t++) {
+        g->vram[0x1904 + t] = (u8)(1 + t);
+        g->vram[0x1924 + t] = (u8)(13 + t);
+    }
+    g->vram[0x1910] = 0x19;
+}
+
 const char *gb_init(GB *g, const u8 *rom, u32 size)
 {
     memset(g, 0, sizeof *g);
@@ -527,6 +555,7 @@ const char *gb_init(GB *g, const u8 *rom, u32 size)
     g->io[IO_BGP] = 0xFC;
     g->io[IO_DMA] = 0xFF;
     g->p1_lines = 0x0F;
+    boot_vram(g);
     gb_remap(g);
     return NULL;
 }

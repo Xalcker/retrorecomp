@@ -48,10 +48,10 @@ $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/g
 	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/emit/sm83_emit.c src/emit/sm83_emit.h \
-                src/runtime/sha1.c $(BUILD)/gen/embedded.c
+gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz.c src/gbrecomp/viz.h \
+                src/emit/sm83_emit.c src/emit/sm83_emit.h src/runtime/sha1.c $(BUILD)/gen/embedded.c
 	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -o $@ \
-		src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
+		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
 
 # Paquete para distribuir: gbrecomp y la documentación
 DIST := dist/gbrecomp-$(VERSION)

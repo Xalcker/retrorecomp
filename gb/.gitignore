@@ -1,7 +1,7 @@
 build/
 testroms/
 *.exe
-gbtest
+/gbtest
 *.gb
 *.sav
 out/
@@ -9,5 +9,5 @@ roms/
 *.gbc
 *.sgb
 dist/
-gbrecomp
-vgmcheck
+/gbrecomp
+/vgmcheck

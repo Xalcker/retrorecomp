@@ -18,7 +18,7 @@ RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test dist
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -27,6 +27,10 @@ vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
 # Corredor de ROMs de prueba sin ventana
 gbtest$(EXE): src/tools/gbtest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtest.c src/platform/png.c $(BUILD)/libgbrt.a
+
+# Dos Game Boy conectados por cable link, sin ventana
+linktest$(EXE): src/tools/linktest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
 
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -87,4 +91,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist gbtest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+	rm -rf $(BUILD) dist gbtest$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

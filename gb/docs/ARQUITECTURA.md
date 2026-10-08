@@ -406,8 +406,10 @@ Lo que las pruebas ejecutan del código real (`difftest --executed`):
 | + una partida real grabada (`tests/inputs/partida1.txt`, 29,963 cuadros) | **58.9 %** |
 
 Casi todo lo que falta es el multijugador (pantallas de victoria y derrota,
-cursores de Luigi, `Handshake`), que necesita un segundo Game Boy por cable:
-habrá que conectar dos máquinas por un serial emulado. El código no ejecutado se generó con el mismo emisor que
+cursores de Luigi, `Handshake`), que necesita un segundo Game Boy por cable.
+Ya se puede correr con `linktest` (ver "Cable link"):
+`tests/link_tetris.sh` juega una partida de dos jugadores hasta la pantalla
+de victoria. El código no ejecutado se generó con el mismo emisor que
 el intérprete, así que sus instrucciones son confiables; lo que no se ha
 probado es su flujo de control (etiquetas, cortes de función).
 
@@ -577,6 +579,16 @@ En modo CGB el runtime tiene:
   las escrituras, pero el índice sí avanza.
 - **HDMA:** general (todo de una vez, con el CPU detenido 8 µs por bloque de
   16 bytes) y por HBlank (un bloque al empezar cada HBlank visible).
+- **Cable link:** el serial con reloj interno recibe lo que devuelva
+  `g->link_xfer` al completar el byte (sin cable, `$FF`), y
+  `gb_serial_clock_in` hace de reloj externo para el otro lado: devuelve su
+  SB y, si esperaba (SC = `$80`), recibe el byte y pide la interrupción. En el
+  GBC, SC.1 elige el reloj rápido (262144 Hz). `GbLink` conecta dos máquinas
+  en el mismo proceso: corren por tramos de tiempo real (una línea, o 32
+  puntos mientras SC.7 esté encendido en alguna) y, al completar un byte, el
+  otro lado se adelanta hasta ese instante antes del intercambio. `linktest`
+  corre dos así, sin ventana, cada una con su guion de entradas. El cable por
+  red podrá ser otra implementación de `link_xfer`.
 - **Doble velocidad:** KEY1 + STOP. Hay dos relojes: `g->hw_cyc` en ciclos del
   CPU (timer, serial, DMA de OAM) y `g->rt` en tiempo real (PPU y APU). En doble
   velocidad cada M-ciclo del CPU dura 2 puntos en lugar de 4, y el secuenciador

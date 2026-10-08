@@ -205,6 +205,7 @@ typedef struct {
     int active;
     int bits_left;      /* bits por transferir (uno por flanco del reloj) */
     u16 last_sys;       /* contador del timer en el M-ciclo anterior */
+    u8 sending;         /* byte que se está enviando (SB al empezar) */
     u8 *out;            /* bytes enviados por el juego (para pruebas) */
     size_t out_len, out_cap;
 } Serial;
@@ -320,6 +321,12 @@ struct GB {
     /* Gancho opcional: cada escritura del juego a un registro de sonido
      * ($FF10-$FF3F), en el instante g->rt (para grabar la música en VGM) */
     void (*apu_log)(GB *g, u16 addr, u8 value);
+
+    /* Cable link: al terminar una transferencia con reloj interno, el byte
+     * recibido es lo que devuelva link_xfer(g, link_user, enviado). Sin cable
+     * (NULL) se recibe $FF, como con nada conectado. */
+    u8 (*link_xfer)(GB *g, void *user, u8 sent);
+    void *link_user;
 };
 
 /* --- Ciclo de vida --- */
@@ -375,6 +382,28 @@ u64 gb_frame_cycles(const GB *g);
 /* Tiempo real del hardware hasta el ciclo actual del CPU, en puntos de
  * 4,19 MHz (GB_CPU_HZ por segundo, a cualquier velocidad del CPU) */
 u64 gb_realtime(const GB *g);
+
+/* --- Cable link --- */
+
+/* El otro extremo del cable completó un byte con su reloj interno: devuelve lo
+ * que este Game Boy tenía en SB y, si esperaba con reloj externo (SC = $80),
+ * recibe `in` y pide la interrupción serial. Si no esperaba, no recibe nada. */
+u8 gb_serial_clock_in(GB *g, u8 in);
+
+/* Dos Game Boy conectados por cable en el mismo proceso. Corren por tramos
+ * cortos de tiempo real, y cuando uno completa un byte el otro se adelanta
+ * hasta ese instante antes del intercambio. */
+typedef struct {
+    GB *gb[2];
+    u64 base[2];        /* gb_realtime de cada uno al conectarlos */
+    int busy;           /* adelantando al otro (evita llamadas anidadas) */
+    u64 bytes;          /* bytes intercambiados */
+} GbLink;
+
+void gb_link_connect(GbLink *l, GB *a, GB *b);
+void gb_link_disconnect(GbLink *l);
+/* Un cuadro de pantalla de los dos */
+void gb_link_run_frame(GbLink *l);
 
 /* Último cuadro completo, 160×144: en DMG tonos 0 (claro) a 3 (oscuro); en
  * CGB colores RGB555 (5 bits por canal, rojo en los bits bajos). */

@@ -113,7 +113,7 @@ static int dma_conflict(GB *g, u16 a)
 }
 
 /* ------------------------------------------------------------------ */
-/* Serial (sin cable: se reciben $FF)                                  */
+/* Serial (sin cable se reciben $FF; ver gb_link_connect)              */
 /* ------------------------------------------------------------------ */
 
 static void serial_write_sc(GB *g, u8 v)
@@ -121,6 +121,7 @@ static void serial_write_sc(GB *g, u8 v)
     Serial *s = &g->serial;
     g->io[IO_SC] = v;
     if ((v & 0x81) == 0x81) {
+        s->sending = g->io[IO_SB];
         s->active = 1;
         s->bits_left = 8;
         if (s->out_len == s->out_cap) {
@@ -138,15 +139,90 @@ static void serial_mcycle(GB *g)
     Serial *s = &g->serial;
     if (!s->active) return;
     /* Reloj interno de 8192 Hz: flanco de bajada del bit 8 del contador del
-     * timer, alineado con el arranque y no con la escritura en SC */
+     * timer, alineado con el arranque y no con la escritura en SC. En el GBC,
+     * SC.1 elige el reloj rápido de 262144 Hz (bit 3) */
+    u16 bit = g->cgb && (g->io[IO_SC] & 0x02) ? 0x08 : 0x100;
     u16 now = g->timer.sys, old = s->last_sys;
     s->last_sys = g->timer.sys;
-    if (!((old & 0x100) && !(now & 0x100))) return;
+    if (!((old & bit) && !(now & bit))) return;
     if (--s->bits_left == 0) {
         s->active = 0;
-        g->io[IO_SB] = 0xFF;
+        g->io[IO_SB] = g->link_xfer ? g->link_xfer(g, g->link_user, s->sending) : 0xFF;
         g->io[IO_SC] &= 0x7F;
         IF_REG(g) |= INT_SERIAL;
+    }
+}
+
+u8 gb_serial_clock_in(GB *g, u8 in)
+{
+    u8 out = g->io[IO_SB];
+    if ((g->io[IO_SC] & 0x81) == 0x80) {
+        g->io[IO_SB] = in;
+        g->io[IO_SC] &= 0x7F;
+        IF_REG(g) |= INT_SERIAL;
+        g->next_event = 0;      /* que lo note si está corriendo */
+    }
+    return out;
+}
+
+/* Corre hasta el tiempo real `rt` (gb_realtime) */
+static void run_to_realtime(GB *g, u64 rt)
+{
+    u64 now = gb_realtime(g);
+    if (now < rt) gb_run(g, g->cyc + (rt - now) * (g->double_speed ? 2 : 1));
+}
+
+static u8 link_local_xfer(GB *g, void *user, u8 sent)
+{
+    GbLink *l = user;
+    int me = g == l->gb[1];
+    GB *peer = l->gb[!me];
+    /* El otro se adelanta hasta este instante (si va atrás) */
+    if (!l->busy) {
+        l->busy = 1;
+        run_to_realtime(peer, l->base[!me] + (gb_realtime(g) - l->base[me]));
+        l->busy = 0;
+    }
+    l->bytes++;
+    return gb_serial_clock_in(peer, sent);
+}
+
+void gb_link_connect(GbLink *l, GB *a, GB *b)
+{
+    memset(l, 0, sizeof *l);
+    l->gb[0] = a;
+    l->gb[1] = b;
+    for (int i = 0; i < 2; i++) {
+        l->base[i] = gb_realtime(l->gb[i]);
+        l->gb[i]->link_xfer = link_local_xfer;
+        l->gb[i]->link_user = l;
+    }
+}
+
+void gb_link_disconnect(GbLink *l)
+{
+    for (int i = 0; i < 2; i++)
+        if (l->gb[i]) {
+            l->gb[i]->link_xfer = NULL;
+            l->gb[i]->link_user = NULL;
+        }
+}
+
+void gb_link_run_frame(GbLink *l)
+{
+    /* Los dos avanzan el mismo tiempo real, a partir de donde vaya el primero
+     * (el segundo pudo quedar adelantado al recibir un byte) */
+    u64 start = gb_realtime(l->gb[0]) - l->base[0];
+    u64 end = start + GB_CYCLES_FRAME;
+    for (u64 t = start; t < end; ) {
+        /* Con una transferencia en curso o esperada, tramos cortos: el que
+         * espera necesita correr entre byte y byte */
+        int serial = 0;
+        for (int i = 0; i < 2; i++)
+            if (l->gb[i]->io[IO_SC] & 0x80) serial = 1;
+        u64 step = serial ? 32 : 456;
+        t = t + step < end ? t + step : end;
+        for (int i = 0; i < 2; i++) run_to_realtime(l->gb[i], l->base[i] + t);
     }
 }
 
@@ -858,6 +934,8 @@ void gb_copy_state(GB *dst, const GB *src)
     RecompFn (*lookup)(GB *, u16) = dst->recomp_lookup;
     void (*trace)(GB *) = dst->trace;
     void (*apu_log)(GB *, u16, u8) = dst->apu_log;
+    u8 (*link_xfer)(GB *, void *, u8) = dst->link_xfer;
+    void *link_user = dst->link_user;
 
     memcpy(dst, src, sizeof *dst);
 
@@ -871,6 +949,8 @@ void gb_copy_state(GB *dst, const GB *src)
     dst->recomp_lookup = lookup;
     dst->trace = trace;
     dst->apu_log = apu_log;
+    dst->link_xfer = link_xfer;
+    dst->link_user = link_user;
     /* Punteros internos que apuntaban a src */
     dst->ppu.back = dst->ppu.buf[src->ppu.back == src->ppu.buf[0] ? 0 : 1];
     gb_remap(dst);

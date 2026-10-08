@@ -39,7 +39,7 @@ EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile
+$(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
 	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
 
 # El recompilador: un solo ejecutable, con el runtime adentro
@@ -61,14 +61,15 @@ dist: gbrecomp$(EXE)
 test: gbtest$(EXE)
 	sh tests/run_tests.sh
 
-$(BUILD):
-	mkdir -p $(BUILD)/gen
+# (en Windows build/ ya existe por la carpeta temporal: build/gen va aparte)
+$(BUILD) $(BUILD)/gen:
+	mkdir -p $@
 
 # El intérprete se genera con el mismo emisor que usa gbrecomp
 $(BUILD)/gen_interp: src/tools/gen_interp.c src/emit/sm83_emit.c src/emit/sm83_emit.h | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ src/tools/gen_interp.c src/emit/sm83_emit.c
 
-$(BUILD)/gen/interp_ops.inc: $(BUILD)/gen_interp | $(BUILD)
+$(BUILD)/gen/interp_ops.inc: $(BUILD)/gen_interp | $(BUILD)/gen
 	$(BUILD)/gen_interp $@
 
 $(BUILD)/rt_interp.o: src/runtime/interp.c $(BUILD)/gen/interp_ops.inc src/runtime/cpu_ops.h src/runtime/gb.h

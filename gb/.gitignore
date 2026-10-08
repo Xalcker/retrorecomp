@@ -5,3 +5,6 @@ gbtest
 *.gb
 *.sav
 out/
+roms/
+*.gbc
+*.sgb

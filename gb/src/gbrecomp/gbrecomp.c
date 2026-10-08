@@ -63,7 +63,13 @@ static u8 *rom;
 static u32 rom_size, nbanks;
 static u8 **flags;
 
-typedef struct { u32 bank; u16 addr; } Work;
+typedef struct {
+    u32 bank;
+    u16 addr;
+    int bank_ctx;       /* banco activo conocido al llegar (V_UNK = -1 si no se sabe) */
+} Work;
+
+static int push_ctx = -1;   /* contexto de banco para los push_work del recorrido actual */
 static Work *work;
 static size_t nwork, capwork;
 
@@ -105,6 +111,7 @@ static void push_work(u32 bank, u16 addr)
     }
     work[nwork].bank = bank;
     work[nwork].addr = addr;
+    work[nwork].bank_ctx = push_ctx;
     nwork++;
 }
 
@@ -369,71 +376,115 @@ static void regs_step(Regs *s, const u8 *b)
 }
 
 /*
- * Trampolines de cambio de banco: rutinas del banco 0 que escriben en el
- * registro de banco del MBC un valor que les llega en un registro y luego
- * saltan a HL (p. ej. Bankswitch de Pokémon: ld a, b / ld [$2000], a / jp hl).
- * Se reconocen ejecutando la rutina con registros simbólicos, siguiendo
- * llamadas internas, la pila y celdas de RAM.
+ * Clasificación de rutinas del banco 0 por ejecución simbólica (registros con
+ * "lo que traían al entrar", siguiendo llamadas internas, la pila y celdas de
+ * RAM):
+ *   - RK_TRAMPOLINE: escribe en el registro de banco un valor que le llega en
+ *     un registro y salta a HL sin cambiarlo (Bankswitch de Pokémon Rojo,
+ *     FarCall de Pokémon Oro).
+ *   - RK_BANK_SETTER: escribe en el registro de banco un valor que le llega en
+ *     un registro y regresa (el `rst $10` de Pokémon Oro). Después de llamarla,
+ *     el banco activo es ese valor.
+ *   - RK_TABLE_JUMPER: lee a través del HL con que la llamaron y termina en
+ *     `jp hl` (el `rst $28` de Pokémon Oro): HL apunta a una tabla de punteros.
  */
-static signed char tramp_state[0x4000];  /* 0 sin analizar, 1 no es, 2 sí es */
-static u8 tramp_bank_reg[0x4000];        /* registro que trae el banco */
-static unsigned stat_tramp_calls;
+enum { RK_UNKNOWN, RK_NONE, RK_TRAMPOLINE, RK_BANK_SETTER, RK_TABLE_JUMPER };
 
-static int is_trampoline(u16 addr, int *bank_reg)
+static signed char rk_cache[0x4000];    /* RK_* (0 = sin analizar) */
+static u8 rk_reg[0x4000];               /* registro que trae el banco */
+static unsigned stat_tramp_calls, stat_bank_setters, stat_table_jumps;
+
+/* ¿La instrucción lee memoria a través de HL? */
+static int reads_via_hl(u8 op)
 {
-    if (addr >= 0x4000) return 0;
-    if (tramp_state[addr]) {
-        *bank_reg = tramp_bank_reg[addr];
-        return tramp_state[addr] == 2;
+    if (op >= 0x40 && op < 0x80 && op != 0x76 && (op & 7) == 6) return 1;   /* ld r, [hl] */
+    if (op >= 0x80 && op < 0xC0 && (op & 7) == 6) return 1;                 /* alu [hl] */
+    return op == 0x2A || op == 0x3A;
+}
+
+/* ¿La instrucción reemplaza H o L con algo que no viene de HL? */
+static int overwrites_hl(u8 op)
+{
+    switch (op) {
+    case 0x21: case 0xE1: case 0x26: case 0x2E: case 0xF8:
+        return 1;
+    default:
+        /* ld h, r / ld l, r (sin contar ld h, [hl] / ld l, [hl]) */
+        return op >= 0x60 && op < 0x70 && (op & 7) != 6;
     }
-    tramp_state[addr] = 1;
+}
+
+static int routine_kind(u16 addr, int *bank_reg)
+{
+    if (addr >= 0x4000) return RK_NONE;
+    if (rk_cache[addr]) {
+        *bank_reg = rk_reg[addr];
+        return rk_cache[addr];
+    }
+    rk_cache[addr] = RK_NONE;
 
     Regs s;
     regs_unknown(&s);
     for (int i = 0; i < 8; i++) s.r[i] = V_SYM(i);
     u16 ret_stack[4];
     int calls = 0;
+    int hl_is_input = 1;    /* HL todavía deriva del que trajo la llamada */
+    int read_input_hl = 0;  /* se leyó memoria a través de ese HL */
     u16 pc = addr;
+    int kind = RK_NONE;
+    int bank_sym = 0;
 
     for (int step = 0; step < 96 && pc < 0x4000; step++) {
         u8 b[3];
         Insn in;
-        if (!fetch_insn(0, pc, b, &in)) return 0;
-        switch (in.kind) {
-        case INS_JP_HL:
-            if (s.r[R_H] == V_SYM(R_H) && s.r[R_L] == V_SYM(R_L) &&
-                s.bank >= V_SYM(0) && s.bank <= V_SYM(7) && s.bank != V_SYM(6)) {
-                tramp_state[addr] = 2;
-                tramp_bank_reg[addr] = (u8)(s.bank - V_SYM(0));
-                *bank_reg = tramp_bank_reg[addr];
-                if (verbose) fprintf(stderr, "trampolín 00:%04X: banco en el registro %d, destino en HL\n",
-                                     addr, *bank_reg);
-                return 1;
-            }
-            return 0;
-        case INS_CALL: case INS_RST:
-            if (in.cond || calls == 4) return 0;
+        if (!fetch_insn(0, pc, b, &in)) break;
+        bank_sym = s.bank >= V_SYM(0) && s.bank <= V_SYM(7) && s.bank != V_SYM(6);
+        if (in.kind == INS_JP_HL) {
+            if (s.r[R_H] == V_SYM(R_H) && s.r[R_L] == V_SYM(R_L) && bank_sym)
+                kind = RK_TRAMPOLINE;
+            else if (read_input_hl && calls == 0)
+                kind = RK_TABLE_JUMPER;
+            break;
+        }
+        if (in.kind == INS_CALL || in.kind == INS_RST) {
+            if (in.cond || calls == 4) break;
             ret_stack[calls++] = (u16)(pc + in.len);
             pc = in.target;
             continue;
-        case INS_RET:
-            if (in.cond || calls == 0) return 0;
+        }
+        if (in.kind == INS_RET) {
+            if (in.cond) break;
+            if (calls == 0) {
+                if (bank_sym) kind = RK_BANK_SETTER;
+                break;
+            }
             pc = ret_stack[--calls];
             continue;
-        case INS_JP: case INS_JR:
-            if (in.cond) return 0;
+        }
+        if (in.kind == INS_JP || in.kind == INS_JR) {
+            if (in.cond) break;
             pc = in.target;
             continue;
-        case INS_NORMAL:
-            regs_step(&s, b);
-            pc = (u16)(pc + in.len);
-            continue;
-        default:
-            return 0;
         }
+        if (in.kind != INS_NORMAL) break;
+        if (hl_is_input && reads_via_hl(b[0])) read_input_hl = 1;
+        if (overwrites_hl(b[0])) hl_is_input = 0;
+        regs_step(&s, b);
+        pc = (u16)(pc + in.len);
     }
-    return 0;
+
+    rk_cache[addr] = (signed char)kind;
+    if (kind == RK_TRAMPOLINE || kind == RK_BANK_SETTER) rk_reg[addr] = (u8)(s.bank - V_SYM(0));
+    *bank_reg = rk_reg[addr];
+    if (verbose && kind != RK_NONE) {
+        static const char *const names[] = { "", "", "trampolín", "fijador de banco", "saltador por tabla" };
+        fprintf(stderr, "%s 00:%04X", names[kind], addr);
+        if (kind != RK_TABLE_JUMPER) fprintf(stderr, " (banco en el registro %d)", rk_reg[addr]);
+        fprintf(stderr, "\n");
+    }
+    return kind;
 }
+
 
 /* La instrucción (no de control) deja A intacto */
 static int keeps_a(u8 op)
@@ -464,7 +515,7 @@ static u32 mbc_bank(int v)
     return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
 }
 
-static void explore(u32 bank, u16 addr)
+static void explore_walk(u32 bank, u16 addr, int bank_ctx)
 {
     /* Último `ld hl, nn` con nn en ROM dentro de este tramo lineal, y cuántas
      * instrucciones han pasado desde entonces */
@@ -475,8 +526,13 @@ static void explore(u32 bank, u16 addr)
     int bank_tied_to_a = 0; /* el banco activo es el valor actual de A */
     int last_cp = -1;       /* operando de un `cp n` en la instrucción anterior */
     regs_unknown(&st);
+    /* En código de un banco N, el banco activo es N; en el banco 0, el que
+     * traía quien saltó aquí */
+    st.bank = bank != 0 ? (int)bank : bank_ctx;
 
     for (;;) {
+        /* Los destinos que se descubran heredan el banco conocido hasta aquí */
+        push_ctx = IS_CONST(st.bank) ? st.bank : V_UNK;
         if (!in_region(bank, addr)) return;
         if (*flag_at(bank, addr) & (F_INSN | F_TABLE)) return;
 
@@ -538,24 +594,35 @@ static void explore(u32 bank, u16 addr)
                     return;
                 }
             }
-            /* Llamada a un trampolín con banco y destino constantes */
-            int breg;
-            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) &&
-                in.target < 0x4000 && is_trampoline(in.target, &breg)) {
-                long hlv = pair_value(&st, R_H, R_L);
-                if (IS_CONST(st.r[breg]) && hlv >= 0 && hlv < 0x8000) {
-                    u32 fb = hlv < 0x4000 ? 0 : mbc_bank(st.r[breg]);
-                    *flag_at(fb, (u16)hlv) |= F_TARGET;
-                    push_work(fb, (u16)hlv);
-                    stat_tramp_calls++;
+            /* Rutinas especiales del banco 0 (ver routine_kind) */
+            int breg = 0, kind = RK_NONE;
+            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.target < 0x4000)
+                kind = routine_kind(in.target, &breg);
+            long hlv = pair_value(&st, R_H, R_L);
+            int new_bank = st.bank;
+            if (kind == RK_TRAMPOLINE && IS_CONST(st.r[breg]) && hlv >= 0 && hlv < 0x8000) {
+                /* Trampolín con banco y destino constantes */
+                u32 fb = hlv < 0x4000 ? 0 : mbc_bank(st.r[breg]);
+                *flag_at(fb, (u16)hlv) |= F_TARGET;
+                push_work(fb, (u16)hlv);
+                stat_tramp_calls++;
+            } else if (kind == RK_BANK_SETTER) {
+                new_bank = st.r[breg];
+                stat_bank_setters++;
+            } else if (kind == RK_TABLE_JUMPER && hlv >= 0 && hlv < 0x8000) {
+                /* Tabla de punteros apuntada por HL */
+                long tb2 = IS_CONST(st.bank) && hlv >= 0x4000 ? (long)mbc_bank(st.bank) : bank_of(bank, (u16)hlv);
+                if (tb2 >= 0) {
+                    add_table((u32)tb2, (u16)hlv, 0);
+                    stat_table_jumps++;
                 }
             }
             /* Tras una llamada, la rutina pudo cambiar cualquier registro; el
-             * banco se conserva (las rutinas suelen restaurarlo) */
+             * banco se conserva (las rutinas suelen restaurarlo), salvo que sea
+             * un fijador de banco */
             if (in.kind == INS_CALL || in.kind == INS_RST) {
-                int keep_bank = st.bank;
                 regs_unknown(&st);
-                st.bank = keep_bank;
+                st.bank = new_bank;
             }
             break;
         }
@@ -593,11 +660,19 @@ static void explore(u32 bank, u16 addr)
     }
 }
 
+/* Recorre desde una dirección; los push_work de fuera de un recorrido (tablas,
+ * trazas, vectores) no llevan contexto de banco */
+static void explore(u32 bank, u16 addr, int bank_ctx)
+{
+    explore_walk(bank, addr, bank_ctx);
+    push_ctx = V_UNK;
+}
+
 static void drain(void)
 {
     while (nwork) {
         Work w = work[--nwork];
-        explore(w.bank, w.addr);
+        explore(w.bank, w.addr, w.bank_ctx);
     }
 }
 
@@ -1186,6 +1261,10 @@ int main(int argc, char **argv)
            ninsns, nbytes, 100.0 * nbytes / rom_size, nfuncs);
     if (stat_tramp_calls)
         printf("llamadas a trampolines de banco resueltas: %u\n", stat_tramp_calls);
+    if (stat_bank_setters)
+        printf("llamadas a fijadores de banco: %u\n", stat_bank_setters);
+    if (stat_table_jumps)
+        printf("saltos por tabla con base en HL: %u\n", stat_table_jumps);
     if (stat_tables)
         printf("tablas de saltos en línea: %u, con %u entradas\n", stat_tables, stat_table_entries);
     if (stat_ram_targets)

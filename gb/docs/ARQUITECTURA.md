@@ -268,32 +268,51 @@ probado es su flujo de control (etiquetas, cortes de función).
 Una llamada del banco 0 a `$4000-$7FFF` depende del banco activo, que el
 análisis estático tiene que deducir. `gbrecomp` lleva, en cada recorrido
 lineal, los **valores constantes de los registros** y el **último valor
-escrito al registro de banco** (`$2000-$3FFF`), y con eso resuelve tres
-formas comunes:
+escrito al registro de banco** (`$2000-$3FFF`). Ese banco conocido **viaja con
+los saltos y llamadas** como contexto del destino; Wario Land II lo necesita,
+porque fija el banco en un lugar y llama a `$4000` en otro.
+
+Con eso se resuelven estas formas, todas genéricas:
 
 1. **Cambio directo:** `ld a, N` → `ld [$2000], a` → `call $4xxx`.
 2. **Comparación:** el banco sale de RAM (`ld a, [x]` → `ld [$2000], a`) y luego
    `cp N` + `jr nz`. Si el salto no se toma, A vale N, y como el banco se
    escribió desde A, también vale N.
-3. **Trampolines:** rutinas del banco 0 que cambian al banco que reciben en un
-   registro y saltan a `HL` (el `Bankswitch` de Pokémon). Se reconocen
-   ejecutándolas con **registros simbólicos**, siguiendo llamadas internas, la
-   pila y celdas de RAM. En cada llamada con ese registro y `HL` constantes, el
-   destino queda resuelto. También se descubre la dirección de regreso que el
-   trampolín empuja a la pila (`ld bc, nn` + `push bc` + `jp hl`).
+3. **Rutinas especiales del banco 0**, reconocidas ejecutándolas con
+   **registros simbólicos** ("lo que traía el registro al entrar"), siguiendo
+   llamadas internas, la pila y celdas de RAM:
+   - **Trampolín:** escribe en el registro de banco un valor que le llega en un
+     registro y salta a `HL` (el `Bankswitch` de Pokémon Rojo, el `FarCall` de
+     Oro, que además pasa el banco por RAM). En cada llamada con ese registro y
+     `HL` constantes, el destino queda resuelto. También se descubre la
+     dirección de regreso que empuja a la pila (`ld bc, nn` + `push bc` +
+     `jp hl`).
+   - **Fijador de banco:** escribe ese valor y regresa (el `rst $10` de Oro).
+     Después de llamarla, el banco activo es ese valor.
+   - **Saltador por tabla:** lee a través del `HL` con que la llamaron y termina
+     en `jp hl` (el `rst $28` de Oro). `HL` apunta a una tabla de punteros.
 
 Lo que se decide en tiempo de ejecución (p. ej., el motor de audio de Pokémon
-se elige por descarte) lo cubren las trazas.
+Rojo se elige por descarte) lo cubren las trazas.
 
-| Juego | Solo estático | Con trazas de difftest |
-|---|---|---|
-| Super Mario Land (MBC1) | 92.7 % (todo lo de ROM) | — |
-| Pokémon Rojo (MBC3), antes de los trampolines | 20.0 % | — |
-| Pokémon Rojo, con trampolines y `cp` | 90.5 % | **97.6 %** |
+| Juego | Controlador | Solo estático | Con trazas de difftest |
+|---|---|---|---|
+| Super Mario Land | MBC1 | 92.7 % (todo lo de ROM) | — |
+| Pokémon Rojo, sin trampolines | MBC3 | 20.0 % | — |
+| Pokémon Rojo | MBC3 | 90.5 % | **97.6 %** |
+| Pokémon Amarillo | MBC5 | 89.6-92.3 % | **96.6-97.4 %** |
+| Pokémon Oro / Plata | MBC3 + reloj, 2 MB | 96.9 % | **98.2-98.3 %** |
+| Wario Land II | MBC3 | 53.9 % | **93.8 %** |
 
-El resto en los tres juegos es la rutina de DMA en HRAM. Las sesiones de
-Pokémon apenas pasan de la introducción, así que su porcentaje vale para lo
-jugado, no para el juego completo.
+En todos los juegos, con traza, ninguna dirección de ROM cae al intérprete: lo
+que queda es código en RAM (la rutina de DMA en HRAM y similares). Las sesiones
+aleatorias de Pokémon apenas pasan de la introducción, así que esos porcentajes
+valen para lo jugado, no para el juego completo. Ningún juego mostró
+diferencias en la prueba diferencial.
+
+`tests/recomp_game.sh ROM NOMBRE` hace el ciclo completo para un juego:
+recompila, compila, prueba con varias semillas, junta la traza, recompila con
+ella y vuelve a probar.
 
 ### MBC
 

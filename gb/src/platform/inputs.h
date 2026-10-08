@@ -12,6 +12,10 @@
  * (formato PAD_*).
  * El estado se mantiene hasta la siguiente línea.
  *
+ * Líneas opcionales al principio: "modelo dmg|cgb|sgb" (con qué modelo se
+ * grabó; un mismo juego tarda distinto en cada uno) y "paleta up+a" (la
+ * combinación del modo de compatibilidad del GBC).
+ *
  * Lo usan la plataforma SDL (--record / --play) y difftest (--input).
  */
 #ifndef INPUTS_H
@@ -28,7 +32,24 @@ typedef struct {
     long *frame;
     u8 *pad;
     size_t n, cap, pos;
+    int model;          /* GB_MODEL_AUTO si el archivo no lo dice */
+    char palette[16];   /* "" si no lo dice */
 } InputScript;
+
+/* "dmg", "cgb", "sgb" → GB_MODEL_*; cualquier otra cosa → -2 */
+static inline int model_from_name(const char *s)
+{
+    if (!strcmp(s, "dmg")) return GB_MODEL_DMG;
+    if (!strcmp(s, "cgb")) return GB_MODEL_CGB;
+    if (!strcmp(s, "sgb")) return GB_MODEL_SGB;
+    if (!strcmp(s, "auto")) return GB_MODEL_AUTO;
+    return -2;
+}
+
+static inline const char *model_name(const GB *g)
+{
+    return g->cgb_hw ? "cgb" : g->sgb ? "sgb" : "dmg";
+}
 
 static const char *const input_names[8] = {
     "A", "B", "SELECT", "START", "RIGHT", "LEFT", "UP", "DOWN",
@@ -62,6 +83,7 @@ static inline const char *inputs_load(InputScript *s, const char *path)
     static char err[256];
     FILE *f = fopen(path, "r");
     memset(s, 0, sizeof *s);
+    s->model = GB_MODEL_AUTO;
     if (!f) {
         snprintf(err, sizeof err, "no se pudo abrir %s", path);
         return err;
@@ -73,7 +95,20 @@ static inline const char *inputs_load(InputScript *s, const char *path)
         char *hash = strchr(line, '#');
         if (hash) *hash = 0;
         long frame;
-        char pads[128];
+        char pads[128], word[16];
+        if (sscanf(line, " modelo %15s", word) == 1) {
+            s->model = model_from_name(word);
+            if (s->model < GB_MODEL_AUTO) {
+                snprintf(err, sizeof err, "%s:%d: modelo desconocido", path, lineno);
+                fclose(f);
+                return err;
+            }
+            continue;
+        }
+        if (sscanf(line, " paleta %15s", word) == 1) {
+            snprintf(s->palette, sizeof s->palette, "%s", word);
+            continue;
+        }
         int got = sscanf(line, "%ld %127s", &frame, pads);
         if (got <= 0) continue;
         u8 pad;
@@ -107,6 +142,13 @@ static inline u8 inputs_pad(InputScript *s, long frame)
 static inline long inputs_last_frame(const InputScript *s)
 {
     return s->n ? s->frame[s->n - 1] : 0;
+}
+
+/* Grabación: encabezado con el modelo (y la paleta, si se eligió) */
+static inline void inputs_record_header(FILE *f, const GB *g, const char *palette)
+{
+    fprintf(f, "modelo %s\n", model_name(g));
+    if (palette && *palette) fprintf(f, "paleta %s\n", palette);
 }
 
 /* Grabación: escribe una línea solo cuando cambian los botones */

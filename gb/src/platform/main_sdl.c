@@ -4,12 +4,16 @@
  *
  * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--forget-rom]
  *            [--record archivo | --play archivo] [--uncovered archivo]
- *            [--model dmg|cgb|sgb]
+ *            [--model dmg|cgb|sgb] [--palette up+a]
  *   --interp      ejecuta todo con el intérprete (para comparar)
  *   --force       acepta una ROM con otro SHA1 (solo con el intérprete)
  *   --forget-rom  borra la copia guardada de la ROM y la vuelve a pedir
  *   --model       fuerza el modelo; por omisión, color si el juego lo admite,
- *                 si no Super Game Boy (con borde) si lo admite, si no DMG
+ *                 si no Super Game Boy (con borde) si lo admite, si no un Game Boy
+ *                 Color en modo de compatibilidad (el juego de DMG coloreado)
+ *   --palette     paleta del modo de compatibilidad, como la combinación de
+ *                 botones al encender un GBC: up, down, left, right, up+a,
+ *                 down+a, left+a, right+a, up+b, down+b, left+b o right+b
  *   --record      graba los botones en un archivo de texto (ver inputs.h), para
  *                 reproducirlos con --play o con difftest --input
  *   --play        reproduce un archivo grabado (el teclado se ignora)
@@ -196,7 +200,7 @@ static u8 read_pad(void)
 }
 
 /* Tonos del LCD del DMG, del más claro al más oscuro */
-static const Uint32 palette[4] = { 0xFFE0F8D0, 0xFF88C070, 0xFF346856, 0xFF081820 };
+static const Uint32 dmg_shades[4] = { 0xFFE0F8D0, 0xFF88C070, 0xFF346856, 0xFF081820 };
 
 /* Color del Game Boy Color (RGB555, rojo en los bits bajos) a ARGB8888 */
 static Uint32 rgb555_to_argb(u16 v)
@@ -212,7 +216,7 @@ int main(int argc, char *argv[])
 {
     const char *rom_arg = NULL;
     int scale = 4, interp_only = 0, force = 0, forget = 0, model = GB_MODEL_AUTO;
-    const char *record_path = NULL, *play_path = NULL, *uncovered_path = NULL;
+    const char *record_path = NULL, *play_path = NULL, *uncovered_path = NULL, *palette = NULL;
     static GB gb;
     char msg[4096];
 
@@ -222,10 +226,10 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--forget-rom")) forget = 1;
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            const char *m = argv[++i];
-            model = !strcmp(m, "dmg") ? GB_MODEL_DMG : !strcmp(m, "cgb") ? GB_MODEL_CGB :
-                    !strcmp(m, "sgb") ? GB_MODEL_SGB : GB_MODEL_AUTO;
+            model = model_from_name(argv[++i]);
+            if (model < GB_MODEL_AUTO) fail("Modelo desconocido: usa dmg, cgb o sgb.");
         }
+        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) palette = argv[++i];
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
         else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered_path = argv[++i];
@@ -292,24 +296,36 @@ int main(int argc, char *argv[])
     if (!from_cache && !interp_only && !u8_write_file(cache_path, rom.data, rom.size))
         fprintf(stderr, "no se pudo guardar la copia de la ROM en %s\n", cache_path);
 
-    const char *err = gb_init_model(&gb, rom.data, (u32)rom.size, model);
-    free(rom.data);
-    if (err) fail(err);
-    if (!interp_only) gb.recomp_lookup = recomp_lookup;
-    gb.apu.enabled = 1;
-    if (uncovered_path) gb.trace = mark_uncovered;
-    if (gb_has_battery(&gb)) load_game(&gb, save_path);
-
     InputScript script;
     int play = 0, last_pad = -1;
     long frame = 0;
     FILE *record = NULL;
     if (play_path) {
+        /* La grabación dice con qué modelo y paleta se hizo */
         const char *ierr = inputs_load(&script, play_path);
         if (ierr) fail(ierr);
         play = 1;
+        if (model == GB_MODEL_AUTO) model = script.model;
+        if (!palette && script.palette[0]) palette = script.palette;
     }
+    /* Un juego que no admite color ni SGB corre en un GBC, que lo colorea */
+    if (model == GB_MODEL_AUTO && rom.size >= 0x150 && !(rom.data[0x143] & 0x80) &&
+        !(rom.data[0x146] == 0x03 && rom.data[0x14B] == 0x33))
+        model = GB_MODEL_CGB;
+
+    const char *err = gb_init_model(&gb, rom.data, (u32)rom.size, model);
+    free(rom.data);
+    if (err) fail(err);
+    if (palette && !gb_compat_palette(&gb, palette))
+        fail("La paleta solo se puede elegir para juegos de DMG en un Game Boy Color:\n"
+             "up, down, left, right, up+a, ..., right+b.");
+    if (!interp_only) gb.recomp_lookup = recomp_lookup;
+    gb.apu.enabled = 1;
+    if (uncovered_path) gb.trace = mark_uncovered;
+    if (gb_has_battery(&gb)) load_game(&gb, save_path);
+
     if (record_path && !(record = u8_fopen(record_path, "w"))) fail("No se pudo crear el archivo de grabación.");
+    if (record) inputs_record_header(record, &gb, palette);
 
     /* Super Game Boy: la imagen de la SNES, con el borde */
     const int W = gb.sgb ? SGB_SCREEN_W : GB_SCREEN_W, H = gb.sgb ? SGB_SCREEN_H : GB_SCREEN_H;
@@ -362,7 +378,7 @@ int main(int argc, char *argv[])
         } else {
             const u16 *fb = gb_framebuffer(&gb);
             for (int i = 0; i < W * H; i++)
-                pixels[i] = gb.cgb ? rgb555_to_argb(fb[i]) : palette[fb[i] & 3];
+                pixels[i] = gb.cgb_hw ? rgb555_to_argb(fb[i]) : dmg_shades[fb[i] & 3];
         }
         SDL_UpdateTexture(tex, NULL, pixels, W * (int)sizeof(Uint32));
         SDL_RenderClear(ren);

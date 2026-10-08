@@ -199,7 +199,7 @@ static void save_screen(GB *g, const char *path)
         for (int x = 0; x < W; x++) {
             u16 v = fb[y * W + x];
             u8 *px = row + 1 + x * 3;
-            if (!g->cgb && !g->sgb) {
+            if (!g->cgb_hw && !g->sgb) {
                 px[0] = px[1] = px[2] = shade[v & 3];
             } else {
                 for (int c = 0; c < 3; c++) {
@@ -344,6 +344,7 @@ int main(int argc, char **argv)
     int frames_given = 0;
     long frames = 3600, every = 600;
     int bench = 0, model = GB_MODEL_AUTO;
+    const char *palette = NULL;
     u32 seed = 1;
 
     for (int i = 1; i < argc; i++) {
@@ -358,10 +359,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--bench")) bench = 1;
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            const char *m = argv[++i];
-            model = !strcmp(m, "dmg") ? GB_MODEL_DMG : !strcmp(m, "cgb") ? GB_MODEL_CGB :
-                    !strcmp(m, "sgb") ? GB_MODEL_SGB : GB_MODEL_AUTO;
+            model = model_from_name(argv[++i]);
+            if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
         }
+        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) palette = argv[++i];
         else rom_path = argv[i];
     }
     if (!rom_path) {
@@ -379,6 +380,17 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    /* La grabación puede decir con qué modelo y paleta se hizo */
+    if (input_path) {
+        const char *ierr = inputs_load(&script, input_path);
+        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+        use_script = 1;
+        /* Sin --frames: hasta 10 segundos después del último cambio */
+        if (!frames_given) frames = inputs_last_frame(&script) + 600;
+        if (model == GB_MODEL_AUTO) model = script.model;
+        if (!palette && script.palette[0]) palette = script.palette;
+    }
+
     const char *err;
     if ((err = gb_init_model(&rec, rom, (u32)size, model)) || (err = gb_init_model(&ref, rom, (u32)size, model)) ||
         (err = gb_init_model(&snap_rec, rom, (u32)size, model)) || (err = gb_init_model(&snap_ref, rom, (u32)size, model))) {
@@ -386,6 +398,10 @@ int main(int argc, char **argv)
         return 2;
     }
     free(rom);
+    if (palette && !(gb_compat_palette(&rec, palette) && gb_compat_palette(&ref, palette))) {
+        fprintf(stderr, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC\n", palette);
+        return 2;
+    }
     rec.recomp_lookup = recomp_lookup;
     rec.trace = count_interp;
     if (executed_path) ref.trace = mark_executed;
@@ -395,13 +411,6 @@ int main(int argc, char **argv)
             fprintf(stderr, "no se pudo cargar %s (¿el cartucho no tiene batería?)\n", save_path);
             return 2;
         }
-    }
-    if (input_path) {
-        const char *ierr = inputs_load(&script, input_path);
-        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
-        use_script = 1;
-        /* Sin --frames: hasta 10 segundos después del último cambio */
-        if (!frames_given) frames = inputs_last_frame(&script) + 600;
     }
     reset_pad(seed);
 

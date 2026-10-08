@@ -344,8 +344,17 @@ static int cgb_palette_blocked(GB *g)
     return (g->io[IO_LCDC] & 0x80) && g->ppu.mode == 3;
 }
 
+/* Registros del GBC que siguen vivos en el modo de compatibilidad: VBK (fijo
+ * en el banco 0), los índices de paleta y los no documentados menos $FF74
+ * (boot_hwio-C y unused_hwio-C de Mooneye) */
+static int compat_reg(u8 reg)
+{
+    return reg == 0x4F || reg == 0x68 || reg == 0x6A || (reg >= 0x72 && reg <= 0x77 && reg != 0x74);
+}
+
 static u8 cgb_io_read(GB *g, u8 reg)
 {
+    if (!g->cgb && !compat_reg(reg)) return 0xFF;
     switch (reg) {
     case 0x4D: return (u8)(0x7E | (g->double_speed ? 0x80 : 0) | (g->key1 & 1));
     case 0x4F: return (u8)(0xFE | g->vram_bank);
@@ -374,6 +383,7 @@ static void palette_write(GB *g, u8 *pal, u8 *ps, u8 v)
 /* Devuelve 1 si el registro es del CGB (y ya lo manejó) */
 static int cgb_io_write(GB *g, u8 reg, u8 v)
 {
+    if (!g->cgb && (!compat_reg(reg) || reg == 0x4F)) return 0;
     switch (reg) {
     case 0x4D: g->key1 = v & 1; return 1;
     case 0x4F: g->vram_bank = v & 1; return 1;
@@ -402,7 +412,7 @@ static int cgb_io_write(GB *g, u8 reg, u8 v)
 static u8 io_read(GB *g, u8 reg)
 {
     if (reg >= 0x10 && reg < 0x40) return apu_read(g, (u16)(0xFF00 | reg));
-    if (g->cgb && reg >= 0x4C) return cgb_io_read(g, reg);
+    if (g->cgb_hw && reg >= 0x4C) return cgb_io_read(g, reg);
     switch (reg) {
     case IO_P1:   return (u8)(0xC0 | (g->io[IO_P1] & 0x30) | joypad_lines(g));
     case IO_SB:   return g->io[IO_SB];
@@ -422,7 +432,7 @@ static u8 io_read(GB *g, u8 reg)
 static void io_write(GB *g, u8 reg, u8 v)
 {
     if (reg >= 0x10 && reg < 0x40) { apu_write(g, (u16)(0xFF00 | reg), v); return; }
-    if (g->cgb && reg >= 0x4C && cgb_io_write(g, reg, v)) return;
+    if (g->cgb_hw && reg >= 0x4C && cgb_io_write(g, reg, v)) return;
     switch (reg) {
     case IO_P1:
         g->io[IO_P1] = v & 0x30;
@@ -708,7 +718,9 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
         else if (rom[0x146] == 0x03 && rom[0x14B] == 0x33) model = GB_MODEL_SGB;
         else model = GB_MODEL_DMG;
     }
-    g->cgb = model == GB_MODEL_CGB;
+    /* En un GBC, un juego sin la marca de color corre en modo de compatibilidad */
+    g->cgb_hw = model == GB_MODEL_CGB;
+    g->cgb = g->cgb_hw && (rom[0x143] & 0x80);
     g->sgb = model == GB_MODEL_SGB;
     g->wram_bank = 1;
 
@@ -738,6 +750,12 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
         c->b = 0x00; c->c = 0x00;
         c->d = 0xFF; c->e = 0x56;
         c->h = 0x00; c->l = 0x0D;
+    } else if (g->cgb_hw) {
+        /* GBC con un juego de DMG (boot_regs-cgb de Mooneye) */
+        c->a = 0x11; c->f = 0x80;
+        c->b = 0x00; c->c = 0x00;
+        c->d = 0x00; c->e = 0x08;
+        c->h = 0x00; c->l = 0x7C;
     } else if (g->sgb) {
         c->a = 0x01; c->f = 0x00;
         c->b = 0x00; c->c = 0x14;
@@ -753,8 +771,8 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
     c->pc = 0x0100;
 
     g->io[IO_P1] = 0x00;    /* P1 se lee como $CF */
-    if (g->sgb) {
-        g->io[IO_P1] = 0x30;        /* la boot ROM del SGB lo deja en $FF */
+    if (g->sgb || (g->cgb_hw && !g->cgb)) {
+        g->io[IO_P1] = 0x30;        /* las boot ROM del SGB y del GBC lo dejan en $FF */
         g->sgbs.last_p1 = 0x30;
     }
     g->io[IO_SC] = 0x00;
@@ -768,6 +786,16 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
         /* La boot ROM del CGB deja las paletas en blanco */
         memset(g->bg_pal, 0xFF, sizeof g->bg_pal);
         memset(g->obj_pal, 0xFF, sizeof g->obj_pal);
+        g->io[0x70] = 1;
+        g->hdma_left = 0x7F;
+    } else if (g->cgb_hw) {
+        /* Compatibilidad: paletas según el título; el mapa del logo solo
+         * queda para los juegos que lo necesitan */
+        memset(g->bg_pal, 0xFF, sizeof g->bg_pal);
+        memset(g->obj_pal, 0xFF, sizeof g->obj_pal);
+        compat_boot(g);
+        boot_vram(g);
+        if (!(compat_combo(g) & 0x80)) memset(g->vram + 0x1800, 0, 0x400);
         g->io[0x70] = 1;
         g->hdma_left = 0x7F;
     } else {

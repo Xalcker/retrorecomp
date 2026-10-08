@@ -230,7 +230,7 @@ static void fetcher_step(GB *g)
     default:
         p->fetch_state = FETCH_PUSH;
         if (p->bg_size > 0) return;
-        if (!g->cgb && p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) {
+        if (!g->cgb_hw && p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) {
             /* Falla del DMG: con la ventana apagada a mitad de línea, en la
              * columna de WX se mete un solo píxel de color 0 */
             u8 logical = POS(p->pos + 7);
@@ -274,7 +274,7 @@ static void render_pixel(GB *g)
     u8 lcdc = LCDC(g);
 
     /* Un sprite en X = 0 pendiente detiene la salida */
-    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb) && p->objs_x[p->n_objs - 1] == 0) return;
+    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb_hw) && p->objs_x[p->n_objs - 1] == 0) return;
     if (!p->bg_size) return;
 
     u8 bg, bg_attr = 0;
@@ -327,9 +327,17 @@ static void render_pixel(GB *g)
     } else {
         if (!(lcdc & LCDC_BGON)) bg = 0;    /* DMG: sin fondo, color 0 */
         color = (g->io[IO_BGP] >> (bg * 2)) & 3;
+        int obj = 0;
         if (o.pixel && (lcdc & LCDC_OBJON) && !((o.attr & 0x80) && bg)) {
-            u8 pal = (o.attr & 0x10) ? g->io[IO_OBP1] : g->io[IO_OBP0];
+            obj = (o.attr & 0x10) ? 2 : 1;
+            u8 pal = obj == 2 ? g->io[IO_OBP1] : g->io[IO_OBP0];
             color = (pal >> (o.pixel * 2)) & 3;
+        }
+        if (g->cgb_hw) {
+            /* GBC en compatibilidad: el tono elige un color de la paleta 0 de
+             * fondo o de las paletas 0 y 1 de sprites */
+            const u8 *c = obj ? &g->obj_pal[(obj - 1) * 8 + color * 2] : &g->bg_pal[color * 2];
+            color = (u16)(c[0] | c[1] << 8) & 0x7FFF;
         }
     }
     if (p->lcd_x < GB_SCREEN_W && p->ly < GB_SCREEN_H)
@@ -343,7 +351,7 @@ static void overlay_object(GB *g, u8 lo, u8 hi)
 {
     Ppu *p = &g->ppu;
     /* CGB (con OPRI = 0): gana el de menor índice de OAM; DMG: el que ya estaba */
-    int by_index = g->cgb && !g->opri;
+    int by_index = g->cgb_hw && !g->opri;
     u8 index = p->objs[p->n_objs - 1];
     while (p->obj_size < 8) {
         p->obj_fifo[(p->obj_head + p->obj_size) & 7].pixel = 0;
@@ -398,7 +406,7 @@ static void window_check(GB *g)
     } else if (wx < 166) {
         if (wx == POS(p->pos + 7)) {
             activate = 1;
-        } else if (!g->cgb && wx == POS(p->pos + 6) && !p->wx_just_changed) {
+        } else if (!g->cgb_hw && wx == POS(p->pos + 6) && !p->wx_just_changed) {
             /* Desfase del DMG entre la PPU y el LCD */
             activate = 1;
             if (p->lcd_x > 0) p->lcd_x--;
@@ -466,7 +474,7 @@ static void mode3_dot(GB *g)
     } else {
         window_check(g);
         if (p->resume == 2) return;
-        if (g->io[IO_WX] == POS(p->pos + 7) && (!g->cgb || g->io[IO_WX] == 0) &&
+        if (g->io[IO_WX] == POS(p->pos + 7) && (!g->cgb_hw || g->io[IO_WX] == 0) &&
             p->wx_triggered && !p->window_fetching &&
             p->fetch_state == 0 && p->bg_size == 8)
             p->insert_bg_pixel = 1;
@@ -475,7 +483,7 @@ static void mode3_dot(GB *g)
     /* Sprites: se descartan los que ya pasaron; el que coincide se lee */
     u8 mx = object_match_x(p);
     while (p->n_objs && p->objs_x[p->n_objs - 1] < mx) p->n_objs--;
-    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb) && p->objs_x[p->n_objs - 1] == mx) {
+    if (p->n_objs && ((lcdc & LCDC_OBJON) || g->cgb_hw) && p->objs_x[p->n_objs - 1] == mx) {
         /* El fetcher termina el mosaico que estaba leyendo; luego, 6 puntos */
         int idle = fetcher_idle(p);
         fetcher_step(g);
@@ -557,7 +565,7 @@ static void visible_line_dot(GB *g)
             break;
         default:
             if (d >= 6 && d < 84 && !(d & 1)) add_object(g, (int)(d - 6) / 2);
-            if (d == 80 && !g->cgb) {
+            if (d == 80 && !g->cgb_hw) {
                 /* Al leer la entrada 37: VRAM se bloquea para leer y la OAM se
                  * libera para escribir hasta el modo 3 */
                 p->vram_rb = 1;
@@ -586,9 +594,14 @@ static void vblank_line_dot(GB *g)
             p->ly_cmp = -1;
             stat_update(g);
             break;
+        case 1:
+            /* GBC: la interrupción de modo 2 de la línea 144 llega un M-ciclo
+             * antes que la de VBlank (vblank_stat_intr-C) */
+            if (g->cgb_hw && p->ly == 144 && !p->stat_line && (g->io[IO_STAT] & 0x20)) IF_REG(g) |= INT_STAT;
+            break;
         case 2:
             p->ly_reg = p->ly;
-            if (p->ly == 144 && !p->stat_line && (g->io[IO_STAT] & 0x20)) IF_REG(g) |= INT_STAT;
+            if (!g->cgb_hw && p->ly == 144 && !p->stat_line && (g->io[IO_STAT] & 0x20)) IF_REG(g) |= INT_STAT;
             break;
         case 4:
             p->ly_cmp = p->ly;
@@ -621,13 +634,13 @@ static void vblank_line_dot(GB *g)
         p->ly_reg = 153;
         break;
     case 4:
-        if (g->cgb) {       /* CGB: LY sigue en 153 hasta el punto 8 */
+        if (g->cgb_hw) {       /* CGB: LY sigue en 153 hasta el punto 8 */
             p->ly_cmp = 153;
             stat_update(g);
         }
         break;
     case 6:
-        if (!g->cgb) {
+        if (!g->cgb_hw) {
             p->ly_reg = 0;
             p->ly_cmp = 153;
             stat_update(g);
@@ -635,7 +648,7 @@ static void vblank_line_dot(GB *g)
         break;
     case 8:
         p->ly_reg = 0;
-        p->ly_cmp = g->cgb ? 153 : -1;
+        p->ly_cmp = g->cgb_hw ? 153 : -1;
         stat_update(g);
         break;
     case 12:
@@ -673,7 +686,7 @@ static void ppu_dot(GB *g)
     p->wx_just_changed = 0;
     /* Tras escribir LCDC o WY, WY se vuelve a comparar en la rejilla de 8 puntos */
     p->wy_mod++;
-    if (p->wy_pending && ((p->wy_mod + (g->cgb ? 0 : 2)) & 7) == 0) {
+    if (p->wy_pending && ((p->wy_mod + (g->cgb_hw ? 0 : 2)) & 7) == 0) {
         p->wy_pending = 0;
         if (!p->wy_triggered) wy_check(g);
     }
@@ -771,7 +784,7 @@ void ppu_write(GB *g, u8 reg, u8 v)
             p->wy_triggered = 0;
             p->rendering = 0;
             for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++)
-                p->back[i] = g->cgb ? 0x7FFF : 0;   /* pantalla en blanco */
+                p->back[i] = g->cgb_hw ? 0x7FFF : 0;   /* pantalla en blanco */
             p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
             finish_frame(g);
         } else if (!(old & LCDC_ON) && (v & LCDC_ON)) {
@@ -824,7 +837,7 @@ void ppu_write(GB *g, u8 reg, u8 v)
 void ppu_write_timed(GB *g, u8 reg, u8 v, u64 s)
 {
     Ppu *p = &g->ppu;
-    if (g->cgb) {
+    if (g->cgb_hw) {
         /* CGB (D/E) a velocidad normal: paletas DMG en s-2; LYC y WX en
          * s+1; STAT conserva un punto el bit de LYC viejo; el resto en s */
         switch (reg) {

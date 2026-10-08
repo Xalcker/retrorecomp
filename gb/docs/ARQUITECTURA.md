@@ -19,7 +19,7 @@ emite C99 + Makefile                  platform/        SDL2
 | Directorio | Contenido |
 |---|---|
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
-| `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `interp.c`. |
+| `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto. |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio) y `difftest.c` (prueba diferencial). |
 | `src/tools/` | `gen_interp` (genera el intérprete), `gbtest` (corre ROMs de prueba sin ventana), `png.c`. |
@@ -416,9 +416,12 @@ Velocidad: con la PPU por punto, Tetris corre a unas 27 veces el tiempo real
 
 El modelo se elige según la cabecera (`$143`, bit 7): los juegos que admiten
 color corren como CGB y los demás como DMG (`gb_init_model` permite forzarlo).
-No se emula el modo de compatibilidad del CGB (un juego de DMG en un Game Boy
-Color, con las paletas que elige su boot ROM), así que las pruebas de Mooneye
-para CGB, que corren en ese modo, quedan fuera.
+En el ejecutable generado, un juego que no admite color ni SGB corre en un GBC
+en modo de compatibilidad (ver abajo); `--model dmg` lo regresa al verde.
+
+Hay dos banderas: `g->cgb_hw` (el hardware es un GBC: temporización de la PPU,
+fallas propias del DMG desactivadas, framebuffer en RGB555) y `g->cgb` (modo
+CGB: bancos, atributos, HDMA, doble velocidad, registros de color).
 
 En modo CGB el runtime tiene:
 - **Memoria:** VRAM de 2 bancos (VBK) y WRAM de 8 bancos de 4 KB (SVBK, en
@@ -451,6 +454,40 @@ Validación:
   `ei_delay_halt`.
 - Pokémon Oro, Plata y Amarillo corren en color, sin diferencias en
   `difftest`.
+
+### Modo de compatibilidad
+
+Un juego de DMG en un Game Boy Color (`cgb_hw` = 1, `cgb` = 0). La boot ROM
+del GBC le elige colores (`src/runtime/compat.c`):
+
+- **Paleta por título:** si el licenciatario es Nintendo, suma los 16 bytes del
+  título y la busca en una tabla; las sumas repetidas se desempatan con la
+  cuarta letra. Los demás juegos reciben la combinación por omisión: fondo
+  verde y azul, sprites rojos.
+- **Tres paletas:** fondo, sprites 0 y sprites 1. Cada tono que sale de BGP,
+  OBP0 u OBP1 elige un color de su paleta. Las prioridades siguen las reglas del
+  DMG, con OPRI = 1 (por X).
+- **Combinaciones de botones:** las 12 del GBC (flecha, flecha + A, flecha + B),
+  con `--palette up+a`, etc., en el ejecutable, `gbtest` y `difftest`.
+- **Registros:** siguen accesibles VBK (fijo en el banco 0), BCPS/OCPS y los no
+  documentados (menos `$FF74`); los demás registros del GBC dan `$FF`.
+- **Arranque:** A = `$11`, E = `$08`, L = `$7C`; P1 en `$FF`; DIV interno en
+  `$2678`. El mapa del logo solo queda para los juegos marcados en la tabla.
+- **PPU:** la del GBC. Por ejemplo, la interrupción de modo 2 de la línea 144
+  llega un M-ciclo antes que la de VBlank.
+
+Las tablas vienen de la boot ROM libre de SameBoy (licencia MIT; el aviso está
+en `compat.c`). La duración del arranque puede variar unos ciclos con la
+búsqueda en la tabla. Solo se calibró con un juego que no es de Nintendo
+(`boot_div-cgbABCDE`).
+
+Las grabaciones de entradas guardan el modelo (`modelo dmg`) y la paleta, porque
+un juego tarda distinto en cada modelo y la grabación se desfasaría.
+
+Validación: pasan `boot_regs-cgb`, `boot_div-cgbABCDE`, `boot_hwio-C`,
+`unused_hwio-C` y `vblank_stat_intr-C` de Mooneye. Tetris (amarillo y rojo) y
+Super Mario Land (cielo azul claro) corren sin diferencias en `difftest`, en
+DMG y en compatibilidad.
 
 ## Super Game Boy
 
@@ -494,12 +531,12 @@ Validación:
 - Pokémon Rojo y Wario Land II muestran su borde y sus colores, sin diferencias
   en `difftest`.
 - Las entradas grabadas de Pokémon Rojo (`pokered_save`, `pokered_continue`)
-  se grabaron en DMG. Hay que correrlas con `--model dmg`, porque en SGB el
-  juego tarda distinto y la grabación se desfasa.
+  se grabaron en DMG y lo dicen con una línea `modelo dmg`. En SGB el juego
+  tarda distinto y la grabación se desfasaría.
 
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **125 de 125** (DMG, más las de CGB y SGB que ya pasan).
+`sh tests/run_tests.sh`: **130 de 130** (DMG, más las de CGB, compatibilidad y SGB que ya pasan).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`.

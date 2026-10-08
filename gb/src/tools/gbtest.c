@@ -3,7 +3,7 @@
  *
  * Uso: gbtest rom.gb [--seconds N] [--mooneye | --until-ldbb] [--input archivo]
  *                    [--expect esperado.png] [--dump salida.png] [--serial] [--no-block]
- *                    [--model dmg|cgb|sgb] [--dump-sgb imagen_sgb.png]
+ *                    [--model dmg|cgb|sgb] [--palette up+a] [--dump-sgb imagen_sgb.png]
  *
  * Criterios de resultado:
  *   - Mooneye (--mooneye): al ejecutar LD B,B, los registros deben valer
@@ -55,7 +55,7 @@ static void rgb555(u16 v, unsigned char out[3])
 
 static void pixel_rgb(const GB *g, u16 v, unsigned char out[3])
 {
-    if (g->cgb) rgb555(v, out);
+    if (g->cgb_hw) rgb555(v, out);
     else out[0] = out[1] = out[2] = shade[v & 3];
 }
 
@@ -96,6 +96,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *expect = NULL, *dump = NULL, *dump_sgb = NULL;
     int model = GB_MODEL_AUTO;
+    const char *palette = NULL;
     double seconds = 30;
     int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0;
     const char *input_path = NULL;
@@ -107,10 +108,10 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
         else if (!strcmp(argv[i], "--dump-sgb") && i + 1 < argc) dump_sgb = argv[++i];
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            const char *m = argv[++i];
-            model = !strcmp(m, "dmg") ? GB_MODEL_DMG : !strcmp(m, "cgb") ? GB_MODEL_CGB :
-                    !strcmp(m, "sgb") ? GB_MODEL_SGB : GB_MODEL_AUTO;
+            model = model_from_name(argv[++i]);
+            if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
         }
+        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) palette = argv[++i];
         else if (!strcmp(argv[i], "--serial")) show_serial = 1;
         else if (!strcmp(argv[i], "--no-block")) no_block = 1;
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
@@ -130,6 +131,14 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    /* La grabación puede decir con qué modelo y paleta se hizo */
+    if (input_path) {
+        const char *ierr = inputs_load(&script, input_path);
+        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+        if (model == GB_MODEL_AUTO) model = script.model;
+        if (!palette && script.palette[0]) palette = script.palette;
+    }
+
     static GB g;
     const char *err = gb_init_model(&g, rom, (u32)size, model);
     free(rom);
@@ -138,9 +147,10 @@ int main(int argc, char **argv)
         return 2;
     }
     if (no_block) g.block_vram = 0;
-    if (input_path) {
-        const char *ierr = inputs_load(&script, input_path);
-        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+    if (palette && !gb_compat_palette(&g, palette)) {
+        fprintf(stderr, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC "
+                        "(up, up+a, up+b, down, ..., right+b)\n", palette);
+        return 2;
     }
 
     long frames = (long)(seconds * GB_CPU_HZ / GB_CYCLES_FRAME);

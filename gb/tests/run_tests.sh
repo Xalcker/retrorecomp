@@ -51,6 +51,13 @@ for rom in "$T"/same-suite/dma/gbc_dma_cont.gb "$T"/same-suite/dma/gdma_addr_mas
     corre "$rom" --mooneye --seconds 5
 done
 
+# --- GBC en modo de compatibilidad (juegos de DMG en un Game Boy Color) ---
+M=$T/mooneye-test-suite/misc
+for rom in "$M"/boot_regs-cgb.gb "$M"/boot_div-cgbABCDE.gb "$M"/boot_hwio-C.gb "$M"/bits/unused_hwio-C.gb \
+           "$M"/ppu/vblank_stat_intr-C.gb; do
+    corre "$rom" --mooneye --model cgb --seconds 5
+done
+
 # --- Super Game Boy: arranque (Mooneye) y multijugador (SameSuite) ---
 for rom in "$T"/mooneye-test-suite/acceptance/boot_regs-sgb.gb "$T"/mooneye-test-suite/acceptance/boot_div-S.gb \
            "$T"/mooneye-test-suite/acceptance/boot_div2-S.gb "$T"/mooneye-test-suite/acceptance/boot_hwio-S.gb \

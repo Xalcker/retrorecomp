@@ -45,6 +45,8 @@ void timer_reset(GB *g)
             for (int b = 0; b < 8; b++) zeros += !((g->rom[a] >> b) & 1);
         t->sys = (u16)(0xD308 + zeros * 4);
     }
+    if (g->cgb_hw && !g->cgb)
+        t->sys = 0x2678;    /* GBC con un juego de DMG (boot_div-cgbABCDE) */
     t->tima = 0;
     t->tma = 0;
     t->tac = 0xF8;

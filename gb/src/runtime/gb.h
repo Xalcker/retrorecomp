@@ -261,6 +261,10 @@ struct GB {
 
     /* Modelo: 0 = DMG, 1 = Game Boy Color (en modo CGB) */
     int cgb;
+    /* Hardware de Game Boy Color (temporización de la PPU, framebuffer en
+     * RGB555). Con cgb = 0 es el modo de compatibilidad: un juego de DMG en
+     * un GBC, con las paletas que eligió la boot ROM. */
+    int cgb_hw;
     int sgb;            /* Super Game Boy (siempre con cgb = 0) */
     Sgb sgbs;
 
@@ -324,6 +328,11 @@ const char *gb_init(GB *g, const u8 *rom, u32 size);
 /* Igual, eligiendo el modelo: color automático según la cabecera, o forzado */
 enum { GB_MODEL_AUTO = -1, GB_MODEL_DMG = 0, GB_MODEL_CGB = 1, GB_MODEL_SGB = 2 };
 const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model);
+
+/* Modo de compatibilidad del GBC: cambia las paletas como si se hubiera
+ * presionado una combinación al arrancar ("up", "up+a", "left+b", ...: las
+ * 12 del GBC). Devuelve 0 si el nombre no existe o no es ese modo. */
+int gb_compat_palette(GB *g, const char *combo);
 
 /* PPU → HDMA: empieza un HBlank de una línea visible (CGB) */
 void gb_hdma_hblank(GB *g);
@@ -420,6 +429,9 @@ void apu_mcycle(GB *g, u32 dots);   /* avanza `dots` puntos de tiempo real */
 void apu_div_event(GB *g);
 u8   apu_read(GB *g, u16 addr);
 void apu_write(GB *g, u16 addr, u8 value);
+
+void compat_boot(GB *g);    /* paletas del modo de compatibilidad del GBC */
+int  compat_combo(const GB *g);
 
 void sgb_reset(GB *g);
 void sgb_p1_write(GB *g, u8 value);     /* bits 4-5 escritos en P1 */

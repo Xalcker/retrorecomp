@@ -1,3 +1,4 @@
+modelo dmg
 # Tetris: modo B, nivel 0, altura 0; luego jugadas pseudoaleatorias
 0    -
 620  START

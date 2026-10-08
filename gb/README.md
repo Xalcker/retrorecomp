@@ -102,8 +102,9 @@ instrucciones que corrió como código recompilado:
 | Wario Land II | SGB | 94.7 % |
 | Pokémon Oro, Plata y Amarillo | GBC | sin diferencias |
 
-Linux y Windows están probados: compilación, batería de pruebas, proyectos
-generados y `difftest`. macOS solo se compila en la integración continua.
+La integración continua compila, corre la batería y recompila una ROM de
+prueba en Linux, macOS y Windows. En Linux y Windows además se jugaron los
+proyectos generados; en macOS todavía no.
 
 ## Límites
 

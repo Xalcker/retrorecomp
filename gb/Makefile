@@ -18,11 +18,15 @@ RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test dist
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbrecomp$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+
+# Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
+vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/vgmcheck.c $(BUILD)/libgbrt.a -lm
 
 # Corredor de ROMs de prueba sin ventana
-gbtest$(EXE): src/tools/gbtest.c src/tools/png.c src/tools/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtest.c src/tools/png.c $(BUILD)/libgbrt.a
+gbtest$(EXE): src/tools/gbtest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtest.c src/platform/png.c $(BUILD)/libgbrt.a
 
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -31,7 +35,7 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
                   recomp.h console.h save.c sgb.c compat.c
 EMBED_PLATFORM := main_sdl.c difftest.c inputs.h files.c files.h i18n.c i18n.h settings.c settings.h \
-                  ui_menu.c ui_menu.h ui_font.c ui_font.h
+                  ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h png.c png.h
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(BUILD)/gen/interp_ops.inc
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f)) \
@@ -83,4 +87,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist gbtest$(EXE) gbrecomp$(EXE)
+	rm -rf $(BUILD) dist gbtest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

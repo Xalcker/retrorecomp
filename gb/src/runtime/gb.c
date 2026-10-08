@@ -431,7 +431,11 @@ static u8 io_read(GB *g, u8 reg)
 
 static void io_write(GB *g, u8 reg, u8 v)
 {
-    if (reg >= 0x10 && reg < 0x40) { apu_write(g, (u16)(0xFF00 | reg), v); return; }
+    if (reg >= 0x10 && reg < 0x40) {
+        if (g->apu_log) g->apu_log(g, (u16)(0xFF00 | reg), v);
+        apu_write(g, (u16)(0xFF00 | reg), v);
+        return;
+    }
     if (g->cgb_hw && reg >= 0x4C && cgb_io_write(g, reg, v)) return;
     switch (reg) {
     case IO_P1:
@@ -841,6 +845,7 @@ void gb_copy_state(GB *dst, const GB *src)
     size_t serial_cap = dst->serial.out_cap;
     RecompFn (*lookup)(GB *, u16) = dst->recomp_lookup;
     void (*trace)(GB *) = dst->trace;
+    void (*apu_log)(GB *, u16, u8) = dst->apu_log;
 
     memcpy(dst, src, sizeof *dst);
 
@@ -853,6 +858,7 @@ void gb_copy_state(GB *dst, const GB *src)
     if (serial_out && src->serial.out) memcpy(serial_out, src->serial.out, dst->serial.out_len);
     dst->recomp_lookup = lookup;
     dst->trace = trace;
+    dst->apu_log = apu_log;
     /* Punteros internos que apuntaban a src */
     dst->ppu.back = dst->ppu.buf[src->ppu.back == src->ppu.buf[0] ? 0 : 1];
     gb_remap(dst);

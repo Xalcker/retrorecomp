@@ -46,6 +46,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "export.h"
 #include "files.h"
 #include "i18n.h"
 #include "inputs.h"
@@ -255,6 +256,7 @@ enum {
     A_COMPAT_AUTO, A_COMPAT_0, A_COMPAT_11 = A_COMPAT_0 + 11,
     A_SGB_BORDER, A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN,
     A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3,
+    A_REC_MUSIC, A_COLLECT_TILES, A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
     A_LANGUAGE_0,
 };
@@ -299,10 +301,44 @@ typedef struct {
     int last_pad;
     long frame;
     const char *uncovered_path;
+
+    /* Exportar música y gráficos */
+    MusicRecorder music;
+    TileCollector tiles;
+    char export_dir[1100];
 } App;
 
+/* Para el gancho de sonido del runtime, que no lleva contexto */
+static App *the_app;
+
+static void on_apu_write(GB *g, u16 addr, u8 value)
+{
+    music_register(&the_app->music, g, addr, value);
+}
+
+/* Ruta sin extensión para un archivo exportado: carpeta, juego, tipo y hora */
+static int export_base(App *app, const char *kind, char *out, size_t size)
+{
+    if (!u8_mkdir(app->export_dir)) return 0;
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char stamp[32] = "0";
+    if (t) strftime(stamp, sizeof stamp, "%Y%m%d_%H%M%S", t);
+    snprintf(out, size, "%s%s_%s_%s", app->export_dir, recomp_name, kind, stamp);
+    return 1;
+}
+
+static const char *file_name(const char *path)
+{
+    const char *s = path;
+    for (const char *p = path; *p; p++)
+        if (*p == '/' || *p == '\\') s = p + 1;
+    return s;
+}
+
 /* Pruebas de la interfaz: --ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
- * [--ui-action N] corre N cuadros sin ventana visible, abre un menú o hace
+ * [--ui-action N] [--ui-export] corre N cuadros sin ventana visible (con
+ * --ui-export, grabando música y gráficos), abre un menú o hace
  * una acción, guarda la imagen y sale */
 static const char *ui_shot_path;
 
@@ -377,12 +413,112 @@ static void apply_palette(App *app)
     if (!gb_compat_palette(&app->gb, p)) gb_compat_palette(&app->gb, "auto");
 }
 
+/* --- Exportar --- */
+
+static void stop_music(App *app, int report)
+{
+    if (!music_active(&app->music)) return;
+    int seconds = (int)((app->gb.rt - app->music.start_rt) / GB_CPU_HZ);
+    music_stop(&app->music, &app->gb, recomp_rom_title);
+    app->gb.apu_log = NULL;
+    if (report) {
+        char text[2048];
+        const char *name = file_name(app->music.base);
+        snprintf(text, sizeof text, tr(T_MUSIC_SAVED_FMT), seconds, name, name);
+        message(app, tr(T_EXPORT_TITLE), text);
+    }
+}
+
+static void toggle_music(App *app)
+{
+    if (music_active(&app->music)) {
+        stop_music(app, 1);
+        return;
+    }
+    char base[1300], text[1400];
+    if (!export_base(app, "musica", base, sizeof base) || !music_start(&app->music, &app->gb, base)) {
+        snprintf(text, sizeof text, tr(T_EXPORT_FAILED_FMT), app->export_dir);
+        message(app, tr(T_EXPORT_TITLE), text);
+        return;
+    }
+    app->gb.apu_log = on_apu_write;
+}
+
+static void stop_tiles(App *app, int report)
+{
+    if (!app->tiles.active) return;
+    char base[1300], text[2048];
+    int count = app->tiles.count;
+    if (!count) {
+        tiles_stop(&app->tiles, "");
+        if (report) message(app, tr(T_EXPORT_TITLE), tr(T_TILES_NONE));
+        return;
+    }
+    if (!export_base(app, "mosaicos", base, sizeof base)) {
+        tiles_stop(&app->tiles, "");
+        snprintf(text, sizeof text, tr(T_EXPORT_FAILED_FMT), app->export_dir);
+        if (report) message(app, tr(T_EXPORT_TITLE), text);
+        return;
+    }
+    int sheets = tiles_stop(&app->tiles, base);
+    snprintf(text, sizeof text, tr(T_TILES_SAVED_FMT), count, sheets, file_name(base));
+    if (report) message(app, tr(T_EXPORT_TITLE), text);
+}
+
+static void toggle_tiles(App *app)
+{
+    if (app->tiles.active) stop_tiles(app, 1);
+    else {
+        tiles_start(&app->tiles);
+        tiles_scan(&app->tiles, &app->gb);
+    }
+}
+
+static void game_size(const App *app, int *w, int *h);
+static void compose(const App *app, Uint32 *dst, int gw, int gh);
+
+static void screenshot(App *app)
+{
+    static Uint32 rgb[SGB_SCREEN_W * SGB_SCREEN_H];
+    char base[1300], path[1400], text[1500];
+    int gw, gh;
+    game_size(app, &gw, &gh);
+    compose(app, rgb, gw, gh);
+    if (!export_base(app, "captura", base, sizeof base)) {
+        snprintf(text, sizeof text, tr(T_EXPORT_FAILED_FMT), app->export_dir);
+        message(app, tr(T_EXPORT_TITLE), text);
+        return;
+    }
+    snprintf(path, sizeof path, "%s.png", base);
+    if (screenshot_write(path, rgb, gw, gh)) {
+        snprintf(text, sizeof text, tr(T_TITLE_SHOT_FMT), file_name(path));
+        notify(app, text);
+    } else {
+        snprintf(text, sizeof text, tr(T_EXPORT_FAILED_FMT), path);
+        message(app, tr(T_EXPORT_TITLE), text);
+    }
+}
+
+static void open_exports(App *app)
+{
+    u8_mkdir(app->export_dir);
+#if SDL_VERSION_ATLEAST(2, 0, 14)
+    char url[1300];
+    const char *p = app->export_dir;
+    /* file:///C:/... en Windows, file:///home/... en los demás */
+    snprintf(url, sizeof url, "file://%s%s", p[0] == '/' ? "" : "/", p);
+    for (char *c = url; *c; c++) if (*c == '\\') *c = '/';
+    SDL_OpenURL(url);
+#endif
+}
+
 /* Enciende (o reinicia) la consola con el modelo elegido */
 static void build_menus(App *app);
 
 static void power_on(App *app)
 {
     if (app->gb.rom) {
+        stop_music(app, 1);     /* la grabación sería de dos corridas */
         if (gb_has_battery(&app->gb)) save_game(&app->gb, app->save_path);
         gb_free(&app->gb);
     }
@@ -433,6 +569,7 @@ static void load_state(App *app)
         return;
     }
     /* Un estado de otra consola cambia el tamaño de la imagen y los menús */
+    stop_music(app, 0);     /* el tiempo de la grabación saltaría */
     int was_sgb = app->gb.sgb, was_compat = is_compat(&app->gb), was_cgb = app->gb.cgb_hw;
     if (gb_state_load(&app->gb, data, size)) {
         snprintf(text, sizeof text, tr(T_TITLE_LOADED_FMT), app->cfg.slot);
@@ -457,8 +594,8 @@ static void load_state(App *app)
 
 /* Se arman con los textos del idioma actual y según la consola encendida */
 static MenuItem menu_game[16], menu_video[12], menu_palette[16], menu_audio[6];
-static MenuItem menu_language[LANG_COUNT], menu_help[3];
-static Menu menus[6];
+static MenuItem menu_export[5], menu_language[LANG_COUNT], menu_help[3];
+static Menu menus[7];
 static char slot_labels[4][40], compat_labels[12][48], size_labels[6][40], volume_labels[4][40];
 
 static void build_menus(App *app)
@@ -527,6 +664,14 @@ static void build_menus(App *app)
     }
     menus[k++] = (Menu){ tr(T_MENU_AUDIO), menu_audio, n };
 
+    n = 0;
+    ITEM(menu_export, n, tr(T_REC_MUSIC), "Ctrl+G", A_REC_MUSIC, ITEM_CHECK);
+    ITEM(menu_export, n, tr(T_COLLECT_TILES), "Ctrl+T", A_COLLECT_TILES, ITEM_CHECK);
+    ITEM(menu_export, n, tr(T_SCREENSHOT), "F12", A_SCREENSHOT, ITEM_ACTION);
+    SEPARATOR(menu_export, n);
+    ITEM(menu_export, n, tr(T_OPEN_EXPORTS), NULL, A_OPEN_EXPORTS, ITEM_ACTION);
+    menus[k++] = (Menu){ tr(T_MENU_EXPORT), menu_export, n };
+
     for (int i = 0; i < LANG_COUNT; i++)
         menu_language[i] = (MenuItem){ i18n_name((Language)i), NULL, A_LANGUAGE_0 + i, ITEM_RADIO };
     menus[k++] = (Menu){ tr(T_MENU_LANGUAGE), menu_language, LANG_COUNT };
@@ -569,6 +714,8 @@ static int menu_state(void *ctx, int action, int *checked)
     case A_SGB_BORDER:   *checked = app->cfg.sgb_border; return 1;
     case A_FULLSCREEN:   *checked = app->fullscreen; return 1;
     case A_SOUND:        *checked = app->cfg.sound; return 1;
+    case A_REC_MUSIC:    *checked = music_active(&app->music); return 1;
+    case A_COLLECT_TILES: *checked = app->tiles.active; return 1;
     default:
         if (action >= A_SLOT_1 && action <= A_SLOT_4)
             *checked = app->cfg.slot == action - A_SLOT_1 + 1;
@@ -645,6 +792,10 @@ static void do_action(App *app, int action)
         break;
     case A_FULLSCREEN:   toggle_fullscreen(app); break;
     case A_SOUND:        app->cfg.sound = !app->cfg.sound; break;
+    case A_REC_MUSIC:    toggle_music(app); break;
+    case A_COLLECT_TILES: toggle_tiles(app); break;
+    case A_SCREENSHOT:   screenshot(app); break;
+    case A_OPEN_EXPORTS: open_exports(app); break;
     case A_HELP_CONTROLS: {
         /* El título es la opción del menú, sin los puntos suspensivos */
         char title[64];
@@ -711,6 +862,9 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     case SDLK_RETURN: if (alt) { do_action(app, A_FULLSCREEN); return 1; } break;
     case SDLK_F1:     do_action(app, A_HELP_CONTROLS); return 1;
     case SDLK_F2:     next_palette(app); return 1;
+    case SDLK_F12:    do_action(app, A_SCREENSHOT); return 1;
+    case SDLK_g:      if (ctrl) { do_action(app, A_REC_MUSIC); return 1; } break;
+    case SDLK_t:      if (ctrl) { do_action(app, A_COLLECT_TILES); return 1; } break;
     default: break;
     }
     return 0;
@@ -797,6 +951,52 @@ static u8 player_pad(App *app)
     return p;
 }
 
+/*
+ * Salida de audio (como en gb-recompiled): SDL pide muestras con un callback
+ * y las toma de un búfer circular. Al empezar, y tras quedarse sin muestras,
+ * espera a juntar ~50 ms antes de sonar, para que un cuadro que tarde un poco
+ * más no se oiga como un chasquido. Si se juntan más de ~200 ms (el video va
+ * más rápido que la tarjeta de sonido), lo nuevo se descarta.
+ */
+#define AUDIO_RING   (GB_SAMPLE_RATE / 2)           /* pares estéreo: medio segundo */
+#define AUDIO_START  (GB_SAMPLE_RATE / 20)          /* 50 ms */
+#define AUDIO_MAX    (GB_SAMPLE_RATE / 5)           /* 200 ms */
+static float audio_ring[AUDIO_RING * 2];
+static int audio_head, audio_tail, audio_playing;   /* protegidos por el candado de SDL */
+
+static int audio_fill(void)
+{
+    return (audio_head - audio_tail + AUDIO_RING) % AUDIO_RING;
+}
+
+static void SDLCALL audio_callback(void *user, Uint8 *stream, int len)
+{
+    (void)user;
+    float *out = (float *)stream;
+    int want = len / (int)(2 * sizeof(float)), i = 0;
+    if (!audio_playing && audio_fill() >= AUDIO_START) audio_playing = 1;
+    if (audio_playing) {
+        for (; i < want && audio_tail != audio_head; i++) {
+            out[i * 2] = audio_ring[audio_tail * 2];
+            out[i * 2 + 1] = audio_ring[audio_tail * 2 + 1];
+            audio_tail = (audio_tail + 1) % AUDIO_RING;
+        }
+        if (i < want) audio_playing = 0;     /* se acabó: volver a juntar */
+    }
+    for (; i < want; i++) out[i * 2] = out[i * 2 + 1] = 0.0f;
+}
+
+static void audio_push(SDL_AudioDeviceID dev, const float *samples, int n)
+{
+    SDL_LockAudioDevice(dev);
+    for (int i = 0; i < n && audio_fill() < AUDIO_MAX; i++) {
+        audio_ring[audio_head * 2] = samples[i * 2];
+        audio_ring[audio_head * 2 + 1] = samples[i * 2 + 1];
+        audio_head = (audio_head + 1) % AUDIO_RING;
+    }
+    SDL_UnlockAudioDevice(dev);
+}
+
 static void step(App *app)
 {
     u8 pad = app->play ? inputs_pad(&app->script, app->frame) : player_pad(app);
@@ -804,6 +1004,7 @@ static void step(App *app)
     gb_set_pad(&app->gb, pad);
     app->frame++;
     gb_run_frame(&app->gb);
+    tiles_scan(&app->tiles, &app->gb);
 
     /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
     if (app->gb.sram_dirty && app->frame % 300 == 0 && gb_has_battery(&app->gb))
@@ -811,21 +1012,25 @@ static void step(App *app)
 
     static float samples[4096 * 2];
     int n = gb_audio_pull(&app->gb, samples, 4096);
+    music_samples(&app->music, samples, n);    /* el WAV se graba aunque esté sin sonido */
     if (!app->audio || !app->cfg.sound) return;
     float vol = app->cfg.volume / 100.0f;
     for (int i = 0; i < n * 2; i++) samples[i] *= vol;
-    /* Si el audio se acumula (más de ~100 ms), se descarta para no atrasarse */
-    if (SDL_GetQueuedAudioSize(app->audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
-        SDL_QueueAudio(app->audio, samples, (Uint32)(n * 2 * sizeof(float)));
+    audio_push(app->audio, samples, n);
 }
 
 static void update_title(App *app)
 {
-    char t[256];
+    char t[256], collecting[96];
     const char *detail = "";
     if (app->notice[0] && SDL_TICKS_PASSED(SDL_GetTicks(), app->notice_until)) app->notice[0] = 0;
     if (app->notice[0]) detail = app->notice;
     else if (app->paused) detail = tr(T_TITLE_PAUSED);
+    else if (music_active(&app->music)) detail = tr(T_TITLE_RECORDING);
+    else if (app->tiles.active) {
+        snprintf(collecting, sizeof collecting, tr(T_TITLE_COLLECTING_FMT), app->tiles.count);
+        detail = collecting;
+    }
     if (detail[0]) snprintf(t, sizeof t, "%s - %s", recomp_rom_title, detail);
     else snprintf(t, sizeof t, "%s", recomp_rom_title);
     if (strcmp(t, app->title) != 0) {
@@ -922,10 +1127,11 @@ int main(int argc, char *argv[])
     static App app_storage;
     App *app = &app_storage;
     const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
-    int scale_arg = 0, force = 0, forget = 0, shot_menu = -1, shot_action = 0;
+    int scale_arg = 0, force = 0, forget = 0, shot_menu = -1, shot_action = 0, shot_export = 0;
     long shot_frames = 300;
     char msg[4096];
     app->forced_model = GB_MODEL_AUTO;
+    the_app = app;
     app->last_pad = -1;
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
@@ -937,6 +1143,7 @@ int main(int argc, char *argv[])
     snprintf(cache_path, sizeof cache_path, "%srom.gb", app->pref);
     snprintf(app->save_path, sizeof app->save_path, "%s%s.sav", app->pref, recomp_name);
     snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
+    snprintf(app->export_dir, sizeof app->export_dir, "%sexportado%c", app->pref, app->pref[strlen(app->pref) - 1]);
     settings_load(&app->cfg, app->settings_path);
     Language lang = i18n_from_code(app->cfg.language);
     i18n_set(lang < LANG_COUNT ? lang : detect_language());
@@ -958,6 +1165,7 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--ui-action") && i + 1 < argc) shot_action = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--ui-export")) shot_export = 1;
         else rom_arg = argv[i];
     }
     if (scale_arg > 0) app->cfg.scale = scale_arg > 6 ? 6 : scale_arg;
@@ -1040,11 +1248,23 @@ int main(int argc, char *argv[])
     want.format = AUDIO_F32SYS;
     want.channels = 2;
     want.samples = 1024;
+    want.callback = audio_callback;
     app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
     if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
 
     if (ui_shot_path) {
+        if (shot_export) {
+            /* Prueba de exportación: graba música y gráficos durante los
+             * cuadros, toma una captura y muestra el aviso de la música */
+            toggle_music(app);
+            toggle_tiles(app);
+        }
         for (long i = 0; i < shot_frames; i++) step(app);
+        if (shot_export) {
+            screenshot(app);
+            stop_tiles(app, 0);
+            stop_music(app, 1);
+        }
         if (shot_action) do_action(app, shot_action);
         if (shot_menu >= 0 && shot_menu < app->bar.count) {
             app->bar.open = shot_menu;
@@ -1081,6 +1301,8 @@ int main(int argc, char *argv[])
         }
     }
 
+    stop_music(app, 0);
+    stop_tiles(app, 0);
     settings_save(&app->cfg, app->settings_path);
     if (app->record) fclose(app->record);
     if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {

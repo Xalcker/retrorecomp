@@ -10,6 +10,11 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_MENU_VIDEO]    = { "Video", "Video" },
     [T_MENU_PALETTE]  = { "Paleta", "Palette" },
     [T_MENU_AUDIO]    = { "Audio", "Audio" },
+    [T_MENU_EXPORT]   = { "Exportar", "Export" },
+    [T_REC_MUSIC]     = { "Grabar música (VGM y WAV)", "Record music (VGM and WAV)" },
+    [T_COLLECT_TILES] = { "Juntar gráficos (mosaicos)", "Collect graphics (tiles)" },
+    [T_SCREENSHOT]    = { "Captura de pantalla", "Screenshot" },
+    [T_OPEN_EXPORTS]  = { "Abrir la carpeta", "Open the folder" },
     [T_MENU_LANGUAGE] = { "Idioma", "Language" },
     [T_MENU_HELP]     = { "Ayuda", "Help" },
 
@@ -52,7 +57,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "Alt o F10: menús       P: pausa\n"
         "Ctrl+R: reiniciar      F11: pantalla completa\n"
         "F5: guardar estado     F8: cargar estado\n"
-        "Ctrl+M: sonido         F2: cambiar paleta",
+        "Ctrl+M: sonido         F2: cambiar paleta\n"
+        "Ctrl+G: grabar música  Ctrl+T: juntar gráficos\n"
+        "F12: captura de pantalla",
 
         "Keyboard:\n"
         "  D-pad: arrows        A: X     B: Z\n"
@@ -63,7 +70,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "Alt or F10: menus      P: pause\n"
         "Ctrl+R: reset          F11: full screen\n"
         "F5: save state         F8: load state\n"
-        "Ctrl+M: sound          F2: change palette",
+        "Ctrl+M: sound          F2: change palette\n"
+        "Ctrl+G: record music   Ctrl+T: collect graphics\n"
+        "F12: screenshot",
     },
     [T_GAME_TITLE] = { "Datos del juego", "Game info" },
     [T_GAME_TEXT_FMT] = {
@@ -113,6 +122,41 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "or from this version of the executable.",
     },
     [T_STATE_WRITE_FMT] = { "No se pudo escribir\n%s", "Could not write\n%s" },
+    [T_EXPORT_TITLE]    = { "Exportar", "Export" },
+    [T_MUSIC_SAVED_FMT] = {
+        "Se guardó la música (%d s) en la carpeta de\n"
+        "exportados:\n"
+        "  %s.vgm\n"
+        "  %s.wav\n"
+        "\n"
+        "El VGM es lo que el juego le mandó al chip de\n"
+        "sonido: se oye igual y sin pérdida en foobar2000\n"
+        "(con foo_input_vgm) o vgmplay.",
+
+        "The music (%d s) was saved to the export\n"
+        "folder:\n"
+        "  %s.vgm\n"
+        "  %s.wav\n"
+        "\n"
+        "The VGM holds what the game sent to the sound\n"
+        "chip: it plays back losslessly in foobar2000\n"
+        "(with foo_input_vgm) or vgmplay.",
+    },
+    [T_TILES_SAVED_FMT] = {
+        "Se guardaron %d mosaicos distintos en %d hoja(s):\n"
+        "  %s_1.png…\n"
+        "\n"
+        "Están en 4 tonos de gris (blanco, gris claro,\n"
+        "gris oscuro y negro) y se pueden editar.",
+
+        "%d distinct tiles were saved in %d sheet(s):\n"
+        "  %s_1.png…\n"
+        "\n"
+        "They use 4 gray shades (white, light gray,\n"
+        "dark gray and black) and can be edited.",
+    },
+    [T_TILES_NONE]       = { "No se juntó ningún mosaico.", "No tiles were collected." },
+    [T_EXPORT_FAILED_FMT] = { "No se pudo crear\n%s", "Could not create\n%s" },
     [T_CONSOLE_TITLE] = { "Cambiar de consola", "Change console" },
     [T_CONSOLE_TEXT] = {
         "Cambiar de consola reinicia el juego.\n"
@@ -128,6 +172,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_TITLE_PAUSED]     = { "Pausa", "Paused" },
     [T_TITLE_SAVED_FMT]  = { "Estado guardado en la ranura %d", "State saved to slot %d" },
     [T_TITLE_LOADED_FMT] = { "Estado de la ranura %d cargado", "State loaded from slot %d" },
+    [T_TITLE_RECORDING]  = { "Grabando música", "Recording music" },
+    [T_TITLE_COLLECTING_FMT] = { "Juntando gráficos: %d mosaicos", "Collecting graphics: %d tiles" },
+    [T_TITLE_SHOT_FMT]   = { "Captura guardada: %s", "Screenshot saved: %s" },
 
     [T_ROM_CHOOSE]       = { "Elige tu ROM", "Choose your ROM" },
     [T_ROM_CHOOSE_AGAIN] = { "Elige la ROM correcta", "Choose the right ROM" },

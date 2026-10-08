@@ -22,7 +22,7 @@
 
 #include "../runtime/console.h"
 #include "../runtime/gb.h"
-#include "png.h"
+#include "../platform/png.h"
 #include "../platform/inputs.h"
 
 static unsigned char *read_file(const char *path, long *size)

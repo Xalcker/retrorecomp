@@ -317,6 +317,9 @@ struct GB {
     int ld_bb_hit;
     /* Gancho opcional antes de cada instrucción del intérprete */
     void (*trace)(GB *g);
+    /* Gancho opcional: cada escritura del juego a un registro de sonido
+     * ($FF10-$FF3F), en el instante g->rt (para grabar la música en VGM) */
+    void (*apu_log)(GB *g, u16 addr, u8 value);
 };
 
 /* --- Ciclo de vida --- */

@@ -160,8 +160,26 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
   Solo se ofrecen las que admite la cabecera.
 - **Grabaciones:** mientras se graba o reproduce, se desactiva lo que
   desfasaría los botones (reiniciar, cargar estado, cambiar de consola).
+- **Exportar** (`platform/export.c`):
+  - **Música:** el runtime tiene un gancho, `g->apu_log`, que avisa de cada
+    escritura del juego a `$FF10-$FF3F`. Se graba en VGM 1.71 con el tiempo de
+    `g->rt` convertido a muestras de 44.1 kHz. Al empezar se escribe el estado
+    actual del chip, sin disparar canales. Al mismo tiempo se graba un WAV con
+    las muestras mezcladas.
+  - **Verificación:** `vgmcheck` reproduce el VGM en el APU del runtime, con su
+    propio reloj de 512 Hz, y compara la envolvente contra el WAV. Pokémon Rojo
+    (60 s): correlación 0.94, sin desfase. Super Mario Land: 1.00.
+  - **Gráficos:** después de cada cuadro se revisan los 384 mosaicos de VRAM
+    (768 en modo color). Los nuevos se guardan, sin repetir, con una tabla
+    hash. Al detener se escriben hojas PNG de 16 × 64 mosaicos en gris.
+    También entran los mosaicos que el juego usa para mandar datos a la SNES
+    en SGB (parecen ruido).
+- **Audio:** callback de SDL con búfer circular (como gb-recompiled). Espera a
+  juntar 50 ms antes de sonar, también después de quedarse sin muestras, y
+  descarta lo que pase de 200 ms.
 - **Pruebas sin ventana:** `--ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
-  [--ui-action N]` corre N cuadros con la ventana oculta, abre un menú o hace
+  [--ui-action N] [--ui-export]` corre N cuadros con la ventana oculta (con
+  `--ui-export`, exportando música y gráficos), abre un menú o hace
   una acción y guarda la imagen.
 
 ## Empaquetado (fase 6)

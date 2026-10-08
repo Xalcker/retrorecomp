@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef _WIN32
+#include <errno.h>
+#include <sys/stat.h>
+#endif
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -24,6 +29,15 @@ FILE *u8_fopen(const char *path, const char *mode)
     free(wp);
     free(wm);
     return f;
+}
+
+/* Crea una carpeta (si ya existe no es error). Devuelve 1 si todo bien. */
+int u8_mkdir(const char *path)
+{
+    wchar_t *wp = widen(path);
+    int ok = wp && (CreateDirectoryW(wp, NULL) || GetLastError() == ERROR_ALREADY_EXISTS);
+    free(wp);
+    return ok;
 }
 
 int u8_remove(const char *path)
@@ -65,6 +79,7 @@ int ask_rom_path(const char *title, char *out, size_t size)
 
 FILE *u8_fopen(const char *path, const char *mode) { return fopen(path, mode); }
 int u8_remove(const char *path) { return remove(path); }
+int u8_mkdir(const char *path) { return mkdir(path, 0755) == 0 || errno == EEXIST; }
 static int u8_replace(const char *from, const char *to) { return rename(from, to) == 0; }
 
 int ask_rom_path(const char *title, char *out, size_t size)

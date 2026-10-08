@@ -9,3 +9,5 @@ roms/
 *.gbc
 *.sgb
 dist/
+gbrecomp
+vgmcheck

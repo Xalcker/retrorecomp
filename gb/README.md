@@ -82,11 +82,24 @@ por el propio juego para verse igual en todos los sistemas; Alt o F10):
 | **Video** | Borde del SGB, tamaño ×1 a ×6, pantalla completa (`F11`) |
 | **Paleta** | En DMG: verde, Pocket o grises. En compatibilidad GBC: la del juego o las 12 combinaciones de botones (`F2` las rota) |
 | **Audio** | Sonido (`Ctrl+M`) y volumen |
+| **Exportar** | Grabar música en VGM y WAV (`Ctrl+G`), juntar gráficos (`Ctrl+T`), captura de pantalla (`F12`), abrir la carpeta |
 | **Idioma** | Español o English |
 | **Ayuda** | Controles (`F1`), datos del juego (consola, % recompilado, carpeta de datos), acerca de |
 
 Las preferencias se guardan en `settings.ini`, en la carpeta de datos del
 juego, junto con la partida y los estados.
+
+**Exportar** deja los archivos en `exportado/`, dentro de esa misma carpeta:
+- **Música:** el VGM guarda cada escritura del juego al chip de sonido con su
+  tiempo exacto, así que se oye igual y sin pérdida en foobar2000 (con
+  foo_input_vgm) o vgmplay. El WAV guarda el audio ya mezclado. `vgmcheck
+  música.vgm música.wav` reproduce el VGM en el APU del runtime y lo compara
+  con el WAV.
+- **Gráficos:** cada mosaico distinto que pasa por VRAM, en hojas PNG de 4
+  tonos de gris, editables. Los colores dependen de la paleta con que el
+  juego dibuja cada mosaico; para verlos están las capturas.
+
+Solo se exporta lo que el juego llega a cargar mientras juegas.
 
 Controles: flechas, Z = B, X = A, Enter = Start, Retroceso = Select, o un
 control (A y B en la posición de Nintendo).

@@ -324,9 +324,11 @@ static void chunk(FILE *f, const char *type, const unsigned char *data, size_t l
     fwrite(c, 1, 4, f);
 }
 
+FILE *(*png_open_file)(const char *path, const char *mode) = fopen;
+
 static int png_write(const char *path, const unsigned char *pixels, int w, int h, int channels)
 {
-    FILE *f = fopen(path, "wb");
+    FILE *f = png_open_file(path, "wb");
     if (!f) return 0;
     static const unsigned char sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
     fwrite(sig, 1, 8, f);

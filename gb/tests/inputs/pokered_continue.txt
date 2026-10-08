@@ -1,0 +1,9 @@
+# Carga el .sav que deja pokered_save.txt (difftest --save-out) y elige
+# CONTINUAR: debe aparecer PLAYER AAAAAAA.
+0 -
+500 START
+506 -
+1400 A
+1406 -
+1800 A
+1806 -

@@ -5,9 +5,13 @@
  * cada cuadro. Si algo difiere, regresa al inicio del cuadro y avanza
  * instrucción por instrucción para reportar la primera diferencia exacta.
  *
- * Uso: difftest rom.gb [--frames N] [--seed S | --input archivo] [--uncovered archivo]
+ * Uso: difftest rom.gb [--frames N] [--seed S | --input archivo] [--save archivo.sav]
+ *                     [--uncovered archivo]
  *                     [--screens carpeta [--every N]] [--bench] [--executed archivo]
  *   --input reproduce entradas grabadas (ver inputs.h) en lugar de aleatorias.
+ *   --save carga un .sav en ambas máquinas antes de empezar (para partidas
+ *   grabadas que empezaron desde una partida guardada).
+ *   --save-out escribe la RAM del cartucho (de la máquina recompilada) al terminar.
  *   --screens guarda una captura (PNG) cada N cuadros, para ver hasta dónde
  *   llegaron las entradas aleatorias.
  *   --uncovered escribe, en formato de traza de gbrecomp, las direcciones de
@@ -300,7 +304,8 @@ int main(int argc, char **argv)
 {
     console_utf8();
     const char *rom_path = NULL, *uncovered = NULL, *screens = NULL;
-    const char *executed_path = NULL, *input_path = NULL;
+    const char *executed_path = NULL, *input_path = NULL, *save_path = NULL;
+    const char *save_out = NULL;
     int frames_given = 0;
     long frames = 3600, every = 600;
     int bench = 0;
@@ -309,6 +314,8 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) { frames = atol(argv[++i]); frames_given = 1; }
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
+        else if (!strcmp(argv[i], "--save") && i + 1 < argc) save_path = argv[++i];
+        else if (!strcmp(argv[i], "--save-out") && i + 1 < argc) save_out = argv[++i];
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = (u32)strtoul(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered = argv[++i];
         else if (!strcmp(argv[i], "--executed") && i + 1 < argc) executed_path = argv[++i];
@@ -342,6 +349,13 @@ int main(int argc, char **argv)
     rec.recomp_lookup = recomp_lookup;
     rec.trace = count_interp;
     if (executed_path) ref.trace = mark_executed;
+    if (save_path) {
+        /* Misma partida en ambas máquinas; hora 0: el reloj no se adelanta */
+        if (!gb_save_read(&rec, save_path, 0) || !gb_save_read(&ref, save_path, 0)) {
+            fprintf(stderr, "no se pudo cargar %s (¿el cartucho no tiene batería?)\n", save_path);
+            return 2;
+        }
+    }
     if (input_path) {
         const char *ierr = inputs_load(&script, input_path);
         if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
@@ -434,6 +448,9 @@ int main(int argc, char **argv)
         if (ef) fclose(ef);
     }
     if (distinct) printf("Direcciones de ROM interpretadas: %u\n", distinct);
+
+    if (save_out && !gb_save_write(&rec, save_out, 0))
+        fprintf(stderr, "no se pudo escribir %s\n", save_out);
 
     printf(ok ? "Sin diferencias.\n" : "HAY DIFERENCIAS.\n");
     return ok ? 0 : 1;

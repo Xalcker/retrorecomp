@@ -1,7 +1,8 @@
 /*
  * Corredor de ROMs de prueba sin ventana.
  *
- * Uso: gbtest rom.gb [--seconds N] [--mooneye] [--expect esperado.png] [--dump salida.png]
+ * Uso: gbtest rom.gb [--seconds N] [--mooneye] [--input archivo] [--expect esperado.png]
+ *                    [--dump salida.png]
  *                    [--serial] [--no-block]
  *
  * Criterios de resultado:
@@ -20,6 +21,7 @@
 #include "../runtime/console.h"
 #include "../runtime/gb.h"
 #include "png.h"
+#include "../platform/inputs.h"
 
 static unsigned char *read_file(const char *path, long *size)
 {
@@ -74,6 +76,8 @@ int main(int argc, char **argv)
     const char *rom_path = NULL, *expect = NULL, *dump = NULL;
     double seconds = 30;
     int show_serial = 0, no_block = 0, mooneye = 0;
+    const char *input_path = NULL;
+    InputScript script;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atof(argv[++i]);
@@ -82,6 +86,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--serial")) show_serial = 1;
         else if (!strcmp(argv[i], "--no-block")) no_block = 1;
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
+        else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
         else rom_path = argv[i];
     }
     if (!rom_path) {
@@ -104,12 +109,17 @@ int main(int argc, char **argv)
         return 2;
     }
     if (no_block) g.block_vram = 0;
+    if (input_path) {
+        const char *ierr = inputs_load(&script, input_path);
+        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+    }
 
     long frames = (long)(seconds * GB_CPU_HZ / GB_CYCLES_FRAME);
     int result = 2;
     const char *why = "sin resultado";
 
     for (long f = 0; f < frames; f++) {
+        if (input_path) gb_set_pad(&g, inputs_pad(&script, f));
         gb_run_frame(&g);
         if (mooneye && g.ld_bb_hit) {
             Cpu *c = &g.cpu;

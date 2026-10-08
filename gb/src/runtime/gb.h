@@ -73,14 +73,17 @@ typedef enum {
 typedef struct {
     MbcType type;
     int has_ram, has_battery, has_rtc;
+    int multicart;      /* MBC1M: los bits altos del banco se desplazan 4, no 5 */
     u8 ram_enable;
     u16 rom_bank;       /* registro de banco de ROM (sin enmascarar) */
     u8 ram_bank;        /* MBC1: registro de 2 bits; MBC3/5: banco de RAM o RTC */
     u8 mode;            /* MBC1: modo de banco */
     u32 bank0, bankx;   /* bancos de ROM efectivos en $0000 y $4000 */
     int sram_bank;      /* banco de RAM efectivo, -1 si no hay acceso */
-    /* RTC del MBC3 (fase 4: por ahora solo registros) */
-    u8 rtc[5], rtc_latched[5], rtc_latch_prev;
+    /* RTC del MBC3: avanza con los ciclos emulados (determinista) */
+    u8 rtc[5], rtc_latched[5], rtc_latch_prev;  /* S, M, H, DL, DH */
+    u64 rtc_last_cyc;   /* ciclo hasta el que ya se contó el tiempo */
+    u64 rtc_sub;        /* ciclos acumulados hacia el siguiente segundo */
     int rtc_select;     /* -1 o 0..4 si $A000 apunta a un registro del RTC */
 } Mbc;
 
@@ -228,6 +231,14 @@ void gb_free(GB *g);
  * dst conserva sus propios búferes, su recomp_lookup y su trace. */
 void gb_copy_state(GB *dst, const GB *src);
 
+/* Guardado de la RAM del cartucho y del RTC (save.c), en el formato de BGB y
+ * VBA-M: la RAM tal cual y, si hay RTC, 48 bytes con sus registros y la hora.
+ * `now` es la hora Unix actual, para adelantar el reloj al cargar.
+ * Devuelven 1 si todo bien. */
+int gb_has_battery(const GB *g);
+int gb_save_write(GB *g, const char *path, long long now);
+int gb_save_read(GB *g, const char *path, long long now);
+
 /* Ejecuta hasta que g->cyc >= hasta (en un límite de instrucción). */
 void gb_run(GB *g, u64 hasta);
 
@@ -274,6 +285,7 @@ void mbc_init(GB *g);
 void mbc_write(GB *g, u16 addr, u8 value);
 u8   mbc_sram_read(GB *g, u16 addr);
 void mbc_sram_write(GB *g, u16 addr, u8 value);
+void mbc_rtc_advance(GB *g, u64 seconds);
 void gb_remap(GB *g);
 
 void timer_reset(GB *g);

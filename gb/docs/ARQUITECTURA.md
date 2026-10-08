@@ -261,14 +261,83 @@ habrá que conectar dos máquinas por un serial emulado. El código no ejecutado
 el intérprete, así que sus instrucciones son confiables; lo que no se ha
 probado es su flujo de control (etiquetas, cortes de función).
 
-## Estado de la validación (fase 1, solo intérprete)
+## Bancos, guardado y reloj (fase 4)
 
-`sh tests/run_tests.sh`: **102 de 111** pruebas que aplican a DMG.
+### Saltos entre bancos
+
+Una llamada del banco 0 a `$4000-$7FFF` depende del banco activo, que el
+análisis estático tiene que deducir. `gbrecomp` lleva, en cada recorrido
+lineal, los **valores constantes de los registros** y el **último valor
+escrito al registro de banco** (`$2000-$3FFF`), y con eso resuelve tres
+formas comunes:
+
+1. **Cambio directo:** `ld a, N` → `ld [$2000], a` → `call $4xxx`.
+2. **Comparación:** el banco sale de RAM (`ld a, [x]` → `ld [$2000], a`) y luego
+   `cp N` + `jr nz`. Si el salto no se toma, A vale N, y como el banco se
+   escribió desde A, también vale N.
+3. **Trampolines:** rutinas del banco 0 que cambian al banco que reciben en un
+   registro y saltan a `HL` (el `Bankswitch` de Pokémon). Se reconocen
+   ejecutándolas con **registros simbólicos**, siguiendo llamadas internas, la
+   pila y celdas de RAM. En cada llamada con ese registro y `HL` constantes, el
+   destino queda resuelto. También se descubre la dirección de regreso que el
+   trampolín empuja a la pila (`ld bc, nn` + `push bc` + `jp hl`).
+
+Lo que se decide en tiempo de ejecución (p. ej., el motor de audio de Pokémon
+se elige por descarte) lo cubren las trazas.
+
+| Juego | Solo estático | Con trazas de difftest |
+|---|---|---|
+| Super Mario Land (MBC1) | 92.7 % (todo lo de ROM) | — |
+| Pokémon Rojo (MBC3), antes de los trampolines | 20.0 % | — |
+| Pokémon Rojo, con trampolines y `cp` | 90.5 % | **97.6 %** |
+
+El resto en los tres juegos es la rutina de DMA en HRAM. Las sesiones de
+Pokémon apenas pasan de la introducción, así que su porcentaje vale para lo
+jugado, no para el juego completo.
+
+### MBC
+
+- **MBC1**, incluido **MBC1M** (multicart): se detecta porque la cabecera se
+  repite en el banco `$10`.
+- **MBC3**, incluido **MBC30** (más de 2 MB: registro de banco de 8 bits y 8
+  bancos de RAM).
+- **MBC2 y MBC5.**
+- **Reloj del MBC3:** avanza con los ciclos emulados, no con el reloj de la PC,
+  así la prueba diferencial sigue siendo determinista. Tiene latch, detenido,
+  contador de 9 bits de días con acarreo pegajoso, y escribir los segundos
+  reinicia el divisor. Pasa las tres partes de `rtc3test`.
+
+### Guardado
+
+`runtime/save.c` usa el formato de BGB y VBA-M: la RAM del cartucho tal cual y,
+si hay reloj, 48 bytes con sus registros y la hora Unix. Al cargar, el reloj se
+adelanta el tiempo real que pasó. El ejecutable carga `juego.sav` (junto a la
+ROM) al iniciar y lo guarda al salir y cada 5 segundos si cambió. Escribe a un
+temporal y lo renombra, para que un corte no dañe la partida anterior.
+
+Para probar: `tests/inputs/pokered_save.txt` empieza una partida nueva en
+Pokémon y guarda. `difftest --save-out` escribe el `.sav`, y
+`tests/inputs/pokered_continue.txt` con `difftest --save` lo carga y elige
+CONTINUAR: aparece PLAYER AAAAAAA.
+
+### Herramientas nuevas
+
+- `gbrecomp --dis BB:AAAA:N` desensambla N instrucciones.
+- `gbrecomp --verbose` lista tablas y trampolines detectados.
+- El ejecutable acepta `--uncovered archivo`, que agrega las direcciones de ROM
+  que cayeron al intérprete durante la partida (para `gbrecomp --trace`).
+- `gbtest --input` reproduce entradas grabadas (lo usa `rtc3test`).
+
+## Estado de la validación del runtime
+
+`sh tests/run_tests.sh`: **107 de 115** pruebas que aplican a DMG.
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug` pasan.
 - Mooneye: pasan todas las de temporización de instrucciones, interrupciones,
-  HALT, timer (salvo `rapid_toggle`), DMA, arranque, serial y MBC1/2/5.
+  HALT, timer (salvo `rapid_toggle`), DMA, arranque, serial y MBC1/2/5,
+  incluido MBC1 multicart.
+- `mbc3-tester` (incluye MBC30) y las tres partes de `rtc3test` pasan.
 - dmg-acid2 pasa (pantalla idéntica).
 
 Pendientes conocidos:
@@ -277,4 +346,3 @@ Pendientes conocidos:
 |---|---|---|
 | `ppu/intr_2_*`, `lcdon_*`, `stat_lyc_onoff` | Temporización fina de modos de la PPU (duración del modo 3, primera línea tras encender el LCD) | 5 |
 | `timer/rapid_toggle` | Interrupción una vuelta tarde; caso límite de encender/apagar TAC | 5 |
-| `mbc1/multicart_rom_8Mb` | MBC1 multicart (cableado distinto, se detecta por heurística) | 4 |

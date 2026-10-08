@@ -39,6 +39,12 @@ for rom in $(find "$T/mooneye-test-suite/acceptance" "$T/mooneye-test-suite/emul
     corre "$rom" --mooneye --seconds 20
 done
 
+# --- MBC3: bancos (incluye MBC30) y reloj ---
+corre "$T/mbc3-tester/mbc3-tester.gb" --seconds 2 --expect "$T/mbc3-tester/mbc3-tester-dmg.png"
+corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_basic.txt --seconds 16 --expect "$T/rtc3test/rtc3test-basic-tests-dmg.png"
+corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_range.txt --seconds 11 --expect "$T/rtc3test/rtc3test-range-tests-dmg.png"
+corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_subsecond.txt --seconds 30 --expect "$T/rtc3test/rtc3test-sub-second-writes-dmg.png"
+
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 

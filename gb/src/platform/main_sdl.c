@@ -3,12 +3,19 @@
  * audio y ritmo de 59.7275 cuadros por segundo.
  *
  * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--record archivo | --play archivo]
+ *             [--uncovered archivo]
  *   Sin argumentos busca "rom.gb" en la carpeta actual.
  *   --interp  ejecuta todo con el intérprete (para comparar)
  *   --force   acepta una ROM con otro SHA1 (solo con el intérprete)
  *   --record  graba los botones en un archivo de texto (ver inputs.h), para
  *             reproducirlos con --play o con difftest --input
  *   --play    reproduce un archivo grabado (el teclado se ignora)
+ *   --uncovered archivo  al salir, agrega a `archivo` las direcciones de ROM
+ *             que tuvo que ejecutar el intérprete (para gbrecomp --trace)
+ *
+ * Si el cartucho tiene batería, la partida se guarda junto a la ROM con
+ * extensión .sav (compatible con BGB y VBA-M): se carga al iniciar y se
+ * guarda al salir y cada 5 segundos si cambió.
  *
  * Controles: flechas, X = A, Z = B, Enter = Start, Retroceso = Select,
  * Esc = salir.
@@ -18,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "inputs.h"
 #include "recomp.h"
@@ -28,6 +36,42 @@ static void fail(const char *msg)
     fprintf(stderr, "%s\n", msg);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, recomp_rom_title, msg, NULL);
     exit(1);
+}
+
+/* Ruta del .sav: la de la ROM con otra extensión */
+static void save_path_for(const char *rom, char *out, size_t size)
+{
+    snprintf(out, size, "%s", rom);
+    char *dot = strrchr(out, '.');
+    char *sep = strrchr(out, '/');
+    char *bsep = strrchr(out, '\\');
+    if (bsep > sep) sep = bsep;
+    if (dot && (!sep || dot > sep)) *dot = 0;
+    strncat(out, ".sav", size - strlen(out) - 1);
+}
+
+/* Direcciones de ROM ejecutadas por el intérprete (para --uncovered) */
+#define MAX_BANKS 512
+static u8 *uncovered[MAX_BANKS];
+
+static void mark_uncovered(GB *g)
+{
+    u16 pc = g->cpu.pc;
+    u32 bank = pc < 0x4000 ? g->mbc.bank0 : g->mbc.bankx;
+    if (pc >= 0x8000 || bank >= MAX_BANKS) return;
+    if (!uncovered[bank]) uncovered[bank] = calloc(0x4000, 1);
+    if (uncovered[bank]) uncovered[bank][pc & 0x3FFF] = 1;
+}
+
+static void write_uncovered(const char *path)
+{
+    FILE *f = fopen(path, "a");
+    if (!f) return;
+    for (u32 b = 0; b < MAX_BANKS; b++)
+        for (u32 off = 0; uncovered[b] && off < 0x4000; off++)
+            if (uncovered[b][off])
+                fprintf(f, "%02X:%04X\n", b, (unsigned)(b == 0 ? off : 0x4000 + off));
+    fclose(f);
 }
 
 static unsigned char *read_file(const char *path, long *size)
@@ -68,7 +112,7 @@ int main(int argc, char *argv[])
 {
     const char *rom_path = "rom.gb";
     int scale = 4, interp_only = 0, force = 0;
-    const char *record_path = NULL, *play_path = NULL;
+    const char *record_path = NULL, *play_path = NULL, *uncovered_path = NULL;
     static GB gb;
 
     for (int i = 1; i < argc; i++) {
@@ -77,6 +121,7 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
+        else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered_path = argv[++i];
         else rom_path = argv[i];
     }
     if (scale < 1) scale = 1;
@@ -108,6 +153,11 @@ int main(int argc, char *argv[])
     if (err) fail(err);
     if (!interp_only) gb.recomp_lookup = recomp_lookup;
     gb.apu.enabled = 1;
+    if (uncovered_path) gb.trace = mark_uncovered;
+
+    char save_path[1024];
+    save_path_for(rom_path, save_path, sizeof save_path);
+    if (gb_has_battery(&gb)) gb_save_read(&gb, save_path, (long long)time(NULL));
 
     InputScript script;
     int play = 0, last_pad = -1;
@@ -158,6 +208,10 @@ int main(int argc, char *argv[])
         frame++;
         gb_run_frame(&gb);
 
+        /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
+        if (gb.sram_dirty && frame % 300 == 0)
+            gb_save_write(&gb, save_path, (long long)time(NULL));
+
         int n = gb_audio_pull(&gb, samples, 4096);
         /* Si el audio se acumula (más de ~100 ms), se descarta para no atrasarse */
         if (audio && SDL_GetQueuedAudioSize(audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
@@ -183,6 +237,9 @@ int main(int argc, char *argv[])
     }
 
     if (record) fclose(record);
+    if (gb_has_battery(&gb) && !gb_save_write(&gb, save_path, (long long)time(NULL)))
+        fail("No se pudo guardar la partida");
+    if (uncovered_path) write_uncovered(uncovered_path);
     if (audio) SDL_CloseAudioDevice(audio);
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);

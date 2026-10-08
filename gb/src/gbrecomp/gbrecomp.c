@@ -193,12 +193,288 @@ static void add_table(u32 bank, u16 addr, int inline_table)
     ntables++;
 }
 
+/* ------------------------------------------------------------------ */
+/* Seguimiento de registros                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Valores conocidos de los registros durante un recorrido lineal. Un valor es
+ * V_UNK (desconocido), una constante de 0 a 255, o V_SYM(r): "lo que traía el
+ * registro r al entrar" (solo en el análisis simbólico de trampolines).
+ * Índices como en los opcodes: B C D E H L (hl) A.
+ */
+#define V_UNK      (-1)
+#define V_SYM(r)   (0x100 + (r))
+#define IS_CONST(v) ((v) >= 0 && (v) < 0x100)
+#define R_B 0
+#define R_C 1
+#define R_D 2
+#define R_E 3
+#define R_H 4
+#define R_L 5
+#define R_A 7
+
+typedef struct {
+    int r[8];
+    int bank;           /* último valor escrito al registro de banco ($2000-$3FFF) */
+    int stk_hi[16], stk_lo[16], depth;
+    u16 mem_addr[8];    /* celdas de RAM con valor conocido (p. ej. hROMBank) */
+    int mem_val[8], nmem;
+} Regs;
+
+static void regs_unknown(Regs *s)
+{
+    for (int i = 0; i < 8; i++) s->r[i] = V_UNK;
+    s->bank = V_UNK;
+    s->depth = 0;
+    s->nmem = 0;
+}
+
+static int pair_value(const Regs *s, int hi, int lo)
+{
+    if (!IS_CONST(s->r[hi]) || !IS_CONST(s->r[lo])) return -1;
+    return s->r[hi] << 8 | s->r[lo];
+}
+
+static void set_pair(Regs *s, int hi, int lo, long v)
+{
+    s->r[hi] = v < 0 ? V_UNK : (int)((v >> 8) & 0xFF);
+    s->r[lo] = v < 0 ? V_UNK : (int)(v & 0xFF);
+}
+
+static void mem_store(Regs *s, long addr, int v)
+{
+    if (addr < 0) return;
+    if (addr >= 0x2000 && addr < 0x4000) { s->bank = v; return; }
+    if (addr < 0xC000) return;      /* solo RAM interna */
+    for (int i = 0; i < s->nmem; i++)
+        if (s->mem_addr[i] == addr) { s->mem_val[i] = v; return; }
+    if (s->nmem < 8) {
+        s->mem_addr[s->nmem] = (u16)addr;
+        s->mem_val[s->nmem++] = v;
+    }
+}
+
+static int mem_load(const Regs *s, long addr)
+{
+    for (int i = 0; addr >= 0 && i < s->nmem; i++)
+        if (s->mem_addr[i] == addr) return s->mem_val[i];
+    return V_UNK;
+}
+
+/* Operación de ALU sobre A con operando `v` (`self`: el operando es A mismo) */
+static void regs_alu(Regs *s, int op, int v, int self)
+{
+    int a = s->r[R_A];
+    switch (op) {
+    case 0: s->r[R_A] = IS_CONST(a) && IS_CONST(v) ? (a + v) & 0xFF : V_UNK; break;
+    case 2: s->r[R_A] = IS_CONST(a) && IS_CONST(v) ? (a - v) & 0xFF : (self ? 0 : V_UNK); break;
+    case 4: if (!self) s->r[R_A] = IS_CONST(a) && IS_CONST(v) ? a & v : V_UNK; break;
+    case 5: s->r[R_A] = self ? 0 : IS_CONST(a) && IS_CONST(v) ? a ^ v : V_UNK; break;
+    case 6: if (!self) s->r[R_A] = IS_CONST(a) && IS_CONST(v) ? a | v : V_UNK; break;
+    case 7: break;                  /* cp no cambia A */
+    default: s->r[R_A] = V_UNK; break;  /* adc, sbc dependen del acarreo */
+    }
+}
+
+/* Efecto de una instrucción (que no sea de control) sobre los registros */
+static void regs_step(Regs *s, const u8 *b)
+{
+    u8 op = b[0];
+    int d = (op >> 3) & 7, r = op & 7;
+    u16 nn = (u16)(b[1] | b[2] << 8);
+    long hl = pair_value(s, R_H, R_L);
+
+    if (op >= 0x40 && op < 0x80 && op != 0x76) {
+        if (d == 6) mem_store(s, hl, s->r[r]);
+        else s->r[d] = r == 6 ? mem_load(s, hl) : s->r[r];
+        return;
+    }
+    if (op >= 0x80 && op < 0xC0) {
+        regs_alu(s, d, r == 6 ? V_UNK : s->r[r], r == R_A);
+        return;
+    }
+    switch (op) {
+    case 0x06: case 0x0E: case 0x16: case 0x1E: case 0x26: case 0x2E: case 0x36: case 0x3E:
+        if (d == 6) mem_store(s, hl, b[1]);
+        else s->r[d] = b[1];
+        return;
+    case 0x01: set_pair(s, R_B, R_C, nn); return;
+    case 0x11: set_pair(s, R_D, R_E, nn); return;
+    case 0x21: set_pair(s, R_H, R_L, nn); return;
+    case 0x03: case 0x0B: case 0x13: case 0x1B: case 0x23: case 0x2B: {
+        int hi = (op >> 4) * 2, lo = hi + 1;
+        long v = pair_value(s, hi, lo);
+        set_pair(s, hi, lo, v < 0 ? -1 : (v + ((op & 8) ? -1 : 1)) & 0xFFFF);
+        return;
+    }
+    case 0x04: case 0x0C: case 0x14: case 0x1C: case 0x24: case 0x2C: case 0x3C:
+        s->r[d] = IS_CONST(s->r[d]) ? (s->r[d] + 1) & 0xFF : V_UNK;
+        return;
+    case 0x05: case 0x0D: case 0x15: case 0x1D: case 0x25: case 0x2D: case 0x3D:
+        s->r[d] = IS_CONST(s->r[d]) ? (s->r[d] - 1) & 0xFF : V_UNK;
+        return;
+    case 0x09: case 0x19: case 0x29: case 0x39: case 0xF8:
+        set_pair(s, R_H, R_L, -1);
+        return;
+    case 0x02: mem_store(s, pair_value(s, R_B, R_C), s->r[R_A]); return;
+    case 0x12: mem_store(s, pair_value(s, R_D, R_E), s->r[R_A]); return;
+    case 0x22: case 0x32:
+        mem_store(s, hl, s->r[R_A]);
+        set_pair(s, R_H, R_L, hl < 0 ? -1 : (hl + (op == 0x22 ? 1 : -1)) & 0xFFFF);
+        return;
+    case 0x2A: case 0x3A:
+        s->r[R_A] = mem_load(s, hl);
+        set_pair(s, R_H, R_L, hl < 0 ? -1 : (hl + (op == 0x2A ? 1 : -1)) & 0xFFFF);
+        return;
+    case 0x0A: s->r[R_A] = mem_load(s, pair_value(s, R_B, R_C)); return;
+    case 0x1A: s->r[R_A] = mem_load(s, pair_value(s, R_D, R_E)); return;
+    case 0xEA: mem_store(s, nn, s->r[R_A]); return;
+    case 0xFA: s->r[R_A] = mem_load(s, nn); return;
+    case 0xE0: mem_store(s, 0xFF00 | b[1], s->r[R_A]); return;
+    case 0xF0: s->r[R_A] = mem_load(s, 0xFF00 | b[1]); return;
+    case 0xF2: s->r[R_A] = V_UNK; return;
+    case 0x07: case 0x0F: case 0x17: case 0x1F: case 0x27: case 0x2F:
+        s->r[R_A] = V_UNK;
+        return;
+    case 0xC6: case 0xCE: case 0xD6: case 0xDE: case 0xE6: case 0xEE: case 0xF6: case 0xFE:
+        regs_alu(s, d, b[1], 0);
+        return;
+    case 0xC5: case 0xD5: case 0xE5: case 0xF5: {
+        int hi = op == 0xF5 ? R_A : ((op >> 4) & 3) * 2;
+        if (s->depth < 16) {
+            s->stk_hi[s->depth] = s->r[hi];
+            s->stk_lo[s->depth] = op == 0xF5 ? V_UNK : s->r[hi + 1];
+            s->depth++;
+        }
+        return;
+    }
+    case 0xC1: case 0xD1: case 0xE1: case 0xF1: {
+        int hi = op == 0xF1 ? R_A : ((op >> 4) & 3) * 2;
+        int vh = V_UNK, vl = V_UNK;
+        if (s->depth > 0) { s->depth--; vh = s->stk_hi[s->depth]; vl = s->stk_lo[s->depth]; }
+        s->r[hi] = vh;
+        if (op != 0xF1) s->r[hi + 1] = vl;
+        return;
+    }
+    case 0xCB:
+        if ((b[1] & 7) != 6 && (b[1] >> 6) != 1) s->r[b[1] & 7] = V_UNK;
+        return;
+    case 0xE8: case 0xF9:
+        s->depth = 0;   /* se movió la pila: ya no sabemos qué hay */
+        return;
+    default:
+        return;
+    }
+}
+
+/*
+ * Trampolines de cambio de banco: rutinas del banco 0 que escriben en el
+ * registro de banco del MBC un valor que les llega en un registro y luego
+ * saltan a HL (p. ej. Bankswitch de Pokémon: ld a, b / ld [$2000], a / jp hl).
+ * Se reconocen ejecutando la rutina con registros simbólicos, siguiendo
+ * llamadas internas, la pila y celdas de RAM.
+ */
+static signed char tramp_state[0x4000];  /* 0 sin analizar, 1 no es, 2 sí es */
+static u8 tramp_bank_reg[0x4000];        /* registro que trae el banco */
+static unsigned stat_tramp_calls;
+
+static int is_trampoline(u16 addr, int *bank_reg)
+{
+    if (addr >= 0x4000) return 0;
+    if (tramp_state[addr]) {
+        *bank_reg = tramp_bank_reg[addr];
+        return tramp_state[addr] == 2;
+    }
+    tramp_state[addr] = 1;
+
+    Regs s;
+    regs_unknown(&s);
+    for (int i = 0; i < 8; i++) s.r[i] = V_SYM(i);
+    u16 ret_stack[4];
+    int calls = 0;
+    u16 pc = addr;
+
+    for (int step = 0; step < 96 && pc < 0x4000; step++) {
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(0, pc, b, &in)) return 0;
+        switch (in.kind) {
+        case INS_JP_HL:
+            if (s.r[R_H] == V_SYM(R_H) && s.r[R_L] == V_SYM(R_L) &&
+                s.bank >= V_SYM(0) && s.bank <= V_SYM(7) && s.bank != V_SYM(6)) {
+                tramp_state[addr] = 2;
+                tramp_bank_reg[addr] = (u8)(s.bank - V_SYM(0));
+                *bank_reg = tramp_bank_reg[addr];
+                if (verbose) fprintf(stderr, "trampolín 00:%04X: banco en el registro %d, destino en HL\n",
+                                     addr, *bank_reg);
+                return 1;
+            }
+            return 0;
+        case INS_CALL: case INS_RST:
+            if (in.cond || calls == 4) return 0;
+            ret_stack[calls++] = (u16)(pc + in.len);
+            pc = in.target;
+            continue;
+        case INS_RET:
+            if (in.cond || calls == 0) return 0;
+            pc = ret_stack[--calls];
+            continue;
+        case INS_JP: case INS_JR:
+            if (in.cond) return 0;
+            pc = in.target;
+            continue;
+        case INS_NORMAL:
+            regs_step(&s, b);
+            pc = (u16)(pc + in.len);
+            continue;
+        default:
+            return 0;
+        }
+    }
+    return 0;
+}
+
+/* La instrucción (no de control) deja A intacto */
+static int keeps_a(u8 op)
+{
+    if (op >= 0x40 && op < 0x78) return op != 0x76;     /* ld r, r' con destino distinto de A */
+    if (op >= 0xB8 && op <= 0xBF) return 1;             /* cp r */
+    switch (op) {
+    case 0x00: case 0x02: case 0x12: case 0x22: case 0x32:
+    case 0x01: case 0x11: case 0x21: case 0x31:
+    case 0x03: case 0x0B: case 0x13: case 0x1B: case 0x23: case 0x2B: case 0x33: case 0x3B:
+    case 0x04: case 0x05: case 0x0C: case 0x0D: case 0x14: case 0x15: case 0x1C: case 0x1D:
+    case 0x24: case 0x25: case 0x2C: case 0x2D: case 0x34: case 0x35:
+    case 0x06: case 0x0E: case 0x16: case 0x1E: case 0x26: case 0x2E: case 0x36:
+    case 0x09: case 0x19: case 0x29: case 0x39: case 0x37: case 0x3F:
+    case 0x7F: case 0xA7: case 0xB7: case 0xFE:
+    case 0xE0: case 0xE2: case 0xEA:
+    case 0xC5: case 0xD5: case 0xE5: case 0xF5: case 0xF3: case 0xFB:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* Banco efectivo de un número escrito al registro de banco */
+static u32 mbc_bank(int v)
+{
+    u32 b = (u32)v % nbanks;
+    return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
+}
+
 static void explore(u32 bank, u16 addr)
 {
     /* Último `ld hl, nn` con nn en ROM dentro de este tramo lineal, y cuántas
      * instrucciones han pasado desde entonces */
     long table_base = -1;
     int since_base = 0;
+    Regs st;                /* registros conocidos en este recorrido lineal */
+    long pushed_const = -1; /* constante recién empujada a la pila */
+    int bank_tied_to_a = 0; /* el banco activo es el valor actual de A */
+    int last_cp = -1;       /* operando de un `cp n` en la instrucción anterior */
+    regs_unknown(&st);
 
     for (;;) {
         if (!in_region(bank, addr)) return;
@@ -232,9 +508,26 @@ static void explore(u32 bank, u16 addr)
             if (tb >= 0) add_table((u32)tb, (u16)table_base, 0);
         }
 
+        /* `ld rr, nn` + `push rr` justo antes de un salto indirecto: nn es la
+         * dirección de regreso que usará un `ret` (como en Bankswitch) */
+        if (pushed_const >= 0 && (in.kind == INS_JP_HL || in.kind == INS_RET ||
+                                  (in.kind == INS_JP && in.cond == 0))) {
+            long rb = bank_of(bank, (u16)pushed_const);
+            if (rb >= 0) {
+                *flag_at((u32)rb, (u16)pushed_const) |= F_TARGET;
+                push_work((u32)rb, (u16)pushed_const);
+            }
+        }
+        pushed_const = -1;
+
         switch (in.kind) {
         case INS_JP: case INS_JR: case INS_CALL: case INS_RST: {
-            long tb = resolve_bank(bank, in.target);
+            long tb;
+            /* Al área de bancos con un banco escrito como constante */
+            if (in.target >= 0x4000 && in.target < 0x8000 && IS_CONST(st.bank))
+                tb = mbc_bank(st.bank);
+            else
+                tb = resolve_bank(bank, in.target);
             if (tb >= 0) {
                 *flag_at((u32)tb, in.target) |= F_TARGET;
                 push_work((u32)tb, in.target);
@@ -245,11 +538,55 @@ static void explore(u32 bank, u16 addr)
                     return;
                 }
             }
+            /* Llamada a un trampolín con banco y destino constantes */
+            int breg;
+            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) &&
+                in.target < 0x4000 && is_trampoline(in.target, &breg)) {
+                long hlv = pair_value(&st, R_H, R_L);
+                if (IS_CONST(st.r[breg]) && hlv >= 0 && hlv < 0x8000) {
+                    u32 fb = hlv < 0x4000 ? 0 : mbc_bank(st.r[breg]);
+                    *flag_at(fb, (u16)hlv) |= F_TARGET;
+                    push_work(fb, (u16)hlv);
+                    stat_tramp_calls++;
+                }
+            }
+            /* Tras una llamada, la rutina pudo cambiar cualquier registro; el
+             * banco se conserva (las rutinas suelen restaurarlo) */
+            if (in.kind == INS_CALL || in.kind == INS_RST) {
+                int keep_bank = st.bank;
+                regs_unknown(&st);
+                st.bank = keep_bank;
+            }
+            break;
+        }
+        case INS_NORMAL: {
+            u8 op = b[0];
+            if (op == 0xC5 || op == 0xD5 || op == 0xE5) {
+                int hi = ((op >> 4) & 3) * 2;
+                pushed_const = pair_value(&st, hi, hi + 1);
+            }
+            /* El banco se escribió desde A con valor desconocido: mientras A
+             * no cambie, "banco == A" */
+            int bank_write = (op == 0xEA && b[2] >= 0x20 && b[2] < 0x40) ||
+                             (op == 0x77 && pair_value(&st, R_H, R_L) >= 0x2000 &&
+                              pair_value(&st, R_H, R_L) < 0x4000);
+            if (bank_write && !IS_CONST(st.r[R_A])) bank_tied_to_a = 1;
+            else if (!keeps_a(op)) bank_tied_to_a = 0;
+            regs_step(&st, b);
             break;
         }
         default:
             break;
         }
+        if (in.kind == INS_CALL || in.kind == INS_RST) bank_tied_to_a = 0;
+
+        /* `cp n` + `jr/jp nz`: si no salta, A == n (y el banco también, si
+         * se escribió desde A) */
+        if ((in.kind == INS_JR || in.kind == INS_JP) && in.cond == 1 && last_cp >= 0) {
+            st.r[R_A] = last_cp;
+            if (bank_tied_to_a) st.bank = last_cp;
+        }
+        last_cp = b[0] == 0xFE ? b[1] : -1;
 
         if (sm83_ends_block(&in)) return;
         addr = (u16)(addr + in.len);
@@ -722,6 +1059,7 @@ int main(int argc, char **argv)
 {
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
+    const char *dis = NULL;     /* --dis BB:AAAA:N */
     char base[1024];
 
     /* La base (src/ y build/gen/) está junto al ejecutable de gbrecomp */
@@ -738,11 +1076,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis = argv[++i];
         else if (!strcmp(argv[i], "--base") && i + 1 < argc) snprintf(base, sizeof base, "%s", argv[++i]);
         else if (argv[i][0] == '-') die("opción desconocida: %s", argv[i]);
         else rom_path = argv[i];
     }
-    if (!rom_path || !out) {
+    if (!rom_path || (!out && !dis)) {
         fprintf(stderr, "uso: gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre] [--codemap archivo]\n");
         return 2;
     }
@@ -783,6 +1122,26 @@ int main(int argc, char **argv)
     flags = calloc(nbanks, sizeof *flags);
     for (u32 b = 0; b < nbanks; b++) flags[b] = calloc(BANK_SIZE, 1);
 
+    if (dis) {
+        /* Solo desensamblar: --dis BB:AAAA:N */
+        unsigned db, da, dn = 32;
+        if (sscanf(dis, "%x:%x:%u", &db, &da, &dn) < 2 || db >= nbanks || !in_region(db, da))
+            die("--dis espera BANCO:DIRECCIÓN[:CUÁNTAS] en hexadecimal");
+        u16 a = (u16)da;
+        for (unsigned k = 0; k < dn && in_region(db, a); k++) {
+            u8 b[3];
+            Insn in;
+            char text[48];
+            fetch_insn(db, a, b, &in);
+            sm83_disasm(b, a, text, sizeof text);
+            printf("%02X:%04X  %-24s ;", db, a, text);
+            for (int j = 0; j < in.len; j++) printf(" %02X", b[j]);
+            printf("\n");
+            a = (u16)(a + in.len);
+        }
+        return 0;
+    }
+
     /* 1. Descubrimiento */
     discover();
     if (trace) {
@@ -814,7 +1173,7 @@ int main(int argc, char **argv)
 
     static const char *const runtime_files[] = {
         "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
-        "sha1.c", "sha1.h", "recomp.h", "console.h", NULL,
+        "sha1.c", "sha1.h", "recomp.h", "console.h", "save.c", NULL,
     };
     static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", NULL };
     static const char *const generated_files[] = { "interp_ops.inc", NULL };
@@ -825,6 +1184,8 @@ int main(int argc, char **argv)
     printf("ROM: %s (%s), %u bancos, SHA1 %s\n", rom_path, title, nbanks, sha1);
     printf("código: %u instrucciones (%u bytes, %.1f%% de la ROM) en %zu funciones\n",
            ninsns, nbytes, 100.0 * nbytes / rom_size, nfuncs);
+    if (stat_tramp_calls)
+        printf("llamadas a trampolines de banco resueltas: %u\n", stat_tramp_calls);
     if (stat_tables)
         printf("tablas de saltos en línea: %u, con %u entradas\n", stat_tables, stat_table_entries);
     if (stat_ram_targets)

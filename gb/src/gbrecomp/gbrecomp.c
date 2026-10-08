@@ -95,6 +95,7 @@ typedef uint32_t u32;
 #define F_ENTRY  0x08   /* punto de entrada (vector, traza) */
 #define F_TABLE  0x10   /* tabla de punteros en línea (datos) */
 #define F_REF    0x20   /* el código carga esta dirección como constante */
+#define F_ARGS   0x40   /* argumentos en línea después de una llamada (datos) */
 
 static u8 *rom;
 static u32 rom_size, nbanks;
@@ -537,6 +538,162 @@ static int routine_kind(u16 addr, int *bank_reg)
 }
 
 
+/*
+ * Rutinas con argumentos en línea: quien las llama pone N bytes justo después
+ * del `call`; la rutina saca la dirección de regreso con `pop hl`, lee los
+ * bytes con `ld r, [hl+]` / `inc hl` y vuelve a empujar HL (ya pasados los
+ * argumentos) con `push hl`. El código del que llama sigue en call + 3 + N.
+ * Si además termina en `jp hl` con H, L y el banco sacados de los argumentos,
+ * es una llamada a otro banco: el destino está escrito en los argumentos
+ * (la rutina de $0540 de Shantae: dirección baja, alta y banco). Si salta así
+ * sin haber vuelto a empujar HL, es un salto lejano que no regresa (la de
+ * $056B de Shantae): después de los argumentos no sigue código.
+ * Se analiza por ejecución simbólica con valores V_ARG(k): "el byte k de los
+ * argumentos".
+ */
+#define V_ARG(k)   (0x200 + (k))
+#define IS_ARG(v)  ((v) >= V_ARG(0) && (v) < V_ARG(8))
+#define MAX_ARGS 8
+
+typedef struct {
+    signed char n;              /* bytes de argumentos (0: no es de este tipo) */
+    signed char lo, hi, bank;   /* qué argumento es cada parte del destino (-1 si no) */
+    signed char noret;          /* salto lejano: no regresa a quien la llamó */
+} InlineArgs;
+
+static InlineArgs ia_cache[0x4000];
+static u8 ia_done[0x4000];
+static unsigned stat_inline_calls, stat_inline_targets;
+
+static const InlineArgs *inline_args(u16 addr)
+{
+    static const InlineArgs none = { 0, -1, -1, -1, 0 };
+    if (addr >= 0x4000) return &none;
+    InlineArgs *ia = &ia_cache[addr];
+    if (ia_done[addr]) return ia;
+    ia_done[addr] = 1;
+    *ia = none;
+
+    Regs s;
+    regs_unknown(&s);
+    int off = -1;   /* HL = dirección de regreso + off (-1: HL es otra cosa) */
+    int n = -1;     /* argumentos ya saltados al hacer `push hl` */
+    int read = 0;   /* bytes de argumentos leídos (aunque después se pise HL) */
+    u16 pc = addr;
+    for (int step = 0; step < 48 && pc < 0x4000; step++) {
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(0, pc, b, &in)) break;
+        u8 op = b[0];
+        if (in.kind == INS_JP_HL || in.kind == INS_RET) {
+            int dest = in.kind == INS_JP_HL && IS_ARG(s.r[R_L]) && IS_ARG(s.r[R_H]);
+            if (n < 0 && dest && read > 0 && read <= MAX_ARGS) {
+                n = read;           /* salto lejano: los argumentos son lo que leyó */
+                ia->noret = 1;
+            }
+            if (n > 0 && !(in.kind == INS_RET && in.cond)) {
+                ia->n = (signed char)n;
+                if (dest) {
+                    ia->lo = (signed char)(s.r[R_L] - V_ARG(0));
+                    ia->hi = (signed char)(s.r[R_H] - V_ARG(0));
+                    ia->bank = IS_ARG(s.bank) ? (signed char)(s.bank - V_ARG(0)) : -1;
+                }
+            }
+            break;
+        }
+        if (in.kind == INS_JP || in.kind == INS_JR) {
+            if (in.cond) break;
+            pc = in.target;
+            continue;
+        }
+        if (in.kind != INS_NORMAL) break;   /* llamadas, rst, halt... */
+
+        /* La pila está vacía al entrar: lo de arriba es la dirección de regreso */
+        if (op == 0xE1 && s.depth == 0 && n < 0 && off < 0) {
+            off = 0;
+            s.r[R_H] = s.r[R_L] = V_UNK;
+            pc++;
+            continue;
+        }
+        if (off >= 0) {
+            int d = (op >> 3) & 7;
+            if (op == 0x2A || op == 0x3A) {             /* ld a, [hl+] / [hl-] */
+                s.r[R_A] = off < MAX_ARGS ? V_ARG(off) : V_UNK;
+                off += op == 0x2A ? 1 : -1;
+                if (off > read) read = off;
+                pc++;
+                continue;
+            }
+            if (op >= 0x40 && op < 0x80 && (op & 7) == 6 && op != 0x76 && d != R_H && d != R_L) {
+                s.r[d] = off < MAX_ARGS ? V_ARG(off) : V_UNK;   /* ld r, [hl] */
+                if (off + 1 > read) read = off + 1;
+                pc++;
+                continue;
+            }
+            if (op == 0x23 || op == 0x2B) {             /* inc hl / dec hl */
+                off += op == 0x23 ? 1 : -1;
+                pc++;
+                continue;
+            }
+            if (op == 0xE5 && n < 0) {                  /* push hl: regreso ya ajustado */
+                n = off;
+                if (n < 1 || n > MAX_ARGS) break;
+            } else if (overwrites_hl(op) || op == 0x09 || op == 0x19 || op == 0x29 || op == 0x39 ||
+                       (op >= 0x40 && op < 0x80 && (op & 7) == 6)) {
+                off = -1;
+            }
+        }
+        if (off < 0 && n < 0 && step > 0 && s.depth == 0 && (op == 0xC1 || op == 0xD1 || op == 0xF1))
+            break;      /* sacó el regreso a otro registro: no es este patrón */
+        regs_step(&s, b);
+        pc = (u16)(pc + in.len);
+    }
+    /* Ya empujó el regreso ajustado: aunque después llame a otras rutinas o
+     * se ramifique (la de $0803 de Shantae llama a $0540), regresa ahí */
+    if (!ia->n && n > 0 && n <= MAX_ARGS) ia->n = (signed char)n;
+    if (verbose && ia->n) {
+        fprintf(stderr, "%s con %d bytes en línea 00:%04X", ia->noret ? "salto lejano" : "rutina", ia->n, addr);
+        if (ia->lo >= 0)
+            fprintf(stderr, " (destino: argumentos %d y %d, banco: %d)", ia->lo, ia->hi, ia->bank);
+        fprintf(stderr, "\n");
+    }
+    return ia;
+}
+
+/*
+ * Filas de `jp nn` seguidos: tablas de vectores (la de $0150 de Shantae) o la
+ * interfaz común con la que empiezan varios bancos (llamar a $4000 + 3n con
+ * el banco que toque). Una fila cuenta si tiene al menos MIN_JP_RUN saltos
+ * con destino en ROM, fuera de la cabecera.
+ */
+#define MIN_JP_RUN 3
+
+static int is_jp_entry(u32 bank, long addr)
+{
+    if (!in_region(bank, (u32)addr) || !in_region(bank, (u32)addr + 2)) return 0;
+    const u8 *p = bank_ptr(bank) + (addr - region_base(bank));
+    u16 nn = (u16)(p[1] | p[2] << 8);
+    return p[0] == 0xC3 && nn < 0x8000 && !(nn >= 0x0104 && nn < 0x0150);
+}
+
+/* Saltos válidos seguidos desde `addr` en pasos de `step` (+3 o -3) */
+static int jp_run(u32 bank, long addr, int step)
+{
+    int n = 0;
+    while (n < 256 && is_jp_entry(bank, addr + (long)n * step)) n++;
+    return n;
+}
+
+static short iface_len[512];    /* fila de jp al inicio de cada banco (-1: sin analizar) */
+static unsigned stat_jp_rows, stat_iface_calls;
+
+static int bank_iface(u32 bank)
+{
+    if (bank == 0 || bank >= 512) return 0;
+    if (!iface_len[bank]) iface_len[bank] = (short)(jp_run(bank, 0x4000, 3) + 1);
+    return iface_len[bank] - 1 >= MIN_JP_RUN ? iface_len[bank] - 1 : 0;
+}
+
 /* La instrucción (no de control) deja A intacto */
 static int keeps_a(u8 op)
 {
@@ -574,7 +731,8 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
     long table_base = -1;
     int since_base = 0;
     Regs st;                /* registros conocidos en este recorrido lineal */
-    long pushed_const = -1; /* constante recién empujada a la pila */
+    long pushed_const = -1; /* constante empujada a la pila, todavía arriba */
+    int pushed_age = 0;     /* instrucciones desde ese push */
     int bank_tied_to_a = 0; /* el banco activo es el valor actual de A */
     int last_cp = -1;       /* operando de un `cp n` en la instrucción anterior */
     regs_unknown(&st);
@@ -586,7 +744,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
         /* Los destinos que se descubran heredan el banco conocido hasta aquí */
         push_ctx = IS_CONST(st.bank) ? st.bank : V_UNK;
         if (!in_region(bank, addr)) return;
-        if (*flag_at(bank, addr) & (F_INSN | F_TABLE)) return;
+        if (*flag_at(bank, addr) & (F_INSN | F_TABLE | F_ARGS)) return;
 
         u8 b[3];
         Insn in;
@@ -626,8 +784,10 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             else ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
         }
 
-        /* `ld rr, nn` + `push rr` justo antes de un salto indirecto: nn es la
-         * dirección de regreso que usará un `ret` (como en Bankswitch) */
+        /* `ld rr, nn` + `push rr` poco antes de un salto indirecto, sin nada
+         * que lo saque de la pila en medio: nn es la dirección de regreso que
+         * usará un `ret` (como en Bankswitch, o el `ld hl, $0564` + `push hl`
+         * de la rutina de $0540 de Shantae, diez instrucciones antes) */
         if (pushed_const >= 0 && (in.kind == INS_JP_HL || in.kind == INS_RET ||
                                   (in.kind == INS_JP && in.cond == 0))) {
             long rb = bank_of(bank, (u16)pushed_const);
@@ -635,8 +795,16 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 *flag_at((u32)rb, (u16)pushed_const) |= F_TARGET;
                 push_work((u32)rb, (u16)pushed_const);
             }
+            pushed_const = -1;
         }
-        pushed_const = -1;
+        /* Deja de estar arriba de la pila: un pop, otro push (lo cubre más
+         * abajo) o un cambio del SP */
+        if (b[0] == 0xC1 || b[0] == 0xD1 || b[0] == 0xE1 || b[0] == 0xF1 || b[0] == 0xF5 ||
+            b[0] == 0x31 || b[0] == 0x33 || b[0] == 0x3B || b[0] == 0xE8 || b[0] == 0xF9 ||
+            ++pushed_age > 12)
+            pushed_const = -1;
+        int skip = 0;   /* argumentos en línea que siguen a esta instrucción */
+        int noret = 0;  /* llamó a un salto lejano: aquí termina el recorrido */
 
         switch (in.kind) {
         case INS_JP: case INS_JR: case INS_CALL: case INS_RST: {
@@ -646,13 +814,57 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 tb = mbc_bank(st.bank);
             else
                 tb = resolve_bank(bank, in.target);
-            if (tb < 0 && in.target >= 0x4000 && in.target < 0x8000)
-                ev_add(EV_UNRESOLVED, 0, bank, addr, 0, in.target, 0, 0);
+            if (tb < 0 && in.target >= 0x4000 && in.target < 0x8000) {
+                /* Sin banco conocido, pero quizá es la interfaz común de
+                 * varios bancos: se explora en cada banco que la tenga */
+                int found = 0;
+                if ((in.target - 0x4000) % 3 == 0) {
+                    int saved = push_ctx;
+                    for (u32 ib = 1; ib < nbanks; ib++) {
+                        int n = bank_iface(ib);
+                        if (!n || in.target >= 0x4000 + 3 * n) continue;
+                        push_ctx = (int)ib;
+                        *flag_at(ib, in.target) |= F_TARGET;
+                        push_work(ib, in.target);
+                        found++;
+                    }
+                    push_ctx = saved;
+                }
+                if (found) {
+                    stat_iface_calls++;
+                    stat_unresolved--;      /* resolve_bank ya lo había contado */
+                } else ev_add(EV_UNRESOLVED, 0, bank, addr, 0, in.target, 0, 0);
+            }
             if (tb >= 0) {
                 *flag_at((u32)tb, in.target) |= F_TARGET;
                 push_work((u32)tb, in.target);
+                /* Llamada a una rutina con argumentos en línea: se saltan y,
+                 * si traen el destino, se explora */
+                const InlineArgs *ia = (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0
+                                       ? inline_args(in.target) : NULL;
+                if (ia && ia->n && in_region(bank, (u32)addr + in.len + ia->n)) {
+                    const u8 *arg = bank_ptr(bank) + (addr + in.len - region_base(bank));
+                    skip = ia->n;
+                    noret = ia->noret;
+                    for (int i = 0; i < skip; i++) *flag_at(bank, (u16)(addr + in.len + i)) |= F_ARGS;
+                    ev_add(EV_ARGS, 0, bank, (u16)(addr + in.len), 0, 0, skip, 0);
+                    stat_inline_calls++;
+                    if (ia->lo >= 0) {
+                        u16 dest = (u16)(arg[(int)ia->lo] | arg[(int)ia->hi] << 8);
+                        long db = dest < 0x4000 ? 0 :
+                                  dest < 0x8000 && ia->bank >= 0 ? (long)mbc_bank(arg[(int)ia->bank]) : -1;
+                        if (db >= 0) {
+                            int saved = push_ctx;
+                            push_ctx = db != 0 ? (int)db : saved;
+                            *flag_at((u32)db, dest) |= F_TARGET;
+                            push_work((u32)db, dest);
+                            push_ctx = saved;
+                            stat_inline_targets++;
+                        }
+                    }
+                }
                 /* Llamada a un despachador: lo que sigue es su tabla */
-                if ((in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0 &&
+                if (!skip && (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0 &&
                     is_table_dispatcher((u32)tb, in.target)) {
                     add_table(bank, (u16)(addr + in.len), 1);
                     return;
@@ -695,6 +907,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             if (op == 0xC5 || op == 0xD5 || op == 0xE5) {
                 int hi = ((op >> 4) & 3) * 2;
                 pushed_const = pair_value(&st, hi, hi + 1);
+                pushed_age = 0;
             }
             /* El banco se escribió desde A con valor desconocido: mientras A
              * no cambie, "banco == A" */
@@ -719,8 +932,27 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
         }
         last_cp = b[0] == 0xFE ? b[1] : -1;
 
-        if (sm83_ends_block(&in)) return;
-        addr = (u16)(addr + in.len);
+        /* Un `jp nn` dentro de una fila de saltos: se exploran sus vecinos
+         * (cada uno revisa a los suyos, así se recorre la fila entera) */
+        if (b[0] == 0xC3) {
+            int back = jp_run(bank, (long)addr - 3, -3), fwd = jp_run(bank, (long)addr + 3, 3);
+            if (1 + back + fwd >= MIN_JP_RUN) {
+                int saved = push_ctx;
+                push_ctx = bank != 0 ? (int)bank : V_UNK;
+                if (back && !(*flag_at(bank, (u16)(addr - 3)) & F_INSN)) {
+                    push_work(bank, (u16)(addr - 3));
+                    stat_jp_rows++;
+                }
+                if (fwd && !(*flag_at(bank, (u16)(addr + 3)) & F_INSN)) {
+                    push_work(bank, (u16)(addr + 3));
+                    stat_jp_rows++;
+                }
+                push_ctx = saved;
+            }
+        }
+
+        if (sm83_ends_block(&in) || noret) return;
+        addr = (u16)(addr + in.len + skip);
     }
 }
 
@@ -768,7 +1000,7 @@ static void read_table(const Table *t)
     for (int k = 0; k < 256; k++) {
         if (!in_region(bank, pos) || !in_region(bank, (u32)pos + 1)) break;
         u8 f0 = *flag_at(bank, pos), f1 = *flag_at(bank, (u16)(pos + 1));
-        if ((f0 | f1) & (F_BODY | F_TABLE)) break;
+        if ((f0 | f1) & (F_BODY | F_TABLE | F_ARGS)) break;
         if (k > 0 && ((f0 | f1) & F_TARGET)) break;
         if (k > 0 && !inline_table && ((f0 | f1) & F_REF)) break;
         const u8 *p = bank_ptr(bank) + (pos - region_base(bank));
@@ -1518,6 +1750,13 @@ int main(int argc, char **argv)
         printf("llamadas a fijadores de banco: %u\n", stat_bank_setters);
     if (stat_table_jumps)
         printf("saltos por tabla con base en HL: %u\n", stat_table_jumps);
+    if (stat_jp_rows)
+        printf("saltos en filas de jp (tablas de vectores): %u\n", stat_jp_rows);
+    if (stat_iface_calls)
+        printf("llamadas a la interfaz común de varios bancos: %u\n", stat_iface_calls);
+    if (stat_inline_calls)
+        printf("llamadas con argumentos en línea: %u (%u con destino en los argumentos)\n",
+               stat_inline_calls, stat_inline_targets);
     if (stat_tables)
         printf("tablas de saltos en línea: %u, con %u entradas\n", stat_tables, stat_table_entries);
     if (stat_ram_targets)

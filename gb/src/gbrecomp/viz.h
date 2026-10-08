@@ -34,7 +34,8 @@ enum {
     EV_TENTRY,      /* entrada de tabla en bank:addr que apunta a bank2:addr2 */
     EV_UNRESOLVED,  /* salto en bank:addr a addr2, en el área de bancos, sin banco conocido */
     EV_INDIRECT,    /* jp hl en bank:addr sin tabla reconocida */
-    EV_TRACE        /* punto de entrada de la traza; aux: 1 si ya se conocía */
+    EV_TRACE,       /* punto de entrada de la traza; aux: 1 si ya se conocía */
+    EV_ARGS         /* `len` bytes de argumentos en línea en bank:addr, después de una llamada */
 };
 
 #define EV_NONE 0xFFFF  /* bank2 sin valor (no hay origen o banco desconocido) */

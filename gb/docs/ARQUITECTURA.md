@@ -263,7 +263,7 @@ capturas y `--bench` mide la velocidad de cada máquina.
 ### Heurísticas genéricas
 
 Además de seguir saltos y llamadas con destino constante, `gbrecomp` reconoce
-dos formas comunes de salto indirecto. Ninguna depende de un juego en
+estas formas comunes de salto indirecto. Ninguna depende de un juego en
 particular:
 
 1. **Despachador con tabla en línea** (el `rst $28` / `TableJump` de muchos
@@ -274,6 +274,27 @@ particular:
 2. **Tabla fuera de línea**: `ld hl, Tabla` seguido, a lo más 8 instrucciones
    después, de `jp hl` (normalmente con una llamada intermedia que lee la
    entrada).
+3. **Argumentos en línea**: una rutina del banco 0 que saca su dirección de
+   regreso (`pop hl`), lee N bytes con `ld r, [hl+]` / `inc hl` y vuelve a
+   empujar HL (`push hl`). Quien la llama pone N bytes de datos después del
+   `call`, y su código sigue en `call + 3 + N`. Se reconoce por ejecución
+   simbólica con valores "byte k de los argumentos". Si la rutina termina en
+   `jp hl` con la dirección y el banco sacados de los argumentos, es una
+   llamada a otro banco y el destino se explora. Si salta así sin haber vuelto
+   a empujar HL, es un salto lejano que no regresa. En Shantae: `$0540`
+   (llamada lejana, 3 bytes, 3141 llamadas), `$056B` (salto lejano), `$0803`
+   (8 bytes) y dos de 1 byte.
+4. **Filas de `jp`**: tres o más `jp nn` seguidos son una tabla de vectores
+   (las 83 de `$0150` en Shantae). Al descubrir uno se exploran sus vecinos.
+5. **Interfaz común de varios bancos**: si un salto a `$4000-$7FFF` no tiene
+   banco conocido (el banco sale de una variable de RAM), pero cae dentro de
+   la fila de `jp` con la que empiezan algunos bancos, se explora en cada uno
+   de ellos. En Shantae, los bancos `$2C-$3F` empiezan con la misma tabla de 9
+   saltos.
+
+Además, un `ld rr, nn` + `push rr` cuenta como dirección de regreso si, a lo
+más 12 instrucciones después, viene un `jp hl`, `ret` o `jp` sin que en medio
+se saque de la pila (el `ld hl, $0564` + `push hl` de `$0540`).
 
 El largo de una tabla no está escrito en ningún lado. La lectura se detiene al
 llegar a código ya conocido o a un destino de salto, cuando la entrada no
@@ -292,10 +313,16 @@ Todos corren bien (en el intérprete) y la traza los resuelve:
 
 | Patrón | Ejemplo | Sin traza → con traza |
 |---|---|---|
-| Llamada a otro banco con argumentos en línea: `call R` seguido de dirección y banco; `R` saca el retorno con `pop hl`, lee los bytes y los salta | Shantae (`$0540`, 3141 llamadas) | 4.9 % → 99.6 % |
+| Bucle desenrollado con entrada calculada: se salta a la mitad de una fila de copias según un índice leído con `ld a, [bc]` | Shantae (`$23E0-$26F4`) | 87-90 % → 99.6 % |
 | Puntero a código guardado en una variable de RAM: el bucle principal hace `ld hl, [estado]` + `jp hl` | Mary-Kate and Ashley | 1.9 % → 99.4 % |
 | Trampolín con el banco en una variable de RAM en lugar de un registro | Duke Nukem | 8.8 % → 99.9 % |
 | Código copiado a RAM (WRAM y HRAM) | International Superstar Soccer | 37 % → 72 % (lo de RAM no se puede recompilar estáticamente) |
+
+Shantae estaba en esta tabla por las llamadas con argumentos en línea (4.9 %
+sin traza). Con las heurísticas 3 a 5 llega a 86-90 % sin traza (3 semillas de
+6000 cuadros, sin diferencias), y el estático encuentra 41,916 instrucciones
+en lugar de 925. Lo que le falta lo mostró `--coverage`: el bucle desenrollado
+de arriba y código al que solo se llega por punteros en datos.
 
 `difftest` dice en qué zona ejecuta el intérprete (ROM, RAM del cartucho, WRAM,
 HRAM), para distinguir código no descubierto de código en RAM.

@@ -114,6 +114,8 @@ typedef struct {
     u8 stat_line;       /* línea de interrupción STAT (para el flanco) */
     u8 lcd_first_line;  /* primera línea tras encender el LCD */
     u16 hblank_irq_dot; /* punto en que se evalúa la interrupción de HBlank */
+    u8 oam_rb, oam_wb;  /* OAM bloqueada para leer / escribir desde el CPU */
+    u8 vram_rb, vram_wb;
 
     /* Ventana */
     u8 wy_triggered;    /* WY coincidió con LY en este cuadro */
@@ -342,8 +344,8 @@ void ppu_write(GB *g, u8 reg, u8 value);
 void ppu_write_timed(GB *g, u8 reg, u8 value, u64 s);
 u8   ppu_read(GB *g, u8 reg);
 u64  ppu_next_event(GB *g);
-int  ppu_vram_blocked(GB *g);
-int  ppu_oam_blocked(GB *g);
+int  ppu_vram_blocked(GB *g, int write);
+int  ppu_oam_blocked(GB *g, int write);
 
 void apu_reset(GB *g);
 void apu_mcycle(GB *g);

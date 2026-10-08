@@ -253,6 +253,7 @@ static void end_rendering(GB *g)
     p->mode = 0;
     p->mode_irq = 0;
     p->hblank_irq_dot = (u16)(p->dot + 1);
+    p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
 }
 
 /* Saca un píxel de la FIFO (si se puede) */
@@ -473,8 +474,12 @@ static void visible_line_dot(GB *g)
             p->mode = 0;
             p->mode_irq = -1;
             p->n_objs = 0;
+            p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
             stat_update(g);
+        } else if (d == 77) {
+            p->oam_wb = 1;
         } else if (d == 79) {
+            p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 1;
             p->mode = 3;
             p->mode_irq = 3;
         } else if (d == 84) {
@@ -485,10 +490,12 @@ static void visible_line_dot(GB *g)
         switch (d) {
         case 0:
             wy_check(g);
+            p->oam_wb = 0;
             break;
         case 3:
             p->ly_reg = p->ly;
             p->ly_cmp = p->ly ? -1 : 0;
+            p->oam_rb = 1;
             if (p->ly != 0) p->mode_irq = 2;
             p->mode = 0;
             stat_update(g);
@@ -496,6 +503,7 @@ static void visible_line_dot(GB *g)
         case 4:
             p->mode = 2;
             p->mode_irq = 2;
+            p->oam_rb = p->oam_wb = 1;
             p->ly_cmp = p->ly;
             wy_check(g);
             stat_update(g);
@@ -505,6 +513,7 @@ static void visible_line_dot(GB *g)
             break;
         case 84:
             add_object(g, 39);
+            p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 1;
             p->mode = 3;
             p->mode_irq = 3;
             stat_update(g);
@@ -514,6 +523,13 @@ static void visible_line_dot(GB *g)
             break;
         default:
             if (d >= 6 && d < 84 && !(d & 1)) add_object(g, (int)(d - 6) / 2);
+            if (d == 80) {
+                /* Al leer la entrada 37: VRAM se bloquea para leer y la OAM se
+                 * libera para escribir hasta el modo 3 */
+                p->vram_rb = 1;
+                p->vram_wb = 0;
+                p->oam_wb = 0;
+            }
             break;
         }
     }
@@ -645,14 +661,16 @@ u64 ppu_next_event(GB *g)
     return p->cyc + (p->line_len - p->dot);
 }
 
-int ppu_vram_blocked(GB *g)
+int ppu_vram_blocked(GB *g, int write)
 {
-    return (LCDC(g) & LCDC_ON) && g->ppu.mode == 3;
+    if (!(LCDC(g) & LCDC_ON)) return 0;
+    return write ? g->ppu.vram_wb : g->ppu.vram_rb;
 }
 
-int ppu_oam_blocked(GB *g)
+int ppu_oam_blocked(GB *g, int write)
 {
-    return (LCDC(g) & LCDC_ON) && (g->ppu.mode == 2 || g->ppu.mode == 3);
+    if (!(LCDC(g) & LCDC_ON)) return 0;
+    return write ? g->ppu.oam_wb : g->ppu.oam_rb;
 }
 
 u8 ppu_read(GB *g, u8 reg)
@@ -688,6 +706,7 @@ void ppu_write(GB *g, u8 reg, u8 v)
             p->wy_triggered = 0;
             p->rendering = 0;
             memset(p->back, 0, GB_SCREEN_W * GB_SCREEN_H);
+            p->oam_rb = p->oam_wb = p->vram_rb = p->vram_wb = 0;
             finish_frame(g);
         } else if (!(old & LCDC_ON) && (v & LCDC_ON)) {
             p->ly = 0;

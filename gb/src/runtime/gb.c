@@ -287,14 +287,14 @@ u8 gb_read_slow(GB *g, u16 a)
     if (a < 0x4000) return g->rom[(size_t)g->mbc.bank0 * 0x4000 + a];
     if (a < 0x8000) return g->rom[(size_t)g->mbc.bankx * 0x4000 + (a - 0x4000)];
     if (a < 0xA000) {
-        if (g->block_vram && ppu_vram_blocked(g)) return 0xFF;
+        if (g->block_vram && ppu_vram_blocked(g, 0)) return 0xFF;
         return g->vram[a - 0x8000];
     }
     if (a < 0xC000) return mbc_sram_read(g, a);
     if (a < 0xFE00) return g->wram[(a - 0xC000) & 0x1FFF];
     if (a < 0xFEA0) {
         if (g->dma.running) return 0xFF;
-        if (g->block_vram && ppu_oam_blocked(g)) return 0xFF;
+        if (g->block_vram && ppu_oam_blocked(g, 0)) return 0xFF;
         return g->oam[a - 0xFE00];
     }
     if (a < 0xFF00) return 0x00;
@@ -326,7 +326,7 @@ void gb_write_slow(GB *g, u16 a, u8 v)
 
     if (a < 0x8000) { mbc_write(g, a, v); return; }
     if (a < 0xA000) {
-        if (g->block_vram && ppu_vram_blocked(g)) return;
+        if (g->block_vram && ppu_vram_blocked(g, 1)) return;
         g->vram[a - 0x8000] = v;
         return;
     }
@@ -334,7 +334,7 @@ void gb_write_slow(GB *g, u16 a, u8 v)
     if (a < 0xFE00) { g->wram[(a - 0xC000) & 0x1FFF] = v; return; }
     if (a < 0xFEA0) {
         if (g->dma.running) return;
-        if (g->block_vram && ppu_oam_blocked(g)) return;
+        if (g->block_vram && ppu_oam_blocked(g, 1)) return;
         g->oam[a - 0xFE00] = v;
         return;
     }

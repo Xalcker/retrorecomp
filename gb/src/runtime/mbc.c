@@ -164,8 +164,11 @@ void mbc_rtc_advance(GB *g, u64 seconds)
 static void rtc_update(GB *g)
 {
     Mbc *m = &g->mbc;
-    u64 delta = g->cyc - m->rtc_last_cyc;
-    m->rtc_last_cyc = g->cyc;
+    /* El RTC lo mueve su propio cristal: tiempo real, no ciclos del CPU (en
+     * doble velocidad el CPU va al doble y el reloj no) */
+    u64 now = gb_realtime(g);
+    u64 delta = now - m->rtc_last_rt;
+    m->rtc_last_rt = now;
     if (m->rtc[4] & 0x40) return;
     m->rtc_sub += delta;
     if (m->rtc_sub >= GB_CPU_HZ) {

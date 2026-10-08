@@ -444,7 +444,7 @@ int main(int argc, char **argv)
         gb_copy_state(&snap_ref, &ref);
         gb_set_pad(&rec, pad);
         gb_set_pad(&ref, pad);
-        u64 target = rec.cyc + GB_CYCLES_FRAME;
+        u64 target = rec.cyc + gb_frame_cycles(&rec);
         gb_run(&rec, target);
         gb_run(&ref, target);
         if (!same_state(&rec, &ref)) {

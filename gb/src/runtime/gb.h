@@ -85,8 +85,8 @@ typedef struct {
     int sram_bank;      /* banco de RAM efectivo, -1 si no hay acceso */
     /* RTC del MBC3: avanza con los ciclos emulados (determinista) */
     u8 rtc[5], rtc_latched[5], rtc_latch_prev;  /* S, M, H, DL, DH */
-    u64 rtc_last_cyc;   /* ciclo hasta el que ya se contó el tiempo */
-    u64 rtc_sub;        /* ciclos acumulados hacia el siguiente segundo */
+    u64 rtc_last_rt;    /* tiempo real (gb_realtime) hasta el que ya se contó */
+    u64 rtc_sub;        /* tiempo real acumulado hacia el siguiente segundo */
     int rtc_select;     /* -1 o 0..4 si $A000 apunta a un registro del RTC */
 } Mbc;
 
@@ -365,8 +365,16 @@ int  gb_state_load(GB *g, const u8 *data, size_t size);
 /* Ejecuta hasta que g->cyc >= hasta (en un límite de instrucción). */
 void gb_run(GB *g, u64 hasta);
 
-/* Ejecuta un cuadro (70224 ciclos) */
+/* Ejecuta un cuadro de pantalla (gb_frame_cycles ciclos del CPU) */
 void gb_run_frame(GB *g);
+
+/* Ciclos del CPU que dura un cuadro de pantalla: GB_CYCLES_FRAME, o el doble
+ * en doble velocidad (el CPU va al doble, la pantalla no) */
+u64 gb_frame_cycles(const GB *g);
+
+/* Tiempo real del hardware hasta el ciclo actual del CPU, en puntos de
+ * 4,19 MHz (GB_CPU_HZ por segundo, a cualquier velocidad del CPU) */
+u64 gb_realtime(const GB *g);
 
 /* Último cuadro completo, 160×144: en DMG tonos 0 (claro) a 3 (oscuro); en
  * CGB colores RGB555 (5 bits por canal, rojo en los bits bajos). */

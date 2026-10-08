@@ -23,7 +23,8 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto. |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio) y `difftest.c` (prueba diferencial). |
 | `src/tools/` | `gen_interp` (genera el intérprete), `gbtest` (corre ROMs de prueba sin ventana), `png.c`. |
-| `tests/` | `run_tests.sh`: Blargg, Mooneye y dmg-acid2. |
+| `tests/` | `run_tests.sh`: Blargg, Mooneye y dmg-acid2. `inputs/`: guiones de entradas. |
+| `tools/` | `truth/`: mapa de código y datos desde un desensamblado y comparación; `gen_inputs.pl`: jugadas reproducibles. |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
 
 ## Una sola fuente de verdad para el CPU
@@ -171,6 +172,87 @@ capturas y `--bench` mide la velocidad de cada máquina.
 - Velocidad (sin audio): recompilado 47x tiempo real, intérprete 44x. Casi
   todo el tiempo se va en el hardware, que se simula punto por punto. Optimizar
   `gb_sync` es lo que más rendiría.
+
+## Descubrimiento de código (fase 3)
+
+### Heurísticas genéricas
+
+Además de seguir saltos y llamadas con destino constante, `gbrecomp` reconoce
+dos formas comunes de salto indirecto. Ninguna depende de un juego en
+particular:
+
+1. **Despachador con tabla en línea** (el `rst $28` / `TableJump` de muchos
+   juegos). Una rutina que, sin ramificarse, saca de la pila su propia
+   dirección de retorno (`pop` antes de cualquier `push`) y termina en
+   `jp hl` es un despachador. En cada llamada a ella, los bytes siguientes se
+   leen como tabla de punteros a código, no como instrucciones.
+2. **Tabla fuera de línea**: `ld hl, Tabla` seguido, a lo más 8 instrucciones
+   después, de `jp hl` (normalmente con una llamada intermedia que lee la
+   entrada).
+
+El largo de una tabla no está escrito en ningún lado. La lectura se detiene al
+llegar a código ya conocido o a un destino de salto, cuando la entrada no
+apunta a ROM (o apunta a la cabecera, $0104-$014F) y, solo en tablas fuera de
+línea, al llegar a una dirección que el código carga como constante, porque
+ahí empieza otro objeto. Cada entrada se explora antes de leer la siguiente,
+así el código que sigue a la tabla se conoce a tiempo para detenerse.
+
+### Medición contra el desensamblado de Tetris
+
+`tools/truth/` construye la "respuesta correcta" a partir de
+[kaspermeerts/tetris](https://github.com/kaspermeerts/tetris):
+
+1. `build_truth.sh` ensambla el desensamblado con RGBDS 0.6.1. Antes inserta
+   una etiqueta marcadora delante de cada línea que emite bytes, clasificada
+   como instrucción o dato (`instrument.pl`), y comprueba que la ROM
+   resultante sea idéntica byte por byte a la original.
+2. `make_truth.pl` convierte los marcadores del `.sym` en un mapa por byte
+   (código, datos o relleno).
+3. `compare.pl` compara contra `gbrecomp --codemap` o `difftest --executed` y
+   lista los tramos faltantes con el nombre de la rutina que los contiene.
+
+```
+sh tools/truth/build_truth.sh build/ext/tetris-disasm build/ext/rgbds tetris.gb build/truth
+gbrecomp tetris.gb -o out/tetris --codemap static.map
+perl tools/truth/compare.pl build/truth/truth.txt static.map tetris-disasm/tetris.sym
+```
+
+Resultados (11,909 bytes de código según el desensamblado):
+
+| Descubrimiento estático | Exhaustividad | Precisión |
+|---|---|---|
+| Solo saltos y llamadas | 29.1 % | 92.6 % |
+| + tablas en línea (`rst $28`) | 94.7 % | 100 % |
+| + tablas fuera de línea (efectos de sonido) | **99.0 %** | **100 %** |
+
+Los 122 bytes que faltan son código muerto (`LookupTile`, `Unused_00D0`,
+`StartRecordingDemo`, `Call_2A10` y `Call_2665` no tienen ninguna referencia),
+ramas inalcanzables de pocos bytes, y la copia en ROM de `DMARoutine`, que solo
+se ejecuta desde HRAM. Con esto, Tetris ya no necesita trazas: en las pruebas
+diferenciales ninguna dirección de ROM cae al intérprete.
+
+Una versión intermedia leía de más las tablas de efectos de sonido, hasta
+meterse en los punteros a canciones: la precisión bajó a 93.1 %. La regla de
+"constante cargada = otro objeto" lo corrigió.
+
+### Entradas grabadas
+
+`src/platform/inputs.h` define un formato de texto (`cuadro botones`). El
+ejecutable graba con `--record` y reproduce con `--play`, y `difftest
+--input` usa el mismo archivo. `tools/gen_inputs.pl` genera jugadas
+pseudoaleatorias reproducibles para completar guiones escritos a mano. En
+`tests/inputs/tetris_b.txt` hay un guion que entra al modo B y juega.
+
+### Cobertura de las pruebas
+
+Lo que las pruebas ejecutan del código real (`difftest --executed`) con tres
+sesiones aleatorias de 20,000 cuadros y el guion del modo B: **53.2 %**. Las
+entradas aleatorias no completan líneas, así que nunca llegan a subir de
+nivel, hacer un Tetris, ver los finales ni capturar récords altos. El
+multijugador necesita un segundo Game Boy por cable. Hay que grabar partidas
+reales para cubrirlo. El código no ejecutado se generó con el mismo emisor que
+el intérprete, así que sus instrucciones son confiables; lo que no se ha
+probado es su flujo de control (etiquetas, cortes de función).
 
 ## Estado de la validación (fase 1, solo intérprete)
 

@@ -1,0 +1,132 @@
+/*
+ * Entradas grabadas: archivo de texto con una línea por cambio de botones.
+ *
+ *   # comentario
+ *   0     -              (ningún botón desde el cuadro 0)
+ *   300   START
+ *   310   -
+ *   400   RIGHT+A
+ *
+ * Los botones son A, B, SELECT, START, RIGHT, LEFT, UP, DOWN unidos con '+',
+ * o '-' para ninguno. También se acepta un número hexadecimal con $ o 0x
+ * (formato PAD_*).
+ * El estado se mantiene hasta la siguiente línea.
+ *
+ * Lo usan la plataforma SDL (--record / --play) y difftest (--input).
+ */
+#ifndef INPUTS_H
+#define INPUTS_H
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "gb.h"
+
+typedef struct {
+    long *frame;
+    u8 *pad;
+    size_t n, cap, pos;
+} InputScript;
+
+static const char *const input_names[8] = {
+    "A", "B", "SELECT", "START", "RIGHT", "LEFT", "UP", "DOWN",
+};
+
+static inline int inputs_parse_pad(const char *s, u8 *pad)
+{
+    *pad = 0;
+    if (!strcmp(s, "-")) return 1;
+    if (s[0] == '$' || (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))) {
+        *pad = (u8)strtoul(s + (s[0] == '$' ? 1 : 2), NULL, 16);
+        return 1;
+    }
+    char buf[128];
+    snprintf(buf, sizeof buf, "%s", s);
+    for (char *tok = strtok(buf, "+"); tok; tok = strtok(NULL, "+")) {
+        int found = 0;
+        for (int i = 0; i < 8; i++) {
+            const char *a = tok, *b = input_names[i];
+            while (*a && *b && toupper((unsigned char)*a) == *b) { a++; b++; }
+            if (!*a && !*b) { *pad |= (u8)(1 << i); found = 1; }
+        }
+        if (!found) return 0;
+    }
+    return 1;
+}
+
+/* Devuelve NULL si todo bien, o un mensaje de error */
+static inline const char *inputs_load(InputScript *s, const char *path)
+{
+    static char err[256];
+    FILE *f = fopen(path, "r");
+    memset(s, 0, sizeof *s);
+    if (!f) {
+        snprintf(err, sizeof err, "no se pudo abrir %s", path);
+        return err;
+    }
+    char line[256];
+    int lineno = 0;
+    while (fgets(line, sizeof line, f)) {
+        lineno++;
+        char *hash = strchr(line, '#');
+        if (hash) *hash = 0;
+        long frame;
+        char pads[128];
+        int got = sscanf(line, "%ld %127s", &frame, pads);
+        if (got <= 0) continue;
+        u8 pad;
+        if (got != 2 || !inputs_parse_pad(pads, &pad) || (s->n && frame < s->frame[s->n - 1])) {
+            snprintf(err, sizeof err, "%s:%d: línea inválida", path, lineno);
+            fclose(f);
+            return err;
+        }
+        if (s->n == s->cap) {
+            s->cap = s->cap ? s->cap * 2 : 256;
+            s->frame = realloc(s->frame, s->cap * sizeof *s->frame);
+            s->pad = realloc(s->pad, s->cap);
+        }
+        s->frame[s->n] = frame;
+        s->pad[s->n] = pad;
+        s->n++;
+    }
+    fclose(f);
+    return NULL;
+}
+
+/* Botones en el cuadro `frame` (los cuadros deben pedirse en orden) */
+static inline u8 inputs_pad(InputScript *s, long frame)
+{
+    while (s->pos + 1 < s->n && s->frame[s->pos + 1] <= frame) s->pos++;
+    if (!s->n || s->frame[s->pos] > frame) return 0;
+    return s->pad[s->pos];
+}
+
+/* Último cuadro con un cambio de botones */
+static inline long inputs_last_frame(const InputScript *s)
+{
+    return s->n ? s->frame[s->n - 1] : 0;
+}
+
+/* Grabación: escribe una línea solo cuando cambian los botones */
+static inline void inputs_record(FILE *f, long frame, u8 pad, int *last)
+{
+    if (*last == pad) return;
+    *last = pad;
+    fprintf(f, "%ld ", frame);
+    if (!pad) {
+        fputs("-", f);
+    } else {
+        int first = 1;
+        for (int i = 0; i < 8; i++)
+            if (pad & (1 << i)) {
+                fprintf(f, "%s%s", first ? "" : "+", input_names[i]);
+                first = 0;
+            }
+    }
+    fputc('\n', f);
+    fflush(f);
+}
+
+#endif

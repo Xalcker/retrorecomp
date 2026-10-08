@@ -2,10 +2,13 @@
  * Capa de plataforma con SDL2 para un juego recompilado: ventana, controles,
  * audio y ritmo de 59.7275 cuadros por segundo.
  *
- * Uso: juego [rom.gb] [--scale N] [--interp] [--force]
+ * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--record archivo | --play archivo]
  *   Sin argumentos busca "rom.gb" en la carpeta actual.
  *   --interp  ejecuta todo con el intérprete (para comparar)
  *   --force   acepta una ROM con otro SHA1 (solo con el intérprete)
+ *   --record  graba los botones en un archivo de texto (ver inputs.h), para
+ *             reproducirlos con --play o con difftest --input
+ *   --play    reproduce un archivo grabado (el teclado se ignora)
  *
  * Controles: flechas, X = A, Z = B, Enter = Start, Retroceso = Select,
  * Esc = salir.
@@ -16,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "inputs.h"
 #include "recomp.h"
 #include "sha1.h"
 
@@ -64,12 +68,15 @@ int main(int argc, char *argv[])
 {
     const char *rom_path = "rom.gb";
     int scale = 4, interp_only = 0, force = 0;
+    const char *record_path = NULL, *play_path = NULL;
     static GB gb;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--interp")) interp_only = 1;
         else if (!strcmp(argv[i], "--force")) force = 1;
+        else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
+        else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
         else rom_path = argv[i];
     }
     if (scale < 1) scale = 1;
@@ -101,6 +108,17 @@ int main(int argc, char *argv[])
     if (err) fail(err);
     if (!interp_only) gb.recomp_lookup = recomp_lookup;
     gb.apu.enabled = 1;
+
+    InputScript script;
+    int play = 0, last_pad = -1;
+    long frame = 0;
+    FILE *record = NULL;
+    if (play_path) {
+        const char *ierr = inputs_load(&script, play_path);
+        if (ierr) fail(ierr);
+        play = 1;
+    }
+    if (record_path && !(record = fopen(record_path, "w"))) fail("no se pudo crear el archivo de grabación");
 
     SDL_Window *win = SDL_CreateWindow(recomp_rom_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        GB_SCREEN_W * scale, GB_SCREEN_H * scale, SDL_WINDOW_RESIZABLE);
@@ -134,7 +152,10 @@ int main(int argc, char *argv[])
             if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_ESCAPE) running = 0;
         }
 
-        gb_set_pad(&gb, read_pad());
+        u8 pad = play ? inputs_pad(&script, frame) : read_pad();
+        if (record) inputs_record(record, frame, pad, &last_pad);
+        gb_set_pad(&gb, pad);
+        frame++;
         gb_run_frame(&gb);
 
         int n = gb_audio_pull(&gb, samples, 4096);
@@ -161,6 +182,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (record) fclose(record);
     if (audio) SDL_CloseAudioDevice(audio);
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);

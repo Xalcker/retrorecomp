@@ -5,12 +5,15 @@
  * cada cuadro. Si algo difiere, regresa al inicio del cuadro y avanza
  * instrucción por instrucción para reportar la primera diferencia exacta.
  *
- * Uso: difftest rom.gb [--frames N] [--seed S] [--uncovered archivo]
- *                     [--screens carpeta [--every N]] [--bench]
+ * Uso: difftest rom.gb [--frames N] [--seed S | --input archivo] [--uncovered archivo]
+ *                     [--screens carpeta [--every N]] [--bench] [--executed archivo]
+ *   --input reproduce entradas grabadas (ver inputs.h) en lugar de aleatorias.
  *   --screens guarda una captura (PNG) cada N cuadros, para ver hasta dónde
  *   llegaron las entradas aleatorias.
  *   --uncovered escribe, en formato de traza de gbrecomp, las direcciones de
  *   ROM que ejecutó el intérprete (para alimentar gbrecomp --trace).
+ *   --executed escribe qué bytes de ROM se ejecutaron (los registra la máquina
+ *   de referencia; formato de gbrecomp --codemap).
  * Código de salida: 0 sin diferencias, 1 con diferencias.
  */
 #include <stdio.h>
@@ -18,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "inputs.h"
 #include "recomp.h"
 #include "sha1.h"
 
@@ -27,6 +31,42 @@ static GB rec, ref, snap_rec, snap_ref;
 
 #define MAX_BANKS 512
 static u32 *interp_hits[MAX_BANKS];
+
+/* --- Bytes de ROM ejecutados (por la máquina de referencia) --- */
+
+static u8 *executed[MAX_BANKS];
+
+static int insn_length(u8 op)
+{
+    switch (op) {
+    case 0x01: case 0x11: case 0x21: case 0x31: case 0x08:
+    case 0xC2: case 0xC3: case 0xCA: case 0xD2: case 0xDA:
+    case 0xC4: case 0xCC: case 0xCD: case 0xD4: case 0xDC:
+    case 0xEA: case 0xFA:
+        return 3;
+    case 0x06: case 0x0E: case 0x16: case 0x1E: case 0x26: case 0x2E: case 0x36: case 0x3E:
+    case 0x18: case 0x20: case 0x28: case 0x30: case 0x38:
+    case 0xC6: case 0xCE: case 0xD6: case 0xDE: case 0xE6: case 0xEE: case 0xF6: case 0xFE:
+    case 0xE0: case 0xF0: case 0xE8: case 0xF8: case 0xCB: case 0x10:
+        return 2;
+    default:
+        return 1;
+    }
+}
+
+static void mark_executed(GB *g)
+{
+    u16 pc = g->cpu.pc;
+    u32 bank;
+    u16 off;
+    if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
+    else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
+    else return;
+    if (bank >= MAX_BANKS) return;
+    if (!executed[bank]) executed[bank] = calloc(0x4000, 1);
+    int len = insn_length(gb_peek(g, pc));
+    for (int i = 0; i < len && off + i < 0x4000; i++) executed[bank][off + i] = 1;
+}
 
 static void count_interp(GB *g)
 {
@@ -175,6 +215,8 @@ static u32 rng(void)
     return rng_state;
 }
 
+static InputScript script;   /* --input: entradas grabadas en lugar de aleatorias */
+static int use_script;
 static u8 pad_now;
 static long pad_until;
 
@@ -183,6 +225,7 @@ static void reset_pad(u32 seed)
     rng_state = seed ? seed : 1;
     pad_now = 0;
     pad_until = 0;
+    script.pos = 0;
 }
 
 static u8 next_pad(long frame)
@@ -208,6 +251,11 @@ static u8 next_pad(long frame)
     pad_now = pad;
     pad_until = until;
     return pad;
+}
+
+static u8 pad_for(long frame)
+{
+    return use_script ? inputs_pad(&script, frame) : next_pad(frame);
 }
 
 /* --- Ubicar la primera diferencia --- */
@@ -250,14 +298,18 @@ static unsigned char *read_file(const char *path, long *size)
 int main(int argc, char **argv)
 {
     const char *rom_path = NULL, *uncovered = NULL, *screens = NULL;
+    const char *executed_path = NULL, *input_path = NULL;
+    int frames_given = 0;
     long frames = 3600, every = 600;
     int bench = 0;
     u32 seed = 1;
 
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
+        if (!strcmp(argv[i], "--frames") && i + 1 < argc) { frames = atol(argv[++i]); frames_given = 1; }
+        else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = (u32)strtoul(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered = argv[++i];
+        else if (!strcmp(argv[i], "--executed") && i + 1 < argc) executed_path = argv[++i];
         else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--bench")) bench = 1;
@@ -287,6 +339,14 @@ int main(int argc, char **argv)
     free(rom);
     rec.recomp_lookup = recomp_lookup;
     rec.trace = count_interp;
+    if (executed_path) ref.trace = mark_executed;
+    if (input_path) {
+        const char *ierr = inputs_load(&script, input_path);
+        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+        use_script = 1;
+        /* Sin --frames: hasta 10 segundos después del último cambio */
+        if (!frames_given) frames = inputs_last_frame(&script) + 600;
+    }
     reset_pad(seed);
 
     printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, seed);
@@ -298,7 +358,7 @@ int main(int argc, char **argv)
             reset_pad(seed);
             clock_t t0 = clock();
             for (long frame = 0; frame < frames; frame++) {
-                gb_set_pad(m[k], next_pad(frame));
+                gb_set_pad(m[k], pad_for(frame));
                 gb_run_frame(m[k]);
             }
             double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
@@ -309,7 +369,7 @@ int main(int argc, char **argv)
     }
     int ok = 1;
     for (long frame = 0; frame < frames; frame++) {
-        u8 pad = next_pad(frame);
+        u8 pad = pad_for(frame);
         gb_copy_state(&snap_rec, &rec);
         gb_copy_state(&snap_ref, &ref);
         gb_set_pad(&rec, pad);
@@ -359,6 +419,18 @@ int main(int argc, char **argv)
         }
     }
     if (uf) fclose(uf);
+
+    if (executed_path) {
+        /* Mismo formato que gbrecomp --codemap: C = ejecutado */
+        FILE *ef = fopen(executed_path, "w");
+        u32 nbanks = rec.rom_banks;
+        for (u32 b = 0; ef && b < nbanks && b < MAX_BANKS; b++)
+            for (u32 off = 0; off < 0x4000; off++) {
+                fputc(executed[b] && executed[b][off] ? 'C' : '.', ef);
+                if (off % 64 == 63) fputc('\n', ef);
+            }
+        if (ef) fclose(ef);
+    }
     if (distinct) printf("Direcciones de ROM interpretadas: %u\n", distinct);
 
     printf(ok ? "Sin diferencias.\n" : "HAY DIFERENCIAS.\n");

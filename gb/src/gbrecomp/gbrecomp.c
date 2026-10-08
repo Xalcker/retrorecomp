@@ -2,7 +2,10 @@
  * gbrecomp: recompilador estático de ROMs de Game Boy (DMG) a C99.
  *
  * Uso:
- *   gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre]
+ *   gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre] [--codemap archivo]
+ *
+ *   --codemap escribe qué bytes de la ROM se descubrieron como código (para
+ *   compararlo con un desensamblado; ver tools/truth/).
  *
  * Genera en `salida/` un proyecto completo (código recompilado, runtime,
  * capa de plataforma y Makefile). El proyecto no contiene datos de la ROM:
@@ -52,6 +55,8 @@ typedef uint32_t u32;
 #define F_BODY   0x02   /* pertenece a alguna instrucción */
 #define F_TARGET 0x04   /* destino de un salto o llamada */
 #define F_ENTRY  0x08   /* punto de entrada (vector, traza) */
+#define F_TABLE  0x10   /* tabla de punteros en línea (datos) */
+#define F_REF    0x20   /* el código carga esta dirección como constante */
 
 static u8 *rom;
 static u32 rom_size, nbanks;
@@ -102,18 +107,24 @@ static void push_work(u32 bank, u16 addr)
     nwork++;
 }
 
-/* Banco de un destino constante saltando desde `from` (-1 si no se sabe) */
+/* Banco de una dirección de ROM vista desde el banco `from` (-1 si no se sabe) */
+static long bank_of(u32 from, u16 a)
+{
+    if (a < 0x4000) return 0;
+    if (a >= 0x8000) return -1;
+    if (from != 0) return (long)from;
+    return nbanks == 2 ? 1 : -1;
+}
+
+/* Igual, para destinos de salto: lleva la cuenta de los que no se resuelven */
 static long resolve_bank(u32 from, u16 target)
 {
-    if (target < 0x4000) return 0;
-    if (target < 0x8000) {
-        if (from != 0) return (long)from;
-        if (nbanks == 2) return 1;
-        stat_unresolved++;
-        return -1;
+    long b = bank_of(from, target);
+    if (b < 0) {
+        if (target < 0x8000) stat_unresolved++;
+        else stat_ram_targets++;
     }
-    stat_ram_targets++;
-    return -1;
+    return b;
 }
 
 /* Lee la instrucción en `addr` del banco; 0 si se sale del banco */
@@ -128,11 +139,69 @@ static int fetch_insn(u32 bank, u16 addr, u8 bytes[3], Insn *in)
     return off + in->len <= BANK_SIZE;
 }
 
+/*
+ * ¿La rutina en `addr` es un despachador con tabla en línea, como el
+ * TableJump de `rst $28` en muchos juegos? Se reconoce porque, sin
+ * ramificarse, saca de la pila su propia dirección de retorno (un pop antes de
+ * cualquier push) y termina en `jp hl`. Quien la llama pone la tabla de
+ * punteros justo después de la instrucción de llamada.
+ */
+static int is_table_dispatcher(u32 bank, u16 addr)
+{
+    int popped = 0;
+    for (int i = 0; i < 16; i++) {
+        if (!in_region(bank, addr)) return 0;
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(bank, addr, b, &in)) return 0;
+        u8 op = b[0];
+        if (op == 0xC1 || op == 0xD1 || op == 0xE1) popped = 1;
+        if ((op == 0xC5 || op == 0xD5 || op == 0xE5 || op == 0xF5) && !popped) return 0;
+        if (in.kind == INS_JP_HL) return popped;
+        if (in.kind != INS_NORMAL) return 0;
+        addr = (u16)(addr + in.len);
+    }
+    return 0;
+}
+
+/* Tablas de punteros a código pendientes de leer */
+typedef struct {
+    u32 bank;
+    u16 addr;
+    int inline_table;   /* 1: justo después de la llamada a un despachador;
+                         * 0: fuera de línea (ld hl, Tabla ... jp hl) */
+} Table;
+
+static Table *tables;
+static size_t ntables, captables;
+static unsigned stat_tables, stat_table_entries;
+static int verbose;
+
+static void add_table(u32 bank, u16 addr, int inline_table)
+{
+    for (size_t i = 0; i < ntables; i++)
+        if (tables[i].bank == bank && tables[i].addr == addr) return;
+    if (ntables == captables) {
+        captables = captables ? captables * 2 : 16;
+        tables = realloc(tables, captables * sizeof *tables);
+        if (!tables) die("sin memoria");
+    }
+    tables[ntables].bank = bank;
+    tables[ntables].addr = addr;
+    tables[ntables].inline_table = inline_table;
+    ntables++;
+}
+
 static void explore(u32 bank, u16 addr)
 {
+    /* Último `ld hl, nn` con nn en ROM dentro de este tramo lineal, y cuántas
+     * instrucciones han pasado desde entonces */
+    long table_base = -1;
+    int since_base = 0;
+
     for (;;) {
         if (!in_region(bank, addr)) return;
-        if (*flag_at(bank, addr) & F_INSN) return;
+        if (*flag_at(bank, addr) & (F_INSN | F_TABLE)) return;
 
         u8 b[3];
         Insn in;
@@ -141,12 +210,39 @@ static void explore(u32 bank, u16 addr)
         *flag_at(bank, addr) |= F_INSN;
         for (int i = 0; i < in.len; i++) *flag_at(bank, (u16)(addr + i)) |= F_BODY;
 
+        /* Tabla de punteros fuera de línea: `ld hl, Tabla` y, poco después,
+         * `jp hl` (con una llamada intermedia que lee la entrada) */
+        /* Una dirección de ROM cargada como constante (ld bc/de/hl, nn)
+         * suele ser el inicio de un objeto: tabla, cadena, gráficos */
+        if (b[0] == 0x01 || b[0] == 0x11 || b[0] == 0x21) {
+            u16 nn = (u16)(b[1] | b[2] << 8);
+            long rb = bank_of(bank, nn);
+            if (rb >= 0) *flag_at((u32)rb, nn) |= F_REF;
+        }
+        if (b[0] == 0x21) {
+            u16 nn = (u16)(b[1] | b[2] << 8);
+            table_base = nn < 0x8000 && !(nn >= 0x0104 && nn < 0x0150) ? nn : -1;
+            since_base = 0;
+        } else if (++since_base > 8) {
+            table_base = -1;
+        }
+        if (in.kind == INS_JP_HL && table_base >= 0) {
+            long tb = bank_of(bank, (u16)table_base);
+            if (tb >= 0) add_table((u32)tb, (u16)table_base, 0);
+        }
+
         switch (in.kind) {
         case INS_JP: case INS_JR: case INS_CALL: case INS_RST: {
             long tb = resolve_bank(bank, in.target);
             if (tb >= 0) {
                 *flag_at((u32)tb, in.target) |= F_TARGET;
                 push_work((u32)tb, in.target);
+                /* Llamada a un despachador: lo que sigue es su tabla */
+                if ((in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0 &&
+                    is_table_dispatcher((u32)tb, in.target)) {
+                    add_table(bank, (u16)(addr + in.len), 1);
+                    return;
+                }
             }
             break;
         }
@@ -159,18 +255,74 @@ static void explore(u32 bank, u16 addr)
     }
 }
 
+static void drain(void)
+{
+    while (nwork) {
+        Work w = work[--nwork];
+        explore(w.bank, w.addr);
+    }
+}
+
+/*
+ * Lee una tabla de punteros a código entrada por entrada. Su largo no está
+ * escrito en ningún lado, así que se detiene cuando:
+ *   - llega a bytes que ya se sabe que son código o destino de un salto (por
+ *     eso cada entrada se explora antes de leer la siguiente: el código que
+ *     suele seguir a la tabla aparece como destino de alguna entrada);
+ *   - en tablas fuera de línea, llega a una dirección que el código carga
+ *     como constante: ahí empieza otro objeto (otra tabla, por ejemplo). En
+ *     las tablas en línea no se aplica, porque constantes que no son
+ *     punteros (conteos de bytes) caen ahí por casualidad;
+ *   - la entrada no apunta a ROM, apunta a la cabecera del cartucho
+ *     ($0104-$014F) o apunta dentro de la tabla.
+ * Si se pasa de largo, solo se descubre código de más (inofensivo); si se
+ * queda corta, el resto lo resuelve la traza o el intérprete.
+ */
+static void read_table(u32 bank, u16 start, int inline_table)
+{
+    u16 pos = start;
+    stat_tables++;
+    for (int k = 0; k < 256; k++) {
+        if (!in_region(bank, pos) || !in_region(bank, (u32)pos + 1)) break;
+        u8 f0 = *flag_at(bank, pos), f1 = *flag_at(bank, (u16)(pos + 1));
+        if ((f0 | f1) & (F_BODY | F_TABLE)) break;
+        if (k > 0 && ((f0 | f1) & F_TARGET)) break;
+        if (k > 0 && !inline_table && ((f0 | f1) & F_REF)) break;
+        const u8 *p = bank_ptr(bank) + (pos - region_base(bank));
+        u16 entry = (u16)(p[0] | p[1] << 8);
+        if (entry >= 0x8000 || (entry >= 0x0104 && entry < 0x0150)) break;
+        if (entry >= start && entry < (u32)pos + 2 && in_region(bank, entry)) break;
+
+        *flag_at(bank, pos) |= F_TABLE;
+        *flag_at(bank, (u16)(pos + 1)) |= F_TABLE;
+        stat_table_entries++;
+        long tb = resolve_bank(bank, entry);
+        if (tb >= 0) {
+            *flag_at((u32)tb, entry) |= F_TARGET;
+            push_work((u32)tb, entry);
+            drain();
+        }
+        pos = (u16)(pos + 2);
+    }
+    if (verbose)
+        fprintf(stderr, "tabla %02X:%04X: %u entradas\n", bank, start, (unsigned)(pos - start) / 2);
+}
+
 static void discover(void)
 {
     static const u16 vectors[] = {
         0x0100, 0x0040, 0x0048, 0x0050, 0x0058, 0x0060,
     };
+    static size_t tables_done;
     for (size_t i = 0; i < sizeof vectors / sizeof vectors[0]; i++) {
         *flag_at(0, vectors[i]) |= F_ENTRY;
         push_work(0, vectors[i]);
     }
-    while (nwork) {
-        Work w = work[--nwork];
-        explore(w.bank, w.addr);
+    drain();
+    /* Las tablas se leen al final: así el código que las rodea ya se conoce */
+    while (tables_done < ntables) {
+        Table t = tables[tables_done++];
+        read_table(t.bank, t.addr, t.inline_table);
     }
 }
 
@@ -543,6 +695,19 @@ static void emit_makefile(const char *dir, const char *name)
     fclose(f);
 }
 
+/* Mapa por byte de lo descubierto: C = código, . = no descubierto (64 por línea) */
+static void write_codemap(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    for (u32 b = 0; b < nbanks; b++)
+        for (u32 off = 0; off < BANK_SIZE; off++) {
+            fputc((flags[b][off] & F_BODY) ? 'C' : '.', f);
+            if (off % 64 == 63) fputc('\n', f);
+        }
+    fclose(f);
+}
+
 static void sanitize(char *s)
 {
     for (; *s; s++) {
@@ -554,7 +719,7 @@ static void sanitize(char *s)
 
 int main(int argc, char **argv)
 {
-    const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL;
+    const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     char base[1024];
 
     /* La base (src/ y build/gen/) está junto al ejecutable de gbrecomp */
@@ -569,12 +734,14 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
+        else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
+        else if (!strcmp(argv[i], "--verbose")) verbose = 1;
         else if (!strcmp(argv[i], "--base") && i + 1 < argc) snprintf(base, sizeof base, "%s", argv[++i]);
         else if (argv[i][0] == '-') die("opción desconocida: %s", argv[i]);
         else rom_path = argv[i];
     }
     if (!rom_path || !out) {
-        fprintf(stderr, "uso: gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre]\n");
+        fprintf(stderr, "uso: gbrecomp juego.gb -o salida/ [--trace archivo] [--name nombre] [--codemap archivo]\n");
         return 2;
     }
 
@@ -629,6 +796,8 @@ int main(int argc, char **argv)
         for (u32 off = 0; off < BANK_SIZE; off++)
             if (flags[b][off] & F_BODY) nbytes++;
 
+    if (codemap) write_codemap(codemap);
+
     /* 3. Proyecto */
     char path[1024];
     make_dir(out);
@@ -645,7 +814,7 @@ int main(int argc, char **argv)
         "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
         "sha1.c", "sha1.h", "recomp.h", NULL,
     };
-    static const char *const platform_files[] = { "main_sdl.c", "difftest.c", NULL };
+    static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", NULL };
     static const char *const generated_files[] = { "interp_ops.inc", NULL };
     copy_list(base, "src/runtime", runtime_files, out, "runtime");
     copy_list(base, "src/platform", platform_files, out, "platform");
@@ -654,6 +823,8 @@ int main(int argc, char **argv)
     printf("ROM: %s (%s), %u bancos, SHA1 %s\n", rom_path, title, nbanks, sha1);
     printf("código: %u instrucciones (%u bytes, %.1f%% de la ROM) en %zu funciones\n",
            ninsns, nbytes, 100.0 * nbytes / rom_size, nfuncs);
+    if (stat_tables)
+        printf("tablas de saltos en línea: %u, con %u entradas\n", stat_tables, stat_table_entries);
     if (stat_ram_targets)
         printf("saltos a RAM (siempre van al intérprete): %u\n", stat_ram_targets);
     if (stat_unresolved)

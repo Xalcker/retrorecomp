@@ -45,6 +45,12 @@ corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_basic.txt --second
 corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_range.txt --seconds 11 --expect "$T/rtc3test/rtc3test-range-tests-cgb.png"
 corre "$T/rtc3test/rtc3test.gb" --input tests/inputs/rtc3test_subsecond.txt --seconds 30 --expect "$T/rtc3test/rtc3test-sub-second-writes-cgb.png"
 
+# --- Game Boy Color ---
+corre "$T/cgb-acid2/cgb-acid2.gbc" --seconds 3 --expect "$T/cgb-acid2/cgb-acid2.png"
+for rom in "$T"/same-suite/dma/gbc_dma_cont.gb "$T"/same-suite/dma/gdma_addr_mask.gb "$T"/same-suite/ppu/blocking_bgpi_increase.gb; do
+    corre "$rom" --mooneye --seconds 5
+done
+
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 

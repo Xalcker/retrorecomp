@@ -412,9 +412,49 @@ Otros detalles del DMG que se reproducen:
 Velocidad: con la PPU por punto, Tetris corre a unas 27 veces el tiempo real
 (antes 47). Sobra, pero hay margen de optimización si hiciera falta.
 
+## Game Boy Color
+
+El modelo se elige según la cabecera (`$143`, bit 7): los juegos que admiten
+color corren como CGB y los demás como DMG (`gb_init_model` permite forzarlo).
+No se emula el modo de compatibilidad del CGB (un juego de DMG en un Game Boy
+Color, con las paletas que elige su boot ROM), así que las pruebas de Mooneye
+para CGB, que corren en ese modo, quedan fuera.
+
+En modo CGB el runtime tiene:
+- **Memoria:** VRAM de 2 bancos (VBK) y WRAM de 8 bancos de 4 KB (SVBK, en
+  `$D000`). El mapa de lectura rápida sigue el banco elegido.
+- **Paletas de color:** 8 de fondo y 8 de sprites, de 4 colores RGB555, con
+  índice y autoincremento (BCPS/BCPD, OCPS/OCPD). Durante el modo 3 se ignoran
+  las escrituras, pero el índice sí avanza.
+- **HDMA:** general (todo de una vez, con el CPU detenido 8 µs por bloque de
+  16 bytes) y por HBlank (un bloque al empezar cada HBlank visible).
+- **Doble velocidad:** KEY1 + STOP. Hay dos relojes: `g->hw_cyc` en ciclos del
+  CPU (timer, serial, DMA de OAM) y `g->rt` en tiempo real (PPU y APU). En doble
+  velocidad cada M-ciclo del CPU dura 2 puntos en lugar de 4, y el secuenciador
+  del APU usa el bit 13 de DIV para seguir a 512 Hz.
+- **PPU:** atributos de fondo en el banco 1 del mapa (paleta, banco del
+  mosaico, giros y prioridad), banco y paleta CGB de los sprites, prioridad de
+  sprites por índice de OAM (OPRI) y LCDC.0 como prioridad maestra del fondo.
+  Las fallas de ventana propias del DMG solo se aplican en DMG.
+- **Arranque:** registros con A = `$11` (así detectan los juegos un Game Boy
+  Color) y paletas en blanco.
+
+El framebuffer guarda 16 bits por píxel: el tono (0-3) en DMG y el color RGB555
+en CGB. La plataforma SDL convierte cada canal de 5 bits a 8 como
+`(x << 3) | (x >> 2)`.
+
+Validación:
+- `cgb-acid2`: pantalla idéntica.
+- `cgb-acid-hell`: difiere en un píxel en dos líneas.
+- SameSuite: pasan `gbc_dma_cont`, `gdma_addr_mask` y `blocking_bgpi_increase`;
+  fallan `hdma_lcd_off`, `hdma_mode0` (temporización fina de la HDMA) y
+  `ei_delay_halt`.
+- Pokémon Oro, Plata y Amarillo corren en color, sin diferencias en
+  `difftest`.
+
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **115 de 115** pruebas que aplican a DMG.
+`sh tests/run_tests.sh`: **119 de 119** (DMG y las de CGB que ya pasan).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`.

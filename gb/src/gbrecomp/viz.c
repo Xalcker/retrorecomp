@@ -76,9 +76,11 @@ int ev_write(const char *path)
     if (!f) return 0;
     fprintf(f, "# gbrecomp eventos 1\n"
                "# fase NOMBRE                       vectores | tablas | traza | traza-tablas\n"
-               "# recorrido BB:AAAA ORIGEN [desde BB:AAAA]   ORIGEN: arranque | irq | tabla | traza\n"
+               "# recorrido BB:AAAA ORIGEN [desde|desde-entrada BB:AAAA]\n"
+               "#     ORIGEN: arranque | irq | tabla | traza; desde: la instrucción que\n"
+               "#     saltó aquí; desde-entrada: la entrada de tabla que apunta aquí\n"
                "# insn BB:AAAA LARGO\n"
-               "# tabla BB:AAAA en-linea|fuera-de-linea\n"
+               "# tabla BB:AAAA en-linea|fuera-de-linea [desde BB:AAAA]\n"
                "# entrada BB:AAAA -> BB:AAAA       (?? si no se sabe el banco)\n"
                "# sin-banco BB:AAAA -> AAAA        salto al área de bancos sin banco conocido\n"
                "# jp-hl BB:AAAA                    salto indirecto sin tabla reconocida\n"
@@ -91,14 +93,17 @@ int ev_write(const char *path)
             break;
         case EV_WALK:
             fprintf(f, "recorrido %02X:%04X %s", e->bank, e->addr, org_tag[e->origin]);
-            if (e->bank2 != EV_NONE) fprintf(f, " desde %02X:%04X", e->bank2, e->addr2);
+            if (e->bank2 != EV_NONE)
+                fprintf(f, " %s %02X:%04X", e->aux ? "desde-entrada" : "desde", e->bank2, e->addr2);
             fputc('\n', f);
             break;
         case EV_INSN:
             fprintf(f, "insn %02X:%04X %u\n", e->bank, e->addr, e->len);
             break;
         case EV_TABLE:
-            fprintf(f, "tabla %02X:%04X %s\n", e->bank, e->addr, e->aux ? "en-linea" : "fuera-de-linea");
+            fprintf(f, "tabla %02X:%04X %s", e->bank, e->addr, e->aux ? "en-linea" : "fuera-de-linea");
+            if (e->bank2 != EV_NONE) fprintf(f, " desde %02X:%04X", e->bank2, e->addr2);
+            fputc('\n', f);
             break;
         case EV_TENTRY:
             if (e->bank2 != EV_NONE)
@@ -120,6 +125,12 @@ int ev_write(const char *path)
     return fclose(f) == 0;
 }
 
+const Event *ev_list(size_t *n)
+{
+    *n = nev;
+    return evs;
+}
+
 /* ------------------------------------------------------------------ */
 /* Animación (--viz)                                                   */
 /* ------------------------------------------------------------------ */
@@ -130,19 +141,37 @@ int ev_write(const char *path)
 typedef struct {
     uint16_t n[NCAT];   /* bytes de la celda por categoría */
     uint8_t bad;        /* hay un salto sin resolver o un jp hl sin tabla */
+    uint16_t want;      /* direcciones que ejecutó el juego y aún no se descubren */
     int lit;            /* cuadro en que cambió por última vez */
 } Cell;
 
 static unsigned v_nbanks, v_bpc, v_cpl, v_lpb, v_cols, v_lw;
 static Cell *cells;
 static uint8_t *painted;    /* un byte por byte de ROM: ya se contó */
+static uint8_t *wanted;     /* un byte por byte de ROM: lo ejecutó el juego y falta */
+
+/* Direcciones de --coverage, hasta que empiece la animación */
+static struct { uint16_t bank, addr; } *wants;
+static size_t nwants, capwants;
+
+void viz_want(unsigned bank, unsigned addr)
+{
+    if (nwants == capwants) {
+        capwants = capwants ? capwants * 2 : 1024;
+        wants = realloc(wants, capwants * sizeof *wants);
+        if (!wants) exit(1);
+    }
+    wants[nwants].bank = (uint16_t)bank;
+    wants[nwants].addr = (uint16_t)addr;
+    nwants++;
+}
 static int frame, color;
 static const char *v_title;
 
 /* Estado que se muestra abajo del mapa */
 static int cur_phase;
 static const Event *last_walk;
-static unsigned n_insns, n_code_bytes, n_tables, n_bad;
+static unsigned n_insns, n_code_bytes, n_tables, n_bad, n_want;
 
 static char *buf;
 static size_t blen, bcap;
@@ -259,14 +288,19 @@ static void draw_cell(const Cell *c)
         if (c->n[k] > c->n[best]) best = k;
     }
     int age = frame - c->lit;
+    /* Fondo rojo: el juego ejecutó algo aquí que todavía no se descubre */
+    const char *bg = c->want ? ";41" : "";
+    char code[16];
     if (c->bad) {
-        sgr(age == 0 ? "1;97;41" : "1;91");
+        sgr(age == 0 ? "1;97;41" : c->want ? "1;97;41" : "1;91");
         put("!");
     } else if (total == 0) {
-        sgr("90");
-        put("·");
+        snprintf(code, sizeof code, "%s%s", c->want ? "97" : "90", bg);
+        sgr(code);
+        put(c->want ? "×" : "·");
     } else {
-        sgr(age == 0 ? "1;97" : age < 4 ? cat_bright[best] : cat_color[best]);
+        snprintf(code, sizeof code, "%s%s", age == 0 ? "1;97" : age < 4 ? cat_bright[best] : cat_color[best], bg);
+        sgr(code);
         if (best == CAT_DATA) put("≡");
         else if (total * 4 <= v_bpc) put("░");
         else if (total * 2 <= v_bpc) put("▒");
@@ -321,7 +355,14 @@ static void render(void)
     sgr("91");
     put("!");
     sgr("0");
-    put(" sin resolver   ░▒▓█ densidad\x1b[K\n");
+    put(" sin resolver  ");
+    if (nwants) {
+        sgr("97;41");
+        put("×");
+        sgr("0");
+        put(" ejecutado sin descubrir  ");
+    }
+    put(" ░▒▓█ densidad\x1b[K\n");
 
     if (last_walk) {
         putf("▶ recorrido %02X:%04X", last_walk->bank, last_walk->addr);
@@ -330,8 +371,10 @@ static void render(void)
         putf(" (%s)", org_name[last_walk->origin]);
     }
     put("\x1b[K\n");
-    putf("instrucciones %u · código %.1f %% de la ROM · tablas %u · sin resolver %u\x1b[K\n",
+    putf("instrucciones %u · código %.1f %% de la ROM · tablas %u · sin resolver %u",
          n_insns, 100.0 * n_code_bytes / ((double)v_nbanks * BANK_SIZE), n_tables, n_bad);
+    if (nwants) putf(" · ejecutado sin descubrir %u", n_want);
+    put("\x1b[K\n");
 
     if (!color) {
         /* Sin terminal: quitar los "borrar hasta el fin de línea" */
@@ -343,6 +386,15 @@ static void render(void)
         *w = 0;
         blen = (size_t)(w - buf);
     }
+}
+
+/* Celda de una dirección de ROM (NULL si no está en el banco); idx: el byte */
+static Cell *cell_at(unsigned bank, unsigned addr, size_t *idx)
+{
+    unsigned base = bank == 0 ? 0 : 0x4000;
+    if (bank >= v_nbanks || addr < base || addr >= base + BANK_SIZE) return NULL;
+    *idx = (size_t)bank * BANK_SIZE + (addr - base);
+    return &cells[*idx / v_bpc];
 }
 
 static void paint(unsigned bank, unsigned addr, unsigned len, int cat)
@@ -364,12 +416,24 @@ static void paint(unsigned bank, unsigned addr, unsigned len, int cat)
 
 static void mark_bad(unsigned bank, unsigned addr)
 {
-    unsigned base = bank == 0 ? 0 : 0x4000;
-    if (bank >= v_nbanks || addr < base || addr >= base + BANK_SIZE) return;
-    Cell *c = &cells[((size_t)bank * BANK_SIZE + (addr - base)) / v_bpc];
+    size_t idx;
+    Cell *c = cell_at(bank, addr, &idx);
+    if (!c) return;
     c->bad = 1;
     c->lit = frame;
     n_bad++;
+}
+
+/* Una instrucción empieza en una dirección que ejecutó el juego */
+static void unwant(unsigned bank, unsigned addr)
+{
+    size_t idx;
+    Cell *c = cell_at(bank, addr, &idx);
+    if (!c || !wanted[idx]) return;
+    wanted[idx] = 0;
+    c->want--;
+    c->lit = frame;
+    n_want--;
 }
 
 /* Aplica un evento; 1 si es un cambio de fase (para hacer una pausa) */
@@ -386,6 +450,7 @@ static int apply(const Event *e, int *walk_origin)
     case EV_INSN:
         n_insns++;
         paint(e->bank, e->addr, e->len, *walk_origin);
+        unwant(e->bank, e->addr);
         break;
     case EV_TABLE:
         n_tables++;
@@ -430,8 +495,17 @@ void viz_play(unsigned nbanks, const char *title, double seconds)
 
     cells = calloc((size_t)nbanks * (BANK_SIZE / v_bpc), sizeof *cells);
     painted = calloc((size_t)nbanks * BANK_SIZE, 1);
-    if (!cells || !painted) return;
+    wanted = calloc((size_t)nbanks * BANK_SIZE, 1);
+    if (!cells || !painted || !wanted) return;
     for (size_t i = 0; i < (size_t)nbanks * (BANK_SIZE / v_bpc); i++) cells[i].lit = -1000;
+    for (size_t i = 0; i < nwants; i++) {
+        size_t idx;
+        Cell *c = cell_at(wants[i].bank, wants[i].addr, &idx);
+        if (!c || wanted[idx]) continue;
+        wanted[idx] = 1;
+        c->want++;
+        n_want++;
+    }
 
     int walk_origin = ORG_BOOT;
     if (animate) {
@@ -476,4 +550,5 @@ void viz_play(unsigned nbanks, const char *title, double seconds)
     fflush(stdout);
     free(cells);
     free(painted);
+    free(wanted);
 }

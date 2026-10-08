@@ -67,6 +67,11 @@ static const char usage_text[] =
     "  --viz              muestra el descubrimiento como un mapa animado de la ROM\n"
     "  --viz-time S       duración de la animación en segundos (por omisión 5;\n"
     "                     0 dibuja solo el resultado)\n"
+    "  --coverage archivo direcciones que ejecutó el juego (formato de --uncovered);\n"
+    "                     cuenta las que no se descubrieron y --viz las marca en rojo\n"
+    "  --why BB:AAAA      explica por qué esa dirección se tomó como código: la\n"
+    "                     cadena de saltos y tablas desde un punto de entrada\n"
+    "                     (se puede repetir; sin -o no genera el proyecto)\n"
     "  --verbose          detalles del descubrimiento\n"
     "  --version, --help\n"
     "\n"
@@ -101,12 +106,14 @@ typedef struct {
     int bank_ctx;       /* banco activo conocido al llegar (V_UNK = -1 si no se sabe) */
     u8 origin;          /* ORG_*: de dónde viene (para --events y --viz) */
     u16 from_bank, from_addr;   /* instrucción o entrada de tabla que lo agregó */
+    u8 from_table;              /* 1: from_* es una entrada de tabla */
 } Work;
 
 static int push_ctx = -1;   /* contexto de banco para los push_work del recorrido actual */
 /* Origen y procedencia para los push_work siguientes */
 static u8 push_origin = ORG_BOOT;
 static u16 push_from_bank = EV_NONE, push_from_addr;
+static u8 push_from_table;
 static Work *work;
 static size_t nwork, capwork;
 
@@ -152,6 +159,7 @@ static void push_work(u32 bank, u16 addr)
     work[nwork].origin = push_origin;
     work[nwork].from_bank = push_from_bank;
     work[nwork].from_addr = push_from_addr;
+    work[nwork].from_table = push_from_table;
     nwork++;
 }
 
@@ -218,6 +226,7 @@ typedef struct {
     u16 addr;
     int inline_table;   /* 1: justo después de la llamada a un despachador;
                          * 0: fuera de línea (ld hl, Tabla ... jp hl) */
+    u16 from_bank, from_addr;   /* instrucción que la encontró */
 } Table;
 
 static Table *tables;
@@ -237,6 +246,8 @@ static void add_table(u32 bank, u16 addr, int inline_table)
     tables[ntables].bank = bank;
     tables[ntables].addr = addr;
     tables[ntables].inline_table = inline_table;
+    tables[ntables].from_bank = push_from_bank;
+    tables[ntables].from_addr = push_from_addr;
     ntables++;
 }
 
@@ -582,12 +593,14 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
         if (!fetch_insn(bank, addr, b, &in)) return;   /* cruza el fin del banco */
 
         if (!started) {
-            ev_add(EV_WALK, from->origin, bank, addr, from->from_bank, from->from_addr, 0, 0);
+            ev_add(EV_WALK, from->origin, bank, addr, from->from_bank, from->from_addr, 0,
+                   from->from_table);
             started = 1;
         }
         ev_add(EV_INSN, 0, bank, addr, 0, 0, in.len, 0);
         push_from_bank = (u16)bank;
         push_from_addr = addr;
+        push_from_table = 0;
         *flag_at(bank, addr) |= F_INSN;
         for (int i = 0; i < in.len; i++) *flag_at(bank, (u16)(addr + i)) |= F_BODY;
 
@@ -719,6 +732,7 @@ static void explore(const Work *w)
     explore_walk(w->bank, w->addr, w->bank_ctx, w);
     push_ctx = V_UNK;
     push_from_bank = EV_NONE;
+    push_from_table = 0;
 }
 
 static void drain(void)
@@ -744,11 +758,13 @@ static void drain(void)
  * Si se pasa de largo, solo se descubre código de más (inofensivo); si se
  * queda corta, el resto lo resuelve la traza o el intérprete.
  */
-static void read_table(u32 bank, u16 start, int inline_table)
+static void read_table(const Table *t)
 {
-    u16 pos = start;
+    u32 bank = t->bank;
+    u16 start = t->addr, pos = start;
+    int inline_table = t->inline_table;
     stat_tables++;
-    ev_add(EV_TABLE, 0, bank, start, 0, 0, 0, inline_table);
+    ev_add(EV_TABLE, 0, bank, start, t->from_bank, t->from_addr, 0, inline_table);
     for (int k = 0; k < 256; k++) {
         if (!in_region(bank, pos) || !in_region(bank, (u32)pos + 1)) break;
         u8 f0 = *flag_at(bank, pos), f1 = *flag_at(bank, (u16)(pos + 1));
@@ -770,6 +786,7 @@ static void read_table(u32 bank, u16 start, int inline_table)
             push_origin = ORG_TABLE;
             push_from_bank = (u16)bank;
             push_from_addr = pos;
+            push_from_table = 1;
             push_work((u32)tb, entry);
             drain();
         }
@@ -803,7 +820,7 @@ static void discover(void)
     if (tables_done < ntables) ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, trace_pass ? PH_TRACE_TABLES : PH_TABLES);
     while (tables_done < ntables) {
         Table t = tables[tables_done++];
-        read_table(t.bank, t.addr, t.inline_table);
+        read_table(&t);
     }
 }
 
@@ -1230,6 +1247,111 @@ static void write_codemap(const char *path)
     fclose(f);
 }
 
+/* ------------------------------------------------------------------ */
+/* Cobertura (--coverage) y explicaciones (--why)                      */
+/* ------------------------------------------------------------------ */
+
+/* Lee una lista "BB:AAAA" y llama a `fn` con cada dirección de ROM válida */
+static unsigned read_addr_list(const char *path, void (*fn)(u32 bank, u16 addr))
+{
+    FILE *f = fopen(path, "r");
+    if (!f) die("no se pudo abrir %s", path);
+    unsigned bank, addr, n = 0;
+    char line[64];
+    while (fgets(line, sizeof line, f)) {
+        if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
+        if (bank >= nbanks || addr > 0x7FFF || !in_region(bank, addr)) continue;
+        fn(bank, (u16)addr);
+        n++;
+    }
+    fclose(f);
+    return n;
+}
+
+static unsigned cov_missing;
+static char cov_list[10][8];
+
+static void coverage_addr(u32 bank, u16 addr)
+{
+    viz_want(bank, addr);
+    if (*flag_at(bank, addr) & F_INSN) return;
+    if (cov_missing < 10) snprintf(cov_list[cov_missing], sizeof cov_list[0], "%02X:%04X", bank, addr);
+    cov_missing++;
+}
+
+/* Instrucción en `bank:start`, desensamblada */
+static void disasm_at(u32 bank, u16 start, char *text, size_t size)
+{
+    u8 b[3];
+    Insn in;
+    fetch_insn(bank, start, b, &in);
+    sm83_disasm(b, start, text, size);
+}
+
+static const char *const why_origin[ORG_COUNT] = { "arranque", "interrupción", "tabla", "traza" };
+
+/*
+ * Sigue hacia atrás el registro de eventos: la instrucción que cubre la
+ * dirección, el recorrido que la decodificó, quién agregó ese recorrido (una
+ * instrucción o una entrada de tabla, y entonces quién encontró la tabla), y
+ * así hasta un punto de entrada. Cada paso va a eventos anteriores, así que
+ * termina.
+ */
+static void explain(u32 bank, u16 addr)
+{
+    size_t n;
+    const Event *ev = ev_list(&n);
+    printf("¿Por qué %02X:%04X es código?\n", bank, addr);
+    size_t limit = n;
+    char text[48];
+    for (int step = 0;; step++) {
+        size_t i = 0;
+        for (; i < limit; i++)
+            if (ev[i].type == EV_INSN && ev[i].bank == bank && ev[i].addr <= addr &&
+                addr < ev[i].addr + ev[i].len)
+                break;
+        if (i == limit) {
+            if (step == 0) {
+                printf("  no se descubrió como código");
+                if (in_region(bank, addr) && (*flag_at(bank, addr) & F_TABLE)) printf(" (es una entrada de tabla de punteros)");
+                printf(".\n");
+            } else {
+                printf("  (no se encontró la instrucción %02X:%04X en el registro)\n", bank, addr);
+            }
+            return;
+        }
+        size_t w = i;
+        while (w > 0 && ev[w].type != EV_WALK) w--;
+        const Event *in = &ev[i], *walk = &ev[w];
+        disasm_at(bank, in->addr, text, sizeof text);
+        printf("  %02X:%04X  %-22s en el recorrido %02X:%04X\n", bank, in->addr, text, walk->bank, walk->addr);
+        if (walk->bank2 == EV_NONE) {
+            printf("  %02X:%04X  <- punto de entrada (%s)\n", walk->bank, walk->addr, why_origin[walk->origin]);
+            return;
+        }
+        if (walk->aux) {
+            /* Llegó por una entrada de tabla: buscar la tabla y quién la encontró */
+            size_t t = w;
+            while (t > 0 && !(ev[t].type == EV_TENTRY && ev[t].bank == walk->bank2 && ev[t].addr == walk->addr2)) t--;
+            while (t > 0 && ev[t].type != EV_TABLE) t--;
+            printf("  %02X:%04X  <- entrada %02X:%04X de la tabla %02X:%04X (%s)\n", walk->bank, walk->addr,
+                   walk->bank2, walk->addr2, ev[t].bank, ev[t].addr, ev[t].aux ? "en línea" : "fuera de línea");
+            if (ev[t].type != EV_TABLE || ev[t].bank2 == EV_NONE) {
+                printf("  (no se sabe qué instrucción encontró la tabla)\n");
+                return;
+            }
+            bank = ev[t].bank2;
+            addr = ev[t].addr2;
+            limit = t;
+        } else {
+            printf("  %02X:%04X  <- salto desde %02X:%04X\n", walk->bank, walk->addr, walk->bank2, walk->addr2);
+            bank = walk->bank2;
+            addr = walk->addr2;
+            limit = w;
+        }
+    }
+}
+
 static void sanitize(char *s)
 {
     for (; *s; s++) {
@@ -1244,7 +1366,9 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
-    const char *events = NULL;
+    const char *events = NULL, *coverage = NULL;
+    const char *why[16];
+    int nwhy = 0;
     int viz = 0;
     double viz_time = 5;
 
@@ -1266,12 +1390,17 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events = argv[++i];
         else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
+        else if (!strcmp(argv[i], "--why") && i + 1 < argc) {
+            if (nwhy == 16) die("--why: como mucho 16 direcciones");
+            why[nwhy++] = argv[++i];
+        }
         else if (!strcmp(argv[i], "--viz-time") && i + 1 < argc) viz = 1, viz_time = atof(argv[++i]);
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis = argv[++i];
         else if (argv[i][0] == '-') die("opción desconocida: %s (ver gbrecomp --help)", argv[i]);
         else rom_path = argv[i];
     }
-    if (!rom_path || (!out && !dis)) {
+    if (!rom_path || (!out && !dis && !nwhy)) {
         fprintf(stderr, "%s", usage_text);
         return 2;
     }
@@ -1333,7 +1462,7 @@ int main(int argc, char **argv)
     }
 
     /* 1. Descubrimiento */
-    ev_on = events || viz;
+    ev_on = events || viz || nwhy;
     ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_VECTORS);
     discover();
     if (trace) {
@@ -1351,7 +1480,20 @@ int main(int argc, char **argv)
 
     if (codemap) write_codemap(codemap);
     if (events && !ev_write(events)) die("no se pudo escribir %s", events);
+    unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (viz) viz_play(nbanks, title, viz_time);
+    if (coverage) {
+        printf("cobertura: %u direcciones ejecutadas, %u sin descubrir", cov_total, cov_missing);
+        for (unsigned k = 0; k < cov_missing && k < 10; k++) printf(k ? ", %s" : " (%s", cov_list[k]);
+        printf(cov_missing > 10 ? ", ...)\n" : cov_missing ? ")\n" : "\n");
+    }
+    for (int k = 0; k < nwhy; k++) {
+        unsigned wb, wa;
+        if (sscanf(why[k], "%x:%x", &wb, &wa) != 2 || wb >= nbanks || !in_region(wb, wa))
+            die("--why espera BANCO:DIRECCIÓN en hexadecimal (%s)", why[k]);
+        explain(wb, (u16)wa);
+    }
+    if (!out) return 0;
 
     /* 3. Proyecto */
     char path[1024];

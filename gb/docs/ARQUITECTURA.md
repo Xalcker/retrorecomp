@@ -92,6 +92,12 @@ y sus entradas, los saltos al área de bancos sin banco conocido y los `jp hl`
 sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
 
+Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
+cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia
+atrás hasta un punto de entrada. Cada paso apunta a eventos anteriores del
+registro, así que la cadena siempre termina. `--coverage` compara contra una
+lista de direcciones ejecutadas (formato de `--uncovered`).
+
 Las instrucciones de cada banco se agrupan en funciones por tramos contiguos de
 direcciones: se corta cuando hay más de 32 bytes sin código o al llegar a 1,500
 instrucciones. Cada instrucción pertenece a una sola función. Si dos
@@ -140,6 +146,7 @@ L_14F5: /* jr nz, $1500 */
 
 ```
 gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre] [--viz] [--events archivo]
+         [--coverage archivo] [--why BB:AAAA]
 cd salida && make
 ./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
 ./difftest rom.gb        # prueba diferencial

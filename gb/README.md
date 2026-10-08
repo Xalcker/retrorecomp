@@ -60,6 +60,7 @@ enlazado de forma estática y no necesita DLLs.
 
 ```
 gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo] [--viz] [--events archivo]
+         [--coverage archivo] [--why BB:AAAA]
 ```
 
 El descubrimiento estático encuentra casi todo el código. Para lo que quede
@@ -88,6 +89,33 @@ magenta para la traza. `!` marca los saltos que no se pudieron resolver, que
 son los candidatos a necesitar una traza. `--events` anota cada recorrido con
 la instrucción que lo agregó (`recorrido 01:5C45 arranque desde 00:0101`), así
 que se puede seguir hacia atrás la cadena que llevó a cualquier dirección.
+
+Para depurar el ciclo con trazas:
+
+```
+gbrecomp juego.gb -o salida/ --viz --coverage faltantes.txt
+gbrecomp juego.gb --why 01:6500
+```
+
+`--coverage` toma un archivo de `--uncovered` (lo que el juego ejecutó sin que
+se hubiera descubierto), cuenta cuántas de esas direcciones siguen sin
+descubrirse y, con `--viz`, las marca con `×` sobre fondo rojo hasta que algún
+recorrido llega a ellas. Con `--trace` y `--coverage` sobre el mismo archivo se
+ve cómo la traza las va cubriendo. `--why` explica por qué una dirección se tomó
+como código: la cadena de saltos y tablas desde un punto de entrada.
+
+```
+¿Por qué 00:03A0 es código?
+  00:03A0  ldh a, [$FF81]         en el recorrido 00:03A0
+  00:03A0  <- entrada 00:0365 de la tabla 00:02FB (en línea)
+  00:02FA  rst $28                en el recorrido 00:02F8
+  00:02F8  <- salto desde 00:02C7
+  ...
+  00:0100  <- punto de entrada (arranque)
+```
+
+Sirve para revisar código descubierto de más, por ejemplo una tabla de
+punteros que se leyó más allá de su final.
 
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
 por el propio juego para verse igual en todos los sistemas; Alt o F10):

@@ -9,6 +9,7 @@
 #ifndef VIZ_H
 #define VIZ_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* De dónde viene un recorrido (lo heredan los destinos que descubre) */
@@ -25,9 +26,11 @@ enum { PH_VECTORS, PH_TABLES, PH_TRACE, PH_TRACE_TABLES };
 
 enum {
     EV_PHASE,       /* aux: PH_* */
-    EV_WALK,        /* empieza un recorrido lineal en bank:addr, llegando desde bank2:addr2 */
+    EV_WALK,        /* empieza un recorrido lineal en bank:addr, llegando desde bank2:addr2;
+                     * aux: 1 si bank2:addr2 es una entrada de tabla, 0 si es una instrucción */
     EV_INSN,        /* instrucción de `len` bytes en bank:addr */
-    EV_TABLE,       /* tabla de punteros en bank:addr; aux: 1 en línea, 0 fuera de línea */
+    EV_TABLE,       /* tabla de punteros en bank:addr, encontrada por la instrucción en
+                     * bank2:addr2; aux: 1 en línea, 0 fuera de línea */
     EV_TENTRY,      /* entrada de tabla en bank:addr que apunta a bank2:addr2 */
     EV_UNRESOLVED,  /* salto en bank:addr a addr2, en el área de bancos, sin banco conocido */
     EV_INDIRECT,    /* jp hl en bank:addr sin tabla reconocida */
@@ -46,6 +49,10 @@ extern int ev_on;   /* solo se anota si se pidió --events o --viz */
 void ev_add(int type, int origin, unsigned bank, unsigned addr, unsigned bank2, unsigned addr2,
             int len, int aux);
 int ev_write(const char *path);
+const Event *ev_list(size_t *n);
+
+/* Dirección que el juego ejecutó (--coverage): --viz la marca hasta que se descubra */
+void viz_want(unsigned bank, unsigned addr);
 void viz_play(unsigned nbanks, const char *title, double seconds);
 
 #endif

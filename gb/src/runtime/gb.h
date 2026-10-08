@@ -331,7 +331,8 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model);
 
 /* Modo de compatibilidad del GBC: cambia las paletas como si se hubiera
  * presionado una combinación al arrancar ("up", "up+a", "left+b", ...: las
- * 12 del GBC). Devuelve 0 si el nombre no existe o no es ese modo. */
+ * 12 del GBC), o "auto" para la que elige la boot ROM. Devuelve 0 si el
+ * nombre no existe o no es ese modo. */
 int gb_compat_palette(GB *g, const char *combo);
 
 /* PPU → HDMA: empieza un HBlank de una línea visible (CGB) */
@@ -352,6 +353,11 @@ u8  *gb_save_serialize(GB *g, long long now, size_t *size);
 int  gb_save_deserialize(GB *g, const u8 *data, size_t size, long long now);
 int gb_save_write(GB *g, const char *path, long long now);
 int gb_save_read(GB *g, const char *path, long long now);
+
+/* Estado guardado: la máquina completa (solo para el mismo ejecutable y la
+ * misma ROM). gb_state_load devuelve 0 si el estado no corresponde. */
+u8  *gb_state_save(const GB *g, size_t *size);
+int  gb_state_load(GB *g, const u8 *data, size_t size);
 
 /* Ejecuta hasta que g->cyc >= hasta (en un límite de instrucción). */
 void gb_run(GB *g, u64 hasta);

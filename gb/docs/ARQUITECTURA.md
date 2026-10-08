@@ -141,6 +141,29 @@ cd salida && make
 `platform/` (SDL2 y difftest), un `Makefile` y `LEEME.txt` (cómo compilar en
 cada sistema). No contiene datos de la ROM.
 
+## Interfaz del ejecutable
+
+`platform/main_sdl.c` usa la barra de menús y los diálogos de Moskva 89
+(`ui_menu.c`, `ui_font.c`: fuente de mapa de bits propia, sin depender de las
+del sistema), con textos en `i18n.c` (español e inglés) y preferencias en
+`settings.c`. Los menús se arman según la consola encendida: la paleta solo
+aparece en DMG y en compatibilidad GBC, y el borde solo en SGB. Con un menú o
+un diálogo abierto el juego se pausa, y al cerrarlo los botones se ignoran
+hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Start).
+
+- **Estados guardados** (`gb_state_save` / `gb_state_load` en `save.c`): el
+  struct GB completo más la RAM del cartucho, con un encabezado que lleva
+  `sizeof(GB)` y la cabecera de la ROM. Solo los lee el mismo ejecutable con la
+  misma ROM. Los punteros se reemplazan con los de la máquina actual al cargar
+  (como en `gb_copy_state`).
+- **Cambio de consola:** reinicia con otro modelo (guarda antes el `.sav`).
+  Solo se ofrecen las que admite la cabecera.
+- **Grabaciones:** mientras se graba o reproduce, se desactiva lo que
+  desfasaría los botones (reiniciar, cargar estado, cambiar de consola).
+- **Pruebas sin ventana:** `--ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
+  [--ui-action N]` corre N cuadros con la ventana oculta, abre un menú o hace
+  una acción y guarda la imagen.
+
 ## Empaquetado (fase 6)
 
 - **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y

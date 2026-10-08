@@ -151,6 +151,10 @@ void compat_boot(GB *g)
 int gb_compat_palette(GB *g, const char *combo)
 {
     if (!g->cgb_hw || g->cgb) return 0;
+    if (!strcmp(combo, "auto")) {       /* la que elige la boot ROM */
+        load_combo(g, compat_combo(g) & 0x7F);
+        return 1;
+    }
     for (int i = 0; i < 12; i++) {
         if (!strcmp(keys[i].name, combo)) {
             load_combo(g, keys[i].combo);

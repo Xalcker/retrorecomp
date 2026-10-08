@@ -73,10 +73,27 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
 
 `tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`.
 
-Opciones del ejecutable generado: `--scale N`, `--model`, `--palette`,
+El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
+por el propio juego para verse igual en todos los sistemas; Alt o F10):
+
+| Menú | Opciones |
+|---|---|
+| **Juego** | Reiniciar (`Ctrl+R`), Pausa (`P`), Guardar y cargar estado (`F5` / `F8`, cuatro ranuras), consola (Game Boy, Game Boy Color o Super Game Boy, según lo que admita el juego), Salir |
+| **Video** | Borde del SGB, tamaño ×1 a ×6, pantalla completa (`F11`) |
+| **Paleta** | En DMG: verde, Pocket o grises. En compatibilidad GBC: la del juego o las 12 combinaciones de botones (`F2` las rota) |
+| **Audio** | Sonido (`Ctrl+M`) y volumen |
+| **Idioma** | Español o English |
+| **Ayuda** | Controles (`F1`), datos del juego (consola, % recompilado, carpeta de datos), acerca de |
+
+Las preferencias se guardan en `settings.ini`, en la carpeta de datos del
+juego, junto con la partida y los estados.
+
+Controles: flechas, Z = B, X = A, Enter = Start, Retroceso = Select, o un
+control (A y B en la posición de Nintendo).
+
+Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 `--record archivo` / `--play archivo` (entradas grabadas, reproducibles en
 `difftest --input`), `--interp` (todo con el intérprete) y `--forget-rom`.
-Controles: flechas, Z = B, X = A, Enter = Start, Retroceso = Select.
 
 ## Estado
 

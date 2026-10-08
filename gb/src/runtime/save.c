@@ -117,3 +117,61 @@ int gb_save_read(GB *g, const char *path, long long now)
     free(data);
     return ok;
 }
+
+/* ------------------------------------------------------------------ */
+/* Estados guardados                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Un estado es la máquina completa en un instante: el struct GB tal cual, más
+ * la RAM del cartucho. No es un formato portable: solo lo lee el mismo
+ * ejecutable (el encabezado lleva el tamaño del struct y la cabecera de la
+ * ROM, y si no coinciden se rechaza).
+ *
+ *   "GBRS", versión (u32), sizeof(GB) (u32), tamaño de la RAM (u32),
+ *   cuadro en construcción (u32), $134-$14F de la ROM (28 bytes),
+ *   struct GB, RAM del cartucho
+ */
+enum { STATE_VERSION = 1, STATE_HEADER = 4 + 4 * 4 + 28 };
+
+u8 *gb_state_save(const GB *g, size_t *size)
+{
+    *size = STATE_HEADER + sizeof *g + g->sram_size;
+    u8 *data = malloc(*size);
+    if (!data) return NULL;
+    memcpy(data, "GBRS", 4);
+    put_le(data + 4, STATE_VERSION, 4);
+    put_le(data + 8, sizeof *g, 4);
+    put_le(data + 12, g->sram_size, 4);
+    put_le(data + 16, g->ppu.back == g->ppu.buf[0] ? 0 : 1, 4);
+    memcpy(data + 20, g->rom + 0x134, 28);
+    memcpy(data + STATE_HEADER, g, sizeof *g);
+    if (g->sram_size) memcpy(data + STATE_HEADER + sizeof *g, g->sram, g->sram_size);
+    return data;
+}
+
+int gb_state_load(GB *g, const u8 *data, size_t size)
+{
+    if (size < STATE_HEADER || memcmp(data, "GBRS", 4) != 0) return 0;
+    if (get_le(data + 4, 4) != STATE_VERSION || get_le(data + 8, 4) != sizeof *g) return 0;
+    u32 sram_size = (u32)get_le(data + 12, 4);
+    if (sram_size != g->sram_size || size != STATE_HEADER + sizeof *g + sram_size) return 0;
+    if (memcmp(data + 20, g->rom + 0x134, 28) != 0) return 0;
+
+    GB *tmp = malloc(sizeof *tmp);
+    if (!tmp) return 0;
+    memcpy(tmp, data + STATE_HEADER, sizeof *tmp);
+    /* Los punteros guardados son de otra corrida: se reemplazan antes de
+     * copiar (gb_copy_state conserva los de g y copia la RAM desde aquí) */
+    tmp->sram = sram_size ? (u8 *)(data + STATE_HEADER + sizeof *g) : NULL;
+    tmp->serial.out = NULL;
+    tmp->serial.out_len = 0;
+    tmp->ppu.back = tmp->ppu.buf[get_le(data + 16, 4) & 1];
+    int sram_dirty = g->sram_dirty;
+    gb_copy_state(g, tmp);
+    free(tmp);
+    /* El audio pendiente era de la corrida anterior */
+    g->apu.ring_tail = g->apu.ring_head;
+    g->sram_dirty = sram_dirty || sram_size;   /* la RAM cambió: que se guarde el .sav */
+    return 1;
+}

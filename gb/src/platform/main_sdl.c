@@ -1,6 +1,7 @@
 /*
- * Capa de plataforma con SDL2 para un juego recompilado: ventana, controles,
- * audio y ritmo de 59.7275 cuadros por segundo.
+ * Capa de plataforma con SDL2 para un juego recompilado: ventana con barra de
+ * menús, controles (teclado y control), audio y ritmo de 59.7275 cuadros por
+ * segundo.
  *
  * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--forget-rom]
  *            [--record archivo | --play archivo] [--uncovered archivo]
@@ -10,7 +11,8 @@
  *   --forget-rom  borra la copia guardada de la ROM y la vuelve a pedir
  *   --model       fuerza el modelo; por omisión, color si el juego lo admite,
  *                 si no Super Game Boy (con borde) si lo admite, si no un Game Boy
- *                 Color en modo de compatibilidad (el juego de DMG coloreado)
+ *                 Color en modo de compatibilidad (el juego de DMG coloreado).
+ *                 También se elige en el menú Juego.
  *   --palette     paleta del modo de compatibilidad, como la combinación de
  *                 botones al encender un GBC: up, down, left, right, up+a,
  *                 down+a, left+a, right+a, up+b, down+b, left+b o right+b
@@ -28,12 +30,14 @@
  *
  * Carpeta de datos (la da SDL): en Windows %APPDATA%\GBRecomp\<juego>\, en
  * Linux ~/.local/share/GBRecomp/<juego>/, en macOS ~/Library/Application
- * Support/GBRecomp/<juego>/. Ahí van también las partidas (<juego>.sav,
- * compatible con BGB y VBA-M), que se cargan al iniciar y se guardan al salir
- * y cada 5 segundos si cambiaron.
+ * Support/GBRecomp/<juego>/. Ahí van también la partida (<juego>.sav,
+ * compatible con BGB y VBA-M, que se guarda al salir y cada 5 segundos si
+ * cambió), los estados guardados (<juego>.estado1-4) y las preferencias
+ * (settings.ini).
  *
- * Controles: flechas, X = A, Z = B, Enter = Start, Retroceso = Select,
- * Esc = salir.
+ * La barra de menús y los diálogos vienen de Moskva 89 (ui_menu.c,
+ * ui_font.c): se dibujan dentro de la ventana para verse igual en todos los
+ * sistemas. Mientras un menú o un diálogo está abierto, el juego se pausa.
  */
 #include <SDL.h>
 
@@ -43,9 +47,12 @@
 #include <time.h>
 
 #include "files.h"
+#include "i18n.h"
 #include "inputs.h"
 #include "recomp.h"
+#include "settings.h"
 #include "sha1.h"
+#include "ui_menu.h"
 
 static void fail(const char *msg)
 {
@@ -80,8 +87,7 @@ static int load_rom(const char *path, Rom *rom)
 
 static void wrong_rom_message(const char *path, char *msg, size_t size)
 {
-    snprintf(msg, size, "\"%s\" no es la ROM de %s que se recompiló.\n"
-             "Se necesita la que tiene SHA1 %s.", path, recomp_rom_title, recomp_rom_sha1);
+    snprintf(msg, size, tr(T_ROM_WRONG_FMT), path, recomp_rom_title, recomp_rom_sha1);
 }
 
 /* Espera a que arrastren un archivo a la ventana (o a que la cierren) */
@@ -106,14 +112,10 @@ static int ask_for_rom(Rom *rom)
     char msg[4096], path[1024];
     int first = 1;
     for (;;) {
-        int got = ask_rom_path(first ? "Elige tu ROM" : "Elige la ROM correcta", path, sizeof path);
+        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path, sizeof path);
         if (!got) {
             /* Sin diálogo nativo (o cancelado en Windows: se ofrece arrastrar) */
-            snprintf(msg, sizeof msg,
-                     "Para jugar se necesita tu ROM de %s.\n"
-                     "Arrástrala a la ventana del juego (o ciérrala para salir).\n"
-                     "Solo se pide una vez: se guarda una copia en la carpeta de datos del juego.",
-                     recomp_rom_title);
+            snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), recomp_rom_title);
             if (first) inform(msg);
             if (!wait_for_drop(path, sizeof path)) return 0;
         }
@@ -124,7 +126,7 @@ static int ask_for_rom(Rom *rom)
             free(rom->data);
             wrong_rom_message(path, msg, sizeof msg);
         } else {
-            snprintf(msg, sizeof msg, "No se pudo leer \"%s\".", path);
+            snprintf(msg, sizeof msg, tr(T_ROM_UNREADABLE_FMT), path);
         }
         inform(msg);
     }
@@ -180,27 +182,47 @@ static void load_game(GB *g, const char *path)
 }
 
 /* ------------------------------------------------------------------ */
+/* Controles y colores                                                 */
+/* ------------------------------------------------------------------ */
 
-static u8 read_pad(void)
+static u8 read_pad(SDL_GameController *pad)
 {
     const Uint8 *k = SDL_GetKeyboardState(NULL);
-    u8 pad = 0;
-    if (k[SDL_SCANCODE_RIGHT]) pad |= PAD_RIGHT;
-    if (k[SDL_SCANCODE_LEFT]) pad |= PAD_LEFT;
-    if (k[SDL_SCANCODE_UP]) pad |= PAD_UP;
-    if (k[SDL_SCANCODE_DOWN]) pad |= PAD_DOWN;
-    if (k[SDL_SCANCODE_X]) pad |= PAD_A;
-    if (k[SDL_SCANCODE_Z]) pad |= PAD_B;
-    if (k[SDL_SCANCODE_RETURN]) pad |= PAD_START;
-    if (k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_RSHIFT]) pad |= PAD_SELECT;
+    u8 p = 0;
+    if (k[SDL_SCANCODE_RIGHT]) p |= PAD_RIGHT;
+    if (k[SDL_SCANCODE_LEFT]) p |= PAD_LEFT;
+    if (k[SDL_SCANCODE_UP]) p |= PAD_UP;
+    if (k[SDL_SCANCODE_DOWN]) p |= PAD_DOWN;
+    if (k[SDL_SCANCODE_X]) p |= PAD_A;
+    if (k[SDL_SCANCODE_Z]) p |= PAD_B;
+    if (k[SDL_SCANCODE_RETURN]) p |= PAD_START;
+    if (k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_RSHIFT]) p |= PAD_SELECT;
+
+    if (pad) {
+        /* A y B en la posición de Nintendo: el A del Game Boy es el botón de
+         * la derecha (B en un control de Xbox) */
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) p |= PAD_RIGHT;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_LEFT))  p |= PAD_LEFT;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_UP))    p |= PAD_UP;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_DOWN))  p |= PAD_DOWN;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_B))     p |= PAD_A;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A))     p |= PAD_B;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START)) p |= PAD_START;
+        if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_BACK))  p |= PAD_SELECT;
+    }
+
     /* La cruceta física no permite opuestos a la vez */
-    if ((pad & (PAD_LEFT | PAD_RIGHT)) == (PAD_LEFT | PAD_RIGHT)) pad &= (u8)~(PAD_LEFT | PAD_RIGHT);
-    if ((pad & (PAD_UP | PAD_DOWN)) == (PAD_UP | PAD_DOWN)) pad &= (u8)~(PAD_UP | PAD_DOWN);
-    return pad;
+    if ((p & (PAD_LEFT | PAD_RIGHT)) == (PAD_LEFT | PAD_RIGHT)) p &= (u8)~(PAD_LEFT | PAD_RIGHT);
+    if ((p & (PAD_UP | PAD_DOWN)) == (PAD_UP | PAD_DOWN)) p &= (u8)~(PAD_UP | PAD_DOWN);
+    return p;
 }
 
-/* Tonos del LCD del DMG, del más claro al más oscuro */
-static const Uint32 dmg_shades[4] = { 0xFFE0F8D0, 0xFF88C070, 0xFF346856, 0xFF081820 };
+/* Tonos del LCD del DMG, del más claro al más oscuro (como en Moskva 89) */
+static const Uint32 dmg_palettes[3][4] = {
+    { 0xFF9BBC0F, 0xFF8BAC0F, 0xFF306230, 0xFF0F380F },     /* verde */
+    { 0xFFC4CFA1, 0xFF8B956D, 0xFF4D533C, 0xFF1F1F1F },     /* Pocket */
+    { 0xFFFFFFFF, 0xFFAAAAAA, 0xFF555555, 0xFF000000 },     /* grises */
+};
 
 /* Color del Game Boy Color (RGB555, rojo en los bits bajos) a ARGB8888 */
 static Uint32 rgb555_to_argb(u16 v)
@@ -212,59 +234,754 @@ static Uint32 rgb555_to_argb(u16 v)
     return 0xFF000000u | r << 16 | g << 8 | b;
 }
 
+/* Combinaciones de botones del modo de compatibilidad, en el orden del menú */
+static const struct { const char *code; TextId dir; int button; } combos[12] = {
+    { "up", T_DIR_UP, 0 },      { "down", T_DIR_DOWN, 0 },
+    { "left", T_DIR_LEFT, 0 },  { "right", T_DIR_RIGHT, 0 },
+    { "up+a", T_DIR_UP, 'A' },  { "down+a", T_DIR_DOWN, 'A' },
+    { "left+a", T_DIR_LEFT, 'A' }, { "right+a", T_DIR_RIGHT, 'A' },
+    { "up+b", T_DIR_UP, 'B' },  { "down+b", T_DIR_DOWN, 'B' },
+    { "left+b", T_DIR_LEFT, 'B' }, { "right+b", T_DIR_RIGHT, 'B' },
+};
+
+/* ------------------------------------------------------------------ */
+/* Aplicación                                                          */
+/* ------------------------------------------------------------------ */
+
+enum {
+    A_NONE, A_RESET, A_PAUSE, A_SAVE_STATE, A_LOAD_STATE, A_SLOT_1, A_SLOT_4 = A_SLOT_1 + 3,
+    A_CONSOLE_DMG, A_CONSOLE_CGB, A_CONSOLE_SGB, A_QUIT,
+    A_DMG_PALETTE_0, A_DMG_PALETTE_2 = A_DMG_PALETTE_0 + 2,
+    A_COMPAT_AUTO, A_COMPAT_0, A_COMPAT_11 = A_COMPAT_0 + 11,
+    A_SGB_BORDER, A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN,
+    A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3,
+    A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
+    A_LANGUAGE_0,
+};
+
+enum { TAG_INFO = 1, TAG_CONSOLE };
+
+typedef struct {
+    GB gb;
+    Rom rom;                /* se conserva para reiniciar o cambiar de consola */
+    int model;              /* GB_MODEL_* con que se encendió */
+    int forced_model;       /* --model o la grabación (GB_MODEL_AUTO si no) */
+    const char *forced_palette;
+    int interp_only;
+    int pending_model;      /* consola elegida en el menú, a confirmar */
+
+    int paused;
+    int hold_input;         /* ignorar controles hasta que se suelten */
+    int fullscreen;
+    int running;
+    int mouse_y;
+    Settings cfg;
+    char *pref;
+    char settings_path[1024], save_path[1024];
+
+    SDL_Window *win;
+    SDL_Renderer *ren;
+    SDL_Texture *tex;
+    int tex_w, tex_h;
+    SDL_AudioDeviceID audio;
+    SDL_GameController *pad;
+
+    MenuBar bar;
+    Dialog dlg;
+    char title[256];
+    char notice[128];       /* aviso temporal en el título de la ventana */
+    Uint32 notice_until;
+
+    /* Grabaciones y cobertura */
+    InputScript script;
+    int play;
+    FILE *record;
+    int last_pad;
+    long frame;
+    const char *uncovered_path;
+} App;
+
+/* Pruebas de la interfaz: --ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
+ * [--ui-action N] corre N cuadros sin ventana visible, abre un menú o hace
+ * una acción, guarda la imagen y sale */
+static const char *ui_shot_path;
+
+static int ui_scale(int width)
+{
+    return width >= 640 ? 2 : 1;
+}
+
+/* ¿Puede correr el juego en esta consola? Depende de la cabecera */
+static int model_allowed(const Rom *rom, int model)
+{
+    int cgb_flag = rom->data[0x143];
+    int sgb_flag = rom->data[0x146] == 0x03 && rom->data[0x14B] == 0x33;
+    switch (model) {
+    case GB_MODEL_DMG: return (cgb_flag & 0xC0) != 0xC0;   /* no si es solo para color */
+    case GB_MODEL_CGB: return 1;
+    case GB_MODEL_SGB: return sgb_flag && (cgb_flag & 0xC0) != 0xC0;
+    default:           return 0;
+    }
+}
+
+/* Consola con que se enciende: --model o la grabación, si no la preferencia,
+ * si no la que mejor le queda (color, SGB, o un GBC que colorea el juego) */
+static int choose_model(const App *app)
+{
+    int m = app->forced_model;
+    if (m == GB_MODEL_AUTO) m = model_from_name(app->cfg.model);
+    if (m >= GB_MODEL_DMG && model_allowed(&app->rom, m)) return m;
+    if (app->rom.data[0x143] & 0x80) return GB_MODEL_CGB;
+    if (model_allowed(&app->rom, GB_MODEL_SGB)) return GB_MODEL_SGB;
+    return GB_MODEL_CGB;
+}
+
+static int is_compat(const GB *g)
+{
+    return g->cgb_hw && !g->cgb;
+}
+
+/* Tamaño de la imagen: 160×144, o 256×224 con el borde del SGB */
+static void game_size(const App *app, int *w, int *h)
+{
+    int border = app->gb.sgb && app->cfg.sgb_border;
+    *w = border ? SGB_SCREEN_W : GB_SCREEN_W;
+    *h = border ? SGB_SCREEN_H : GB_SCREEN_H;
+}
+
+static void resize_window(App *app)
+{
+    if (app->fullscreen) return;
+    int gw, gh;
+    game_size(app, &gw, &gh);
+    int w = gw * app->cfg.scale;
+    SDL_SetWindowSize(app->win, w, gh * app->cfg.scale + menubar_height(ui_scale(w)));
+}
+
+static void message(App *app, const char *title, const char *text)
+{
+    menubar_close(&app->bar);
+    dialog_open(&app->dlg, DIALOG_MESSAGE, TAG_INFO, title, text);
+}
+
+static void notify(App *app, const char *text)
+{
+    snprintf(app->notice, sizeof app->notice, "%.120s", text);
+    app->notice_until = SDL_GetTicks() + 2500;
+}
+
+static void apply_palette(App *app)
+{
+    if (!is_compat(&app->gb)) return;
+    const char *p = app->forced_palette ? app->forced_palette : app->cfg.compat_palette;
+    if (!gb_compat_palette(&app->gb, p)) gb_compat_palette(&app->gb, "auto");
+}
+
+/* Enciende (o reinicia) la consola con el modelo elegido */
+static void build_menus(App *app);
+
+static void power_on(App *app)
+{
+    if (app->gb.rom) {
+        if (gb_has_battery(&app->gb)) save_game(&app->gb, app->save_path);
+        gb_free(&app->gb);
+    }
+    app->model = choose_model(app);
+    const char *err = gb_init_model(&app->gb, app->rom.data, (u32)app->rom.size, app->model);
+    if (err) fail(err);
+    apply_palette(app);
+    if (!app->interp_only) app->gb.recomp_lookup = recomp_lookup;
+    app->gb.apu.enabled = 1;
+    if (app->uncovered_path) app->gb.trace = mark_uncovered;
+    if (gb_has_battery(&app->gb)) load_game(&app->gb, app->save_path);
+    build_menus(app);
+    if (app->win) resize_window(app);
+}
+
+/* --- Estados guardados --- */
+
+static void state_path(const App *app, int slot, char *out, size_t size)
+{
+    snprintf(out, size, "%s%s.estado%d", app->pref, recomp_name, slot);
+}
+
+static void save_state(App *app)
+{
+    char path[1100], text[1300];
+    state_path(app, app->cfg.slot, path, sizeof path);
+    size_t size;
+    u8 *data = gb_state_save(&app->gb, &size);
+    if (data && u8_write_file(path, data, size)) {
+        snprintf(text, sizeof text, tr(T_TITLE_SAVED_FMT), app->cfg.slot);
+        notify(app, text);
+    } else {
+        snprintf(text, sizeof text, tr(T_STATE_WRITE_FMT), path);
+        message(app, tr(T_STATE_TITLE), text);
+    }
+    free(data);
+}
+
+static void load_state(App *app)
+{
+    char path[1100], text[256];
+    state_path(app, app->cfg.slot, path, sizeof path);
+    size_t size;
+    u8 *data = u8_read_file(path, &size);
+    if (!data) {
+        snprintf(text, sizeof text, tr(T_STATE_EMPTY_FMT), app->cfg.slot);
+        message(app, tr(T_STATE_TITLE), text);
+        return;
+    }
+    /* Un estado de otra consola cambia el tamaño de la imagen y los menús */
+    int was_sgb = app->gb.sgb, was_compat = is_compat(&app->gb), was_cgb = app->gb.cgb_hw;
+    if (gb_state_load(&app->gb, data, size)) {
+        snprintf(text, sizeof text, tr(T_TITLE_LOADED_FMT), app->cfg.slot);
+        notify(app, text);
+        if (was_sgb != app->gb.sgb || was_compat != is_compat(&app->gb) || was_cgb != app->gb.cgb_hw) {
+            app->model = app->gb.sgb ? GB_MODEL_SGB : app->gb.cgb_hw ? GB_MODEL_CGB : GB_MODEL_DMG;
+            build_menus(app);
+            resize_window(app);
+        }
+    } else {
+        snprintf(text, sizeof text, tr(T_STATE_BAD_FMT), app->cfg.slot);
+        message(app, tr(T_STATE_TITLE), text);
+    }
+    free(data);
+}
+
+/* --- Menús --- */
+
+#define SEPARATOR(m, n) m[n++] = (MenuItem){ "", NULL, A_NONE, ITEM_SEPARATOR }
+#define ITEM(m, n, text, key, action, kind) m[n++] = (MenuItem){ text, key, action, kind }
+#define COUNT(a) (int)(sizeof a / sizeof a[0])
+
+/* Se arman con los textos del idioma actual y según la consola encendida */
+static MenuItem menu_game[16], menu_video[12], menu_palette[16], menu_audio[6];
+static MenuItem menu_language[LANG_COUNT], menu_help[3];
+static Menu menus[6];
+static char slot_labels[4][40], compat_labels[12][48], size_labels[6][40], volume_labels[4][40];
+
+static void build_menus(App *app)
+{
+    int n = 0;
+    ITEM(menu_game, n, tr(T_RESET), "Ctrl+R", A_RESET, ITEM_ACTION);
+    ITEM(menu_game, n, tr(T_PAUSE), "P", A_PAUSE, ITEM_CHECK);
+    SEPARATOR(menu_game, n);
+    ITEM(menu_game, n, tr(T_SAVE_STATE), "F5", A_SAVE_STATE, ITEM_ACTION);
+    ITEM(menu_game, n, tr(T_LOAD_STATE), "F8", A_LOAD_STATE, ITEM_ACTION);
+    for (int i = 0; i < 4; i++) {
+        snprintf(slot_labels[i], sizeof slot_labels[i], tr(T_SLOT_FMT), i + 1);
+        ITEM(menu_game, n, slot_labels[i], NULL, A_SLOT_1 + i, ITEM_RADIO);
+    }
+    SEPARATOR(menu_game, n);
+    ITEM(menu_game, n, tr(T_CONSOLE_DMG), NULL, A_CONSOLE_DMG, ITEM_RADIO);
+    ITEM(menu_game, n, tr(T_CONSOLE_CGB), NULL, A_CONSOLE_CGB, ITEM_RADIO);
+    ITEM(menu_game, n, tr(T_CONSOLE_SGB), NULL, A_CONSOLE_SGB, ITEM_RADIO);
+    SEPARATOR(menu_game, n);
+    ITEM(menu_game, n, tr(T_QUIT), "Alt+F4", A_QUIT, ITEM_ACTION);
+    menus[0] = (Menu){ tr(T_MENU_GAME), menu_game, n };
+
+    int k = 1;
+
+    /* Video: tamaño, pantalla completa y, en SGB, el borde */
+    n = 0;
+    const GB *g = &app->gb;
+    if (g->sgb) {
+        ITEM(menu_video, n, tr(T_SGB_BORDER), NULL, A_SGB_BORDER, ITEM_CHECK);
+        SEPARATOR(menu_video, n);
+    }
+    for (int i = 0; i < 6; i++) {
+        snprintf(size_labels[i], sizeof size_labels[i], tr(T_SIZE_FMT), i + 1);
+        ITEM(menu_video, n, size_labels[i], NULL, A_SCALE_1 + i, ITEM_RADIO);
+    }
+    SEPARATOR(menu_video, n);
+    ITEM(menu_video, n, tr(T_FULLSCREEN), "F11", A_FULLSCREEN, ITEM_CHECK);
+    menus[k++] = (Menu){ tr(T_MENU_VIDEO), menu_video, n };
+
+    /* Paleta: solo en DMG (tonos del LCD) y en compatibilidad GBC (las de la
+     * boot ROM); en modo color y en SGB los colores los pone el juego */
+    n = 0;
+    if (!g->cgb_hw && !g->sgb) {
+        ITEM(menu_palette, n, tr(T_PALETTE_DMG), "F2", A_DMG_PALETTE_0, ITEM_RADIO);
+        ITEM(menu_palette, n, tr(T_PALETTE_POCKET), NULL, A_DMG_PALETTE_0 + 1, ITEM_RADIO);
+        ITEM(menu_palette, n, tr(T_PALETTE_GRAY), NULL, A_DMG_PALETTE_0 + 2, ITEM_RADIO);
+    } else if (is_compat(g)) {
+        ITEM(menu_palette, n, tr(T_PALETTE_GAME), "F2", A_COMPAT_AUTO, ITEM_RADIO);
+        SEPARATOR(menu_palette, n);
+        for (int i = 0; i < 12; i++) {
+            if (combos[i].button)
+                snprintf(compat_labels[i], sizeof compat_labels[i], "%s + %c", tr(combos[i].dir), combos[i].button);
+            else
+                snprintf(compat_labels[i], sizeof compat_labels[i], "%s", tr(combos[i].dir));
+            ITEM(menu_palette, n, compat_labels[i], NULL, A_COMPAT_0 + i, ITEM_RADIO);
+        }
+    }
+    if (n) menus[k++] = (Menu){ tr(T_MENU_PALETTE), menu_palette, n };
+
+    n = 0;
+    ITEM(menu_audio, n, tr(T_SOUND), "Ctrl+M", A_SOUND, ITEM_CHECK);
+    SEPARATOR(menu_audio, n);
+    for (int i = 0; i < 4; i++) {
+        snprintf(volume_labels[i], sizeof volume_labels[i], tr(T_VOLUME_FMT), 25 * (i + 1));
+        ITEM(menu_audio, n, volume_labels[i], NULL, A_VOLUME_25 + i, ITEM_RADIO);
+    }
+    menus[k++] = (Menu){ tr(T_MENU_AUDIO), menu_audio, n };
+
+    for (int i = 0; i < LANG_COUNT; i++)
+        menu_language[i] = (MenuItem){ i18n_name((Language)i), NULL, A_LANGUAGE_0 + i, ITEM_RADIO };
+    menus[k++] = (Menu){ tr(T_MENU_LANGUAGE), menu_language, LANG_COUNT };
+
+    n = 0;
+    ITEM(menu_help, n, tr(T_HELP_CONTROLS), "F1", A_HELP_CONTROLS, ITEM_ACTION);
+    ITEM(menu_help, n, tr(T_HELP_GAME), NULL, A_HELP_GAME, ITEM_ACTION);
+    ITEM(menu_help, n, tr(T_ABOUT), NULL, A_ABOUT, ITEM_ACTION);
+    menus[k++] = (Menu){ tr(T_MENU_HELP), menu_help, n };
+
+    menubar_close(&app->bar);
+    app->bar.count = k;
+}
+
+static int compat_index(const char *code)
+{
+    for (int i = 0; i < 12; i++)
+        if (!strcmp(combos[i].code, code)) return i;
+    return -1;
+}
+
+static int menu_state(void *ctx, int action, int *checked)
+{
+    App *app = ctx;
+    /* Con una grabación, lo que cambia la partida desfasaría los botones */
+    int replay = app->play || app->record;
+    switch (action) {
+    case A_RESET:        return !replay;
+    case A_PAUSE:        *checked = app->paused; return 1;
+    case A_LOAD_STATE:   return !replay;
+    case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
+        static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
+        int m = models[action - A_CONSOLE_DMG];
+        *checked = app->model == m;
+        return !replay && model_allowed(&app->rom, m);
+    }
+    case A_COMPAT_AUTO:
+        *checked = compat_index(app->forced_palette ? app->forced_palette : app->cfg.compat_palette) < 0;
+        return 1;
+    case A_SGB_BORDER:   *checked = app->cfg.sgb_border; return 1;
+    case A_FULLSCREEN:   *checked = app->fullscreen; return 1;
+    case A_SOUND:        *checked = app->cfg.sound; return 1;
+    default:
+        if (action >= A_SLOT_1 && action <= A_SLOT_4)
+            *checked = app->cfg.slot == action - A_SLOT_1 + 1;
+        else if (action >= A_DMG_PALETTE_0 && action <= A_DMG_PALETTE_2)
+            *checked = app->cfg.dmg_palette == action - A_DMG_PALETTE_0;
+        else if (action >= A_COMPAT_0 && action <= A_COMPAT_11)
+            *checked = compat_index(app->forced_palette ? app->forced_palette : app->cfg.compat_palette)
+                       == action - A_COMPAT_0;
+        else if (action >= A_SCALE_1 && action <= A_SCALE_6) {
+            *checked = app->cfg.scale == action - A_SCALE_1 + 1;
+            return !app->fullscreen;
+        } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
+            *checked = app->cfg.volume == 25 * (action - A_VOLUME_25 + 1);
+            return app->cfg.sound;
+        } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT)
+            *checked = (int)i18n_get() == action - A_LANGUAGE_0;
+        return 1;
+    }
+}
+
+static void toggle_fullscreen(App *app)
+{
+    app->fullscreen = !app->fullscreen;
+    SDL_SetWindowFullscreen(app->win, app->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    if (!app->fullscreen) resize_window(app);
+}
+
+static void set_compat_palette(App *app, const char *code)
+{
+    app->forced_palette = NULL;
+    snprintf(app->cfg.compat_palette, sizeof app->cfg.compat_palette, "%s", code);
+    apply_palette(app);
+}
+
+/* F2: la siguiente paleta de la consola encendida */
+static void next_palette(App *app)
+{
+    if (is_compat(&app->gb)) {
+        int i = compat_index(app->forced_palette ? app->forced_palette : app->cfg.compat_palette);
+        set_compat_palette(app, i == 11 ? "auto" : combos[i + 1].code);
+    } else if (!app->gb.cgb_hw && !app->gb.sgb) {
+        app->cfg.dmg_palette = (app->cfg.dmg_palette + 1) % 3;
+    }
+}
+
+static const char *model_label(const GB *g)
+{
+    if (g->sgb) return tr(T_MODEL_SGB);
+    if (g->cgb) return tr(T_MODEL_CGB);
+    if (g->cgb_hw) return tr(T_MODEL_COMPAT);
+    return tr(T_MODEL_DMG);
+}
+
+static void do_action(App *app, int action)
+{
+    switch (action) {
+    case A_RESET:        power_on(app); break;
+    case A_PAUSE:        app->paused = !app->paused; break;
+    case A_SAVE_STATE:   save_state(app); break;
+    case A_LOAD_STATE:   load_state(app); break;
+    case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
+        static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
+        app->pending_model = models[action - A_CONSOLE_DMG];
+        if (app->pending_model == app->model) break;
+        menubar_close(&app->bar);
+        dialog_open(&app->dlg, DIALOG_CONFIRM, TAG_CONSOLE, tr(T_CONSOLE_TITLE), tr(T_CONSOLE_TEXT));
+        break;
+    }
+    case A_QUIT:         app->running = 0; break;
+    case A_COMPAT_AUTO:  set_compat_palette(app, "auto"); break;
+    case A_SGB_BORDER:
+        app->cfg.sgb_border = !app->cfg.sgb_border;
+        resize_window(app);
+        break;
+    case A_FULLSCREEN:   toggle_fullscreen(app); break;
+    case A_SOUND:        app->cfg.sound = !app->cfg.sound; break;
+    case A_HELP_CONTROLS: {
+        /* El título es la opción del menú, sin los puntos suspensivos */
+        char title[64];
+        snprintf(title, sizeof title, "%s", tr(T_HELP_CONTROLS));
+        char *dots = strstr(title, "…");
+        if (dots) *dots = 0;
+        message(app, title, tr(T_CONTROLS_TEXT));
+        break;
+    }
+    case A_HELP_GAME: {
+        char text[2048], folder[64];
+        u64 total = app->gb.instr_recomp + app->gb.instr_interp;
+        /* Una ruta larga no cabe en el diálogo: se deja el final */
+        size_t len = strlen(app->pref);
+        if (len > 44) snprintf(folder, sizeof folder, "…%s", app->pref + len - 43);
+        else snprintf(folder, sizeof folder, "%s", app->pref);
+        snprintf(text, sizeof text, tr(T_GAME_TEXT_FMT), recomp_rom_title, recomp_rom_sha1,
+                 model_label(&app->gb), total ? 100.0 * app->gb.instr_recomp / total : 0.0, folder);
+        message(app, tr(T_GAME_TITLE), text);
+        break;
+    }
+    case A_ABOUT: {
+        char text[1024];
+        snprintf(text, sizeof text, tr(T_ABOUT_TEXT_FMT), recomp_rom_title);
+        message(app, recomp_rom_title, text);
+        break;
+    }
+    default:
+        if (action >= A_SLOT_1 && action <= A_SLOT_4) {
+            app->cfg.slot = action - A_SLOT_1 + 1;
+        } else if (action >= A_DMG_PALETTE_0 && action <= A_DMG_PALETTE_2) {
+            app->cfg.dmg_palette = action - A_DMG_PALETTE_0;
+        } else if (action >= A_COMPAT_0 && action <= A_COMPAT_11) {
+            set_compat_palette(app, combos[action - A_COMPAT_0].code);
+        } else if (action >= A_SCALE_1 && action <= A_SCALE_6) {
+            app->cfg.scale = action - A_SCALE_1 + 1;
+            resize_window(app);
+        } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
+            app->cfg.volume = 25 * (action - A_VOLUME_25 + 1);
+        } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT) {
+            i18n_set((Language)(action - A_LANGUAGE_0));
+            snprintf(app->cfg.language, sizeof app->cfg.language, "%s", i18n_code(i18n_get()));
+            build_menus(app);
+            app->title[0] = 0;      /* que se vuelva a poner el título */
+        }
+        break;
+    }
+}
+
+/* Atajos de teclado que no pasan por el menú */
+static int shortcut(App *app, const SDL_KeyboardEvent *k)
+{
+    if (k->repeat) return 0;
+    int ctrl = (k->keysym.mod & KMOD_CTRL) != 0;
+    int alt = (k->keysym.mod & KMOD_ALT) != 0;
+    int replay = app->play || app->record;
+    switch (k->keysym.sym) {
+    case SDLK_r:      if (ctrl && !replay) { do_action(app, A_RESET); return 1; } break;
+    case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
+    case SDLK_p:      do_action(app, A_PAUSE); return 1;
+    case SDLK_F5:     do_action(app, A_SAVE_STATE); return 1;
+    case SDLK_F8:     if (!replay) { do_action(app, A_LOAD_STATE); return 1; } break;
+    case SDLK_F11:    do_action(app, A_FULLSCREEN); return 1;
+    case SDLK_RETURN: if (alt) { do_action(app, A_FULLSCREEN); return 1; } break;
+    case SDLK_F1:     do_action(app, A_HELP_CONTROLS); return 1;
+    case SDLK_F2:     next_palette(app); return 1;
+    default: break;
+    }
+    return 0;
+}
+
+/* ¿Se ve la barra? En pantalla completa, solo al acercar el ratón arriba */
+static int bar_visible(const App *app)
+{
+    if (!app->fullscreen) return 1;
+    int w, h;
+    SDL_GetRendererOutputSize(app->ren, &w, &h);
+    return menubar_is_open(&app->bar) || app->dlg.kind != DIALOG_NONE ||
+           app->mouse_y < 2 * menubar_height(ui_scale(w));
+}
+
+/* Reparte un evento entre el diálogo, la barra de menús y los atajos */
+static void handle_event(App *app, SDL_Event *e)
+{
+    int w, h;
+    SDL_GetRendererOutputSize(app->ren, &w, &h);
+    int ui = ui_scale(w);
+
+    if (e->type == SDL_QUIT) {
+        app->running = 0;
+        return;
+    }
+    if (e->type == SDL_DROPFILE) {
+        SDL_free(e->drop.file);
+        return;
+    }
+    if (e->type == SDL_MOUSEMOTION)
+        app->mouse_y = e->motion.y;
+    if (e->type == SDL_CONTROLLERDEVICEADDED) {
+        if (!app->pad) app->pad = SDL_GameControllerOpen(e->cdevice.which);
+        return;
+    }
+    if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
+        if (app->pad && SDL_GameControllerFromInstanceID(e->cdevice.which) == app->pad) {
+            SDL_GameControllerClose(app->pad);
+            app->pad = NULL;
+        }
+        return;
+    }
+
+    if (app->dlg.kind != DIALOG_NONE) {
+        int tag = app->dlg.tag;
+        DialogResult r = dialog_event(&app->dlg, e, w, h, ui);
+        if (r == DIALOG_OK && tag == TAG_CONSOLE) {
+            snprintf(app->cfg.model, sizeof app->cfg.model, "%s",
+                     app->pending_model == GB_MODEL_DMG ? "dmg" :
+                     app->pending_model == GB_MODEL_SGB ? "sgb" : "cgb");
+            app->forced_model = GB_MODEL_AUTO;
+            power_on(app);
+        }
+        app->hold_input = 1;
+        return;
+    }
+
+    int action = 0;
+    if (bar_visible(app) && menubar_event(&app->bar, e, ui, &action)) {
+        if (action) do_action(app, action);
+        app->hold_input = 1;
+        return;
+    }
+    if (e->type == SDL_KEYDOWN)
+        shortcut(app, &e->key);
+}
+
+/* ¿Avanza el juego? Con un menú o diálogo abierto, o en pausa, no */
+static int game_running(const App *app)
+{
+    return !app->paused && !menubar_is_open(&app->bar) && app->dlg.kind == DIALOG_NONE;
+}
+
+/* Botones del jugador. Tras usar un menú o un diálogo se ignoran hasta que se
+ * suelten todos: si no, el Enter que cerró un diálogo llegaría como Start. */
+static u8 player_pad(App *app)
+{
+    u8 p = read_pad(app->pad);
+    if (app->hold_input) {
+        if (p) return 0;
+        app->hold_input = 0;
+    }
+    return p;
+}
+
+static void step(App *app)
+{
+    u8 pad = app->play ? inputs_pad(&app->script, app->frame) : player_pad(app);
+    if (app->record) inputs_record(app->record, app->frame, pad, &app->last_pad);
+    gb_set_pad(&app->gb, pad);
+    app->frame++;
+    gb_run_frame(&app->gb);
+
+    /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
+    if (app->gb.sram_dirty && app->frame % 300 == 0 && gb_has_battery(&app->gb))
+        save_game(&app->gb, app->save_path);
+
+    static float samples[4096 * 2];
+    int n = gb_audio_pull(&app->gb, samples, 4096);
+    if (!app->audio || !app->cfg.sound) return;
+    float vol = app->cfg.volume / 100.0f;
+    for (int i = 0; i < n * 2; i++) samples[i] *= vol;
+    /* Si el audio se acumula (más de ~100 ms), se descarta para no atrasarse */
+    if (SDL_GetQueuedAudioSize(app->audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
+        SDL_QueueAudio(app->audio, samples, (Uint32)(n * 2 * sizeof(float)));
+}
+
+static void update_title(App *app)
+{
+    char t[256];
+    const char *detail = "";
+    if (app->notice[0] && SDL_TICKS_PASSED(SDL_GetTicks(), app->notice_until)) app->notice[0] = 0;
+    if (app->notice[0]) detail = app->notice;
+    else if (app->paused) detail = tr(T_TITLE_PAUSED);
+    if (detail[0]) snprintf(t, sizeof t, "%s - %s", recomp_rom_title, detail);
+    else snprintf(t, sizeof t, "%s", recomp_rom_title);
+    if (strcmp(t, app->title) != 0) {
+        snprintf(app->title, sizeof app->title, "%s", t);
+        SDL_SetWindowTitle(app->win, app->title);
+    }
+}
+
+/* Convierte la imagen de la consola a ARGB */
+static void compose(const App *app, Uint32 *dst, int gw, int gh)
+{
+    const GB *g = &app->gb;
+    if (g->sgb) {
+        const u16 *fb = gb_sgb_screen(g);
+        /* Sin borde: solo el juego, que está en (48,40) */
+        int x0 = gw == SGB_SCREEN_W ? 0 : 48, y0 = gh == SGB_SCREEN_H ? 0 : 40;
+        for (int y = 0; y < gh; y++)
+            for (int x = 0; x < gw; x++)
+                dst[y * gw + x] = rgb555_to_argb(fb[(y0 + y) * SGB_SCREEN_W + x0 + x]);
+        return;
+    }
+    const u16 *fb = gb_framebuffer(g);
+    const Uint32 *shades = dmg_palettes[app->cfg.dmg_palette];
+    for (int i = 0; i < gw * gh; i++)
+        dst[i] = g->cgb_hw ? rgb555_to_argb(fb[i]) : shades[fb[i] & 3];
+}
+
+static void render(App *app)
+{
+    int w, h;
+    SDL_GetRendererOutputSize(app->ren, &w, &h);
+    int ui = ui_scale(w);
+    int bar = app->fullscreen ? 0 : menubar_height(ui);   /* en pantalla completa va encima */
+
+    int gw, gh;
+    game_size(app, &gw, &gh);
+    if (app->tex_w != gw || app->tex_h != gh) {
+        if (app->tex) SDL_DestroyTexture(app->tex);
+        app->tex = SDL_CreateTexture(app->ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, gw, gh);
+        app->tex_w = gw;
+        app->tex_h = gh;
+    }
+    static Uint32 rgb[SGB_SCREEN_W * SGB_SCREEN_H];
+    compose(app, rgb, gw, gh);
+    SDL_UpdateTexture(app->tex, NULL, rgb, gw * (int)sizeof(Uint32));
+
+    /* Escala entera más grande que cabe, centrada bajo la barra */
+    int avail_h = h - bar;
+    int s = w / gw < avail_h / gh ? w / gw : avail_h / gh;
+    if (s < 1) s = 1;
+    SDL_Rect dst = { (w - gw * s) / 2, bar + (avail_h - gh * s) / 2, gw * s, gh * s };
+
+    SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
+    SDL_RenderClear(app->ren);
+    SDL_RenderCopy(app->ren, app->tex, NULL, &dst);
+    if (bar_visible(app))
+        menubar_draw(&app->bar, app->ren, w, ui);
+    dialog_draw(&app->dlg, app->ren, w, h, ui);
+
+    /* Para pruebas: captura de la ventana completa (--ui-shot) */
+    if (ui_shot_path) {
+        SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+        if (shot && SDL_RenderReadPixels(app->ren, NULL, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch) == 0)
+            SDL_SaveBMP(shot, ui_shot_path);
+        SDL_FreeSurface(shot);
+        ui_shot_path = NULL;
+    }
+    SDL_RenderPresent(app->ren);
+}
+
+static Language detect_language(void)
+{
+    Language found = LANG_EN;
+#if SDL_VERSION_ATLEAST(2, 0, 14)
+    SDL_Locale *locales = SDL_GetPreferredLocales();
+    if (locales) {
+        for (SDL_Locale *l = locales; l->language; l++) {
+            Language lang = i18n_from_code(l->language);
+            if (lang < LANG_COUNT) {
+                found = lang;
+                break;
+            }
+        }
+        SDL_free(locales);
+    }
+#endif
+    return found;
+}
+
+/* ------------------------------------------------------------------ */
+
 int main(int argc, char *argv[])
 {
-    const char *rom_arg = NULL;
-    int scale = 4, interp_only = 0, force = 0, forget = 0, model = GB_MODEL_AUTO;
-    const char *record_path = NULL, *play_path = NULL, *uncovered_path = NULL, *palette = NULL;
-    static GB gb;
+    static App app_storage;
+    App *app = &app_storage;
+    const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
+    int scale_arg = 0, force = 0, forget = 0, shot_menu = -1, shot_action = 0;
+    long shot_frames = 300;
     char msg[4096];
+    app->forced_model = GB_MODEL_AUTO;
+    app->last_pad = -1;
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
+
+    /* Carpeta de datos del juego: copia de la ROM, partida, estados y preferencias */
+    app->pref = SDL_GetPrefPath("GBRecomp", recomp_name);
+    if (!app->pref) fail(tr(T_NO_DATA_DIR));
+    char cache_path[1024];
+    snprintf(cache_path, sizeof cache_path, "%srom.gb", app->pref);
+    snprintf(app->save_path, sizeof app->save_path, "%s%s.sav", app->pref, recomp_name);
+    snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
+    settings_load(&app->cfg, app->settings_path);
+    Language lang = i18n_from_code(app->cfg.language);
+    i18n_set(lang < LANG_COUNT ? lang : detect_language());
 
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--interp")) interp_only = 1;
+        if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--interp")) app->interp_only = 1;
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--forget-rom")) forget = 1;
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            model = model_from_name(argv[++i]);
-            if (model < GB_MODEL_AUTO) fail("Modelo desconocido: usa dmg, cgb o sgb.");
+            app->forced_model = model_from_name(argv[++i]);
+            if (app->forced_model < GB_MODEL_AUTO) fail(tr(T_BAD_MODEL));
         }
-        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) palette = argv[++i];
+        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) app->forced_palette = argv[++i];
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
-        else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered_path = argv[++i];
+        else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) app->uncovered_path = argv[++i];
+        else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];
+        else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
+        else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--ui-action") && i + 1 < argc) shot_action = atoi(argv[++i]);
         else rom_arg = argv[i];
     }
-    if (scale < 1) scale = 1;
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) fail(SDL_GetError());
-
-    /* Carpeta de datos del juego: copia de la ROM y partidas */
-    char *pref = SDL_GetPrefPath("GBRecomp", recomp_name);
-    if (!pref) fail("No se pudo crear la carpeta de datos del juego.");
-    char cache_path[1024], save_path[1024];
-    snprintf(cache_path, sizeof cache_path, "%srom.gb", pref);
-    snprintf(save_path, sizeof save_path, "%s%s.sav", pref, recomp_name);
+    if (scale_arg > 0) app->cfg.scale = scale_arg > 6 ? 6 : scale_arg;
     if (forget) u8_remove(cache_path);
 
-    SDL_Window *win = SDL_CreateWindow(recomp_rom_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       GB_SCREEN_W * scale, GB_SCREEN_H * scale, SDL_WINDOW_RESIZABLE);
-    if (!win) fail(SDL_GetError());
-    SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-    if (!ren) ren = SDL_CreateRenderer(win, -1, 0);
-    if (!ren) fail(SDL_GetError());
-    SDL_RenderSetLogicalSize(ren, GB_SCREEN_W, GB_SCREEN_H);
-    SDL_SetRenderDrawColor(ren, 0xE0, 0xF8, 0xD0, 0xFF);
-    SDL_RenderClear(ren);
-    SDL_RenderPresent(ren);
+    app->win = SDL_CreateWindow(recomp_rom_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                GB_SCREEN_W * app->cfg.scale, GB_SCREEN_H * app->cfg.scale,
+                                SDL_WINDOW_RESIZABLE | (ui_shot_path ? SDL_WINDOW_HIDDEN : 0));
+    if (!app->win) fail(SDL_GetError());
+    app->ren = SDL_CreateRenderer(app->win, -1, ui_shot_path ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
+    if (!app->ren) app->ren = SDL_CreateRenderer(app->win, -1, 0);
+    if (!app->ren) fail(SDL_GetError());
+    SDL_SetWindowMinimumSize(app->win, GB_SCREEN_W, GB_SCREEN_H + menubar_height(1));
+    SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 0xFF);
+    SDL_RenderClear(app->ren);
+    SDL_RenderPresent(app->ren);
 
     /* ROM: argumento, copia guardada, rom.gb junto al ejecutable o aquí, o pedirla */
-    Rom rom = { 0 };
+    Rom *rom = &app->rom;
     int have = 0, from_cache = 0;
     if (rom_arg) {
-        int r = load_rom(rom_arg, &rom);
+        int r = load_rom(rom_arg, rom);
         if (r < 0) {
-            snprintf(msg, sizeof msg, "No se pudo leer \"%s\".", rom_arg);
+            snprintf(msg, sizeof msg, tr(T_ROM_UNREADABLE_FMT), rom_arg);
             fail(msg);
         }
         if (r == 0) {
@@ -272,118 +989,85 @@ int main(int argc, char *argv[])
                 wrong_rom_message(rom_arg, msg, sizeof msg);
                 fail(msg);
             }
-            interp_only = 1;    /* el código recompilado es de otra ROM */
+            app->interp_only = 1;    /* el código recompilado es de otra ROM */
         }
         have = 1;
     }
-    if (!have && load_rom(cache_path, &rom) == 1) have = from_cache = 1;
+    if (!have && load_rom(cache_path, rom) == 1) have = from_cache = 1;
     if (!have) {
-        free(rom.data);
+        free(rom->data);
         char *base = SDL_GetBasePath();
         char path[1024];
         snprintf(path, sizeof path, "%srom.gb", base ? base : "");
         SDL_free(base);
-        if (load_rom(path, &rom) == 1) have = 1;
+        if (load_rom(path, rom) == 1) have = 1;
         else {
-            free(rom.data);
-            if (load_rom("rom.gb", &rom) == 1) have = 1;
-            else free(rom.data);
+            free(rom->data);
+            if (load_rom("rom.gb", rom) == 1) have = 1;
+            else free(rom->data);
         }
     }
-    if (!have && !ask_for_rom(&rom)) return 0;
+    if (!have && !ask_for_rom(rom)) return 0;
+    if (rom->size < 0x150) fail("ROM < 0x150");
     fprintf(stderr, "ROM: %s\n", from_cache ? cache_path : rom_arg ? rom_arg : "elegida por el usuario o rom.gb");
     /* Copia para las siguientes veces (solo si es la ROM correcta) */
-    if (!from_cache && !interp_only && !u8_write_file(cache_path, rom.data, rom.size))
+    if (!from_cache && !app->interp_only && !u8_write_file(cache_path, rom->data, rom->size))
         fprintf(stderr, "no se pudo guardar la copia de la ROM en %s\n", cache_path);
 
-    InputScript script;
-    int play = 0, last_pad = -1;
-    long frame = 0;
-    FILE *record = NULL;
     if (play_path) {
         /* La grabación dice con qué modelo y paleta se hizo */
-        const char *ierr = inputs_load(&script, play_path);
+        const char *ierr = inputs_load(&app->script, play_path);
         if (ierr) fail(ierr);
-        play = 1;
-        if (model == GB_MODEL_AUTO) model = script.model;
-        if (!palette && script.palette[0]) palette = script.palette;
+        app->play = 1;
+        if (app->forced_model == GB_MODEL_AUTO) app->forced_model = app->script.model;
+        if (!app->forced_palette && app->script.palette[0]) app->forced_palette = app->script.palette;
     }
-    /* Un juego que no admite color ni SGB corre en un GBC, que lo colorea */
-    if (model == GB_MODEL_AUTO && rom.size >= 0x150 && !(rom.data[0x143] & 0x80) &&
-        !(rom.data[0x146] == 0x03 && rom.data[0x14B] == 0x33))
-        model = GB_MODEL_CGB;
 
-    const char *err = gb_init_model(&gb, rom.data, (u32)rom.size, model);
-    free(rom.data);
-    if (err) fail(err);
-    if (palette && !gb_compat_palette(&gb, palette))
-        fail("La paleta solo se puede elegir para juegos de DMG en un Game Boy Color:\n"
-             "up, down, left, right, up+a, ..., right+b.");
-    if (!interp_only) gb.recomp_lookup = recomp_lookup;
-    gb.apu.enabled = 1;
-    if (uncovered_path) gb.trace = mark_uncovered;
-    if (gb_has_battery(&gb)) load_game(&gb, save_path);
+    app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0 };
+    power_on(app);
+    if (app->forced_palette && is_compat(&app->gb) && !gb_compat_palette(&app->gb, app->forced_palette))
+        fail(tr(T_BAD_PALETTE));
 
-    if (record_path && !(record = u8_fopen(record_path, "w"))) fail("No se pudo crear el archivo de grabación.");
-    if (record) inputs_record_header(record, &gb, palette);
+    if (record_path && !(app->record = u8_fopen(record_path, "w"))) fail(tr(T_RECORD_FAILED));
+    if (app->record) inputs_record_header(app->record, &app->gb, app->forced_palette);
 
-    /* Super Game Boy: la imagen de la SNES, con el borde */
-    const int W = gb.sgb ? SGB_SCREEN_W : GB_SCREEN_W, H = gb.sgb ? SGB_SCREEN_H : GB_SCREEN_H;
-    if (gb.sgb) {
-        SDL_SetWindowSize(win, W * scale, H * scale);
-        SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-        SDL_RenderSetLogicalSize(ren, W, H);
-    }
-    SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W, H);
+    resize_window(app);
+    SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
     SDL_AudioSpec want, have_spec;
     SDL_zero(want);
     want.freq = GB_SAMPLE_RATE;
     want.format = AUDIO_F32SYS;
     want.channels = 2;
     want.samples = 1024;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
-    if (audio) SDL_PauseAudioDevice(audio, 0);
+    app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
+    if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
+
+    if (ui_shot_path) {
+        for (long i = 0; i < shot_frames; i++) step(app);
+        if (shot_action) do_action(app, shot_action);
+        if (shot_menu >= 0 && shot_menu < app->bar.count) {
+            app->bar.open = shot_menu;
+            app->bar.hover = -1;
+        }
+        render(app);
+        app->running = 0;
+    } else {
+        app->running = 1;
+    }
 
     const double frame_seconds = (double)GB_CYCLES_FRAME / GB_CPU_HZ;
     const Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
-    static float samples[4096 * 2];
-    static Uint32 pixels[SGB_SCREEN_W * SGB_SCREEN_H];
 
-    for (int running = 1; running;) {
+    while (app->running) {
         SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            if (ev.type == SDL_QUIT) running = 0;
-            if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_ESCAPE) running = 0;
-            if (ev.type == SDL_DROPFILE) SDL_free(ev.drop.file);
-        }
+        while (SDL_PollEvent(&ev)) handle_event(app, &ev);
+        if (!app->running) break;
 
-        u8 pad = play ? inputs_pad(&script, frame) : read_pad();
-        if (record) inputs_record(record, frame, pad, &last_pad);
-        gb_set_pad(&gb, pad);
-        frame++;
-        gb_run_frame(&gb);
-
-        /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
-        if (gb.sram_dirty && frame % 300 == 0) save_game(&gb, save_path);
-
-        int n = gb_audio_pull(&gb, samples, 4096);
-        /* Si el audio se acumula (más de ~100 ms), se descarta para no atrasarse */
-        if (audio && SDL_GetQueuedAudioSize(audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
-            SDL_QueueAudio(audio, samples, (Uint32)(n * 2 * sizeof(float)));
-
-        if (gb.sgb) {
-            const u16 *fb = gb_sgb_screen(&gb);
-            for (int i = 0; i < W * H; i++) pixels[i] = rgb555_to_argb(fb[i]);
-        } else {
-            const u16 *fb = gb_framebuffer(&gb);
-            for (int i = 0; i < W * H; i++)
-                pixels[i] = gb.cgb_hw ? rgb555_to_argb(fb[i]) : dmg_shades[fb[i] & 3];
-        }
-        SDL_UpdateTexture(tex, NULL, pixels, W * (int)sizeof(Uint32));
-        SDL_RenderClear(ren);
-        SDL_RenderCopy(ren, tex, NULL, NULL);
-        SDL_RenderPresent(ren);
+        if (game_running(app)) step(app);
+        update_title(app);
+        render(app);
 
         /* Ritmo: 59.7275 cuadros por segundo */
         next += (Uint64)(frame_seconds * freq);
@@ -397,18 +1081,21 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (record) fclose(record);
-    if (gb_has_battery(&gb) && !save_game(&gb, save_path)) {
-        snprintf(msg, sizeof msg, "No se pudo guardar la partida en\n%s", save_path);
+    settings_save(&app->cfg, app->settings_path);
+    if (app->record) fclose(app->record);
+    if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {
+        snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);
     }
-    if (uncovered_path) write_uncovered(uncovered_path);
-    if (audio) SDL_CloseAudioDevice(audio);
-    SDL_DestroyTexture(tex);
-    SDL_DestroyRenderer(ren);
-    SDL_DestroyWindow(win);
-    SDL_free(pref);
+    if (app->uncovered_path) write_uncovered(app->uncovered_path);
+    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    if (app->pad) SDL_GameControllerClose(app->pad);
+    if (app->tex) SDL_DestroyTexture(app->tex);
+    SDL_DestroyRenderer(app->ren);
+    SDL_DestroyWindow(app->win);
+    SDL_free(app->pref);
     SDL_Quit();
-    gb_free(&gb);
+    gb_free(&app->gb);
+    free(rom->data);
     return 0;
 }

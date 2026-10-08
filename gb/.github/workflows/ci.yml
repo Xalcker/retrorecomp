@@ -3,10 +3,19 @@
 # comprobar que el proyecto generado compila y no tiene diferencias.
 name: ci
 
+# Las ramas se prueban por su PR; los push solo en main (después del merge).
+# Así un push a una rama con PR abierto no corre todo dos veces. Para probar
+# una rama sin PR: Actions > ci > Run workflow.
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# Un push nuevo al mismo PR (o a main) cancela la corrida anterior
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

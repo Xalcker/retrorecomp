@@ -138,6 +138,11 @@ static int same_state(GB *a, GB *b)
     CMP_FIELD("punto de la PPU", a->ppu.dot, b->ppu.dot);
     CMP_FIELD("banco de ROM", a->mbc.bankx, b->mbc.bankx);
     if (a->sram && !cmp_mem("RAM de cartucho", 0xA000, a->sram, b->sram, a->sram_size)) return 0;
+    if (a->sgb) {
+        if (!cmp_mem("SGB: paletas", 0, (const u8 *)a->sgbs.pal, (const u8 *)b->sgbs.pal, sizeof a->sgbs.pal)) return 0;
+        if (!cmp_mem("SGB: atributos", 0, a->sgbs.attr, b->sgbs.attr, sizeof a->sgbs.attr)) return 0;
+        if (!cmp_mem("SGB: imagen", 0, (const u8 *)a->sgbs.screen, (const u8 *)b->sgbs.screen, sizeof a->sgbs.screen)) return 0;
+    }
     return 1;
 }
 
@@ -178,19 +183,23 @@ static void png_chunk(FILE *f, const char *type, const u8 *data, u32 len)
 static void save_screen(GB *g, const char *path)
 {
     static const u8 shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
-    enum { STRIDE = GB_SCREEN_W * 3 + 1, RAW = STRIDE * GB_SCREEN_H,
-           BLOCKS = (RAW + 65534) / 65535 };
-    static u8 raw[RAW];
-    static u8 z[2 + RAW + BLOCKS * 5 + 4];
-    const u16 *fb = gb_framebuffer(g);
+    /* En SGB se guarda la imagen completa de la SNES, con el borde */
+    enum { MAX_RAW = (SGB_SCREEN_W * 3 + 1) * SGB_SCREEN_H,
+           MAX_BLOCKS = (MAX_RAW + 65534) / 65535 };
+    static u8 raw[MAX_RAW];
+    static u8 z[2 + MAX_RAW + MAX_BLOCKS * 5 + 4];
+    const u16 *fb = g->sgb ? gb_sgb_screen(g) : gb_framebuffer(g);
+    const int W = g->sgb ? SGB_SCREEN_W : GB_SCREEN_W, H = g->sgb ? SGB_SCREEN_H : GB_SCREEN_H;
+    const u32 STRIDE = (u32)W * 3 + 1, RAW = STRIDE * (u32)H;
+    const size_t zlen = 2 + RAW + (RAW + 65534) / 65535 * 5 + 4;
 
-    for (int y = 0; y < GB_SCREEN_H; y++) {
+    for (int y = 0; y < H; y++) {
         u8 *row = raw + y * STRIDE;
         row[0] = 0;     /* sin filtro */
-        for (int x = 0; x < GB_SCREEN_W; x++) {
-            u16 v = fb[y * GB_SCREEN_W + x];
+        for (int x = 0; x < W; x++) {
+            u16 v = fb[y * W + x];
             u8 *px = row + 1 + x * 3;
-            if (!g->cgb) {
+            if (!g->cgb && !g->sgb) {
                 px[0] = px[1] = px[2] = shade[v & 3];
             } else {
                 for (int c = 0; c < 3; c++) {
@@ -224,12 +233,12 @@ static void save_screen(GB *g, const char *path)
     static const u8 sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
     u8 ihdr[13] = { 0 };
     fwrite(sig, 1, 8, f);
-    put_be32(ihdr, GB_SCREEN_W);
-    put_be32(ihdr + 4, GB_SCREEN_H);
+    put_be32(ihdr, (u32)W);
+    put_be32(ihdr + 4, (u32)H);
     ihdr[8] = 8;
     ihdr[9] = 2;    /* RGB */
     png_chunk(f, "IHDR", ihdr, 13);
-    png_chunk(f, "IDAT", z, sizeof z);
+    png_chunk(f, "IDAT", z, (u32)zlen);
     png_chunk(f, "IEND", NULL, 0);
     fclose(f);
 }
@@ -334,7 +343,7 @@ int main(int argc, char **argv)
     const char *save_out = NULL;
     int frames_given = 0;
     long frames = 3600, every = 600;
-    int bench = 0;
+    int bench = 0, model = GB_MODEL_AUTO;
     u32 seed = 1;
 
     for (int i = 1; i < argc; i++) {
@@ -348,6 +357,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--bench")) bench = 1;
+        else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
+            const char *m = argv[++i];
+            model = !strcmp(m, "dmg") ? GB_MODEL_DMG : !strcmp(m, "cgb") ? GB_MODEL_CGB :
+                    !strcmp(m, "sgb") ? GB_MODEL_SGB : GB_MODEL_AUTO;
+        }
         else rom_path = argv[i];
     }
     if (!rom_path) {
@@ -366,8 +380,8 @@ int main(int argc, char **argv)
     }
 
     const char *err;
-    if ((err = gb_init(&rec, rom, (u32)size)) || (err = gb_init(&ref, rom, (u32)size)) ||
-        (err = gb_init(&snap_rec, rom, (u32)size)) || (err = gb_init(&snap_ref, rom, (u32)size))) {
+    if ((err = gb_init_model(&rec, rom, (u32)size, model)) || (err = gb_init_model(&ref, rom, (u32)size, model)) ||
+        (err = gb_init_model(&snap_rec, rom, (u32)size, model)) || (err = gb_init_model(&snap_ref, rom, (u32)size, model))) {
         fprintf(stderr, "%s\n", err);
         return 2;
     }

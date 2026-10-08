@@ -57,7 +57,7 @@ void apu_reset(GB *g)
     REG(0xFF23) = 0xBF;
     a->ch[0].duty = 2;
     a->ch[0].dac = 1;
-    a->ch[0].on = 1;        /* el sonido de arranque deja el canal 1 activo */
+    a->ch[0].on = !g->sgb;  /* el sonido de arranque deja el canal 1 activo (el SGB no suena) */
     a->ch[0].volume = 0;
     a->ch[1].dac = 0;
     a->ch[3].lfsr = 0x7FFF;

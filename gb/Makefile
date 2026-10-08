@@ -14,7 +14,7 @@ export TEMP := $(TMPDIR_WIN)
 EXE := .exe
 endif
 
-RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c
+RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test

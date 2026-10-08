@@ -1,3 +1,4 @@
+# Grabado en DMG: correr con --model dmg (en SGB el juego tarda distinto y se desfasa).
 # Carga el .sav que deja pokered_save.txt (difftest --save-out) y elige
 # CONTINUAR: debe aparecer PLAYER AAAAAAA.
 0 -

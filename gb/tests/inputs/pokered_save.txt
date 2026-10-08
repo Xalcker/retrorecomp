@@ -1,3 +1,4 @@
+# Grabado en DMG: correr con --model dmg (en SGB el juego tarda distinto y se desfasa).
 # Pokémon Rojo: partida nueva con A repetido (nombres "AAAAAAA" y "AA"),
 # diálogo de la SNES, y guardado en la habitación. Sirve para probar el .sav.
 0 -

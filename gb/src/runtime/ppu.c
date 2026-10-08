@@ -102,6 +102,7 @@ static void finish_frame(GB *g)
     p->front = back;
     p->back = p->buf[back ^ 1];
     p->frames++;
+    if (g->sgb) sgb_frame(g, p->buf[back]);
 }
 
 /* Lectura de VRAM de la PPU: `addr` va de 0 a $3FFF (banco 1 desde $2000) */

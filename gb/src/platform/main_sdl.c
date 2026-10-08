@@ -4,9 +4,12 @@
  *
  * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--forget-rom]
  *            [--record archivo | --play archivo] [--uncovered archivo]
+ *            [--model dmg|cgb|sgb]
  *   --interp      ejecuta todo con el intérprete (para comparar)
  *   --force       acepta una ROM con otro SHA1 (solo con el intérprete)
  *   --forget-rom  borra la copia guardada de la ROM y la vuelve a pedir
+ *   --model       fuerza el modelo; por omisión, color si el juego lo admite,
+ *                 si no Super Game Boy (con borde) si lo admite, si no DMG
  *   --record      graba los botones en un archivo de texto (ver inputs.h), para
  *                 reproducirlos con --play o con difftest --input
  *   --play        reproduce un archivo grabado (el teclado se ignora)
@@ -208,7 +211,7 @@ static Uint32 rgb555_to_argb(u16 v)
 int main(int argc, char *argv[])
 {
     const char *rom_arg = NULL;
-    int scale = 4, interp_only = 0, force = 0, forget = 0;
+    int scale = 4, interp_only = 0, force = 0, forget = 0, model = GB_MODEL_AUTO;
     const char *record_path = NULL, *play_path = NULL, *uncovered_path = NULL;
     static GB gb;
     char msg[4096];
@@ -218,6 +221,11 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--interp")) interp_only = 1;
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--forget-rom")) forget = 1;
+        else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
+            const char *m = argv[++i];
+            model = !strcmp(m, "dmg") ? GB_MODEL_DMG : !strcmp(m, "cgb") ? GB_MODEL_CGB :
+                    !strcmp(m, "sgb") ? GB_MODEL_SGB : GB_MODEL_AUTO;
+        }
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
         else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered_path = argv[++i];
@@ -284,7 +292,7 @@ int main(int argc, char *argv[])
     if (!from_cache && !interp_only && !u8_write_file(cache_path, rom.data, rom.size))
         fprintf(stderr, "no se pudo guardar la copia de la ROM en %s\n", cache_path);
 
-    const char *err = gb_init(&gb, rom.data, (u32)rom.size);
+    const char *err = gb_init_model(&gb, rom.data, (u32)rom.size, model);
     free(rom.data);
     if (err) fail(err);
     if (!interp_only) gb.recomp_lookup = recomp_lookup;
@@ -303,8 +311,14 @@ int main(int argc, char *argv[])
     }
     if (record_path && !(record = u8_fopen(record_path, "w"))) fail("No se pudo crear el archivo de grabación.");
 
-    SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                         GB_SCREEN_W, GB_SCREEN_H);
+    /* Super Game Boy: la imagen de la SNES, con el borde */
+    const int W = gb.sgb ? SGB_SCREEN_W : GB_SCREEN_W, H = gb.sgb ? SGB_SCREEN_H : GB_SCREEN_H;
+    if (gb.sgb) {
+        SDL_SetWindowSize(win, W * scale, H * scale);
+        SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        SDL_RenderSetLogicalSize(ren, W, H);
+    }
+    SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W, H);
     SDL_AudioSpec want, have_spec;
     SDL_zero(want);
     want.freq = GB_SAMPLE_RATE;
@@ -318,7 +332,7 @@ int main(int argc, char *argv[])
     const Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
     static float samples[4096 * 2];
-    Uint32 pixels[GB_SCREEN_W * GB_SCREEN_H];
+    static Uint32 pixels[SGB_SCREEN_W * SGB_SCREEN_H];
 
     for (int running = 1; running;) {
         SDL_Event ev;
@@ -342,10 +356,15 @@ int main(int argc, char *argv[])
         if (audio && SDL_GetQueuedAudioSize(audio) < GB_SAMPLE_RATE / 10 * 2 * sizeof(float))
             SDL_QueueAudio(audio, samples, (Uint32)(n * 2 * sizeof(float)));
 
-        const u16 *fb = gb_framebuffer(&gb);
-        for (int i = 0; i < GB_SCREEN_W * GB_SCREEN_H; i++)
-            pixels[i] = gb.cgb ? rgb555_to_argb(fb[i]) : palette[fb[i] & 3];
-        SDL_UpdateTexture(tex, NULL, pixels, GB_SCREEN_W * sizeof(Uint32));
+        if (gb.sgb) {
+            const u16 *fb = gb_sgb_screen(&gb);
+            for (int i = 0; i < W * H; i++) pixels[i] = rgb555_to_argb(fb[i]);
+        } else {
+            const u16 *fb = gb_framebuffer(&gb);
+            for (int i = 0; i < W * H; i++)
+                pixels[i] = gb.cgb ? rgb555_to_argb(fb[i]) : palette[fb[i] & 3];
+        }
+        SDL_UpdateTexture(tex, NULL, pixels, W * (int)sizeof(Uint32));
         SDL_RenderClear(ren);
         SDL_RenderCopy(ren, tex, NULL, NULL);
         SDL_RenderPresent(ren);

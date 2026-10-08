@@ -19,7 +19,7 @@ emite C99 + Makefile                  platform/        SDL2
 | Directorio | Contenido |
 |---|---|
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
-| `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `interp.c`. |
+| `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto. |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio) y `difftest.c` (prueba diferencial). |
 | `src/tools/` | `gen_interp` (genera el intérprete), `gbtest` (corre ROMs de prueba sin ventana), `png.c`. |
@@ -452,9 +452,54 @@ Validación:
 - Pokémon Oro, Plata y Amarillo corren en color, sin diferencias en
   `difftest`.
 
+## Super Game Boy
+
+Si el juego no admite color pero sí SGB (`$146` = 3 con el licenciatario viejo
+`$33`), corre como Super Game Boy: un DMG más lo que hace la SNES
+(`src/runtime/sgb.c`). Con `--model dmg|cgb|sgb` (en el ejecutable, `gbtest` y
+`difftest`) se fuerza otro modelo.
+
+- **Paquetes:** se reciben por P1. Un pulso de reinicio (P14 y P15 en bajo)
+  abre el paquete; siguen 128 bits (P14 en bajo = 0, P15 en bajo = 1), del bit
+  bajo al alto, y un bit 0 de fin. Un comando ocupa de 1 a 7 paquetes.
+- **Colores:** cuatro paletas, con un color 0 común, y un mapa de atributos de
+  20×18 mosaicos. Comandos implementados: PAL01/23/03/12, ATTR_BLK, ATTR_LIN,
+  ATTR_DIV, ATTR_CHR, PAL_SET, ATTR_SET y MASK_EN (congelar, negro o color 0).
+- **Transferencias de VRAM** (PAL_TRN, CHR_TRN, PCT_TRN, ATTR_TRN): la SNES lee
+  la imagen que sale por la pantalla, no la memoria del Game Boy. Los 4 KB se
+  reconstruyen con los tonos del cuadro completo que sigue al comando.
+- **Borde:** 256 mosaicos de 4 bits por píxel en formato SNES y un mapa de
+  32×28 con las paletas 4-7. `gb_sgb_screen` da la imagen final de 256×224 en
+  RGB555, con el juego en (48,40); `gb_framebuffer` sigue dando los 160×144
+  en tonos.
+- **Multijugador (MLT_REQ):** con 2 o 4 jugadores, cada subida de P15 pasa al
+  siguiente control, también a mitad de un paquete. Con ambas líneas en alto,
+  P1 da `$F` menos el número de control. El modo 2, que no está documentado, se
+  comporta como lo mide SameSuite.
+- **Arranque:**
+  - Registros del SGB (A = `$01`, C = `$14`, HL = `$C060`).
+  - P1 en `$FF` y el canal 1 de sonido apagado, porque no hay sonido de arranque.
+  - DIV depende de la cabecera: la boot ROM manda `$104-$14F` a la SNES y cada
+    bit en 0 tarda un M-ciclo más. El contador interno es `$D308 + 4 × ceros`.
+
+No se emulan el sonido de la SNES (SOUND, SOU_TRN), los programas que el juego
+sube a la SNES (DATA_SND, DATA_TRN, JUMP) ni el borde de fábrica del SGB, que
+viene en la ROM de la SNES. Un juego sin borde propio muestra el marco del
+color 0. Tampoco se imita el reloj un 2.4 % más rápido del SGB original.
+
+Validación:
+- Pasan las pruebas de arranque de Mooneye (`boot_regs-sgb`, `boot_div-S`,
+  `boot_div2-S`, `boot_hwio-S`) y las de SameSuite `command_mlt_req` y
+  `command_mlt_req_1_incrementing`.
+- Pokémon Rojo y Wario Land II muestran su borde y sus colores, sin diferencias
+  en `difftest`.
+- Las entradas grabadas de Pokémon Rojo (`pokered_save`, `pokered_continue`)
+  se grabaron en DMG. Hay que correrlas con `--model dmg`, porque en SGB el
+  juego tarda distinto y la grabación se desfasa.
+
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **119 de 119** (DMG y las de CGB que ya pasan).
+`sh tests/run_tests.sh`: **125 de 125** (DMG, más las de CGB y SGB que ya pasan).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`.

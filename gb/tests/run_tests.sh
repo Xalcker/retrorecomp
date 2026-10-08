@@ -51,6 +51,13 @@ for rom in "$T"/same-suite/dma/gbc_dma_cont.gb "$T"/same-suite/dma/gdma_addr_mas
     corre "$rom" --mooneye --seconds 5
 done
 
+# --- Super Game Boy: arranque (Mooneye) y multijugador (SameSuite) ---
+for rom in "$T"/mooneye-test-suite/acceptance/boot_regs-sgb.gb "$T"/mooneye-test-suite/acceptance/boot_div-S.gb \
+           "$T"/mooneye-test-suite/acceptance/boot_div2-S.gb "$T"/mooneye-test-suite/acceptance/boot_hwio-S.gb \
+           "$T"/same-suite/sgb/command_mlt_req.gb "$T"/same-suite/sgb/command_mlt_req_1_incrementing.gb; do
+    corre "$rom" --mooneye --model sgb --seconds 5
+done
+
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 

@@ -27,6 +27,8 @@ typedef int8_t   s8;
 #define GB_CYCLES_FRAME  70224
 #define GB_SCREEN_W      160
 #define GB_SCREEN_H      144
+#define SGB_SCREEN_W     256    /* imagen de la SNES con el Super Game Boy */
+#define SGB_SCREEN_H     224
 #define GB_SAMPLE_RATE   48000
 
 /* Bits de IF / IE */
@@ -207,6 +209,34 @@ typedef struct {
     size_t out_len, out_cap;
 } Serial;
 
+/* Super Game Boy: lo que hace la SNES con los paquetes que manda el juego */
+typedef struct {
+    /* Recepción de paquetes por P1 (bits P14/P15) */
+    u8 packet[7 * 16];  /* un comando ocupa hasta 7 paquetes de 16 bytes */
+    int bits;           /* bits recibidos del paquete actual */
+    int receiving;      /* entre el pulso de reinicio y el bit de fin */
+    int ready_for_pulse;    /* hubo una escritura con ambos en alto */
+    int packets;        /* paquetes ya recibidos del comando */
+    int length;         /* paquetes que ocupa el comando */
+    u8 last_p1;         /* bits 4-5 de la última escritura en P1 */
+    /* Multijugador (MLT_REQ) */
+    u8 players, player;
+    /* Transferencia de VRAM pendiente (*_TRN): se toma de la pantalla */
+    u8 trn_cmd, trn_arg;
+    int trn_wait;       /* cuadros que faltan */
+    /* Colores */
+    u16 pal[4][4];      /* paletas activas (el color 0 de todas es pal[0][0]) */
+    u8 attr[20 * 18];   /* paleta de cada mosaico de 8x8 de la pantalla */
+    u8 mask;            /* MASK_EN: 0 normal, 1 congelada, 2 negro, 3 color 0 */
+    u16 sys_pal[512 * 4];   /* paletas del sistema (PAL_TRN) */
+    u8 atf[45 * 90];        /* archivos de atributos (ATTR_TRN) */
+    /* Borde */
+    u8 border_chr[256 * 32];    /* mosaicos de 4 bits por píxel (formato SNES) */
+    u16 border_map[32 * 28];
+    u16 border_pal[4][16];      /* paletas 4-7 */
+    u16 screen[SGB_SCREEN_W * SGB_SCREEN_H];   /* imagen final en RGB555 */
+} Sgb;
+
 typedef struct GB GB;
 
 /* Función recompilada: ejecuta desde g->cpu.pc y regresa al despachador */
@@ -231,6 +261,8 @@ struct GB {
 
     /* Modelo: 0 = DMG, 1 = Game Boy Color (en modo CGB) */
     int cgb;
+    int sgb;            /* Super Game Boy (siempre con cgb = 0) */
+    Sgb sgbs;
 
     /* Memoria interna (en DMG solo se usan el banco 0 de VRAM y 8 KB de WRAM) */
     u8 vram[0x4000];    /* 2 bancos de 8 KB */
@@ -290,7 +322,7 @@ struct GB {
 const char *gb_init(GB *g, const u8 *rom, u32 size);
 
 /* Igual, eligiendo el modelo: color automático según la cabecera, o forzado */
-enum { GB_MODEL_AUTO = -1, GB_MODEL_DMG = 0, GB_MODEL_CGB = 1 };
+enum { GB_MODEL_AUTO = -1, GB_MODEL_DMG = 0, GB_MODEL_CGB = 1, GB_MODEL_SGB = 2 };
 const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model);
 
 /* PPU → HDMA: empieza un HBlank de una línea visible (CGB) */
@@ -321,6 +353,10 @@ void gb_run_frame(GB *g);
 /* Último cuadro completo, 160×144: en DMG tonos 0 (claro) a 3 (oscuro); en
  * CGB colores RGB555 (5 bits por canal, rojo en los bits bajos). */
 const u16 *gb_framebuffer(const GB *g);
+
+/* SGB: imagen completa de 256×224 en RGB555, con el borde y el juego
+ * coloreado al centro (en 48,40). NULL si no es un Super Game Boy. */
+const u16 *gb_sgb_screen(const GB *g);
 
 /* Cambia los botones presionados (puede disparar la interrupción de joypad) */
 void gb_set_pad(GB *g, u8 pad);
@@ -384,6 +420,11 @@ void apu_mcycle(GB *g, u32 dots);   /* avanza `dots` puntos de tiempo real */
 void apu_div_event(GB *g);
 u8   apu_read(GB *g, u16 addr);
 void apu_write(GB *g, u16 addr, u8 value);
+
+void sgb_reset(GB *g);
+void sgb_p1_write(GB *g, u8 value);     /* bits 4-5 escritos en P1 */
+int  sgb_joypad_id(GB *g);              /* jugador actual (MLT_REQ) */
+void sgb_frame(GB *g, const u16 *shades);   /* cuadro terminado (tonos 0-3) */
 
 #define IF_REG(g) ((g)->io[IO_IF])
 

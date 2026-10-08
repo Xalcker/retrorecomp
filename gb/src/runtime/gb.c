@@ -158,6 +158,13 @@ static u8 joypad_lines(GB *g)
 {
     u8 sel = g->io[IO_P1] & 0x30;
     u8 low = 0x0F;
+    if (g->sgb) {
+        /* SGB multijugador: sin selección se lee el número de control; los
+         * controles 2-4 no tienen botones presionados */
+        int id = sgb_joypad_id(g);
+        if (sel == 0x30) return (u8)(0x0F - id);
+        if (id) return 0x0F;
+    }
     if (!(sel & 0x10)) low &= (u8)~(g->pad >> 4);
     if (!(sel & 0x20)) low &= (u8)~(g->pad & 0x0F);
     return low & 0x0F;
@@ -419,6 +426,7 @@ static void io_write(GB *g, u8 reg, u8 v)
     switch (reg) {
     case IO_P1:
         g->io[IO_P1] = v & 0x30;
+        if (g->sgb) sgb_p1_write(g, v);
         joypad_update(g);
         return;
     case IO_SB:   g->io[IO_SB] = v; return;
@@ -694,7 +702,14 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
     memset(g, 0, sizeof *g);
     if (size < 0x150) return "la ROM es demasiado chica";
     /* Automático: color si el cartucho lo admite (cabecera $143, bit 7) */
-    g->cgb = model == GB_MODEL_AUTO ? (rom[0x143] & 0x80) != 0 : model == GB_MODEL_CGB;
+    /* luego SGB si lo admite ($146 = 3 con el licenciatario viejo $33) */
+    if (model == GB_MODEL_AUTO) {
+        if (rom[0x143] & 0x80) model = GB_MODEL_CGB;
+        else if (rom[0x146] == 0x03 && rom[0x14B] == 0x33) model = GB_MODEL_SGB;
+        else model = GB_MODEL_DMG;
+    }
+    g->cgb = model == GB_MODEL_CGB;
+    g->sgb = model == GB_MODEL_SGB;
     g->wram_bank = 1;
 
     /* Copia con tamaño de potencia de 2 (al menos 2 bancos) */
@@ -713,6 +728,7 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
     timer_reset(g);
     ppu_reset(g);
     apu_reset(g);
+    if (g->sgb) sgb_reset(g);
 
     /* Estado al terminar la boot ROM */
     Cpu *c = &g->cpu;
@@ -722,6 +738,11 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
         c->b = 0x00; c->c = 0x00;
         c->d = 0xFF; c->e = 0x56;
         c->h = 0x00; c->l = 0x0D;
+    } else if (g->sgb) {
+        c->a = 0x01; c->f = 0x00;
+        c->b = 0x00; c->c = 0x14;
+        c->d = 0x00; c->e = 0x00;
+        c->h = 0xC0; c->l = 0x60;
     } else {
         c->a = 0x01; c->f = 0xB0;
         c->b = 0x00; c->c = 0x13;
@@ -732,6 +753,10 @@ const char *gb_init_model(GB *g, const u8 *rom, u32 size, int model)
     c->pc = 0x0100;
 
     g->io[IO_P1] = 0x00;    /* P1 se lee como $CF */
+    if (g->sgb) {
+        g->io[IO_P1] = 0x30;        /* la boot ROM del SGB lo deja en $FF */
+        g->sgbs.last_p1 = 0x30;
+    }
     g->io[IO_SC] = 0x00;
     IF_REG(g) = 0x01;
     g->io[IO_LCDC] = 0x91;

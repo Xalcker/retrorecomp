@@ -1252,7 +1252,7 @@ int main(int argc, char **argv)
 
     static const char *const runtime_files[] = {
         "gb.h", "gb.c", "cpu_ops.h", "interp.c", "timer.c", "ppu.c", "apu.c", "mbc.c",
-        "sha1.c", "sha1.h", "recomp.h", "console.h", "save.c", NULL,
+        "sha1.c", "sha1.h", "recomp.h", "console.h", "save.c", "sgb.c", NULL,
     };
     static const char *const platform_files[] = { "main_sdl.c", "difftest.c", "inputs.h", "files.c", "files.h", NULL };
     static const char *const generated_files[] = { "interp_ops.inc", NULL };

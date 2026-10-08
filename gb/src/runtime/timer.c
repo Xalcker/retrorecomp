@@ -37,6 +37,14 @@ void timer_reset(GB *g)
 {
     Timer *t = &g->timer;
     t->sys = 0xABCC;    /* contador al llegar a $0100 en DMG (boot_div de Mooneye) */
+    if (g->sgb) {
+        /* La boot ROM del SGB manda la cabecera ($104-$14F) a la SNES y cada
+         * bit en 0 tarda un M-ciclo más (boot_div-S y boot_div2-S) */
+        int zeros = 0;
+        for (int a = 0x104; a < 0x150; a++)
+            for (int b = 0; b < 8; b++) zeros += !((g->rom[a] >> b) & 1);
+        t->sys = (u16)(0xD308 + zeros * 4);
+    }
     t->tima = 0;
     t->tma = 0;
     t->tac = 0xF8;

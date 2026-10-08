@@ -267,6 +267,24 @@ línea, al llegar a una dirección que el código carga como constante, porque
 ahí empieza otro objeto. Cada entrada se explora antes de leer la siguiente,
 así el código que sigue a la tabla se conoce a tiempo para detenerse.
 
+La entrada `$0100` empieza con el banco 1 como banco activo conocido, porque
+todos los MBC lo dejan así al encender. Sin eso, un `jp $5C45` en `$0101` (como
+en Project S-11) quedaba sin resolver y el juego entero corría en el
+intérprete. Con eso, Project S-11 pasó de 0.6 % a 92.5 % recompilado sin traza.
+
+**Patrones que todavía no se reconocen**, encontrados con `tests/batch_roms.sh`.
+Todos corren bien (en el intérprete) y la traza los resuelve:
+
+| Patrón | Ejemplo | Sin traza → con traza |
+|---|---|---|
+| Llamada a otro banco con argumentos en línea: `call R` seguido de dirección y banco; `R` saca el retorno con `pop hl`, lee los bytes y los salta | Shantae (`$0540`, 3141 llamadas) | 4.9 % → 99.6 % |
+| Puntero a código guardado en una variable de RAM: el bucle principal hace `ld hl, [estado]` + `jp hl` | Mary-Kate and Ashley | 1.9 % → 99.4 % |
+| Trampolín con el banco en una variable de RAM en lugar de un registro | Duke Nukem | 8.8 % → 99.9 % |
+| Código copiado a RAM (WRAM y HRAM) | International Superstar Soccer | 37 % → 72 % (lo de RAM no se puede recompilar estáticamente) |
+
+`difftest` dice en qué zona ejecuta el intérprete (ROM, RAM del cartucho, WRAM,
+HRAM), para distinguir código no descubierto de código en RAM.
+
 ### Medición contra el desensamblado de Tetris
 
 `tools/truth/` construye la "respuesta correcta" a partir de
@@ -579,6 +597,13 @@ Si el juego no admite color pero sí SGB (`$146` = 3 con el licenciatario viejo
   siguiente control, también a mitad de un paquete. Con ambas líneas en alto,
   P1 da `$F` menos el número de control. El modo 2, que no está documentado, se
   comporta como lo mide SameSuite.
+- **Pulsos inválidos:** un pulso sin ambas líneas en alto antes cancela el
+  paquete en curso. Es el caso de `$20` → `$10`, como al leer el control. Sin
+  esa regla, International Superstar Soccer (que escribe `$00` en P1 al leer el
+  control) armaba con la lectura normal del control un paquete de 128 bits en
+  cero. Eso es un PAL01 que pinta todo de negro, y el juego se veía en negro
+  dentro del borde. Es una deducción: SameBoy no tiene esa regla, pero con ella
+  pasan todas las pruebas y los juegos.
 - **Arranque:**
   - Registros del SGB (A = `$01`, C = `$14`, HL = `$C060`).
   - P1 en `$FF` y el canal 1 de sonido apagado, porque no hay sonido de arranque.

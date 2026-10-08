@@ -755,8 +755,13 @@ static void discover(void)
     static size_t tables_done;
     for (size_t i = 0; i < sizeof vectors / sizeof vectors[0]; i++) {
         *flag_at(0, vectors[i]) |= F_ENTRY;
+        /* Al encender, todos los MBC tienen el banco 1 en $4000-$7FFF: la
+         * entrada lo sabe (un "jp $5C45" en $0101 va al banco 1). En las
+         * interrupciones el banco puede ser cualquiera. */
+        push_ctx = vectors[i] == 0x0100 ? 1 : V_UNK;
         push_work(0, vectors[i]);
     }
+    push_ctx = V_UNK;
     drain();
     /* Las tablas se leen al final: así el código que las rodea ya se conoce */
     while (tables_done < ntables) {

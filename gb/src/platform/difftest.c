@@ -73,11 +73,16 @@ static void mark_executed(GB *g)
     for (int i = 0; i < len && off + i < 0x4000; i++) executed[bank][off + i] = 1;
 }
 
+/* Instrucciones del intérprete por zona: ROM, RAM del cartucho, WRAM, HRAM.
+ * Lo que corre en RAM nunca se puede recompilar (el juego lo copia ahí). */
+static u64 interp_zone[4];
+
 static void count_interp(GB *g)
 {
     u16 pc = g->cpu.pc;
     u32 bank;
     u16 off;
+    interp_zone[pc < 0x8000 ? 0 : pc < 0xC000 ? 1 : pc < 0xFF80 ? 2 : 3]++;
     if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
     else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
     else return;
@@ -466,6 +471,10 @@ int main(int argc, char **argv)
     printf("Instrucciones: %llu recompiladas, %llu en el intérprete (%.3f%% recompilado)\n",
            (unsigned long long)rec.instr_recomp, (unsigned long long)rec.instr_interp,
            total ? 100.0 * rec.instr_recomp / total : 0.0);
+    if (rec.instr_interp)
+        printf("Intérprete por zona: ROM %.1f%%, RAM de cartucho %.1f%%, WRAM %.1f%%, HRAM %.1f%%\n",
+               100.0 * interp_zone[0] / rec.instr_interp, 100.0 * interp_zone[1] / rec.instr_interp,
+               100.0 * interp_zone[2] / rec.instr_interp, 100.0 * interp_zone[3] / rec.instr_interp);
 
     /* Direcciones de ROM más ejecutadas por el intérprete */
     unsigned shown = 0, distinct = 0;

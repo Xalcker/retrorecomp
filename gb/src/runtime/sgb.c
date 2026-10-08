@@ -211,7 +211,14 @@ void sgb_p1_write(GB *g, u8 v)
         s->ready_for_pulse = 1;
         return;
     }
-    if (!s->ready_for_pulse) return;
+    if (!s->ready_for_pulse) {
+        /* Un pulso sin ambas líneas en alto antes (p. ej. $20 → $10, como
+         * al leer el control) no es un bit válido: se cancela el paquete.
+         * Si no, la lectura del control tras un $00 suelto arma un paquete
+         * de ceros (PAL01 en negro; International Superstar Soccer). */
+        s->receiving = 0;
+        return;
+    }
     s->ready_for_pulse = 0;
     if (sel == 0x00) {          /* reinicio: empieza un paquete */
         s->receiving = 1;

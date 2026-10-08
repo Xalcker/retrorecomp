@@ -132,6 +132,18 @@ instrucciones que corrió como código recompilado:
 | Wario Land II | SGB | 94.7 % |
 | Pokémon Oro, Plata y Amarillo | GBC | sin diferencias |
 
+Además, `tests/batch_roms.sh` recompila una lista de juegos y corre `difftest`
+60 s con entradas aleatorias en cada uno. Con 33 juegos sin diferencias:
+- **Efectos de pantalla:** Link's Awakening, Super Mario Land 2 y Prehistorik
+  Man.
+- **Doble velocidad del GBC:** Pokémon Cristal, Zelda Oracle of Ages, Shantae,
+  Alone in the Dark (portada con imagen de muchos colores) y Metal Gear Solid.
+- **Muestra al azar:** 25 juegos de GB y GBC.
+
+Ninguno tuvo diferencias. La cobertura sin traza varía entre 1 % y 99 % según
+qué tan indirecto es el código del juego (ver `docs/ARQUITECTURA.md`). Con el
+ciclo de trazas, los juegos revisados quedaron entre 97 % y 99.9 %.
+
 La integración continua compila, corre la batería y recompila una ROM de
 prueba en Linux, macOS y Windows. En Linux y Windows además se jugaron los
 proyectos generados; en macOS todavía no.

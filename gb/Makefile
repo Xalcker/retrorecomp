@@ -14,15 +14,19 @@ export TEMP := $(TMPDIR_WIN)
 EXE := .exe
 endif
 
-RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c
+RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test
-all: $(BUILD)/libgbrt.a gbtest$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbrecomp$(EXE)
 
 # Corredor de ROMs de prueba sin ventana
 gbtest$(EXE): src/tools/gbtest.c src/tools/png.c src/tools/png.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -o $@ src/tools/gbtest.c src/tools/png.c $(BUILD)/libgbrt.a
+
+# El recompilador (necesita build/gen/interp_ops.inc para copiarlo al proyecto)
+gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/emit/sm83_emit.h src/runtime/sha1.c $(BUILD)/gen/interp_ops.inc
+	$(CC) $(CFLAGS) -o $@ src/gbrecomp/gbrecomp.c src/emit/sm83_emit.c src/runtime/sha1.c
 
 test: gbtest$(EXE)
 	sh tests/run_tests.sh
@@ -47,4 +51,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD)
+	rm -rf $(BUILD) gbtest$(EXE) gbrecomp$(EXE)

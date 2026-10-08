@@ -224,6 +224,10 @@ struct GB {
 const char *gb_init(GB *g, const u8 *rom, u32 size);
 void gb_free(GB *g);
 
+/* Copia el estado de src en dst (que ya pasó por gb_init con la misma ROM).
+ * dst conserva sus propios búferes, su recomp_lookup y su trace. */
+void gb_copy_state(GB *dst, const GB *src);
+
 /* Ejecuta hasta que g->cyc >= hasta (en un límite de instrucción). */
 void gb_run(GB *g, u64 hasta);
 

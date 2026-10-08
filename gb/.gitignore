@@ -4,3 +4,4 @@ testroms/
 gbtest
 *.gb
 *.sav
+out/

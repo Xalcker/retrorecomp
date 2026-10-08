@@ -515,3 +515,28 @@ int gb_audio_pull(GB *g, float *out, int max)
     }
     return n;
 }
+
+void gb_copy_state(GB *dst, const GB *src)
+{
+    const u8 *rom = dst->rom;
+    u8 *sram = dst->sram;
+    u8 *serial_out = dst->serial.out;
+    size_t serial_cap = dst->serial.out_cap;
+    RecompFn (*lookup)(GB *, u16) = dst->recomp_lookup;
+    void (*trace)(GB *) = dst->trace;
+
+    memcpy(dst, src, sizeof *dst);
+
+    dst->rom = rom;
+    dst->sram = sram;
+    if (sram && src->sram) memcpy(sram, src->sram, src->sram_size);
+    dst->serial.out = serial_out;
+    dst->serial.out_cap = serial_cap;
+    if (dst->serial.out_len > serial_cap) dst->serial.out_len = serial_cap;
+    if (serial_out && src->serial.out) memcpy(serial_out, src->serial.out, dst->serial.out_len);
+    dst->recomp_lookup = lookup;
+    dst->trace = trace;
+    /* Punteros internos que apuntaban a src */
+    dst->ppu.back = dst->ppu.buf[src->ppu.back == src->ppu.buf[0] ? 0 : 1];
+    gb_remap(dst);
+}

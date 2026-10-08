@@ -20,6 +20,8 @@ emite C99 + Makefile                  platform/        SDL2
 |---|---|
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `interp.c`. |
+| `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto. |
+| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio) y `difftest.c` (prueba diferencial). |
 | `src/tools/` | `gen_interp` (genera el intérprete), `gbtest` (corre ROMs de prueba sin ventana), `png.c`. |
 | `tests/` | `run_tests.sh`: Blargg, Mooneye y dmg-acid2. |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
@@ -67,35 +69,108 @@ salta a `$0000`).
 interrupción pendiente) hace que la siguiente instrucción se ejecute en el
 intérprete con el PC sin avanzar.
 
-## Formato del código recompilado (fase 2)
+## Código recompilado (fase 2)
 
-Cada región descubierta se vuelve una función con un `switch` de entrada y una
-etiqueta por instrucción, para poder entrar o salir en cualquier límite:
+### Descubrimiento y funciones
+
+`gbrecomp` decodifica recursivamente desde `$0100` y los vectores de
+interrupción, siguiendo saltos, llamadas y `rst` con destino constante (las
+llamadas se asumen con regreso). Con `--trace` agrega como puntos de entrada las
+direcciones de una traza de ejecución (formato `BB:AAAA`); así se resuelven los
+saltos indirectos (`jp hl`, tablas de `rst $28`).
+
+Las instrucciones de cada banco se agrupan en funciones por tramos contiguos de
+direcciones: se corta cuando hay más de 32 bytes sin código o al llegar a 1,500
+instrucciones. Cada instrucción pertenece a una sola función. Si dos
+decodificaciones se traslapan (saltos a mitad de instrucción), ambas existen,
+cada una con su etiqueta.
+
+### Formato
 
 ```c
-/* Banco 0, región $0150-$0172 */
-void f00_0150(GB *g)
+/* Banco 00, $14E0-$1530 (25 instrucciones) */
+void f00_14E0(GB *g)
 {
     Cpu *c = &g->cpu;
-    switch (c->pc) {
-    case 0x0150: goto L_0150;
-    case 0x0152: goto L_0152;
-    default: c->pc = ...; return;   /* entrada desconocida: al despachador */
+    switch (c->pc) {                 /* se puede entrar en cualquier instrucción */
+    case 0x14E0: goto L_14E0;
+    ...
+    default: gb_interp_step(g); return;
     }
-L_0150: /* ldh a, [$FF44] */
-    TICK(); TICK(); c->a = RD(0xFF00 | 0x44);
-    if (UNLIKELY(g->cyc >= g->next_event)) { c->pc = 0x0152; if (gb_check(g)) return; }
-L_0152: /* cp $90 */
+L_14F3: /* cp $1D */
+    CHECK(0x14F3);                   /* ¿evento de hardware? → al despachador */
+    {
+        TICK();                      /* lectura del opcode */
+        TICK();                      /* lectura del operando */
+        op_cp(c, 0x1D);
+    }
+L_14F5: /* jr nz, $1500 */
     ...
 }
 ```
 
-- Saltos con destino constante dentro de la región → `goto`.
-- `call`, `ret`, `jp hl`, `rst` y saltos fuera de la región → se asigna `c->pc`
-  y se regresa al despachador. CALL y RET usan la **pila emulada**, así que los
-  trucos de pila (`rst $28` con tablas, `push`+`ret`) funcionan.
-- El despachador busca la función por (banco mapeado, PC). Si no hay, ejecuta
-  una instrucción en el intérprete (código en RAM, código no descubierto).
+- `CHECK` al inicio de cada instrucción revisa `g->cyc >= g->next_event`. Si
+  hay que atender una interrupción o terminar la corrida, regresa con
+  `c->pc` apuntando a esa instrucción, todavía sin ejecutar.
+- Un salto con destino constante a una instrucción de la misma función se
+  vuelve `goto`. Cualquier otro (`call`, `ret`, `jp hl`, `rst`, fuera de la
+  función) asigna `c->pc` y regresa al despachador. CALL y RET usan la **pila
+  emulada**, así que los trucos de pila funcionan.
+- En funciones de bancos ≥ 1, después de cada instrucción que puede escribir en
+  `$0000-$7FFF` se comprueba que el banco siga siendo el mismo. Si el código
+  cambió su propio banco, regresa al despachador.
+- `gen/dispatch.c` tiene tablas banco → página de 256 bytes → función. El
+  código del banco 0 solo se usa si está mapeado en `$0000` y el de los demás
+  bancos solo en `$4000`. Cualquier otra combinación va al intérprete.
+
+### Proyecto generado
+
+```
+gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre]
+cd salida && make
+./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
+./difftest rom.gb        # prueba diferencial
+```
+
+`salida/` trae `gen/` (código generado), `runtime/` (copia del runtime),
+`platform/` (SDL2 y difftest) y un `Makefile`. No contiene datos de la ROM.
+
+### Prueba diferencial
+
+`difftest` corre la misma ROM con código recompilado y con el intérprete, con
+las mismas entradas pseudoaleatorias (`--seed`), y compara el estado completo al
+final de cada cuadro: registros, ciclos, WRAM, HRAM, VRAM, OAM, I/O, timer,
+PPU, banco y RAM del cartucho. Si hay diferencia, repite el cuadro instrucción
+por instrucción y reporta la primera, con banco, dirección, opcode y el campo
+que difiere:
+
+```
+Primera diferencia en el cuadro 401, instrucción 2943 del cuadro,
+  tras ejecutar 00:14F3 (opcode $FE, recompilada)
+  A: recompilado=FF intérprete=1C
+```
+
+Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecutó
+el intérprete (para `gbrecomp --trace`), `--screens carpeta --every N` guarda
+capturas y `--bench` mide la velocidad de cada máquina.
+
+### Resultados con Tetris (JUE) (V1.1)
+
+| | Solo estático | Con trazas de 7 sesiones |
+|---|---|---|
+| Instrucciones recompiladas | 2,189 | 4,321 |
+| Ejecutado en código recompilado | 96.6 % | 98.9 % |
+| Direcciones de ROM interpretadas | 1,239 | 0 a 99 según la semilla |
+
+- **Sin diferencias** en más de 160,000 cuadros (13 sesiones de 3,000 a 20,000
+  cuadros con semillas distintas). Las capturas confirman partidas reales.
+- El 1.1 % que queda en el intérprete es la rutina de DMA que Tetris copia a
+  HRAM: el código en RAM siempre va al intérprete.
+- Se comprobó el localizador inyectando un error a mano (`cp` → `sub`):
+  reportó la instrucción y el registro exactos.
+- Velocidad (sin audio): recompilado 47x tiempo real, intérprete 44x. Casi
+  todo el tiempo se va en el hardware, que se simula punto por punto. Optimizar
+  `gb_sync` es lo que más rendiría.
 
 ## Estado de la validación (fase 1, solo intérprete)
 

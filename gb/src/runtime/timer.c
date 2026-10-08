@@ -34,7 +34,7 @@ static void check_apu(GB *g, u16 old, u16 now)
 void timer_reset(GB *g)
 {
     Timer *t = &g->timer;
-    t->sys = 0xABC8;    /* contador al llegar a $0100 en DMG (boot_div de Mooneye) */
+    t->sys = 0xABCC;    /* contador al llegar a $0100 en DMG (boot_div de Mooneye) */
     t->tima = 0;
     t->tma = 0;
     t->tac = 0xF8;

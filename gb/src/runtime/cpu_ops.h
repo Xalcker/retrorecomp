@@ -32,17 +32,21 @@
 ALWAYS_INLINE u8 mem_read(GB *g, u16 a)
 {
     const u8 *p = g->rpage[a >> 8];
+    u8 v;
+    /* El acceso ocurre al inicio del M-ciclo: el hardware se ve como estaba
+     * antes de estos 4 ciclos */
+    if (LIKELY(p != NULL)) v = p[a & 0xFF];
+    else v = gb_read_slow(g, a);
     g->cyc += 4;
-    if (LIKELY(p != NULL)) return p[a & 0xFF];
-    return gb_read_slow(g, a);
+    return v;
 }
 
 ALWAYS_INLINE void mem_write(GB *g, u16 a, u8 v)
 {
     u8 *p = g->wpage[a >> 8];
+    if (LIKELY(p != NULL)) p[a & 0xFF] = v;
+    else gb_write_slow(g, a, v);
     g->cyc += 4;
-    if (LIKELY(p != NULL)) { p[a & 0xFF] = v; return; }
-    gb_write_slow(g, a, v);
 }
 
 #define TICK()      (g->cyc += 4)

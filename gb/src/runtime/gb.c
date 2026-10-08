@@ -124,9 +124,8 @@ static void serial_mcycle(GB *g)
     Serial *s = &g->serial;
     if (!s->active) return;
     /* Reloj interno de 8192 Hz: flanco de bajada del bit 8 del contador del
-     * timer, alineado con el arranque y no con la escritura en SC. El flanco
-     * se adelanta un M-ciclo respecto a lo que lee DIV (boot_sclk_align). */
-    u16 now = (u16)(g->timer.sys + 4), old = (u16)(s->last_sys + 4);
+     * timer, alineado con el arranque y no con la escritura en SC */
+    u16 now = g->timer.sys, old = s->last_sys;
     s->last_sys = g->timer.sys;
     if (!((old & 0x100) && !(now & 0x100))) return;
     if (--s->bits_left == 0) {
@@ -171,7 +170,16 @@ void gb_set_pad(GB *g, u8 pad)
 /* Sincronización                                                      */
 /* ------------------------------------------------------------------ */
 
-void gb_sync(GB *g)
+/*
+ * Algunas escrituras a registros de la PPU surten efecto hasta 2 puntos antes
+ * del M-ciclo de la escritura (ver ppu_register_write). Por eso, durante la
+ * sincronización la PPU se queda PPU_HOLD puntos atrás y solo se pone al
+ * corriente al final; las escrituras a sus registros la adelantan hasta el
+ * punto exacto.
+ */
+#define PPU_HOLD 2
+
+static void sync_hardware(GB *g)
 {
     while (g->hw_cyc < g->cyc) {
         g->hw_cyc += 4;
@@ -179,9 +187,15 @@ void gb_sync(GB *g)
         if (g->serial.active) serial_mcycle(g);
         else g->serial.last_sys = g->timer.sys;
         if (g->dma.active) dma_mcycle(g);
-        ppu_mcycle(g);
+        ppu_advance(g, g->hw_cyc - PPU_HOLD);
         apu_mcycle(g);
     }
+}
+
+void gb_sync(GB *g)
+{
+    sync_hardware(g);
+    ppu_advance(g, g->hw_cyc);
 }
 
 static u64 next_hw_event(GB *g)
@@ -190,10 +204,11 @@ static u64 next_hw_event(GB *g)
     u64 x = timer_next_event(g);
     if (x < t) t = x;
     x = ppu_next_event(g);
+
     if (x < t) t = x;
     if (g->serial.active) {
         /* Siguiente flanco del bit 8, más los bits que faltan */
-        u32 first = 512 - ((g->timer.sys + 4) & 511);
+        u32 first = 512 - (g->timer.sys & 511);
         x = g->hw_cyc + first + (u64)(g->serial.bits_left - 1) * 512;
         if (x < t) t = x;
     }
@@ -290,6 +305,21 @@ u8 gb_read_slow(GB *g, u16 a)
 void gb_write_slow(GB *g, u16 a, u8 v)
 {
     if (a >= 0xFF80 && a != 0xFFFF) { g->hram[a - 0xFF80] = v; return; }
+    if (a >= 0xFF40 && a <= 0xFF4B && a != 0xFF46) {
+        /* Registro de la PPU: cada uno surte efecto en su punto del M-ciclo */
+        sync_hardware(g);
+        g->next_event = 0;
+        ppu_write_timed(g, (u8)a, v, g->cyc);
+        return;
+    }
+    if (a == 0xFF0F) {
+        /* IF: la escritura gana a lo que la PPU pida en el mismo punto */
+        sync_hardware(g);
+        ppu_advance(g, g->cyc + 1);
+        IF_REG(g) = v & 0x1F;
+        g->next_event = 0;
+        return;
+    }
     gb_sync(g);
     g->next_event = 0;  /* la escritura puede cambiar interrupciones o eventos */
     if (dma_conflict(g, a)) return;
@@ -361,6 +391,7 @@ void gb_halt(GB *g)
         return;
     }
     c->halted = 1;
+    c->halt_first = 1;
     g->next_event = 0;
 }
 
@@ -396,19 +427,31 @@ void gb_run(GB *g, u64 until)
             u8 pend = PENDING(g);
 
             if (UNLIKELY(c->halted | c->stopped | c->locked)) {
-                if (c->halted && pend) {
-                    c->halted = 0;
-                    /* Sin M-ciclo aparte al despertar: calibrado con
-                     * di_timing-GS y halt_ime1_timing2-GS de Mooneye */
+                if (c->halted) {
+                    /* En HALT, IF se muestrea 2 ciclos dentro de cada M-ciclo
+                     * (el primero tras HALT, al inicio) y el CPU despierta al
+                     * terminar ese M-ciclo */
+                    u64 sample = c->halt_first ? g->cyc : g->cyc + 2;
+                    c->halt_first = 0;
+                    ppu_advance(g, sample);
+                    if (PENDING(g)) {
+                        c->halted = 0;
+                        g->cyc += 4;
+                        g->next_event = 0;
+                        continue;
+                    }
+                    /* Dormido: saltar al M-ciclo en cuyo muestreo ya se vería
+                     * el siguiente evento */
+                    u64 t = next_hw_event(g);
+                    t = t > 2 ? (t - 2 + 3) & ~(u64)3 : 0;
+                    g->cyc = t > g->cyc ? t : g->cyc + 4;
                     g->next_event = 0;
                     continue;
                 }
                 if (c->stopped && g->pad) {
                     c->stopped = 0;
                 } else {
-                    /* Dormido: saltar directo al siguiente evento */
-                    u64 t = c->locked || c->stopped ? g->stop_at : next_hw_event(g);
-                    t = (t + 3) & ~(u64)3;
+                    u64 t = (g->stop_at + 3) & ~(u64)3;
                     g->cyc = t > g->cyc ? t : g->cyc + 4;
                     g->next_event = 0;
                     continue;

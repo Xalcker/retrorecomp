@@ -62,6 +62,7 @@ typedef struct {
     u8 ei_pend;     /* EI: IME se activa después de la instrucción siguiente */
     u8 halted;
     u8 halt_bug;    /* la siguiente lectura de opcode no incrementa PC */
+    u8 halt_first;  /* primer M-ciclo tras HALT (muestrea IF al inicio) */
     u8 stopped;
     u8 locked;      /* opcode ilegal: el CPU se cuelga para siempre */
 } Cpu;
@@ -96,17 +97,53 @@ typedef struct {
 } Timer;
 
 typedef struct {
-    u32 dot;            /* punto dentro de la línea (0..455) */
+    u8 pixel;           /* color 0-3 antes de la paleta (0 = transparente) */
+    u8 attr;            /* atributos del sprite (bit 4 paleta, bit 7 prioridad) */
+} ObjPixel;
+
+typedef struct {
+    u64 cyc;            /* hasta qué ciclo avanzó la PPU (lleva su propio reloj) */
+    u32 dot;            /* punto dentro de la línea */
+    u32 line_len;       /* puntos de la línea actual (la primera tras encender es más corta) */
     u8 ly;              /* línea que procesa la PPU */
-    u8 ly_reg;          /* valor de LY visible (difiere en la línea 153) */
+    u8 ly_reg;          /* valor visible de LY */
     u8 mode;            /* modo visible en STAT */
-    u32 mode3_end;      /* punto en que termina el modo 3 de esta línea */
+    s8 mode_irq;        /* fuente de modo para la interrupción STAT (-1: ninguna) */
+    int16_t ly_cmp;     /* LY para la comparación con LYC (-1: sin comparar) */
+    u8 lyc_line;        /* LY == LYC (pegajoso mientras ly_cmp = -1) */
     u8 stat_line;       /* línea de interrupción STAT (para el flanco) */
-    u8 window_line;     /* contador interno de líneas de la ventana */
-    u8 window_active;   /* WY coincidió con LY en este cuadro */
-    u8 lcd_first_line;  /* primera línea tras encender el LCD (sin modo 2) */
-    u8 sprites[10];     /* índices de OAM elegidos para la línea */
-    u8 nsprites;
+    u8 lcd_first_line;  /* primera línea tras encender el LCD */
+    u16 hblank_irq_dot; /* punto en que se evalúa la interrupción de HBlank */
+
+    /* Ventana */
+    u8 wy_triggered;    /* WY coincidió con LY en este cuadro */
+    u8 wx_triggered;    /* el fetcher está en la ventana */
+    u8 window_fetching; /* se acaba de activar la ventana */
+    u8 insert_bg_pixel; /* falla del DMG: se intercala un píxel de fondo */
+    u8 wx_just_changed; /* WX se escribió en este punto */
+    u8 no_win_glitch;   /* se apagó la ventana mientras se leía: sin falla de inserción */
+    u8 window_tile_x;
+    int16_t window_y;   /* línea interna de la ventana (-1 al empezar el cuadro) */
+
+    /* Sprites de la línea, en orden descendente de X (el siguiente es el último) */
+    u8 objs[10], objs_x[10], objs_y[10];
+    u8 n_objs;
+
+    /* Modo 3 */
+    u8 rendering;       /* el modo 3 está dibujando */
+    u8 pos;             /* posición en la línea (con signo de 8 bits: -16..159) */
+    u8 lcd_x;           /* columna de pantalla */
+    u8 resume;          /* el punto siguiente continúa tras sprite o ventana */
+    u8 bg_fifo[16];
+    u8 bg_head, bg_size;
+    ObjPixel obj_fifo[8];
+    u8 obj_head, obj_size;
+    u8 fetch_state;     /* 0-5: mosaico, dato bajo y dato alto (2 puntos c/u); 6: empujar */
+    u16 fetch_addr;
+    u8 fetch_tile, fetch_data[2];
+    u8 obj_state;       /* lectura de sprite en curso (ver ppu.c) */
+    u8 obj_tile, obj_flags, obj_lo;
+
     u8 *back;           /* cuadro en construcción */
     u8 buf[2][GB_SCREEN_W * GB_SCREEN_H];
     int front;          /* índice de buf con el último cuadro completo */
@@ -298,8 +335,11 @@ void timer_write(GB *g, u8 reg, u8 value);
 u64  timer_next_event(GB *g);
 
 void ppu_reset(GB *g);
-void ppu_mcycle(GB *g);
+void ppu_advance(GB *g, u64 until);   /* avanza la PPU hasta el ciclo `until` */
 void ppu_write(GB *g, u8 reg, u8 value);
+/* Escritura del CPU a un registro de la PPU en el M-ciclo que empieza en `s`:
+ * cada registro surte efecto en su punto (ver ppu.c). */
+void ppu_write_timed(GB *g, u8 reg, u8 value, u64 s);
 u8   ppu_read(GB *g, u8 reg);
 u64  ppu_next_event(GB *g);
 int  ppu_vram_blocked(GB *g);

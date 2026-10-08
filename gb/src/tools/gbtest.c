@@ -1,16 +1,17 @@
 /*
  * Corredor de ROMs de prueba sin ventana.
  *
- * Uso: gbtest rom.gb [--seconds N] [--mooneye] [--input archivo] [--expect esperado.png]
- *                    [--dump salida.png]
- *                    [--serial] [--no-block]
+ * Uso: gbtest rom.gb [--seconds N] [--mooneye | --until-ldbb] [--input archivo]
+ *                    [--expect esperado.png] [--dump salida.png] [--serial] [--no-block]
  *
  * Criterios de resultado:
  *   - Mooneye (--mooneye): al ejecutar LD B,B, los registros deben valer
  *     B=3 C=5 D=8 E=13 H=21 L=34.
  *   - Blargg: el texto enviado por el puerto serial contiene "Passed" o
- *     "Failed".
- *   - Captura: con --expect, al terminar el tiempo la pantalla debe ser
+ *     "Failed", o la RAM del cartucho trae la firma DE B0 61 con el resultado
+ *     en $A000 (pruebas de sonido).
+ *   - Captura: con --expect, al terminar el tiempo (o al ejecutar LD B,B con
+ *     --until-ldbb, como en Mealybug) la pantalla debe ser
  *     idéntica al PNG (tonos #FFFFFF, #AAAAAA, #555555, #000000).
  * Código de salida: 0 pasó, 1 falló, 2 sin resultado.
  */
@@ -75,7 +76,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *expect = NULL, *dump = NULL;
     double seconds = 30;
-    int show_serial = 0, no_block = 0, mooneye = 0;
+    int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0;
     const char *input_path = NULL;
     InputScript script;
 
@@ -86,6 +87,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--serial")) show_serial = 1;
         else if (!strcmp(argv[i], "--no-block")) no_block = 1;
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
+        else if (!strcmp(argv[i], "--until-ldbb")) until_ldbb = 1;
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
         else rom_path = argv[i];
     }
@@ -133,8 +135,22 @@ int main(int argc, char **argv)
                         c->b, c->c, c->d, c->e, c->h, c->l);
             break;
         }
+        if (until_ldbb && g.ld_bb_hit) {
+            /* El resultado se juzga por la captura, unos cuadros después */
+            for (int k = 0; k < 3; k++) gb_run_frame(&g);
+            break;
+        }
         if (!expect && serial_contains(&g, "Passed")) { result = 0; why = "serial: Passed"; break; }
         if (!expect && serial_contains(&g, "Failed")) { result = 1; why = "serial: Failed"; break; }
+        /* Convención de Blargg en RAM del cartucho: firma DE B0 61 en $A001 y
+         * el estado en $A000 ($80 = sigue corriendo, 0 = pasó) */
+        if (!expect && g.sram && g.sram_size >= 4 && g.sram[1] == 0xDE && g.sram[2] == 0xB0 &&
+            g.sram[3] == 0x61 && g.sram[0] != 0x80) {
+            result = g.sram[0] == 0 ? 0 : 1;
+            why = result == 0 ? "RAM: pasó" : "RAM: falló";
+            if (result) fprintf(stderr, "  código %u: %.*s\n", g.sram[0], 200, (const char *)g.sram + 4);
+            break;
+        }
         if (g.cpu.locked && !expect) { result = 1; why = "opcode ilegal"; break; }
     }
 

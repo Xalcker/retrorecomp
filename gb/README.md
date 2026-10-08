@@ -59,7 +59,7 @@ enlazado de forma estática y no necesita DLLs.
 ## Uso
 
 ```
-gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo]
+gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo] [--viz] [--events archivo]
 ```
 
 El descubrimiento estático encuentra casi todo el código. Para lo que quede
@@ -72,6 +72,22 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
    puntos de entrada.
 
 `tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`.
+
+Para ver qué encontró el descubrimiento y de dónde salió cada parte:
+
+```
+gbrecomp juego.gb -o salida/ --viz                  # mapa animado de la ROM
+gbrecomp juego.gb -o salida/ --viz-time 0           # solo el mapa final
+gbrecomp juego.gb -o salida/ --events eventos.txt   # cada paso, en texto
+```
+
+`--viz` dibuja cada banco como una cuadrícula que se va encendiendo a medida
+que aparece código. El color indica de dónde vino ese código: verde para el
+arranque, cian para las interrupciones, amarillo para las tablas de punteros y
+magenta para la traza. `!` marca los saltos que no se pudieron resolver, que
+son los candidatos a necesitar una traza. `--events` anota cada recorrido con
+la instrucción que lo agregó (`recorrido 01:5C45 arranque desde 00:0101`), así
+que se puede seguir hacia atrás la cadena que llevó a cualquier dirección.
 
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
 por el propio juego para verse igual en todos los sistemas; Alt o F10):

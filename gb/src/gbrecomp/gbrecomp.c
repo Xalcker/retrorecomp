@@ -42,6 +42,7 @@
 #include "../runtime/console.h"
 #include "../runtime/sha1.h"
 #include "embedded.h"
+#include "viz.h"
 
 #ifndef GBRECOMP_VERSION
 #define GBRECOMP_VERSION "dev"
@@ -61,6 +62,11 @@ static const char usage_text[] =
     "  --codemap archivo  qué bytes se tomaron como código (para compararlo con\n"
     "                     un desensamblado)\n"
     "  --dis BB:AAAA:N    desensambla N instrucciones del banco BB en $AAAA\n"
+    "  --events archivo   cada paso del descubrimiento (recorridos, instrucciones,\n"
+    "                     tablas, saltos sin resolver), con de dónde vino cada uno\n"
+    "  --viz              muestra el descubrimiento como un mapa animado de la ROM\n"
+    "  --viz-time S       duración de la animación en segundos (por omisión 5;\n"
+    "                     0 dibuja solo el resultado)\n"
     "  --verbose          detalles del descubrimiento\n"
     "  --version, --help\n"
     "\n"
@@ -93,9 +99,14 @@ typedef struct {
     u32 bank;
     u16 addr;
     int bank_ctx;       /* banco activo conocido al llegar (V_UNK = -1 si no se sabe) */
+    u8 origin;          /* ORG_*: de dónde viene (para --events y --viz) */
+    u16 from_bank, from_addr;   /* instrucción o entrada de tabla que lo agregó */
 } Work;
 
 static int push_ctx = -1;   /* contexto de banco para los push_work del recorrido actual */
+/* Origen y procedencia para los push_work siguientes */
+static u8 push_origin = ORG_BOOT;
+static u16 push_from_bank = EV_NONE, push_from_addr;
 static Work *work;
 static size_t nwork, capwork;
 
@@ -138,6 +149,9 @@ static void push_work(u32 bank, u16 addr)
     work[nwork].bank = bank;
     work[nwork].addr = addr;
     work[nwork].bank_ctx = push_ctx;
+    work[nwork].origin = push_origin;
+    work[nwork].from_bank = push_from_bank;
+    work[nwork].from_addr = push_from_addr;
     nwork++;
 }
 
@@ -541,8 +555,9 @@ static u32 mbc_bank(int v)
     return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
 }
 
-static void explore_walk(u32 bank, u16 addr, int bank_ctx)
+static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
 {
+    int started = 0;
     /* Último `ld hl, nn` con nn en ROM dentro de este tramo lineal, y cuántas
      * instrucciones han pasado desde entonces */
     long table_base = -1;
@@ -566,6 +581,13 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx)
         Insn in;
         if (!fetch_insn(bank, addr, b, &in)) return;   /* cruza el fin del banco */
 
+        if (!started) {
+            ev_add(EV_WALK, from->origin, bank, addr, from->from_bank, from->from_addr, 0, 0);
+            started = 1;
+        }
+        ev_add(EV_INSN, 0, bank, addr, 0, 0, in.len, 0);
+        push_from_bank = (u16)bank;
+        push_from_addr = addr;
         *flag_at(bank, addr) |= F_INSN;
         for (int i = 0; i < in.len; i++) *flag_at(bank, (u16)(addr + i)) |= F_BODY;
 
@@ -585,9 +607,10 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx)
         } else if (++since_base > 8) {
             table_base = -1;
         }
-        if (in.kind == INS_JP_HL && table_base >= 0) {
-            long tb = bank_of(bank, (u16)table_base);
+        if (in.kind == INS_JP_HL) {
+            long tb = table_base >= 0 ? bank_of(bank, (u16)table_base) : -1;
             if (tb >= 0) add_table((u32)tb, (u16)table_base, 0);
+            else ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
         }
 
         /* `ld rr, nn` + `push rr` justo antes de un salto indirecto: nn es la
@@ -610,6 +633,8 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx)
                 tb = mbc_bank(st.bank);
             else
                 tb = resolve_bank(bank, in.target);
+            if (tb < 0 && in.target >= 0x4000 && in.target < 0x8000)
+                ev_add(EV_UNRESOLVED, 0, bank, addr, 0, in.target, 0, 0);
             if (tb >= 0) {
                 *flag_at((u32)tb, in.target) |= F_TARGET;
                 push_work((u32)tb, in.target);
@@ -688,17 +713,19 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx)
 
 /* Recorre desde una dirección; los push_work de fuera de un recorrido (tablas,
  * trazas, vectores) no llevan contexto de banco */
-static void explore(u32 bank, u16 addr, int bank_ctx)
+static void explore(const Work *w)
 {
-    explore_walk(bank, addr, bank_ctx);
+    push_origin = w->origin;
+    explore_walk(w->bank, w->addr, w->bank_ctx, w);
     push_ctx = V_UNK;
+    push_from_bank = EV_NONE;
 }
 
 static void drain(void)
 {
     while (nwork) {
         Work w = work[--nwork];
-        explore(w.bank, w.addr, w.bank_ctx);
+        explore(&w);
     }
 }
 
@@ -721,6 +748,7 @@ static void read_table(u32 bank, u16 start, int inline_table)
 {
     u16 pos = start;
     stat_tables++;
+    ev_add(EV_TABLE, 0, bank, start, 0, 0, 0, inline_table);
     for (int k = 0; k < 256; k++) {
         if (!in_region(bank, pos) || !in_region(bank, (u32)pos + 1)) break;
         u8 f0 = *flag_at(bank, pos), f1 = *flag_at(bank, (u16)(pos + 1));
@@ -736,8 +764,12 @@ static void read_table(u32 bank, u16 start, int inline_table)
         *flag_at(bank, (u16)(pos + 1)) |= F_TABLE;
         stat_table_entries++;
         long tb = resolve_bank(bank, entry);
+        ev_add(EV_TENTRY, 0, bank, pos, tb >= 0 ? (unsigned)tb : EV_NONE, entry, 2, 0);
         if (tb >= 0) {
             *flag_at((u32)tb, entry) |= F_TARGET;
+            push_origin = ORG_TABLE;
+            push_from_bank = (u16)bank;
+            push_from_addr = pos;
             push_work((u32)tb, entry);
             drain();
         }
@@ -746,6 +778,8 @@ static void read_table(u32 bank, u16 start, int inline_table)
     if (verbose)
         fprintf(stderr, "tabla %02X:%04X: %u entradas\n", bank, start, (unsigned)(pos - start) / 2);
 }
+
+static int trace_pass;   /* ya se cargó la traza (para nombrar las fases) */
 
 static void discover(void)
 {
@@ -759,11 +793,14 @@ static void discover(void)
          * entrada lo sabe (un "jp $5C45" en $0101 va al banco 1). En las
          * interrupciones el banco puede ser cualquiera. */
         push_ctx = vectors[i] == 0x0100 ? 1 : V_UNK;
+        push_origin = vectors[i] == 0x0100 ? ORG_BOOT : ORG_IRQ;
+        push_from_bank = EV_NONE;
         push_work(0, vectors[i]);
     }
     push_ctx = V_UNK;
     drain();
     /* Las tablas se leen al final: así el código que las rodea ya se conoce */
+    if (tables_done < ntables) ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, trace_pass ? PH_TRACE_TABLES : PH_TABLES);
     while (tables_done < ntables) {
         Table t = tables[tables_done++];
         read_table(t.bank, t.addr, t.inline_table);
@@ -777,10 +814,15 @@ static void load_trace(const char *path)
     if (!f) die("no se pudo abrir la traza %s", path);
     unsigned bank, addr, n = 0;
     char line[64];
+    trace_pass = 1;
+    ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_TRACE);
+    push_origin = ORG_TRACE;
+    push_from_bank = EV_NONE;
     while (fgets(line, sizeof line, f)) {
         if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
         if (bank >= nbanks || addr > 0x7FFF) continue;
         if (!in_region(bank, addr)) continue;
+        ev_add(EV_TRACE, 0, bank, addr, 0, 0, 0, (*flag_at(bank, (u16)addr) & F_INSN) != 0);
         *flag_at(bank, (u16)addr) |= F_ENTRY;
         push_work(bank, (u16)addr);
         n++;
@@ -1202,6 +1244,9 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
+    const char *events = NULL;
+    int viz = 0;
+    double viz_time = 5;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
@@ -1219,6 +1264,9 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--events") && i + 1 < argc) events = argv[++i];
+        else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--viz-time") && i + 1 < argc) viz = 1, viz_time = atof(argv[++i]);
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis = argv[++i];
         else if (argv[i][0] == '-') die("opción desconocida: %s (ver gbrecomp --help)", argv[i]);
         else rom_path = argv[i];
@@ -1285,6 +1333,8 @@ int main(int argc, char **argv)
     }
 
     /* 1. Descubrimiento */
+    ev_on = events || viz;
+    ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_VECTORS);
     discover();
     if (trace) {
         load_trace(trace);
@@ -1300,6 +1350,8 @@ int main(int argc, char **argv)
             if (flags[b][off] & F_BODY) nbytes++;
 
     if (codemap) write_codemap(codemap);
+    if (events && !ev_write(events)) die("no se pudo escribir %s", events);
+    if (viz) viz_play(nbanks, title, viz_time);
 
     /* 3. Proyecto */
     char path[1024];

@@ -84,6 +84,14 @@ llamadas se asumen con regreso). Con `--trace` agrega como puntos de entrada las
 direcciones de una traza de ejecución (formato `BB:AAAA`); así se resuelven los
 saltos indirectos (`jp hl`, tablas de `rst $28`).
 
+Con `--events` o `--viz`, el descubrimiento anota cada paso en memoria
+(`src/gbrecomp/viz.c`): las fases, cada recorrido lineal con su origen
+(arranque, interrupción, tabla o traza, heredado por todo lo que descubre) y
+la instrucción o entrada de tabla que lo agregó, cada instrucción, las tablas
+y sus entradas, los saltos al área de bancos sin banco conocido y los `jp hl`
+sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
+como un mapa animado de la ROM. El registro no cambia el resultado.
+
 Las instrucciones de cada banco se agrupan en funciones por tramos contiguos de
 direcciones: se corta cuando hay más de 32 bytes sin código o al llegar a 1,500
 instrucciones. Cada instrucción pertenece a una sola función. Si dos
@@ -131,7 +139,7 @@ L_14F5: /* jr nz, $1500 */
 ### Proyecto generado
 
 ```
-gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre]
+gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre] [--viz] [--events archivo]
 cd salida && make
 ./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
 ./difftest rom.gb        # prueba diferencial

@@ -12,6 +12,7 @@ typedef struct {
     int sound;              /* 0/1 */
     int volume;             /* 25, 50, 75 o 100 */
     int slot;               /* ranura de estados: 1-4 */
+    int link_audio;         /* con el cable: 0 jugador 1, 1 jugador 2, 2 los dos */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;
 

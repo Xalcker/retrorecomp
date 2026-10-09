@@ -1,7 +1,7 @@
 /*
  * Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3, 7 AxROM, 11 Color Dreams, 34 BNROM/NINA-001,
  * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés), 206 (DxROM), 9 (MMC2), 10 (MMC4),
- * 69 (FME-7, sin el audio 5B) y 118 (TxSROM). 9, 10, 69 y 118 no se han probado con ROMs reales.
+ * 69 (FME-7, sin el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
@@ -11,7 +11,7 @@ int mapper_supported(int id)
 {
     switch (id) {
     case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79:
-    case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: return 1;
+    case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: case 119: return 1;
     }
     return 0;
 }
@@ -25,12 +25,12 @@ void mapper_reset(NES *n)
     c->chr_mask = (c->chr_size & (c->chr_size - 1)) == 0 ? (u32)(c->chr_size - 1) : 0;
     if (c->mapper == 1) { c->reg[2] = 0x0C; c->reg[6] = 0xFFFFFFFFu; }
     c->irq_cycle = ~0ull; c->irq_t0 = 0;
-    c->mmc3 = c->mapper == 4 || c->mapper == 118;
+    c->mmc3 = c->mapper == 4 || c->mapper == 118 || c->mapper == 119;
     c->chr_hook = c->mapper == 9 || c->mapper == 10;
     if (c->chr_hook) { c->reg[5] = c->reg[6] = 1; }                /* latches en FE */
     if (c->mapper == 69) { c->reg[0] = 0; c->reg[16] = 0; }
     c->low_regs = c->mapper == 34 || c->mapper == 79 || c->mapper == 87 || c->mapper == 140;
-    if (c->mapper == 4 || c->mapper == 206 || c->mapper == 118) {
+    if (c->mapper == 4 || c->mapper == 206 || c->mapper == 118 || c->mapper == 119) {
         /* reg[0]=selección, [1..8]=R0..R7, [9]=latch IRQ, [10]=contador, [11]=recarga,
          * [12]=IRQ activo, [13]=nivel de A12, [14]=protección de RAM */
         c->reg[8] = 1; c->reg[14] = 0x80;          /* R7 = 1, RAM activa */
@@ -125,14 +125,18 @@ static long prg_offset_slow(const Cart *c, u16 a)
     if (a < 0x8000) return -1;
     switch (c->mapper) {
     case 1: {
+        /* SUROM (512 KB): el bit 4 del registro de CHR 0 elige el bloque de 256 KB en el que se mueven los bancos */
         u32 mode = (c->reg[2] >> 2) & 3, bank = c->reg[5] & 0x0F;
-        if (mode < 2) return (long)prg_at(c, (bank & ~1u) + (a >= 0xC000), a);
-        if (mode == 2) return (long)(a < 0xC000 ? prg_at(c, 0, a) : prg_at(c, bank, a));
-        return (long)(a < 0xC000 ? prg_at(c, bank, a) : prg_at(c, banks16(c) - 1, a));
+        u32 outer = c->prg_size > 0x40000 ? ((c->reg[3] >> 4) & 1) * 16 : 0;
+        u32 first = outer, last = outer + 15;
+        if (c->prg_size <= 0x40000) last = (u32)banks16(c) - 1;
+        if (mode < 2) return (long)prg_at(c, outer + (bank & ~1u) + (a >= 0xC000), a);
+        if (mode == 2) return (long)(a < 0xC000 ? prg_at(c, first, a) : prg_at(c, outer + bank, a));
+        return (long)(a < 0xC000 ? prg_at(c, outer + bank, a) : prg_at(c, last, a));
     }
     case 2:
         return (long)(a < 0xC000 ? prg_at(c, c->reg[0], a) : prg_at(c, banks16(c) - 1, a));
-    case 4: case 206: case 118: return (long)mmc3_prg(c, a);
+    case 4: case 206: case 118: case 119: return (long)mmc3_prg(c, a);
     case 9: {
         size_t nb = banks8(c);
         int slot = (a >> 13) & 3;
@@ -157,10 +161,26 @@ static long prg_offset_slow(const Cart *c, u16 a)
 
 static size_t chr_off(const Cart *c, u16 a);
 
+/* Número de banco de 1 KB de CHR que ve la PPU en 'a' (MMC3 y derivados) */
+static size_t mmc3_chr_bank(const Cart *c, u16 a)
+{
+    int slot = (a >> 10) & 7;
+    if (c->reg[0] & 0x80) slot ^= 4;
+    if (slot < 4) return (c->reg[1 + (slot >> 1)] & 0xFE) | (slot & 1);
+    return c->reg[1 + 2 + (slot - 4)];
+}
+
 void mapper_remap(Cart *c)
 {
     for (int i = 0; i < 4; i++) c->prg_map[i] = (size_t)prg_offset_slow(c, (u16)(0x8000 + i * 0x2000));
-    for (int i = 0; i < 8; i++) c->chr_page[i] = c->chr + chr_off(c, (u16)(i * 0x400));
+    for (int i = 0; i < 8; i++) {
+        c->chr_page[i] = c->chr + chr_off(c, (u16)(i * 0x400));
+        c->chr_wr[i] = c->chr_is_ram;
+        if (c->mapper == 119 && (mmc3_chr_bank(c, (u16)(i * 0x400)) & 0x40)) {    /* TQROM: el bit 6 elige la RAM */
+            c->chr_page[i] = c->chr_ram + ((mmc3_chr_bank(c, (u16)(i * 0x400)) & 7) << 10);
+            c->chr_wr[i] = 1;
+        }
+    }
 }
 
 long mapper_prg_offset(const Cart *c, u16 a)
@@ -175,10 +195,11 @@ u8 mapper_cpu_read(NES *n, u16 a)
     if (a < 0x6000) return 0;                    /* bus abierto (aprox.) */
     if (a < 0x8000) {
         if (c->mmc3 && !(c->reg[14] & 0x80)) return 0;
-        if (c->mapper == 69 && (c->reg[13] & 0x40)) {            /* FME-7: ROM en $6000 */
+        if (c->mapper == 69 && !(c->reg[13] & 0x40)) {           /* FME-7: ROM en $6000 (bit 6 = 0) */
             size_t nb = banks8(c);
             return c->prg[((c->reg[13] & 0x3F) % nb) << 13 | (a & 0x1FFF)];
         }
+        if (c->mapper == 69 && !(c->reg[13] & 0x80)) return 0;    /* RAM desactivada */
         return c->prg_ram[a & 0x1FFF];
     }
     return c->prg[mapper_prg_offset(c, a)];
@@ -312,11 +333,11 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
     if (a >= 0x8000) c->map_ver++;
     if (a < 0x8000) {
         if (c->mmc3 && (c->reg[14] & 0xC0) != 0x80) return;
-        if (c->mapper == 69 && ((c->reg[13] & 0x40) || !(c->reg[13] & 0x80))) return;
+        if (c->mapper == 69 && (!(c->reg[13] & 0x40) || !(c->reg[13] & 0x80))) return;      /* solo con RAM elegida y activa */
         c->prg_ram[a & 0x1FFF] = v; return;
     }
     switch (c->mapper) {
-    case 4: case 206: mmc3_write(n, a, v); break;
+    case 4: case 206: case 119: mmc3_write(n, a, v); break;
     case 118: mmc3_write(n, a, v); mmc118_mirror(c); break;
     case 9: case 10: mmc2_write(c, a, v); break;
     case 69: fme7_write(n, a, v); break;
@@ -365,13 +386,8 @@ static size_t chr_off(const Cart *c, u16 a)
     case 69: {
         size_t x = ((size_t)c->reg[1 + ((a >> 10) & 7)] << 10) | (a & 0x3FF); return WRAP(c, x);
     }
-    case 4: case 206: case 118: {
-        int slot = (a >> 10) & 7;
-        if (c->reg[0] & 0x80) slot ^= 4;
-        size_t b;
-        if (slot < 4) b = (c->reg[1 + (slot >> 1)] & 0xFE) | (slot & 1);
-        else b = c->reg[1 + 2 + (slot - 4)];
-        { size_t x = (b << 10) | (a & 0x3FF); return WRAP(c, x); }
+    case 4: case 206: case 118: case 119: {
+        size_t x = (mmc3_chr_bank(c, a) << 10) | (a & 0x3FF); return WRAP(c, x);
     }
     default:
         { size_t x = a; return WRAP(c, x); }
@@ -385,7 +401,7 @@ u8 mapper_ppu_read(NES *n, u16 a)
 
 void mapper_ppu_write(NES *n, u16 a, u8 v)
 {
-    if (n->cart.chr_is_ram) n->cart.chr_page[(a >> 10) & 7][a & 0x3FF] = v;
+    if (n->cart.chr_wr[(a >> 10) & 7]) n->cart.chr_page[(a >> 10) & 7][a & 0x3FF] = v;
 }
 
 /* ---- Consultas para el recompilador (con el mapeo del reset) ---- */
@@ -401,7 +417,8 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         *w = (PrgWin){ 0xC000, 0x4000, 0, 1 }; return 1;       /* addr debe venir canónica */
     case 2: case 1:
         if (addr < 0xC000) *w = (PrgWin){ 0x8000, 0x4000, 0, 0 };
-        else               *w = (PrgWin){ 0xC000, 0x4000, ps - 0x4000, 1 };
+        else               *w = (PrgWin){ 0xC000, 0x4000, (ps > 0x40000 && c->mapper == 1 ? 0x40000 : ps) - 0x4000,
+                                         !(ps > 0x40000 && c->mapper == 1) };      /* SUROM: la mitad fija depende del bloque */
         return 1;
     case 11: case 34: case 66: case 79: case 140:
         *w = (PrgWin){ 0x8000, 0x8000, 0, 0 }; return 1;
@@ -433,7 +450,7 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         default: *w = (PrgWin){ 0xE000, 0x2000, ps - 0x2000, 1 }; break;
         }
         return 1;
-    case 4: case 206: case 118:
+    case 4: case 206: case 118: case 119:
         switch ((addr >> 13) & 3) {
         case 0: *w = (PrgWin){ 0x8000, 0x2000, 0, 0 }; break;
         case 1: *w = (PrgWin){ 0xA000, 0x2000, 0x2000, 0 }; break;
@@ -458,7 +475,7 @@ u16 mapper_prg_canon(const Cart *c, u16 addr)
 size_t mapper_prg_granule(const Cart *c)
 {
     switch (c->mapper) {
-    case 4: case 206: case 118: case 9: case 69: return 0x2000;
+    case 4: case 206: case 118: case 119: case 9: case 69: return 0x2000;
     case 1: case 2: case 71: case 180: case 10: return 0x4000;
     case 7: case 11: case 34: case 66: case 79: case 140: return 0x8000;
     default: return c->prg_size >= 0x8000 ? 0x8000 : 0x4000;

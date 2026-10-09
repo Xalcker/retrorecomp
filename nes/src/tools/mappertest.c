@@ -115,6 +115,22 @@ int main(void)
         puts("FALLA mapper 118: nametables"); fails++;
     }
 
+    /* 119 TQROM: como el MMC3, pero el bit 6 del banco de CHR elige RAM en lugar de ROM */
+    make(119, 128, 64, MIRROR_VERTICAL);
+    W(0x8000, 6); W(0x8001, 3); W(0x8000, 2); W(0x8001, 5);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xE000, 15); EXPECT_CHR(0x1000, 5);
+    W(0x8000, 2); W(0x8001, 0x40 | 2);                 /* R2 (1 KB en $1000) -> RAM, página 2 */
+    mapper_ppu_write(&n, 0x1000, 0xAB);
+    if (n.cart.chr_ram[2 * 1024] != 0xAB) { puts("FALLA mapper 119: la RAM de CHR no recibió la escritura"); fails++; }
+    W(0x8000, 2); W(0x8001, 7);                        /* de vuelta a ROM: ya no se escribe */
+    mapper_ppu_write(&n, 0x1000, 0xCD);
+    if (n.cart.chr[7 * 1024] == 0xCD) { puts("FALLA mapper 119: escribió en la ROM"); fails++; }
+
+    /* 1 SUROM (512 KB): el bit 4 del registro de CHR 0 elige el bloque de 256 KB */
+    make(1, 512, 0, MIRROR_VERTICAL);
+    EXPECT_PRG(0xE000, 31);                                      /* tras el reset: último banco del primer bloque */
+    for (int i = 0; i < 5; i++) W(0xA000, i == 4 ? 1 : 0);       /* CHR 0 = $10 (bits de menos a más significativo) */
+    EXPECT_PRG(0xE000, 63);                                      /* segundo bloque */
     if (!fails) puts("mappertest: bien");
     return fails != 0;
 }

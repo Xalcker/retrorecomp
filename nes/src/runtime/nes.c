@@ -21,6 +21,7 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
     if (!mapper_supported(c->mapper)) { if (err) *err = "mapper no soportado"; return -1; }
     c->prg = malloc(prg); c->prg_size = prg;
     memcpy(c->prg, d + off, prg);
+    if (f6 & 4) memcpy(c->prg_ram + 0x1000, d + 16, 512);          /* el 'trainer' va a $7000-$71FF */
     if (chr) { c->chr = malloc(chr); c->chr_size = chr; memcpy(c->chr, d + off + prg, chr); }
     else     { c->chr = calloc(1, 0x2000); c->chr_size = 0x2000; c->chr_is_ram = 1; }
     nes_reset(n);

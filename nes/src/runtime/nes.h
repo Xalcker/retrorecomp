@@ -47,6 +47,8 @@ typedef struct {
     size_t prg_map[4];          /* desplazamiento de PRG de cada ventana de 8 KB ($8000, $A000, $C000, $E000) */
     u8  *chr_page[8];           /* puntero a cada página de 1 KB de CHR con los bancos actuales */
     u32  chr_mask;              /* tamaño de CHR - 1 si es potencia de 2 (si no, 0 y se usa el módulo) */
+    u8   chr_ram[0x2000];       /* TQROM (119): 8 KB de RAM de CHR junto a la ROM */
+    u8   chr_wr[8];             /* cada página de 1 KB de CHR: ¿se puede escribir? */
     u8   mmc3;                  /* MMC3 o derivado: IRQ por flanco de A12 */
     u8   chr_hook;              /* MMC2/MMC4: las lecturas de ciertos patrones cambian el banco */
     u8   nt_map[4];             /* MIRROR_CUSTOM: página de CIRAM (0 o 1) de cada nametable */

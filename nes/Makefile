@@ -10,7 +10,7 @@ RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libnesrt.a
 
 .PHONY: all clean test
-all: nestest nesshot nesaudio nestrace sramtest statetest mappertest ramdump nesbench nes nesrecomp
+all: nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest ramdump nesbench nes nesrecomp
 
 nestest: src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
@@ -50,6 +50,9 @@ nesrecomp: src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(BUILD)/gen/embed
 		src/nesrecomp/nesrecomp.c $(BUILD)/gen/embedded.c $(RT)
 
 ramdump: src/tools/ramdump.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+
+inputtest: src/tools/inputtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
 mappertest: src/tools/mappertest.c $(RT)

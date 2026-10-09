@@ -7,6 +7,7 @@ fail=0
 ./nestest $T/other/nestest.nes $T/other/nestest.log || fail=1
 ./sramtest $T/other/nestest.nes || fail=1
 ./mappertest || fail=1
+./inputtest || fail=1
 for g in roms/Super*Bros.\ \(Japan*.nes; do [ -f "$g" ] && { ./statetest "$g" || fail=1; }; done
 ./statetest $T/instr_test-v5/rom_singles/01-basics.nes 100 100 || fail=1   # MMC1, CHR RAM
 # Blargg: instr_test-v5 (opcodes oficiales, mapper 1/MMC1)
@@ -50,7 +51,7 @@ if [ -x ./nesrecomp ]; then
 fi
 # Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
 if [ -x ./nes ]; then
-    for m in 0 1 2 3 4 5 6; do
+    for m in 0 1 2 3 4 5 6 7; do
         ./nes $T/other/nestest.nes --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
             && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; fail=1; }
     done
@@ -58,7 +59,7 @@ if [ -x ./nes ]; then
         ./nes $T/other/nestest.nes --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
             && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; fail=1; }
     done
-    echo "ok   interfaz (7 menús, 3 diálogos)"
+    echo "ok   interfaz (8 menús, 3 diálogos)"
 fi
 [ $fail = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"
 exit $fail

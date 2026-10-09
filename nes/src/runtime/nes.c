@@ -156,7 +156,7 @@ u8 nes_cpu_read(NES *n, u16 a)
     if (a < 0x2000) v = n->ram[a & 0x7FF];                                           /* lo más común */
     else if (a >= 0x8000) v = n->cart.prg_ptr[(a >> 13) & 3][a & 0x1FFF];
     else {
-        if (a < 0x4000) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);                      /* registros de la PPU */
+        if (a < 0x4000 || (a == 0x4017 && n->zapper_on)) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);   /* registros de la PPU y luz del Zapper */
         v = nes_read(n, a);
     }
     if (a != 0x4015) n->bus = v;                    /* leer $4015 no pone nada en el bus */
@@ -224,15 +224,28 @@ void nes_reset(NES *n)
     for (int i = 0; i < 7; i++) { cycle_begin(n, 0); cycle_end(n, 0); }   /* secuencia de reset */
 }
 
+/* Lo que carga un puerto al hacer strobe. Control normal: 8 botones y luego unos. Four Score: jugador 1 (o 2), jugador
+ * 3 (o 4) y un byte de firma (el bit 3 del primer puerto, el 2 del segundo), y luego unos. */
+static u32 pad_latch(const NES *n, int port)
+{
+    if (!n->fourscore) return 0xFFFFFF00u | n->pad[port];
+    u32 sig = port == 0 ? 0x08 : 0x04;
+    return 0xFF000000u | (sig << 16) | ((u32)n->pad[port + 2] << 8) | n->pad[port];
+}
+
 u8 nes_read(NES *n, u16 a)
 {
     if (a < 0x2000) return n->ram[a & 0x7FF];
     if (a < 0x4000) return ppu_reg_read(n, a);
+    if (a == 0x4017 && n->zapper_on) {                       /* Zapper: bit 3 = luz (0 = hay), bit 4 = gatillo */
+        int light = ppu_light_at(n, n->zap_x, n->zap_y);
+        return (u8)((n->bus & 0xE0) | (light ? 0 : 8) | (n->zap_trigger ? 0x10 : 0));
+    }
     if (a == 0x4016 || a == 0x4017) {
         int i = a & 1;
         u8 bit = n->pad_shift[i] & 1;
-        if (!n->pad_strobe) n->pad_shift[i] = (n->pad_shift[i] >> 1) | 0x80;
-        else n->pad_shift[i] = n->pad[i];
+        if (!n->pad_strobe) n->pad_shift[i] = (n->pad_shift[i] >> 1) | 0x80000000u;
+        else n->pad_shift[i] = pad_latch(n, i);
         return bit | (n->bus & 0xE0);                        /* los bits 5-7 son el bus abierto (casi siempre $40) */
     }
     if (a == 0x4015) return (apu_read(n, a) & 0xDF) | (n->bus & 0x20);    /* el bit 5 es el bus abierto */
@@ -248,7 +261,7 @@ void nes_write(NES *n, u16 a, u8 v)
     else if (a == 0x4014) { n->oam_page = v; n->stall |= 2; }   /* OAM DMA: se cumple en la próxima lectura del CPU */
     else if (a == 0x4016) {
         n->pad_strobe = v & 1;
-        if (n->pad_strobe) { n->pad_shift[0] = n->pad[0]; n->pad_shift[1] = n->pad[1]; }
+        if (n->pad_strobe) { n->pad_shift[0] = pad_latch(n, 0); n->pad_shift[1] = pad_latch(n, 1); }
     }
     else if (a < 0x4020) apu_write(n, a, v);
     else mapper_cpu_write(n, a, v);

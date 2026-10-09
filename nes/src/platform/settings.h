@@ -12,6 +12,8 @@ typedef struct {
     int overscan;           /* 0/1: ocultar 8 líneas arriba y abajo */
     int aspect;             /* 0/1: corregir a 8:7 */
     int integer;            /* 0/1: escala entera */
+    int zapper;             /* 0/1: Zapper en el puerto 2 */
+    int fourscore;          /* 0/1: Four Score (4 jugadores) */
     int mute;               /* bits 0-4: canales silenciados (pulso 1, pulso 2, triángulo, ruido, DMC) */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;

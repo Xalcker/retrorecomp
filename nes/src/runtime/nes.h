@@ -150,8 +150,12 @@ typedef struct NES {
     u8   bus;                   /* último valor en el bus de datos del CPU (lo que leen las direcciones sin nada) */
     u64  cyc_recomp;            /* ciclos ejecutados por código recompilado (estadística) */
     u32 *trace;                 /* NULL, o por cada byte de PRG: 0 = no ejecutado, 0x10000|dirección */
-    u8   pad[2];                /* botones pulsados */
-    u8   pad_shift[2];
+    u8   pad[4];                /* botones pulsados: jugadores 1-4 (3 y 4 solo con el Four Score) */
+    u32  pad_shift[2];          /* registros de los puertos 1 y 2 (los bits que ya se leyeron se rellenan con 1) */
+    u8   fourscore;             /* 1: Four Score (multitap de 4 jugadores) en los dos puertos */
+    u8   zapper_on;             /* 1: Zapper en el puerto 2 ($4017) en lugar de un control */
+    int  zap_x, zap_y;          /* posición de la mira en la imagen (fuera de 0-255 / 0-239: apunta fuera de la pantalla) */
+    u8   zap_trigger;           /* gatillo apretado */
     int  pad_strobe;
     int  ppu_eager;             /* 1: la PPU avanza en cada ciclo (MMC3, DMA de OAM); 0: solo cuando hace falta */
 } NES;
@@ -213,7 +217,8 @@ void mapper_ppu_write(NES *n, u16 addr, u8 v);
 void ppu_reset(NES *n);
 void ppu_tick(NES *n);                           /* un punto de reloj de la PPU */
 void ppu_sync(NES *n, u64 target);               /* ejecuta puntos hasta que clock == target */
-void ppu_flush(NES *n);                          /* al día con el CPU (3 × ciclos) */
+void ppu_flush(NES *n);
+int  ppu_light_at(const NES *n, int x, int y);    /* ¿hay luz en (x, y)? (para el Zapper) */                          /* al día con el CPU (3 × ciclos) */
 u8   ppu_reg_read(NES *n, u16 addr);
 void ppu_reg_write(NES *n, u16 addr, u8 v);
 

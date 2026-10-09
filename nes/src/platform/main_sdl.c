@@ -75,6 +75,7 @@ enum {
     A_NONE, A_OPEN_ROM, A_RESET, A_PAUSE, A_SAVE_STATE, A_LOAD_STATE, A_SLOT_1, A_SLOT_4 = A_SLOT_1 + 3, A_QUIT,
     A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN, A_OVERSCAN, A_ASPECT, A_INTEGER,
     A_PAL_0, A_PAL_3 = A_PAL_0 + 3,
+    A_ZAPPER, A_FOURSCORE,
     A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3, A_CHAN_0, A_CHAN_4 = A_CHAN_0 + 4,
     A_REC_AUDIO, A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
@@ -104,7 +105,10 @@ typedef struct {
     SDL_Texture *tex;
     int tex_h;
     SDL_AudioDeviceID audio;
-    SDL_GameController *pads[2];
+    SDL_GameController *pads[4];
+    SDL_Rect game_rect;     /* dónde se dibuja el juego en la ventana (para el Zapper) */
+    SDL_Cursor *cross;      /* mira del Zapper */
+    int mouse_in_game;
 
     MenuBar bar;
     Dialog dlg;
@@ -537,9 +541,9 @@ static void load_state(App *app)
 #define SEPARATOR(m, n) m[n++] = (MenuItem){ "", NULL, A_NONE, ITEM_SEPARATOR }
 #define ITEM(m, n, text, key, action, kind) m[n++] = (MenuItem){ text, key, action, kind }
 
-static MenuItem menu_game[16], menu_video[16], menu_palette[8], menu_audio[16];
+static MenuItem menu_game[16], menu_video[16], menu_palette[8], menu_audio[16], menu_input[4];
 static MenuItem menu_export[8], menu_language[LANG_COUNT], menu_help[4];
-static Menu menus[7];
+static Menu menus[8];
 static char slot_labels[4][40], size_labels[6][40], volume_labels[4][40];
 
 static void build_menus(App *app)
@@ -581,6 +585,11 @@ static void build_menus(App *app)
     ITEM(menu_palette, n, tr(T_PAL_VIVID), NULL, A_PAL_0 + 2, ITEM_RADIO);
     ITEM(menu_palette, n, tr(T_PAL_CUSTOM), NULL, A_PAL_0 + 3, ITEM_RADIO);
     menus[k++] = (Menu){ tr(T_MENU_PALETTE), menu_palette, n };
+
+    n = 0;
+    ITEM(menu_input, n, tr(T_ZAPPER), NULL, A_ZAPPER, ITEM_CHECK);
+    ITEM(menu_input, n, tr(T_FOURSCORE), NULL, A_FOURSCORE, ITEM_CHECK);
+    menus[k++] = (Menu){ tr(T_MENU_INPUT), menu_input, n };
 
     n = 0;
     ITEM(menu_audio, n, tr(T_SOUND), "Ctrl+M", A_SOUND, ITEM_CHECK);
@@ -632,6 +641,8 @@ static int menu_state(void *ctx, int action, int *checked)
     case A_INTEGER:      *checked = app->cfg.integer; return 1;
     case A_ASPECT:       *checked = app->cfg.aspect; return 1;
     case A_OVERSCAN:     *checked = app->cfg.overscan; return 1;
+    case A_ZAPPER:       *checked = app->cfg.zapper; return !(app->play || app->record);
+    case A_FOURSCORE:    *checked = app->cfg.fourscore; return !(app->play || app->record);
     case A_SOUND:        *checked = app->cfg.sound; return 1;
     case A_REC_AUDIO:    *checked = wav_active(&app->wav); return 1;
     default:
@@ -669,6 +680,14 @@ static void ask_open_rom(App *app)
     else message(app, tr(T_OPEN_ROM), tr(T_ROM_CHOOSE));   /* sin diálogo nativo: se arrastra */
 }
 
+/* Con el Zapper, el ratón sobre el juego es una mira */
+static void update_cursor(App *app)
+{
+    if (!app->cross) app->cross = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+    if (app->cross && app->cfg.zapper && app->mouse_in_game) SDL_SetCursor(app->cross);
+    else SDL_SetCursor(SDL_GetDefaultCursor());
+}
+
 static void do_action(App *app, int action)
 {
     switch (action) {
@@ -682,6 +701,8 @@ static void do_action(App *app, int action)
     case A_INTEGER:      app->cfg.integer = !app->cfg.integer; break;
     case A_ASPECT:       app->cfg.aspect = !app->cfg.aspect; resize_window(app); break;
     case A_OVERSCAN:     app->cfg.overscan = !app->cfg.overscan; resize_window(app); break;
+    case A_ZAPPER:       app->cfg.zapper = !app->cfg.zapper; if (app->cfg.zapper) app->cfg.fourscore = 0; update_cursor(app); break;
+    case A_FOURSCORE:    app->cfg.fourscore = !app->cfg.fourscore; if (app->cfg.fourscore) app->cfg.zapper = 0; update_cursor(app); break;
     case A_SOUND:        app->cfg.sound = !app->cfg.sound; break;
     case A_REC_AUDIO:    toggle_audio_rec(app); break;
     case A_SCREENSHOT:   screenshot(app); break;
@@ -808,7 +829,7 @@ static void handle_event(App *app, SDL_Event *e)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
         /* Al primer lugar libre: el primero que se conecta es el jugador 1 */
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 4; i++)
             if (!app->pads[i]) {
                 app->pads[i] = SDL_GameControllerOpen(e->cdevice.which);
                 break;
@@ -817,7 +838,7 @@ static void handle_event(App *app, SDL_Event *e)
     }
     if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
         SDL_GameController *gone = SDL_GameControllerFromInstanceID(e->cdevice.which);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 4; i++)
             if (gone && app->pads[i] == gone) {
                 SDL_GameControllerClose(app->pads[i]);
                 app->pads[i] = NULL;
@@ -868,7 +889,7 @@ static u8 read_pad(SDL_GameController *pad)
     return r;
 }
 
-static void player_pads(App *app, u8 pads[2])
+static void player_pads(App *app, u8 pads[4])
 {
     const Uint8 *k = SDL_GetKeyboardState(NULL);
     u8 p1 = 0, p2 = 0;
@@ -890,14 +911,16 @@ static void player_pads(App *app, u8 pads[2])
     if (k[SDL_SCANCODE_D]) p2 |= BTN_RIGHT;
     pads[0] = p1 | read_pad(app->pads[0]);
     pads[1] = p2 | read_pad(app->pads[1]);
+    pads[2] = read_pad(app->pads[2]);                       /* jugadores 3 y 4 (Four Score): solo con mandos */
+    pads[3] = read_pad(app->pads[3]);
     /* No pueden ir izquierda y derecha (ni arriba y abajo) a la vez en un control de verdad */
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 4; i++) {
         if ((pads[i] & (BTN_LEFT | BTN_RIGHT)) == (BTN_LEFT | BTN_RIGHT)) pads[i] &= ~(BTN_LEFT | BTN_RIGHT);
         if ((pads[i] & (BTN_UP | BTN_DOWN)) == (BTN_UP | BTN_DOWN)) pads[i] &= ~(BTN_UP | BTN_DOWN);
     }
     /* Tras cerrar un menú o diálogo, los botones se ignoran hasta que se suelten */
     if (app->hold_input) {
-        if (pads[0] || pads[1]) pads[0] = pads[1] = 0;
+        if (pads[0] || pads[1] || pads[2] || pads[3]) pads[0] = pads[1] = pads[2] = pads[3] = 0;
         else app->hold_input = 0;
     }
 }
@@ -912,17 +935,45 @@ static int game_running(const App *app)
     return !app->paused && !menubar_is_open(&app->bar) && app->dlg.kind == DIALOG_NONE;
 }
 
+/* Posición del ratón sobre la imagen del juego (y botón izquierdo = gatillo). Fuera del juego, la mira apunta fuera. */
+static void zapper_input(App *app)
+{
+    int mx, my;
+    Uint32 b = SDL_GetMouseState(&mx, &my);
+    int w, h, gw, gh;
+    SDL_GetWindowSize(app->win, &w, &h);
+    SDL_GetRendererOutputSize(app->ren, &gw, &gh);
+    if (w > 0) { mx = mx * gw / w; my = my * gh / h; }          /* pantallas de alta densidad */
+    const SDL_Rect *r = &app->game_rect;
+    int in = r->w > 0 && mx >= r->x && mx < r->x + r->w && my >= r->y && my < r->y + r->h;
+    app->nes.zap_trigger = in && (b & SDL_BUTTON(SDL_BUTTON_LEFT)) && app->dlg.kind == DIALOG_NONE && !menubar_is_open(&app->bar);
+    if (in) {
+        int y0 = app->cfg.overscan ? 8 : 0, vis_h = app->cfg.overscan ? SCREEN_H - 16 : SCREEN_H;
+        app->nes.zap_x = (mx - r->x) * SCREEN_W / r->w;
+        app->nes.zap_y = y0 + (my - r->y) * vis_h / r->h;
+    } else {
+        app->nes.zap_x = app->nes.zap_y = -1;
+    }
+    if (in != app->mouse_in_game) { app->mouse_in_game = in; update_cursor(app); }
+}
+
 static void step(App *app, int audible)
 {
-    u8 pads[2];
+    u8 pads[4];
     player_pads(app, pads);
     if (app->play) {
         pads[0] = inputs_pad(&app->script, app->frame, 0);
         pads[1] = inputs_pad(&app->script, app->frame, 1);
     }
     if (app->record) inputs_record(app->record, app->frame, pads, app->last_pad);
+    app->nes.fourscore = (u8)app->cfg.fourscore;
+    app->nes.zapper_on = (u8)app->cfg.zapper;
+    if (app->cfg.zapper && !app->play) zapper_input(app);
+    else { app->nes.zap_x = app->nes.zap_y = -1; app->nes.zap_trigger = 0; }
     app->nes.pad[0] = pads[0];
     app->nes.pad[1] = pads[1];
+    app->nes.pad[2] = pads[2];
+    app->nes.pad[3] = pads[3];
     app->nes.apu.mute = (u8)app->cfg.mute;
     app->frame++;
     nes_run_frame(&app->nes);
@@ -991,6 +1042,7 @@ static void render(App *app)
     dst.h = (int)(gh * fit + 0.5);
     dst.x = (w - dst.w) / 2;
     dst.y = bar + (avail_h - dst.h) / 2;
+    app->game_rect = dst;
 
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
     SDL_RenderClear(app->ren);
@@ -1292,7 +1344,7 @@ int main(int argc, char *argv[])
     }
     write_uncovered(app);
     if (app->audio) SDL_CloseAudioDevice(app->audio);
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 4; i++)
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
     SDL_DestroyRenderer(app->ren);

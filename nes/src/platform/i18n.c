@@ -13,6 +13,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_MENU_EXPORT]   = { "Exportar", "Export" },
     [T_MENU_LANGUAGE] = { "Idioma", "Language" },
     [T_MENU_HELP]     = { "Ayuda", "Help" },
+    [T_MENU_INPUT]    = { "Entrada", "Input" },
+    [T_ZAPPER]        = { "Zapper en el puerto 2 (ratón)", "Zapper in port 2 (mouse)" },
+    [T_FOURSCORE]     = { "Four Score: 4 jugadores", "Four Score: 4 players" },
 
     [T_OPEN_ROM]       = { "Abrir ROM…", "Open ROM…" },
     [T_RESET]          = { "Reiniciar", "Reset" },
@@ -57,7 +60,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            Enter = Start, Mayús o Retroceso = Select\n"
         "Jugador 2:  WASD, F = B, G = A, C = Start, V = Select\n"
         "Controles:  cruz o palanca, A/X = B, B/Y = A,\n"
-        "            Start y Back (el 1.º es el jugador 1)\n"
+        "            Start y Back (el 1.º es el jugador 1; con el\n"
+        "            Four Score, el 3.º y el 4.º son los jugadores 3 y 4)\n"
+        "Zapper:     ratón (apuntar) y clic izquierdo (gatillo)\n"
         "\n"
         "P pausa   Tab (mantener) avance rápido\n"
         "F5 guardar estado   F8 cargar estado\n"
@@ -68,7 +73,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            Enter = Start, Shift or Backspace = Select\n"
         "Player 2:   WASD, F = B, G = A, C = Start, V = Select\n"
         "Gamepads:   d-pad or stick, A/X = B, B/Y = A,\n"
-        "            Start and Back (the 1st is player 1)\n"
+        "            Start and Back (the 1st is player 1; with the\n"
+        "            Four Score, the 3rd and 4th are players 3 and 4)\n"
+        "Zapper:     mouse (aim) and left click (trigger)\n"
         "\n"
         "P pause   Tab (hold) fast forward\n"
         "F5 save state   F8 load state\n"

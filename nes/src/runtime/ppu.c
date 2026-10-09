@@ -20,6 +20,27 @@ static const u32 pal_default[64] = {
     0xE4E594,0xCFEF96,0xBDF4AB,0xB3F3CC,0xB5EBF2,0xB8B8B8,0x000000,0x000000,
 };
 
+/* Zapper: el fototransistor ve la luz de un pixel claro mientras el haz de la pantalla lo está dibujando y unas líneas
+ * después (el brillo del fósforo dura poco). Se mira un cuadrito de 3x3 por lo ancho que es el cañón. */
+int ppu_light_at(const NES *n, int x, int y)
+{
+    const Ppu *p = &n->ppu;
+    if (x < 0 || x > 255 || y < 0 || y > 239) return 0;
+    int since = (p->scanline - y) * 341 + (p->dot - x);          /* puntos desde que el haz pasó por la mira */
+    if (p->scanline > 239 && p->scanline < 261) since = (240 - y) * 341 + 1000;   /* en el vblank ya pasó */
+    if (since < 0 || since > 22 * 341) return 0;
+    if (!(p->mask & 0x08)) return 0;
+    for (int dy = -1; dy <= 1; dy++)
+        for (int dx = -1; dx <= 1; dx++) {
+            int xx = x + dx, yy = y + dy;
+            if (xx < 0 || xx > 255 || yy < 0 || yy > 239) continue;
+            u32 c = pal_default[p->fb[yy * 256 + xx] & 0x3F];
+            int luma = (int)((299 * ((c >> 16) & 255) + 587 * ((c >> 8) & 255) + 114 * (c & 255)) / 1000);
+            if (luma >= 170) return 1;
+        }
+    return 0;
+}
+
 void ppu_make_palette(int kind, u32 out[64])
 {
     for (int i = 0; i < 64; i++) {

@@ -108,7 +108,7 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
   frame counter del APU.
 - RAM con batería: `juego.sav` en la carpeta de datos del juego (se guarda al salir y cada 5 s si cambia).
 - **Interfaz** (SDL2, español e inglés): barra de menús y diálogos de Moskva 89 / GBRecomp; estados guardados (4 ranuras),
-  pausa, avance rápido (Tab), 2 jugadores (teclado y mandos), **Four Score** (4 jugadores, con mandos), **Zapper** (ratón: apuntar y clic izquierdo), tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7,
+  pausa, avance rápido (Tab), 2 jugadores (teclado y mandos), **Four Score** (4 jugadores, con mandos), **Zapper** (ratón: apuntar y clic izquierdo; verificado con Duck Hunt: un programa que apunta a los patos acumula puntos y el récord sube), tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7,
   overscan, paletas (predeterminada, grises, saturada y `paleta.pal` propia), volumen y silenciar canales del APU,
   captura PNG, grabación de audio WAV, grabar/reproducir entradas (`--record`/`--play`), arrastrar una ROM a la ventana.
   El juego recompilado pide la ROM una sola vez (valida el SHA1) y guarda una copia en su carpeta de datos.
@@ -149,7 +149,7 @@ ni un byte de imagen o audio.
 | `nes juego.nes` | Ventana SDL2 con el intérprete. `NES_TRACE=archivo` guarda la traza mientras juegas. |
 | `nesrecomp` | El recompilador. |
 | `nestrace rom traza cuadros [boton:desde-hasta ...]` | Traza de ejecución sin ventana. |
-| `nesshot rom salida.png cuadros [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. |
+| `nesshot rom salida.png cuadros [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. |
 | `nesaudio rom salida.wav cuadros [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [cuadros]` | Velocidad sin ventana. |
 | `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |

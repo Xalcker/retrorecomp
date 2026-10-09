@@ -3,6 +3,8 @@
  *   nesshot rom.nes salida.png cuadros [boton:desde-hasta ...]
  * Ejemplo: nesshot smb.nes smb.png 600 start:90-95 right:200-500 a:300-320
  * Botones: a b select start up down left right.
+ * Zapper: zapper:X,Y,desde-hasta apunta a (X,Y) y aprieta el gatillo en esos cuadros (activa el Zapper en el puerto 2);
+ * zapper:X,Y,desde-hasta,mira deja de apretar el gatillo pero sigue apuntando.
  * Si la ROM de Blargg escribe su resultado en $6000, lo imprime.
  */
 #include <stdio.h>
@@ -12,6 +14,7 @@
 #include "png.h"
 
 typedef struct { int btn, from, to; } Hold;
+typedef struct { int x, y, from, to; } Zap;
 
 static u8 *slurp(const char *path, size_t *len)
 {
@@ -40,8 +43,14 @@ int main(int argc, char **argv)
     if (nes_load(&n, rom, len, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
     int frames = atoi(argv[3]);
     Hold h[64]; int nh = 0;
+    Zap z[64]; int nz = 0, zap_aim[64];
     for (int i = 4; i < argc && nh < 64; i++) {
-        char name[16]; int a, b;
+        char name[16]; int a, b, zx, zy, za, zb;
+        if (!strncmp(argv[i], "zapper:", 7) && sscanf(argv[i] + 7, "%d,%d,%d-%d", &zx, &zy, &za, &zb) == 4 && nz < 64) {
+            zap_aim[nz] = strstr(argv[i], ",mira") != NULL;
+            z[nz++] = (Zap){ zx, zy, za, zb };
+            continue;
+        }
         if (sscanf(argv[i], "%15[a-z]:%d-%d", name, &a, &b) == 3 && btn_by_name(name))
             h[nh++] = (Hold){ btn_by_name(name), a, b };
     }
@@ -49,6 +58,10 @@ int main(int argc, char **argv)
         u8 pad = 0;
         for (int i = 0; i < nh; i++) if (f >= h[i].from && f <= h[i].to) pad |= h[i].btn;
         n.pad[0] = pad;
+        if (nz) {
+            n.zapper_on = 1; n.zap_x = n.zap_y = -1; n.zap_trigger = 0;
+            for (int i = 0; i < nz; i++) if (f >= z[i].from && f <= z[i].to) { n.zap_x = z[i].x; n.zap_y = z[i].y; n.zap_trigger = !zap_aim[i]; }
+        }
         nes_run_frame(&n);
         {   /* ROM de Blargg: terminar en cuanto escribe su resultado final */
             u8 *r = n.cart.prg_ram;

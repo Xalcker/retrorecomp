@@ -41,7 +41,7 @@ if [ -x ./nesrecomp ]; then
 fi
 # Descubrimiento: --why, --viz y --events
 if [ -x ./nesrecomp ]; then
-    ./nesrecomp $T/other/nestest.nes --why 0 --viz --events build/ev.txt 2>&1 | grep -q "punto de entrada: vector" \
+    ./nesrecomp $T/other/nestest.nes --why 4 --viz --events build/ev.txt 2>&1 | grep -q "punto de entrada: vector" \
         && [ -s build/ev.txt ] && echo "ok   why/viz/events" || { echo "FALLA why/viz/events"; fail=1; }
 fi
 # Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)

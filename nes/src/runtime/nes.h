@@ -30,7 +30,7 @@ typedef struct {
     int jammed;                 /* opcode KIL: el CPU se detiene */
 } Cpu;
 
-enum { MIRROR_HORIZONTAL, MIRROR_VERTICAL, MIRROR_SINGLE0, MIRROR_SINGLE1, MIRROR_FOUR };
+enum { MIRROR_HORIZONTAL, MIRROR_VERTICAL, MIRROR_SINGLE0, MIRROR_SINGLE1, MIRROR_FOUR, MIRROR_CUSTOM };
 
 typedef struct {
     int  mapper;
@@ -47,6 +47,10 @@ typedef struct {
     size_t prg_map[4];          /* desplazamiento de PRG de cada ventana de 8 KB ($8000, $A000, $C000, $E000) */
     u8  *chr_page[8];           /* puntero a cada página de 1 KB de CHR con los bancos actuales */
     u32  chr_mask;              /* tamaño de CHR - 1 si es potencia de 2 (si no, 0 y se usa el módulo) */
+    u8   mmc3;                  /* MMC3 o derivado: IRQ por flanco de A12 */
+    u8   chr_hook;              /* MMC2/MMC4: las lecturas de ciertos patrones cambian el banco */
+    u8   nt_map[4];             /* MIRROR_CUSTOM: página de CIRAM (0 o 1) de cada nametable */
+    u64  irq_t0, irq_cycle;     /* FME-7: IRQ por ciclos de CPU (irq_cycle = ciclo en que se levanta, o ~0) */
     u8   low_regs;              /* el mapper tiene registros por debajo de $8000 (la PPU debe ir al día al escribirlos) */
     u32  map_ver;               /* sube con cada escritura a $8000-$FFFF (¿cambió el mapeo?) */
     u64  a12_low;               /* MMC3: reloj de la PPU cuando A12 pasó a 0 */
@@ -166,7 +170,8 @@ int  cpu_step(NES *n);
 /* Mappers */
 int  mapper_supported(int id);
 void mapper_reset(NES *n);
-void mapper_remap(Cart *c);                      /* recalcula prg_map tras un cambio de bancos */
+void mapper_remap(Cart *c);
+void mapper_chr_latch(Cart *c, u16 addr);        /* MMC2/MMC4: tras leer un patrón */                      /* recalcula prg_map tras un cambio de bancos */
 u8   mapper_cpu_read(NES *n, u16 addr);          /* $4020-$FFFF */
 long mapper_prg_offset(const Cart *c, u16 addr);   /* rápida: usa prg_map */
 /* Consultas para el recompilador */

@@ -6,6 +6,7 @@ mkdir -p build/shots
 fail=0
 ./nestest $T/other/nestest.nes $T/other/nestest.log || fail=1
 ./sramtest $T/other/nestest.nes || fail=1
+./mappertest || fail=1
 for g in roms/Super*Bros.\ \(Japan*.nes; do [ -f "$g" ] && { ./statetest "$g" || fail=1; }; done
 ./statetest $T/instr_test-v5/rom_singles/01-basics.nes 100 100 || fail=1   # MMC1, CHR RAM
 # Blargg: instr_test-v5 (opcodes oficiales, mapper 1/MMC1)

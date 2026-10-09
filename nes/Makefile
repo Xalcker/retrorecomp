@@ -10,7 +10,7 @@ RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libnesrt.a
 
 .PHONY: all clean test
-all: nestest nesshot nesaudio nestrace sramtest statetest nesbench nes nesrecomp
+all: nestest nesshot nesaudio nestrace sramtest statetest mappertest nesbench nes nesrecomp
 
 nestest: src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
@@ -49,6 +49,9 @@ nesrecomp: src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(BUILD)/gen/embed
 	$(CC) $(CFLAGS) -DNESRECOMP_VERSION='"$(VERSION)"' -Isrc/nesrecomp -Isrc/runtime -o $@ \
 		src/nesrecomp/nesrecomp.c $(BUILD)/gen/embedded.c $(RT)
 
+mappertest: src/tools/mappertest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+
 statetest: src/tools/statetest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
@@ -75,4 +78,4 @@ test: nestest
 	sh tests/run_tests.sh
 
 clean:
-	rm -rf $(BUILD) dist nestest nesshot nesaudio nestrace sramtest statetest nesbench nes nesrecomp
+	rm -rf $(BUILD) dist nestest nesshot nesaudio nestrace sramtest statetest mappertest nesbench nes nesrecomp

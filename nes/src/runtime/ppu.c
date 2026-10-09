@@ -74,7 +74,7 @@ static void set_event(NES *n)
     }
     /* MMC3: su IRQ se levanta con las lecturas de la PPU a partir del punto 256 de las líneas con dibujo (y en
      * toda la pre-render). Ahí la consola tiene que ir al día en cada ciclo; antes no hace falta. */
-    if (n->cart.mapper == 4 && (p->mask & 0x18)) {
+    if (n->cart.mmc3 && (p->mask & 0x18)) {
         int sl = p->scanline;
         if (sl == 261 || (sl < 240 && p->dot >= 256)) { p->event_dot = 0; return; }
         int w = sl < 239 ? (p->dot < 256 ? sl * 341 + 256 : (sl + 1) * 341 + 256) : sl < 240 ? 261 * 341 : 261 * 341;
@@ -95,7 +95,7 @@ void ppu_sync(NES *n, u64 target)
 {
     Ppu *p = &n->ppu;
     if (p->clock >= target) return;
-    const int mmc3 = n->cart.mapper == 4;
+    const int mmc3 = n->cart.mmc3;
     do {
         u64 left = target - p->clock;
         int sl = p->scanline, d = p->dot;
@@ -151,6 +151,7 @@ static int nt_index(NES *n, u16 a)
     case MIRROR_VERTICAL:   return t & 1;
     case MIRROR_SINGLE0:    return 0;
     case MIRROR_SINGLE1:    return 1;
+    case MIRROR_CUSTOM:     return n->cart.nt_map[t];
     default:                return t;
     }
 }
@@ -164,7 +165,11 @@ static inline int pal_idx(u16 a)
 static u8 vrd(NES *n, u16 a)
 {
     a &= 0x3FFF;
-    if (a < 0x2000) return n->cart.chr_page[a >> 10][a & 0x3FF];
+    if (a < 0x2000) {
+        u8 v = n->cart.chr_page[a >> 10][a & 0x3FF];
+        if (__builtin_expect(n->cart.chr_hook, 0)) mapper_chr_latch(&n->cart, a);   /* MMC2/MMC4: cambia el banco después de leer */
+        return v;
+    }
     if (a < 0x3F00) return n->ppu.vram[nt_index(n, a) * 0x400 + (a & 0x3FF)];
     return n->ppu.pal[pal_idx(a)];
 }
@@ -177,7 +182,7 @@ static void vwr(NES *n, u16 a, u8 v)
     else n->ppu.pal[pal_idx(a)] = v & 0x3F;
 }
 
-static inline void a12(NES *n, int bit) { if (n->cart.mapper == 4) mapper_a12(n, bit); }
+static inline void a12(NES *n, int bit) { if (n->cart.mmc3) mapper_a12(n, bit); }
 
 /* ---- Registros ---- */
 
@@ -241,7 +246,7 @@ void ppu_reg_write(NES *n, u16 addr, u8 v)
         a12(n, (p->v >> 12) & 1);
         break;
     }
-    if (n->cart.mapper == 4) set_event(n);          /* $2001 puede encender el dibujo: cambia la ventana del IRQ */
+    if (n->cart.mmc3) set_event(n);                 /* $2001 puede encender el dibujo: cambia la ventana del IRQ */
 }
 
 /* ---- Dibujo ---- */
@@ -369,7 +374,7 @@ static void ppu_prefetch_tile(NES *n)
 /* Evento de A12 de un punto dentro de una baldosa: 'clock' es el valor del reloj en ese punto */
 static inline void a12_at(NES *n, u64 clock, int bit)
 {
-    if (n->cart.mapper == 4) {
+    if (n->cart.mmc3) {
         u64 save = n->ppu.clock;
         n->ppu.clock = clock;
         mapper_a12(n, bit);

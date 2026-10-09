@@ -47,6 +47,8 @@ void nes_free(NES *n)
  * mapper, DMA) o cuando va a pasar algo que se ve desde fuera (bandera de vblank, fin de cuadro).
  * Con el MMC3 (su IRQ depende de las lecturas de la PPU) y durante el DMA de OAM avanza en cada ciclo.
  * Dentro de un ciclo de CPU, antes del acceso van PPU_PRE_* puntos y el resto después. */
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+
 static inline void cycle_begin(NES *n, int wr)
 {
     if (n->ppu_eager) ppu_sync(n, 3 * n->cyc + (wr ? PPU_PRE_WRITE : PPU_PRE_READ));
@@ -60,6 +62,7 @@ static inline void cycle_end(NES *n, int wr)
     int sync = n->ppu_eager || n->ppu.event_dot <= t3;
     if (sync) ppu_sync(n, t3 - 1);
     apu_check(n);
+    if (UNLIKELY(n->cart.irq_cycle <= n->cyc + 1)) { n->irq_line |= 1; n->cart.irq_cycle = ~0ull; }   /* FME-7 */
     n->prev_need_nmi = n->need_nmi;
     int line = (n->ppu.status & 0x80) && (n->ppu.ctrl & 0x80);
     if (line && !n->nmi_line) n->need_nmi = 1;
@@ -70,8 +73,6 @@ static inline void cycle_end(NES *n, int wr)
     if (sync) ppu_sync(n, t3);
     n->cyc++;
 }
-
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 /* Ciclos de espera (DMA de DMC) pendientes antes del siguiente acceso */
 static void drain_stall(NES *n)
@@ -114,7 +115,8 @@ void nes_cpu_ticks(NES *n, int k)
      * habrá un evento de la PPU o del APU dentro de estos ciclos. */
     if (n->stall || n->run_irq != (((n->irq_line & 1) || (n->irq_seen & 6)) && !(n->cpu.p & FLAG_I)) ||
         (((n->ppu.status & 0x80) && (n->ppu.ctrl & 0x80)) != n->nmi_line) ||
-        n->ppu.event_dot <= 3 * (n->cyc + (u64)k) || n->cyc + (u64)k >= n->apu.deadline) {
+        n->ppu.event_dot <= 3 * (n->cyc + (u64)k) || n->cyc + (u64)k >= n->apu.deadline ||
+        n->cart.irq_cycle <= n->cyc + (u64)k) {
         while (k-- > 0) nes_cpu_tick(n);
         return;
     }

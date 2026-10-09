@@ -20,7 +20,8 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 - CPU 6502 con opcodes no oficiales: pasa `nestest` y las 16 `instr_test-v5`.
 - PPU 2C02 punto por punto: fondo, sprites, scroll, sprite 0 hit (pasa las 11 `sprite_hit_tests`).
 - Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11 Color Dreams,
-  34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 y 206 (DxROM).
+  34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180, 206 (DxROM) y, sin probar con ROMs reales
+  (solo `mappertest`, con cartuchos sintéticos), 9 (MMC2), 10 (MMC4), 69 (FME-7, sin el audio 5B) y 118 (TxSROM).
 - APU: 2 pulsos, triángulo, ruido, DMC, frame counter con IRQ, mezcla no lineal y filtros. Pasa las 8
   `apu_test`; la ventana saca audio por SDL (tecla M = silencio).
 - Temporización por ciclo: cada acceso al bus (con lecturas y escrituras falsas) avanza 3 puntos de PPU y

@@ -84,6 +84,9 @@ static inline void cycle_end(NES *n, int wr)
 #ifndef DMA_GET_PARITY
 #define DMA_GET_PARITY 0
 #endif
+#ifndef OAM_GET_PARITY
+#define OAM_GET_PARITY 1
+#endif
 
 static void dma_dummy(NES *n, u16 a, int do_read)
 {
@@ -109,7 +112,7 @@ static void dma_run(NES *n, u16 a)
     while (dmc || spr) {
         if (n->stall & 1) { dmc = 1; need_dummy = 1; n->stall &= ~1; }       /* el DMC pide un byte en medio del OAM DMA */
         if (n->stall & 2) { n->stall &= ~2; page = n->oam_page; }               /* otra escritura a $4014: cambia la página */
-        int get = ((n->cyc & 1) == DMA_GET_PARITY);
+        int get = ((n->cyc & 1) == (dmc ? DMA_GET_PARITY : OAM_GET_PARITY));
         if (get) {
             if (dmc && !need_dummy) {                    /* ciclo "get": el byte del DMC */
                 cycle_begin(n, 0);

@@ -5,7 +5,7 @@
  *
  * Uso: juego [rom.gb] [--scale N] [--interp] [--force] [--forget-rom]
  *            [--record archivo | --play archivo] [--uncovered archivo]
- *            [--model dmg|cgb|sgb] [--palette up+a]
+ *            [--model dmg|cgb|sgb] [--palette up+a] [--link]
  *   --interp      ejecuta todo con el intérprete (para comparar)
  *   --force       acepta una ROM con otro SHA1 (solo con el intérprete)
  *   --forget-rom  borra la copia guardada de la ROM y la vuelve a pedir
@@ -21,6 +21,13 @@
  *   --play        reproduce un archivo grabado (el teclado se ignora)
  *   --uncovered archivo  al salir, agrega a `archivo` las direcciones de ROM
  *                 que tuvo que ejecutar el intérprete (para gbrecomp --trace)
+ *   --link        empieza con el cable link (también en el menú Juego)
+ *
+ * Multijugador: el jugador 1 usa las flechas (y el primer control), el 2 WASD
+ * (y el segundo control), el 3 y el 4 el tercer y cuarto control. Con el cable
+ * link hay un segundo Game Boy a la derecha, que maneja el jugador 2, con su
+ * propia partida (<juego>_jugador2.sav). En el Super Game Boy, los juegos de
+ * varios jugadores leen los controles 2-4.
  *
  * La ROM se pide una sola vez. Se busca, en orden: el argumento, la copia
  * guardada en la carpeta de datos del juego, y "rom.gb" junto al ejecutable o
@@ -186,18 +193,33 @@ static void load_game(GB *g, const char *path)
 /* Controles y colores                                                 */
 /* ------------------------------------------------------------------ */
 
-static u8 read_pad(SDL_GameController *pad)
+/*
+ * Botones del jugador `player` (0-3): el teclado (el jugador 1 con las
+ * flechas, el 2 con WASD) y el control número `player` que se haya conectado.
+ */
+static u8 read_pad(SDL_GameController *pad, int player)
 {
     const Uint8 *k = SDL_GetKeyboardState(NULL);
     u8 p = 0;
-    if (k[SDL_SCANCODE_RIGHT]) p |= PAD_RIGHT;
-    if (k[SDL_SCANCODE_LEFT]) p |= PAD_LEFT;
-    if (k[SDL_SCANCODE_UP]) p |= PAD_UP;
-    if (k[SDL_SCANCODE_DOWN]) p |= PAD_DOWN;
-    if (k[SDL_SCANCODE_X]) p |= PAD_A;
-    if (k[SDL_SCANCODE_Z]) p |= PAD_B;
-    if (k[SDL_SCANCODE_RETURN]) p |= PAD_START;
-    if (k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_RSHIFT]) p |= PAD_SELECT;
+    if (player == 0) {
+        if (k[SDL_SCANCODE_RIGHT]) p |= PAD_RIGHT;
+        if (k[SDL_SCANCODE_LEFT]) p |= PAD_LEFT;
+        if (k[SDL_SCANCODE_UP]) p |= PAD_UP;
+        if (k[SDL_SCANCODE_DOWN]) p |= PAD_DOWN;
+        if (k[SDL_SCANCODE_X]) p |= PAD_A;
+        if (k[SDL_SCANCODE_Z]) p |= PAD_B;
+        if (k[SDL_SCANCODE_RETURN]) p |= PAD_START;
+        if (k[SDL_SCANCODE_BACKSPACE] || k[SDL_SCANCODE_RSHIFT]) p |= PAD_SELECT;
+    } else if (player == 1) {
+        if (k[SDL_SCANCODE_D]) p |= PAD_RIGHT;
+        if (k[SDL_SCANCODE_A]) p |= PAD_LEFT;
+        if (k[SDL_SCANCODE_W]) p |= PAD_UP;
+        if (k[SDL_SCANCODE_S]) p |= PAD_DOWN;
+        if (k[SDL_SCANCODE_G]) p |= PAD_A;
+        if (k[SDL_SCANCODE_F]) p |= PAD_B;
+        if (k[SDL_SCANCODE_E]) p |= PAD_START;
+        if (k[SDL_SCANCODE_Q]) p |= PAD_SELECT;
+    }
 
     if (pad) {
         /* A y B en la posición de Nintendo: el A del Game Boy es el botón de
@@ -251,7 +273,7 @@ static const struct { const char *code; TextId dir; int button; } combos[12] = {
 
 enum {
     A_NONE, A_RESET, A_PAUSE, A_SAVE_STATE, A_LOAD_STATE, A_SLOT_1, A_SLOT_4 = A_SLOT_1 + 3,
-    A_CONSOLE_DMG, A_CONSOLE_CGB, A_CONSOLE_SGB, A_QUIT,
+    A_CONSOLE_DMG, A_CONSOLE_CGB, A_CONSOLE_SGB, A_LINK, A_QUIT,
     A_DMG_PALETTE_0, A_DMG_PALETTE_2 = A_DMG_PALETTE_0 + 2,
     A_COMPAT_AUTO, A_COMPAT_0, A_COMPAT_11 = A_COMPAT_0 + 11,
     A_SGB_BORDER, A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN,
@@ -286,7 +308,13 @@ typedef struct {
     SDL_Texture *tex;
     int tex_w, tex_h;
     SDL_AudioDeviceID audio;
-    SDL_GameController *pad;
+    SDL_GameController *pads[4];    /* control de cada jugador, en orden de conexión */
+
+    /* Cable link local: un segundo Game Boy con la misma ROM, a la derecha */
+    int linked;
+    GB gb2;
+    GbLink link;
+    char save_path2[1024];
 
     MenuBar bar;
     Dialog dlg;
@@ -377,9 +405,18 @@ static int is_compat(const GB *g)
     return g->cgb_hw && !g->cgb;
 }
 
-/* Tamaño de la imagen: 160×144, o 256×224 con el borde del SGB */
+/* Separación entre las dos pantallas con el cable link */
+#define LINK_GAP 8
+
+/* Tamaño de la imagen: 160×144, o 256×224 con el borde del SGB; con el cable
+ * link, las dos pantallas lado a lado (sin borde) */
 static void game_size(const App *app, int *w, int *h)
 {
+    if (app->linked) {
+        *w = 2 * GB_SCREEN_W + LINK_GAP;
+        *h = GB_SCREEN_H;
+        return;
+    }
     int border = app->gb.sgb && app->cfg.sgb_border;
     *w = border ? SGB_SCREEN_W : GB_SCREEN_W;
     *h = border ? SGB_SCREEN_H : GB_SCREEN_H;
@@ -515,8 +552,37 @@ static void open_exports(App *app)
 /* Enciende (o reinicia) la consola con el modelo elegido */
 static void build_menus(App *app);
 
+/* --- Cable link local --- */
+
+/* Enciende el Game Boy de la derecha (mismo modelo, su propia partida) y lo
+ * conecta por cable */
+static void link_start(App *app)
+{
+    const char *err = gb_init_model(&app->gb2, app->rom.data, (u32)app->rom.size, app->model);
+    if (err) fail(err);
+    if (is_compat(&app->gb2)) gb_compat_palette(&app->gb2, app->forced_palette ? app->forced_palette
+                                                                                 : app->cfg.compat_palette);
+    if (!app->interp_only) app->gb2.recomp_lookup = recomp_lookup;
+    if (app->uncovered_path) app->gb2.trace = mark_uncovered;
+    if (gb_has_battery(&app->gb2)) load_game(&app->gb2, app->save_path2);
+    gb_link_connect(&app->link, &app->gb, &app->gb2);
+    app->linked = 1;
+}
+
+static void link_stop(App *app)
+{
+    if (!app->linked) return;
+    gb_link_disconnect(&app->link);
+    if (gb_has_battery(&app->gb2)) save_game(&app->gb2, app->save_path2);
+    gb_free(&app->gb2);
+    memset(&app->gb2, 0, sizeof app->gb2);
+    app->linked = 0;
+}
+
 static void power_on(App *app)
 {
+    int was_linked = app->linked;
+    link_stop(app);         /* se vuelve a conectar con la consola nueva */
     if (app->gb.rom) {
         stop_music(app, 1);     /* la grabación sería de dos corridas */
         if (gb_has_battery(&app->gb)) save_game(&app->gb, app->save_path);
@@ -530,8 +596,17 @@ static void power_on(App *app)
     app->gb.apu.enabled = 1;
     if (app->uncovered_path) app->gb.trace = mark_uncovered;
     if (gb_has_battery(&app->gb)) load_game(&app->gb, app->save_path);
+    if (was_linked) link_start(app);
     build_menus(app);
     if (app->win) resize_window(app);
+}
+
+static void toggle_link(App *app)
+{
+    if (app->linked) link_stop(app);
+    else link_start(app);
+    resize_window(app);
+    notify(app, tr(app->linked ? T_TITLE_LINK_ON : T_TITLE_LINK_OFF));
 }
 
 /* --- Estados guardados --- */
@@ -593,7 +668,7 @@ static void load_state(App *app)
 #define COUNT(a) (int)(sizeof a / sizeof a[0])
 
 /* Se arman con los textos del idioma actual y según la consola encendida */
-static MenuItem menu_game[16], menu_video[12], menu_palette[16], menu_audio[6];
+static MenuItem menu_game[20], menu_video[12], menu_palette[16], menu_audio[6];
 static MenuItem menu_export[5], menu_language[LANG_COUNT], menu_help[3];
 static Menu menus[7];
 static char slot_labels[4][40], compat_labels[12][48], size_labels[6][40], volume_labels[4][40];
@@ -614,6 +689,8 @@ static void build_menus(App *app)
     ITEM(menu_game, n, tr(T_CONSOLE_DMG), NULL, A_CONSOLE_DMG, ITEM_RADIO);
     ITEM(menu_game, n, tr(T_CONSOLE_CGB), NULL, A_CONSOLE_CGB, ITEM_RADIO);
     ITEM(menu_game, n, tr(T_CONSOLE_SGB), NULL, A_CONSOLE_SGB, ITEM_RADIO);
+    SEPARATOR(menu_game, n);
+    ITEM(menu_game, n, tr(T_LINK), NULL, A_LINK, ITEM_CHECK);
     SEPARATOR(menu_game, n);
     ITEM(menu_game, n, tr(T_QUIT), "Alt+F4", A_QUIT, ITEM_ACTION);
     menus[0] = (Menu){ tr(T_MENU_GAME), menu_game, n };
@@ -701,7 +778,11 @@ static int menu_state(void *ctx, int action, int *checked)
     switch (action) {
     case A_RESET:        return !replay;
     case A_PAUSE:        *checked = app->paused; return 1;
-    case A_LOAD_STATE:   return !replay;
+    /* Un estado guarda una sola consola: con el cable, el otro lado quedaría
+     * a mitad de una transferencia */
+    case A_SAVE_STATE:   return !app->linked;
+    case A_LOAD_STATE:   return !replay && !app->linked;
+    case A_LINK:         *checked = app->linked; return !replay;
     case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
         static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
         int m = models[action - A_CONSOLE_DMG];
@@ -774,8 +855,9 @@ static void do_action(App *app, int action)
     switch (action) {
     case A_RESET:        power_on(app); break;
     case A_PAUSE:        app->paused = !app->paused; break;
-    case A_SAVE_STATE:   save_state(app); break;
-    case A_LOAD_STATE:   load_state(app); break;
+    case A_SAVE_STATE:   if (!app->linked) save_state(app); break;
+    case A_LOAD_STATE:   if (!app->linked) load_state(app); break;
+    case A_LINK:         toggle_link(app); break;
     case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
         static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
         app->pending_model = models[action - A_CONSOLE_DMG];
@@ -898,14 +980,21 @@ static void handle_event(App *app, SDL_Event *e)
     if (e->type == SDL_MOUSEMOTION)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
-        if (!app->pad) app->pad = SDL_GameControllerOpen(e->cdevice.which);
+        /* Al primer lugar libre: el primero que se conecta es el jugador 1 */
+        for (int i = 0; i < 4; i++)
+            if (!app->pads[i]) {
+                app->pads[i] = SDL_GameControllerOpen(e->cdevice.which);
+                break;
+            }
         return;
     }
     if (e->type == SDL_CONTROLLERDEVICEREMOVED) {
-        if (app->pad && SDL_GameControllerFromInstanceID(e->cdevice.which) == app->pad) {
-            SDL_GameControllerClose(app->pad);
-            app->pad = NULL;
-        }
+        SDL_GameController *gone = SDL_GameControllerFromInstanceID(e->cdevice.which);
+        for (int i = 0; i < 4; i++)
+            if (gone && app->pads[i] == gone) {
+                SDL_GameControllerClose(app->pads[i]);
+                app->pads[i] = NULL;
+            }
         return;
     }
 
@@ -939,16 +1028,20 @@ static int game_running(const App *app)
     return !app->paused && !menubar_is_open(&app->bar) && app->dlg.kind == DIALOG_NONE;
 }
 
-/* Botones del jugador. Tras usar un menú o un diálogo se ignoran hasta que se
- * suelten todos: si no, el Enter que cerró un diálogo llegaría como Start. */
-static u8 player_pad(App *app)
+/* Botones de cada jugador. Tras usar un menú o un diálogo se ignoran hasta
+ * que se suelten todos: si no, el Enter que cerró un diálogo llegaría como
+ * Start. */
+static void player_pads(App *app, u8 pads[4])
 {
-    u8 p = read_pad(app->pad);
+    u8 any = 0;
+    for (int i = 0; i < 4; i++) any |= pads[i] = read_pad(app->pads[i], i);
     if (app->hold_input) {
-        if (p) return 0;
+        if (any) {
+            memset(pads, 0, 4);
+            return;
+        }
         app->hold_input = 0;
     }
-    return p;
 }
 
 /*
@@ -999,16 +1092,31 @@ static void audio_push(SDL_AudioDeviceID dev, const float *samples, int n)
 
 static void step(App *app)
 {
-    u8 pad = app->play ? inputs_pad(&app->script, app->frame) : player_pad(app);
-    if (app->record) inputs_record(app->record, app->frame, pad, &app->last_pad);
-    gb_set_pad(&app->gb, pad);
+    u8 pads[4];
+    player_pads(app, pads);
+    if (app->play) pads[0] = inputs_pad(&app->script, app->frame);  /* solo el jugador 1 */
+    if (app->record) inputs_record(app->record, app->frame, pads[0], &app->last_pad);
+    gb_set_pad(&app->gb, pads[0]);
     app->frame++;
-    gb_run_frame(&app->gb);
+    if (app->linked) {
+        /* Cable: el jugador 2 maneja el Game Boy de la derecha */
+        gb_set_pad(&app->gb2, pads[1]);
+        gb_link_run_frame(&app->link);
+        static float discard[4096 * 2];
+        gb_audio_pull(&app->gb2, discard, 4096);    /* se oye el del jugador 1 */
+    } else {
+        /* Super Game Boy multijugador: los controles 2-4 */
+        if (app->gb.sgb)
+            for (int i = 1; i < 4; i++) gb_set_pad_player(&app->gb, i, pads[i]);
+        gb_run_frame(&app->gb);
+    }
     tiles_scan(&app->tiles, &app->gb);
 
     /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
     if (app->gb.sram_dirty && app->frame % 300 == 0 && gb_has_battery(&app->gb))
         save_game(&app->gb, app->save_path);
+    if (app->linked && app->gb2.sram_dirty && app->frame % 300 == 0 && gb_has_battery(&app->gb2))
+        save_game(&app->gb2, app->save_path2);
 
     static float samples[4096 * 2];
     int n = gb_audio_pull(&app->gb, samples, 4096);
@@ -1026,6 +1134,7 @@ static void update_title(App *app)
     if (app->notice[0] && SDL_TICKS_PASSED(SDL_GetTicks(), app->notice_until)) app->notice[0] = 0;
     if (app->notice[0]) detail = app->notice;
     else if (app->paused) detail = tr(T_TITLE_PAUSED);
+    else if (app->linked) detail = tr(T_TITLE_LINKED);
     else if (music_active(&app->music)) detail = tr(T_TITLE_RECORDING);
     else if (app->tiles.active) {
         snprintf(collecting, sizeof collecting, tr(T_TITLE_COLLECTING_FMT), app->tiles.count);
@@ -1039,23 +1148,38 @@ static void update_title(App *app)
     }
 }
 
-/* Convierte la imagen de la consola a ARGB */
-static void compose(const App *app, Uint32 *dst, int gw, int gh)
+/* Convierte la imagen de una consola a ARGB, de gw×gh, en dst con `stride`
+ * píxeles por renglón */
+static void compose_gb(const App *app, const GB *g, Uint32 *dst, int stride, int gw, int gh)
 {
-    const GB *g = &app->gb;
     if (g->sgb) {
         const u16 *fb = gb_sgb_screen(g);
         /* Sin borde: solo el juego, que está en (48,40) */
         int x0 = gw == SGB_SCREEN_W ? 0 : 48, y0 = gh == SGB_SCREEN_H ? 0 : 40;
         for (int y = 0; y < gh; y++)
             for (int x = 0; x < gw; x++)
-                dst[y * gw + x] = rgb555_to_argb(fb[(y0 + y) * SGB_SCREEN_W + x0 + x]);
+                dst[y * stride + x] = rgb555_to_argb(fb[(y0 + y) * SGB_SCREEN_W + x0 + x]);
         return;
     }
     const u16 *fb = gb_framebuffer(g);
     const Uint32 *shades = dmg_palettes[app->cfg.dmg_palette];
-    for (int i = 0; i < gw * gh; i++)
-        dst[i] = g->cgb_hw ? rgb555_to_argb(fb[i]) : shades[fb[i] & 3];
+    for (int y = 0; y < gh; y++)
+        for (int x = 0; x < gw; x++) {
+            u16 v = fb[y * GB_SCREEN_W + x];
+            dst[y * stride + x] = g->cgb_hw ? rgb555_to_argb(v) : shades[v & 3];
+        }
+}
+
+static void compose(const App *app, Uint32 *dst, int gw, int gh)
+{
+    if (!app->linked) {
+        compose_gb(app, &app->gb, dst, gw, gw, gh);
+        return;
+    }
+    /* Jugador 1 a la izquierda, jugador 2 a la derecha, con una franja gris */
+    for (int i = 0; i < gw * gh; i++) dst[i] = 0xFF404040;
+    compose_gb(app, &app->gb, dst, gw, GB_SCREEN_W, GB_SCREEN_H);
+    compose_gb(app, &app->gb2, dst + GB_SCREEN_W + LINK_GAP, gw, GB_SCREEN_W, GB_SCREEN_H);
 }
 
 static void render(App *app)
@@ -1128,6 +1252,7 @@ int main(int argc, char *argv[])
     App *app = &app_storage;
     const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
     int scale_arg = 0, force = 0, forget = 0, shot_menu = -1, shot_action = 0, shot_export = 0;
+    int start_linked = 0;
     long shot_frames = 300;
     char msg[4096];
     app->forced_model = GB_MODEL_AUTO;
@@ -1142,6 +1267,7 @@ int main(int argc, char *argv[])
     char cache_path[1024];
     snprintf(cache_path, sizeof cache_path, "%srom.gb", app->pref);
     snprintf(app->save_path, sizeof app->save_path, "%s%s.sav", app->pref, recomp_name);
+    snprintf(app->save_path2, sizeof app->save_path2, "%s%s_jugador2.sav", app->pref, recomp_name);
     snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
     snprintf(app->export_dir, sizeof app->export_dir, "%sexportado%c", app->pref, app->pref[strlen(app->pref) - 1]);
     settings_load(&app->cfg, app->settings_path);
@@ -1151,6 +1277,7 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--interp")) app->interp_only = 1;
+        else if (!strcmp(argv[i], "--link")) start_linked = 1;
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--forget-rom")) forget = 1;
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
@@ -1233,6 +1360,9 @@ int main(int argc, char *argv[])
 
     app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0 };
     power_on(app);
+    /* Con --play, la grabación maneja al jugador 1 (para pruebas); grabar
+     * solo guarda al jugador 1, así que no se combina con el cable */
+    if (start_linked && !record_path) link_start(app);
     if (app->forced_palette && is_compat(&app->gb) && !gb_compat_palette(&app->gb, app->forced_palette))
         fail(tr(T_BAD_PALETTE));
 
@@ -1305,13 +1435,15 @@ int main(int argc, char *argv[])
     stop_tiles(app, 0);
     settings_save(&app->cfg, app->settings_path);
     if (app->record) fclose(app->record);
+    link_stop(app);         /* guarda la partida del jugador 2 */
     if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {
         snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);
     }
     if (app->uncovered_path) write_uncovered(app->uncovered_path);
     if (app->audio) SDL_CloseAudioDevice(app->audio);
-    if (app->pad) SDL_GameControllerClose(app->pad);
+    for (int i = 0; i < 4; i++)
+        if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
     SDL_DestroyRenderer(app->ren);
     SDL_DestroyWindow(app->win);

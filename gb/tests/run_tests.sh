@@ -65,6 +65,20 @@ for rom in "$T"/mooneye-test-suite/acceptance/boot_regs-sgb.gb "$T"/mooneye-test
     corre "$rom" --mooneye --model sgb --seconds 5
 done
 
+# --- Super Game Boy multijugador: los controles 2-4 (no es una ROM de prueba:
+#     build/sgb_controles lee P1 como un juego) ---
+SGBC=build/sgb_controles
+[ -x build/sgb_controles.exe ] && SGBC=build/sgb_controles.exe
+if [ -z "$FILTRO" ] || case "sgb_controles" in *"$FILTRO"*) true ;; *) false ;; esac; then
+    if "$SGBC" "$T/same-suite/sgb/command_mlt_req.gb" > /tmp/gbtest.out 2>&1; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  sgb_controles: $(grep MAL /tmp/gbtest.out | head -1)"
+    fi
+fi
+
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 

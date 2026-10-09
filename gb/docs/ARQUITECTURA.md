@@ -589,6 +589,13 @@ En modo CGB el runtime tiene:
   otro lado se adelanta hasta ese instante antes del intercambio. `linktest`
   corre dos así, sin ventana, cada una con su guion de entradas. El cable por
   red podrá ser otra implementación de `link_xfer`.
+  El ejecutable del juego también tiene el cable (menú Juego o `--link`):
+  un segundo `GB` con la misma ROM y el mismo código recompilado (las
+  funciones generadas solo usan el `GB` que reciben), con su propia partida.
+- **Super Game Boy multijugador:** con MLT_REQ, cada subida de P15 pasa al
+  siguiente control; los controles 2-4 devuelven `g->pad_sgb`
+  (`gb_set_pad_player`). `tests/sgb_controles.c` lo comprueba leyendo P1 como
+  un juego.
 - **Doble velocidad:** KEY1 + STOP. Hay dos relojes: `g->hw_cyc` en ciclos del
   CPU (timer, serial, DMA de OAM) y `g->rt` en tiempo real (PPU y APU). En doble
   velocidad cada M-ciclo del CPU dura 2 puntos en lugar de 4, y el secuenciador

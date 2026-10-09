@@ -53,6 +53,8 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "  Start: Enter         Select: Shift derecho\n"
         "Control: cruceta, A/B en la posición de\n"
         "  Nintendo, Start y Back/Select.\n"
+        "Jugador 2: WASD, A: G, B: F, Start: E,\n"
+        "  Select: Q, o el segundo control.\n"
         "\n"
         "Alt o F10: menús       P: pausa\n"
         "Ctrl+R: reiniciar      F11: pantalla completa\n"
@@ -66,6 +68,8 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "  Start: Enter         Select: right Shift\n"
         "Controller: D-pad, A/B in the Nintendo\n"
         "  layout, Start and Back/Select.\n"
+        "Player 2: WASD, A: G, B: F, Start: E,\n"
+        "  Select: Q, or the second controller.\n"
         "\n"
         "Alt or F10: menus      P: pause\n"
         "Ctrl+R: reset          F11: full screen\n"
@@ -170,6 +174,10 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_MODEL_SGB]    = { "Super Game Boy", "Super Game Boy" },
 
     [T_TITLE_PAUSED]     = { "Pausa", "Paused" },
+    [T_LINK]             = { "Cable link (2 jugadores)", "Link cable (2 players)" },
+    [T_TITLE_LINKED]     = { "Cable link", "Link cable" },
+    [T_TITLE_LINK_ON]    = { "Cable conectado: el jugador 2 usa WASD", "Cable connected: player 2 uses WASD" },
+    [T_TITLE_LINK_OFF]   = { "Cable desconectado", "Cable disconnected" },
     [T_TITLE_SAVED_FMT]  = { "Estado guardado en la ranura %d", "State saved to slot %d" },
     [T_TITLE_LOADED_FMT] = { "Estado de la ranura %d cargado", "State loaded from slot %d" },
     [T_TITLE_RECORDING]  = { "Grabando música", "Recording music" },

@@ -302,6 +302,7 @@ struct GB {
     Dma dma;
     Serial serial;
     u8 pad;             /* botones presionados (PAD_*) */
+    u8 pad_sgb[3];      /* controles 2-4 del Super Game Boy (multijugador) */
     u8 p1_lines;        /* líneas de entrada de P1 en el último cálculo */
 
     /* Opciones */
@@ -415,6 +416,11 @@ const u16 *gb_sgb_screen(const GB *g);
 
 /* Cambia los botones presionados (puede disparar la interrupción de joypad) */
 void gb_set_pad(GB *g, u8 pad);
+/* Botones del control `player` (0-3). Los controles 2-4 solo existen en el
+ * Super Game Boy, cuando el juego pide varios jugadores (MLT_REQ). */
+void gb_set_pad_player(GB *g, int player, u8 pad);
+/* Cuántos controles está leyendo el juego: 1, o 2 o 4 en el Super Game Boy */
+int gb_players(const GB *g);
 
 /* Saca hasta max pares estéreo de la cola de audio. */
 int gb_audio_pull(GB *g, float *out, int max);

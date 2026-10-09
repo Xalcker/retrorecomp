@@ -18,7 +18,7 @@ RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test dist
-all: $(BUILD)/libgbrt.a gbtest$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -67,8 +67,12 @@ dist: gbrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist gbrecomp-$(VERSION)
 	@echo "Listo: $(DIST).tar.gz"
 
-test: gbtest$(EXE)
+test: gbtest$(EXE) $(BUILD)/sgb_controles$(EXE)
 	sh tests/run_tests.sh
+
+# Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.sh)
+$(BUILD)/sgb_controles$(EXE): tests/sgb_controles.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -o $@ tests/sgb_controles.c $(BUILD)/libgbrt.a
 
 # (en Windows build/ ya existe por la carpeta temporal: build/gen va aparte)
 $(BUILD) $(BUILD)/gen:

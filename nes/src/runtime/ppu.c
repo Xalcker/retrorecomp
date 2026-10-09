@@ -110,6 +110,7 @@ void ppu_sync(NES *n, u64 target)
                     /* con el MMC3, una subida de A12 que cuenta no puede quedar dentro de una baldosa: solo si A12
                      * ya está alto o el fondo usa la tabla $0000 (no hay subida) */
                     if (d >= 1 && d <= 249 && ((d - 1) & 7) == 0 && left >= 8 &&
+                        (!p->ovf_dot || p->ovf_dot < d || p->ovf_dot >= d + 8) &&
                         (!mmc3 || n->cart.reg[13] || !(p->ctrl & 0x10)) && (!n->cart.mmc5 || d > 8)) {
                         if (p->spr_count == 0 && (p->mask & 8) && (d > 8 || (p->mask & 2))) ppu_tile_bg(n);
                         else ppu_tile(n);
@@ -326,28 +327,80 @@ static u8 rev8(u8 b)
 static void eval_sprites(NES *n, int line)
 {
     Ppu *p = &n->ppu;
-    int h = (p->ctrl & 0x20) ? 16 : 8, cnt = 0;
-    p->spr0_possible = 0;
+    const int h = (p->ctrl & 0x20) ? 16 : 8;
+    const u8 *oam = p->oam;
+    u8 *sec = p->sec;
+    memset(sec, 0xFF, 32);                      /* puntos 1-64: la OAM secundaria se llena de $FF */
+
+    /* Puntos 65-256, tal como lo hace el hardware (con el defecto de la comprobación de desbordamiento): en los
+     * puntos impares se lee un byte de la OAM; en los pares se copia a la secundaria o, si ya hay ocho
+     * sprites, se busca el desbordamiento incrementando a la vez el número de sprite y el de byte. */
+    int H = (p->oam_snap >> 2) & 0x3F, L = p->oam_snap & 3;       /* el OAMADDR se parte en sprite y byte */
+    int sec_addr = 0, in_range = 0, done = 0, bug = 0, sprite0 = 0;
+    u8 buf = 0xFF;
+    for (int cyc = 65; cyc <= 256; cyc++) {
+        if (cyc & 1) { buf = oam[(L & 3) | (H << 2)]; continue; }
+        if (done) {
+            H = (H + 1) & 0x3F;
+            if (sec_addr >= 0x20) buf = sec[sec_addr & 0x1F];
+            continue;
+        }
+        if (!in_range && line >= buf && line < buf + h) in_range = 1;
+        if (sec_addr < 0x20) {
+            sec[sec_addr] = buf;
+            if (in_range) {
+                L++; sec_addr++;
+                if (H == 0) sprite0 = 1;
+                if ((sec_addr & 3) == 0) {              /* los cuatro bytes del sprite ya están copiados */
+                    in_range = 0; L = 0;
+                    H = (H + 1) & 0x3F;
+                    if (H == 0) done = 1;
+                }
+            } else {
+                H = (H + 1) & 0x3F;
+                if (H == 0) done = 1;
+            }
+        } else {
+            buf = sec[sec_addr & 0x1F];
+            if (in_range) {                             /* un noveno sprite en la línea: desbordamiento */
+                if (!p->ovf_dot) p->ovf_dot = (u16)cyc;       /* el flag sube en este punto de la línea */
+                L++;
+                if (L == 4) { H = (H + 1) & 0x3F; L = 0; }
+                if (bug == 0) bug = 3;
+                else if (--bug == 0) { done = 1; L = 0; }
+            } else {                                    /* el defecto: suben a la vez H y L */
+                H = (H + 1) & 0x3F;
+                L = (L + 1) & 3;
+                if (H == 0) done = 1;
+            }
+        }
+    }
+
+    p->sec_count = sec_addr >> 2;
+    p->sec_sprite0 = sprite0;
+}
+
+/* Puntos 257-320: busca los patrones de los sprites de la OAM secundaria */
+static void load_sprites(NES *n, int line)
+{
+    Ppu *p = &n->ppu;
+    const int cnt = p->sec_count, h = (p->ctrl & 0x20) ? 16 : 8;
+    const u8 *sec = p->sec;
+    p->spr0_possible = p->sec_sprite0;
     for (int i = 0; i < 8; i++) p->spr_a12[i] = (h == 8) ? (p->ctrl >> 3) & 1 : 1;
-    for (int i = 0; i < 64; i++) {
-        int diff = line - p->oam[i * 4];
-        if (diff < 0 || diff >= h) continue;
-        if (cnt == 8) { p->status |= 0x20; break; }
-        u8 tile = p->oam[i * 4 + 1], attr = p->oam[i * 4 + 2];
+    for (int i = 0; i < cnt; i++) {
+        int y = sec[i * 4], diff = line - y;
+        u8 tile = sec[i * 4 + 1], attr = sec[i * 4 + 2];
         int row = (attr & 0x80) ? h - 1 - diff : diff;
         u16 addr;
-        if (h == 8) addr = ((p->ctrl & 8) << 9) | (tile << 4) | row;
-        else {
-            addr = ((tile & 1) << 12) | ((tile & 0xFE) << 4) | ((row & 8) << 1) | (row & 7);
-        }
+        if (h == 8) addr = ((p->ctrl & 8) << 9) | (tile << 4) | (row & 7);
+        else addr = ((tile & 1) << 12) | ((tile & 0xFE) << 4) | ((row & 8) << 1) | (row & 7);
         u8 lo = vrd_s(n, addr), hi = vrd_s(n, addr + 8);
         if (attr & 0x40) { lo = rev8(lo); hi = rev8(hi); }
-        p->spr[cnt].x = p->oam[i * 4 + 3];
-        p->spr[cnt].attr = attr;
-        p->spr[cnt].lo = lo; p->spr[cnt].hi = hi;
-        if (h == 16) p->spr_a12[cnt] = tile & 1;
-        if (i == 0) p->spr0_possible = 1;
-        cnt++;
+        p->spr[i].x = sec[i * 4 + 3];
+        p->spr[i].attr = attr;
+        p->spr[i].lo = lo; p->spr[i].hi = hi;
+        if (h == 16) p->spr_a12[i] = tile & 1;
     }
     p->spr_count = cnt;
 }
@@ -429,6 +482,7 @@ static void ppu_tile_bg(NES *n)
 {
     Ppu *p = &n->ppu;
     const int c = p->dot, y = p->scanline;
+    if (c == 65) { p->oam_snap = p->oam_addr; eval_sprites(n, p->scanline); }
     const u8 mask = p->mask;
     u32 lo = p->bg_lo, hi = p->bg_hi, alo = p->at_lo, ahi = p->at_hi;
     if (c >= 2) { lo = (lo << 1) & 0xFFFF; hi = (hi << 1) & 0xFFFF; alo = (alo << 1) & 0xFFFF; ahi = (ahi << 1) & 0xFFFF; }
@@ -477,6 +531,7 @@ static void ppu_tile(NES *n)
 {
     Ppu *p = &n->ppu;
     const int sl = p->scanline, c = p->dot;
+    if (c == 65) { p->oam_snap = p->oam_addr; eval_sprites(n, p->scanline); }
     const u8 mask = p->mask;
     const u64 clock0 = p->clock;
     const int pbit = (p->ctrl >> 4) & 1;
@@ -520,6 +575,8 @@ void ppu_tick(NES *n)
 
     if (sl < 240 || sl == 261) {
         int pre = (sl == 261);
+        if (cy == 65 && rend) { p->oam_snap = p->oam_addr; if (!pre) eval_sprites(n, sl); }
+        if (p->ovf_dot && cy == p->ovf_dot) { p->status |= 0x20; p->ovf_dot = 0; }
         if (pre && cy == 1) {
             p->status &= ~0xE0;
             p->spr_count = 0; p->spr0_possible = 0;
@@ -556,8 +613,10 @@ void ppu_tick(NES *n)
             if (cy == 257) {
                 load_bg(p);
                 p->v = (p->v & ~0x041F) | (p->t & 0x041F);
-                if (!pre) eval_sprites(n, sl);
+                if (!pre) load_sprites(n, sl);
                 else { p->spr_count = 0; p->spr0_possible = 0; }
+                p->ovf_dot = 0;
+                p->oam_addr = 0;                     /* puntos 257-320: la OAM se lee desde 0 */
             }
             if (cy == 338 || cy == 340) p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF));
             if (pre && cy >= 280 && cy < 305) p->v = (p->v & ~0x7BE0) | (p->t & 0x7BE0);

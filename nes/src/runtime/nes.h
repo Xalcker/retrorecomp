@@ -92,6 +92,10 @@ typedef struct {
     SprSlot spr[8];
     int  spr_count, spr0_possible;
     u8   suppress_vbl;          /* lectura de $2002 justo antes de que salga el vblank */
+    u8   sec[32];               /* OAM secundaria de la línea */
+    int  sec_count, sec_sprite0;
+    u16  ovf_dot;               /* punto de la línea en que se levantará el desbordamiento de sprites (0: ninguno) */
+    u8   oam_snap;              /* OAMADDR en el punto 65 de la línea (donde empieza la evaluación de sprites) */
     u8   spr_a12[8];            /* A12 de la búsqueda de cada ranura de sprite */
     u64  clock;                 /* puntos de reloj de la PPU ya ejecutados (puede ir detrás de 3 × ciclos de CPU) */
     u64  event_dot;             /* cuenta de puntos en que algo visible desde fuera (vblank, fin del cuadro) puede pasar */

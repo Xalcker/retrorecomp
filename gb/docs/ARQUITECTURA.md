@@ -284,7 +284,10 @@ particular:
    juegos). Una rutina que, sin ramificarse, saca de la pila su propia
    dirección de retorno (`pop` antes de cualquier `push`) y termina en
    `jp hl` es un despachador. En cada llamada a ella, los bytes siguientes se
-   leen como tabla de punteros a código, no como instrucciones.
+   leen como tabla de punteros a código, no como instrucciones. Puede llamar
+   a una rutina auxiliar del banco 0 que solo hace cuentas (sin tocar la pila
+   ni saltar, terminada en `ret`), como el `rst $00` de Street Fighter Alpha,
+   que suma el índice a HL con `rst $18`.
 2. **Tabla fuera de línea**: `ld hl, Tabla` seguido, a lo más 8 instrucciones
    después, de `jp hl` (normalmente con una llamada intermedia que lee la
    entrada).

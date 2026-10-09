@@ -207,6 +207,38 @@ static int fetch_insn(u32 bank, u16 addr, u8 bytes[3], Insn *in)
  * cualquier push) y termina en `jp hl`. Quien la llama pone la tabla de
  * punteros justo después de la instrucción de llamada.
  */
+/* ¿Toca la pila o el SP? (push, pop, ld sp, inc/dec sp, add sp, ld [nn], sp) */
+static int touches_stack(u8 op)
+{
+    switch (op) {
+    case 0xC1: case 0xD1: case 0xE1: case 0xF1: case 0xC5: case 0xD5: case 0xE5: case 0xF5:
+    case 0x31: case 0x33: case 0x3B: case 0xE8: case 0xF9: case 0x08:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* Rutina auxiliar del banco 0 que solo hace cuentas y regresa: pocas
+ * instrucciones, sin tocar la pila ni saltar, terminada en `ret` (puede
+ * tener `ret` condicionales antes). Como el `rst $18` de Street Fighter
+ * Alpha (HL += A: add a, l / ld l, a / ret nc / inc h / ret) */
+static int is_simple_helper(u16 addr)
+{
+    for (int i = 0; i < 8 && addr < 0x4000; i++) {
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(0, addr, b, &in)) return 0;
+        if (in.kind == INS_RET) {
+            if (!in.cond) return 1;
+        } else if (in.kind != INS_NORMAL || touches_stack(b[0])) {
+            return 0;
+        }
+        addr = (u16)(addr + in.len);
+    }
+    return 0;
+}
+
 static int is_table_dispatcher(u32 bank, u16 addr)
 {
     int popped = 0;
@@ -219,6 +251,13 @@ static int is_table_dispatcher(u32 bank, u16 addr)
         if (op == 0xC1 || op == 0xD1 || op == 0xE1) popped = 1;
         if ((op == 0xC5 || op == 0xD5 || op == 0xE5 || op == 0xF5) && !popped) return 0;
         if (in.kind == INS_JP_HL) return popped;
+        /* Una llamada a una rutina auxiliar que solo hace cuentas (sumar el
+         * índice a HL) no cambia nada: se sigue después de la llamada */
+        if ((in.kind == INS_CALL || in.kind == INS_RST) && !in.cond && in.target < 0x4000 &&
+            is_simple_helper(in.target)) {
+            addr = (u16)(addr + in.len);
+            continue;
+        }
         if (in.kind != INS_NORMAL) return 0;
         addr = (u16)(addr + in.len);
     }

@@ -99,8 +99,8 @@ static void half(Apu *a)
 static void dmc_fetch(NES *n)
 {
     Dmc *d = &n->apu.d;
-    if (!d->buf_empty || !d->remaining || n->stall) return;
-    n->stall = 1;
+    if (!d->buf_empty || !d->remaining || (n->stall & 1)) return;
+    n->stall |= 1;
 }
 
 u16 apu_dmc_addr(const NES *n) { return n->apu.d.cur; }

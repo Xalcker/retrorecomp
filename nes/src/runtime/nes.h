@@ -142,7 +142,8 @@ typedef struct NES {
     int  run_irq, prev_run_irq;               /* IRQ visto en el penúltimo ciclo */
     int  irq_seen;              /* irq_line un ciclo antes (el IRQ llega al CPU con un ciclo de retraso) */
     int  irq_line;              /* bit 0 = mapper, 1 = APU (frame), 2 = DMC */
-    int  stall;                 /* 1: el DMC pidió un byte (DMA) y el CPU lo cumplirá en su próxima lectura */
+    int  stall;                 /* DMA pendiente: bit 0 = el DMC pidió un byte, bit 1 = escritura a $4014 (OAM DMA, página en oam_page); el CPU los cumple en su próxima lectura */
+    u8   oam_page;
     u8   bus;                   /* último valor en el bus de datos del CPU (lo que leen las direcciones sin nada) */
     u64  cyc_recomp;            /* ciclos ejecutados por código recompilado (estadística) */
     u32 *trace;                 /* NULL, o por cada byte de PRG: 0 = no ejecutado, 0x10000|dirección */

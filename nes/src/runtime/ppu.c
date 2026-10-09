@@ -243,6 +243,8 @@ u8 ppu_reg_read(NES *n, u16 addr)
     case 7:
         if ((p->v & 0x3FFF) >= 0x3F00) {
             r = vrd(n, p->v);
+            if (p->mask & 1) r &= 0x30;                    /* escala de grises: solo los dos bits altos del color */
+            r = (r & 0x3F) | (p->latch & 0xC0);            /* la paleta tiene 6 bits: los otros dos son el bus abierto de la PPU */
             p->read_buf = vrd(n, p->v - 0x1000);
         } else {
             r = p->read_buf;

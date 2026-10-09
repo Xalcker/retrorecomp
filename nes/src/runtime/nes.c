@@ -98,21 +98,51 @@ static void dma_dummy(NES *n, u16 a, int do_read)
 
 static void dma_run(NES *n, u16 a)
 {
+    int dmc = n->stall & 1, spr = (n->stall & 2) != 0;
+    u8 page = n->oam_page;
     n->stall = 0;
+    int was_eager = n->ppu_eager;
+    n->ppu_eager = 1;                                    /* la OAM se llena mientras la PPU sigue */
     int ctrl = (a == 0x4016 || a == 0x4017);
     dma_dummy(n, a, 1);                                  /* ciclo de parada */
-    int need_dummy = 1;
-    for (;;) {
+    int need_dummy = dmc, spr_i = 0, spr_val = 0, have = 0;
+    while (dmc || spr) {
+        if (n->stall & 1) { dmc = 1; need_dummy = 1; n->stall &= ~1; }       /* el DMC pide un byte en medio del OAM DMA */
+        if (n->stall & 2) { n->stall &= ~2; page = n->oam_page; }               /* otra escritura a $4014: cambia la página */
         int get = ((n->cyc & 1) == DMA_GET_PARITY);
-        if (get && !need_dummy) break;
-        dma_dummy(n, a, !ctrl);                          /* ciclo "dummy" y, si hace falta, de alineación */
-        need_dummy = 0;
+        if (get) {
+            if (dmc && !need_dummy) {                    /* ciclo "get": el byte del DMC */
+                cycle_begin(n, 0);
+                u8 v = nes_read(n, apu_dmc_addr(n));
+                n->bus = v;
+                cycle_end(n, 0);
+                apu_dmc_dma_done(n, v);
+                dmc = 0;
+            } else if (spr) {                            /* ciclo "get": lee un byte para la OAM */
+                cycle_begin(n, 0);
+                spr_val = nes_read(n, (u16)((page << 8) | spr_i));
+                n->bus = (u8)spr_val;
+                cycle_end(n, 0);
+                have = 1;
+            } else {
+                dma_dummy(n, a, !ctrl);
+                need_dummy = 0;
+            }
+        } else {
+            if (spr && have && (!dmc || need_dummy)) {   /* ciclo "put": escribe en la OAM */
+                cycle_begin(n, 1);
+                n->ppu.oam[(u8)(n->ppu.oam_addr + spr_i)] = (u8)spr_val;
+                cycle_end(n, 1);
+                have = 0;
+                if (++spr_i == 256) spr = 0;
+                need_dummy = 0;
+            } else {
+                dma_dummy(n, a, !ctrl);                  /* alineación o ciclo "dummy" del DMC */
+                need_dummy = 0;
+            }
+        }
     }
-    cycle_begin(n, 0);
-    u8 v = nes_read(n, apu_dmc_addr(n));
-    n->bus = v;
-    cycle_end(n, 0);
-    apu_dmc_dma_done(n, v);
+    n->ppu_eager = was_eager;
 }
 
 u8 nes_cpu_read(NES *n, u16 a)
@@ -212,17 +242,7 @@ void nes_write(NES *n, u16 a, u8 v)
 {
     if (a < 0x2000) n->ram[a & 0x7FF] = v;
     else if (a < 0x4000) ppu_reg_write(n, a, v);
-    else if (a == 0x4014) {                      /* OAM DMA: 513 o 514 ciclos */
-        int was_eager = n->ppu_eager;
-        n->ppu_eager = 1;                                /* la OAM se llena mientras la PPU sigue */
-        cycle_begin(n, 0); cycle_end(n, 0);              /* ciclo de espera */
-        if (n->cyc & 1) { cycle_begin(n, 0); cycle_end(n, 0); }   /* alineación */
-        for (int i = 0; i < 256; i++) {
-            cycle_begin(n, 0); u8 b = nes_read(n, (u16)((v << 8) | i)); n->bus = b; cycle_end(n, 0);
-            cycle_begin(n, 1); n->ppu.oam[(u8)(n->ppu.oam_addr + i)] = b; cycle_end(n, 1);
-        }
-        n->ppu_eager = was_eager;
-    }
+    else if (a == 0x4014) { n->oam_page = v; n->stall |= 2; }   /* OAM DMA: se cumple en la próxima lectura del CPU */
     else if (a == 0x4016) {
         n->pad_strobe = v & 1;
         if (n->pad_strobe) { n->pad_shift[0] = n->pad[0]; n->pad_shift[1] = n->pad[1]; }

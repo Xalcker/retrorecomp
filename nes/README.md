@@ -55,9 +55,10 @@ ni un byte de imagen o audio.
 
 ### Conocido
 
-- AccuracyCoin (`testroms/accuracycoin`) arranca y corre pruebas de CPU, APU y PPU hasta cerca de la 154, donde la pantalla se
-  llena de basura y no llega a mostrar la tabla de resultados. Corresponde a las páginas de evaluación de sprites y PPU
-  (OAM, `$2004`, `$2007` con el dibujo activo), que dependen de comportamientos internos no imitados. Sin analizar.
+- AccuracyCoin (`testroms/accuracycoin`, marcador con `tests/accuracycoin.py`): 111 de 146 pruebas pasan. Faltan, sobre todo, el
+  comportamiento por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, registros de desplazamiento "viejos",
+  activar o desactivar el dibujo en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y varios
+  detalles del bus abierto de la PPU y del APU. `RMW2007`, `CPUInstr` y `Unimplemented` no llegan a ejecutarse.
 
 - `mmc3_test_2/4-scanline_timing` falla en la subprueba 12; `cpu_interrupts_v2/4-irq_and_dma` (IRQ alrededor del DMA
   de OAM y del DMC); DMA del DMC sin los ciclos exactos; `6-MMC3_alt` (otra revisión del chip).

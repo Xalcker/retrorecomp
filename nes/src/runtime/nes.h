@@ -175,6 +175,7 @@ typedef struct NES {
     u8   zapper_on;             /* 1: Zapper en el puerto 2 ($4017) en lugar de un control */
     int  zap_x, zap_y;          /* posición de la mira en la imagen (fuera de 0-255 / 0-239: apunta fuera de la pantalla) */
     u8   zap_trigger;           /* gatillo apretado */
+    u8   zap_radius;            /* radio de visión del cañón en pixeles (0 = 4) */
     int  pad_strobe;
     int  ppu_eager;             /* 1: la PPU avanza en cada ciclo (MMC3, DMA de OAM); 0: solo cuando hace falta */
 } NES;

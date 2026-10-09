@@ -335,34 +335,46 @@ static void eval_sprites(NES *n, int line)
     /* Puntos 65-256, tal como lo hace el hardware (con el defecto de la comprobación de desbordamiento): en los
      * puntos impares se lee un byte de la OAM; en los pares se copia a la secundaria o, si ya hay ocho
      * sprites, se busca el desbordamiento incrementando a la vez el número de sprite y el de byte. */
-    int H = (p->oam_snap >> 2) & 0x3F, L = p->oam_snap & 3;       /* el OAMADDR se parte en sprite y byte */
-    int sec_addr = 0, in_range = 0, done = 0, bug = 0, sprite0 = 0;
+    /* La dirección de OAM es un contador de 8 bits. Con la OAM alineada todo esto equivale a "cuatro bytes por
+     * sprite"; desalineada (OAMADDR no múltiplo de 4) se nota: el sprite se lee con la dirección sumando 1 por
+     * byte (queda desalineado), un Y fuera de rango suma 4 y borra los dos bits bajos, y la comprobación de
+     * rango se repite con el byte X (si no está en rango, suma 1 y borra los dos bits bajos). */
+    int a = p->oam_snap, idx = 0, sec_addr = 0, done = 0, bug = 0, sprite0 = 0, ov_range = 0;
     u8 buf = 0xFF;
+    #define IN_RANGE(v) (line >= (v) && line < (v) + h)
     for (int cyc = 65; cyc <= 256; cyc++) {
-        if (cyc & 1) { buf = oam[(L & 3) | (H << 2)]; continue; }
-        if (done) {
-            H = (H + 1) & 0x3F;
-            if (sec_addr >= 0x20) buf = sec[sec_addr & 0x1F];
+        if (cyc & 1) {                                  /* lectura de la OAM; el byte de atributos no guarda los bits 2-4 */
+            buf = oam[a & 0xFF];
+            if ((a & 3) == 2) buf &= 0xE3;
             continue;
         }
-        if (!in_range && line >= buf && line < buf + h) in_range = 1;
+        if (done) { a = (a + 4) & 0xFF; if (sec_addr >= 0x20) buf = sec[sec_addr & 0x1F]; continue; }
         if (sec_addr < 0x20) {
             sec[sec_addr] = buf;
-            if (in_range) {
-                L++; sec_addr++;
-                if (H == 0) sprite0 = 1;
-                if ((sec_addr & 3) == 0) {              /* los cuatro bytes del sprite ya están copiados */
-                    in_range = 0; L = 0;
-                    H = (H + 1) & 0x3F;
-                    if (H == 0) done = 1;
+            if (idx == 0) {
+                if (IN_RANGE(buf)) {
+                    sec_addr++; a = (a + 1) & 0xFF; idx = 1;
+                    if (cyc == 66) sprite0 = 1;         /* el primer sprite procesado hace de "sprite 0" */
+                } else {
+                    int na = (a & 0xFC) + 4;
+                    if (na > 255) { done = 1; na &= 0xFF; }
+                    a = na;
                 }
             } else {
-                H = (H + 1) & 0x3F;
-                if (H == 0) done = 1;
+                sec_addr++;
+                if (idx < 3) { a = (a + 1) & 0xFF; idx++; }
+                else {                                  /* byte X: se vuelve a comprobar el rango */
+                    int na = a + 1;
+                    if (!IN_RANGE(buf)) na &= 0xFC;
+                    if (na > 255) { done = 1; na &= 0xFF; }
+                    a = na; idx = 0;
+                }
             }
-        } else {
+        } else {                                        /* ocho sprites ya: se busca el desbordamiento (con el defecto) */
+            int H = a >> 2, L = a & 3;
             buf = sec[sec_addr & 0x1F];
-            if (in_range) {                             /* un noveno sprite en la línea: desbordamiento */
+            if (!ov_range && IN_RANGE(oam[a & 0xFF])) ov_range = 1;
+            if (ov_range) {
                 if (!p->ovf_dot) p->ovf_dot = (u16)cyc;       /* el flag sube en este punto de la línea */
                 L++;
                 if (L == 4) { H = (H + 1) & 0x3F; L = 0; }
@@ -373,8 +385,10 @@ static void eval_sprites(NES *n, int line)
                 L = (L + 1) & 3;
                 if (H == 0) done = 1;
             }
+            a = (L & 3) | (H << 2);
         }
     }
+    #undef IN_RANGE
 
     p->sec_count = sec_addr >> 2;
     p->sec_sprite0 = sprite0;

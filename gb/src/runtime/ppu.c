@@ -733,7 +733,12 @@ u64 ppu_next_event(GB *g)
         /* Interrupción de HBlank: el modo 3 no puede terminar antes de que
          * salgan los píxeles que faltan */
         if (p->rendering) return p->cyc + (u64)(GB_SCREEN_W - p->lcd_x) + 1;
-        if (p->dot < 89) return p->cyc + (89 - p->dot);
+        /* El modo 3 empieza a dibujar al procesar el punto 89 (p->dot es el
+         * siguiente punto): hay que volver a mirar después de ese punto. Si
+         * se mira con p->dot == 89, todavía no está dibujando y caería al fin
+         * de la línea, y la interrupción de HBlank llegaría tarde (Warlocked
+         * se quedaba en blanco al correr cuadros enteros, #24) */
+        if (p->dot <= 89) return p->cyc + (89 - p->dot) + 1;
         if (p->hblank_irq_dot) return p->cyc + 1;
     }
     return p->cyc + (p->line_len - p->dot);

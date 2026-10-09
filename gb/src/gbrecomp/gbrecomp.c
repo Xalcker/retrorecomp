@@ -23,7 +23,11 @@
  * Descubrir de más no rompe nada: el código que nunca se ejecuta solo ocupa
  * espacio. Descubrir de menos tampoco: lo que falte lo ejecuta el intérprete.
  */
+#ifndef _WIN32
+#define _DEFAULT_SOURCE     /* opendir/readdir con -std=c99 (glibc) */
+#endif
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -1397,8 +1401,28 @@ static void emit_function(FILE *f, const Func *fn)
     fprintf(f, "}\n\n");
 }
 
+/* Borra los gen/bank*.c de una generación anterior: si ahora hay menos
+ * código, un archivo viejo que ya no se escribe se compilaría también y
+ * repetiría funciones */
+static void remove_old_code(const char *dir)
+{
+    char path[1100];
+    snprintf(path, sizeof path, "%s/gen", dir);
+    DIR *d = opendir(path);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        size_t n = strlen(e->d_name);
+        if (strncmp(e->d_name, "bank", 4) != 0 || n < 3 || strcmp(e->d_name + n - 2, ".c") != 0) continue;
+        snprintf(path, sizeof path, "%s/gen/%s", dir, e->d_name);
+        remove(path);
+    }
+    closedir(d);
+}
+
 static void emit_code(const char *dir)
 {
+    remove_old_code(dir);
     FILE *f = NULL;
     unsigned in_file = 0, file_no = 0;
     char name[64];

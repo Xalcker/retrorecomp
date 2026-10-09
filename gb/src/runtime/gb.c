@@ -347,6 +347,9 @@ static u64 next_hw_event(GB *g)
         x = g->hw_cyc + (g->double_speed ? d * 2 : d);
     }
     if (x < t) t = x;
+    /* Durante el DMA de OAM, en cada M-ciclo: el código recompilado tiene que
+     * notar cuándo empieza a copiar (ver dma_conflict en gb_check) */
+    if (g->dma.active && g->hw_cyc + 4 < t) t = g->hw_cyc + 4;
     if (g->serial.active) {
         /* Siguiente flanco del bit 8, más los bits que faltan */
         u32 first = 512 - (g->timer.sys & 511);
@@ -372,6 +375,9 @@ int gb_check(GB *g)
     hdma_wait(g);
     if (g->cyc >= g->stop_at) return 1;
     if (c->ime && PENDING(g)) return 1;
+    /* La instrucción choca con el DMA de OAM: el CPU no lee lo que hay en la
+     * ROM sino el byte que copia el DMA. Eso solo lo hace el intérprete */
+    if (dma_conflict(g, c->pc)) return 1;
     if (c->ei_pend) {
         c->ei_pend = 0;
         c->ime = 1;
@@ -759,7 +765,7 @@ void gb_run(GB *g, u64 until)
         }
 
         RecompFn fn = NULL;
-        if (g->recomp_lookup && !c->halt_bug)
+        if (g->recomp_lookup && !c->halt_bug && !dma_conflict(g, c->pc))
             fn = g->recomp_lookup(g, c->pc);
         if (fn) fn(g);
         else gb_interp_step(g);

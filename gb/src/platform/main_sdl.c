@@ -1448,6 +1448,11 @@ int main(int argc, char *argv[])
                                 GB_SCREEN_W * app->cfg.scale, GB_SCREEN_H * app->cfg.scale,
                                 SDL_WINDOW_RESIZABLE | (ui_shot_path ? SDL_WINDOW_HIDDEN : 0));
     if (!app->win) fail(SDL_GetError());
+    /* SDL2 empieza con la entrada de texto activa; el juego solo lee teclas.
+     * Apagarla evita que macOS conecte el método de entrada (InputMethodKit),
+     * que a veces deja "error messaging the mach port for
+     * IMKCFRunLoopWakeUpReliable" en la consola */
+    SDL_StopTextInput();
     app->ren = SDL_CreateRenderer(app->win, -1, ui_shot_path ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
     if (!app->ren) app->ren = SDL_CreateRenderer(app->win, -1, 0);
     if (!app->ren) fail(SDL_GetError());

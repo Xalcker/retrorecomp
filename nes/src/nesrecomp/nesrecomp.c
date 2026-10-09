@@ -66,6 +66,8 @@ static const char usage_text[] =
     "                     repetir; sin -o no genera el proyecto)\n"
     "  --viz              mapa del PRG en la terminal: una celda por 256 bytes, coloreada por cómo se\n"
     "                     descubrió (con --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
+    "  --html archivo     el descubrimiento como una página HTML sola: mapa del PRG, instrucciones por\n"
+    "                     celda y la cadena de \"por qué\" al hacer clic (con --coverage marca lo que falta)\n"
     "  --events archivo   cada instrucción descubierta con su origen (texto: desplazamiento, dirección,\n"
     "                     cómo se llegó, de dónde, origen, desensamblado)\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
@@ -1128,6 +1130,149 @@ static void viz_map(int color)
     printf("\n%u de %u celdas con código (%.1f%% del PRG en bytes)\n", code_cells, cells, 100.0 * stat_bytes / prg_size);
 }
 
+
+/* Visor en HTML: una página sola con los datos del descubrimiento (mapa del PRG, instrucciones por celda y la cadena "por qué") */
+static void json_str(FILE *f, const char *t)
+{
+    fputc('"', f);
+    for (; *t; t++) { if (*t == '"' || *t == '\\') fputc('\\', f); fputc(*t, f); }
+    fputc('"', f);
+}
+
+static const char html_head[] =     "<!doctype html>\n"
+    "<html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+    "<title>Descubrimiento NESRecomp</title>\n"
+    "<style>\n"
+    ":root{--bg:#fff;--fg:#1b1f24;--mut:#6a737d;--line:#d7dce1;--card:#f6f8fa;--c0:#1a9e3a;--c1:#0b8fb5;--c2:#c79a00;--c3:#c2188f;--miss:#d1242f;--sel:#0b5fff}\n"
+    "@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--line:#30363d;--card:#161b22;--c0:#3fb950;--c1:#39c5cf;--c2:#e3b341;--c3:#f778ba;--miss:#ff7b72;--sel:#58a6ff}}\n"
+    "*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}\n"
+    "header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline}\n"
+    "h1{font-size:16px;margin:0}.mut{color:var(--mut)}\n"
+    "main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px}\n"
+    "@media(max-width:900px){main{grid-template-columns:1fr}}\n"
+    ".card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0}\n"
+    ".legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px;font-size:13px}\n"
+    ".legend label{cursor:pointer;display:flex;gap:5px;align-items:center}\n"
+    ".sw{width:12px;height:12px;border-radius:3px;display:inline-block}\n"
+    "#map{display:block;width:100%;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;cursor:crosshair;background:var(--bg)}\n"
+    ".row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}\n"
+    "input[type=text]{font:13px ui-monospace,monospace;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:11em}\n"
+    "button{font:13px system-ui;padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);cursor:pointer}\n"
+    "button:hover{border-color:var(--sel)}\n"
+    "table{border-collapse:collapse;width:100%;font:12.5px ui-monospace,Menlo,monospace}\n"
+    "td{padding:1px 6px;white-space:nowrap}tr.ins:hover{background:var(--line);cursor:pointer}tr.sel{background:color-mix(in srgb,var(--sel) 22%,transparent)}\n"
+    ".list{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:6px;background:var(--bg)}\n"
+    ".chain li{margin:2px 0;font:12.5px ui-monospace,Menlo,monospace}.chain{padding-left:18px;margin:6px 0}\n"
+    ".tag{font:11px system-ui;padding:0 6px;border-radius:9px;border:1px solid var(--line);color:var(--mut)}\n"
+    "code{font:12.5px ui-monospace,monospace}\n"
+    "</style></head><body>\n"
+    "<header><h1>Descubrimiento de código: <span id=\"rom\"></span></h1><span class=\"mut\" id=\"stats\"></span></header>\n"
+    "<main>\n"
+    "<section class=\"card\">\n"
+    " <div class=\"legend\" id=\"legend\"></div>\n"
+    " <canvas id=\"map\"></canvas>\n"
+    " <div class=\"row\"><input id=\"goto\" type=\"text\" placeholder=\"PRG hex, p. ej. 1C2A\"><button id=\"go\">Ir</button><span class=\"mut\" id=\"hint\">Clic en una celda (256 bytes) para ver sus instrucciones.</span></div>\n"
+    "</section>\n"
+    "<section class=\"card\">\n"
+    " <div id=\"cellhead\" class=\"mut\">Sin selección</div>\n"
+    " <div class=\"list\"><table id=\"ins\"></table></div>\n"
+    " <h3 style=\"margin:14px 0 4px;font-size:14px\">¿Por qué es código?</h3>\n"
+    " <ol class=\"chain\" id=\"chain\"><li class=\"mut\">Elige una instrucción.</li></ol>\n"
+    "</section>\n"
+    "</main>\n"
+    "<script>\n"
+    "const D=";
+static const char html_tail[] =     ";\n"
+    "const ORG=D.orgs, HOW=D.hows, COL=['--c0','--c1','--c2','--c3'];\n"
+    "const I=D.ins; // [off, addr, how, parent(-1), origin, texto]\n"
+    "const byOff=new Map(); I.forEach((x,k)=>byOff.set(x[0],k));\n"
+    "const miss=new Set(D.missing);\n"
+    "const CELL=256, W=64, rows=Math.ceil(D.prg/(CELL*W));\n"
+    "const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();\n"
+    "const show=[true,true,true,true];\n"
+    "document.getElementById('rom').textContent=D.name;\n"
+    "document.getElementById('stats').textContent=`mapper ${D.mapper} · PRG ${D.prg/1024} KB · ${I.length} instrucciones · ${D.bytes} bytes (${(100*D.bytes/D.prg).toFixed(1)} %)`+(miss.size?` · ${miss.size} ejecutadas sin descubrir`:'');\n"
+    "const lg=document.getElementById('legend');\n"
+    "ORG.forEach((n,i)=>{const l=document.createElement('label');l.innerHTML=`<input type=\"checkbox\" checked><span class=\"sw\" style=\"background:var(${COL[i]})\"></span>${n}`;l.firstChild.onchange=e=>{show[i]=e.target.checked;draw()};lg.appendChild(l)});\n"
+    "if(miss.size){const s=document.createElement('span');s.innerHTML=`<span class=\"sw\" style=\"background:var(--miss)\"></span> ejecutado y no descubierto`;lg.appendChild(s)}\n"
+    "const cv=document.getElementById('map'),ctx=cv.getContext('2d');\n"
+    "// por celda: bytes de código por origen y si falta algo\n"
+    "const ncell=Math.ceil(D.prg/CELL), cnt=Array.from({length:ncell},()=>[0,0,0,0]), cm=new Uint8Array(ncell);\n"
+    "I.forEach(x=>{cnt[x[0]/CELL|0][x[4]]+=x[6]}); miss.forEach(o=>cm[o/CELL|0]=1);\n"
+    "let sel=-1;\n"
+    "function draw(){\n"
+    " const S=12,G=1; cv.width=W*(S+G); cv.height=rows*(S+G);\n"
+    " for(let c=0;c<ncell;c++){\n"
+    "  const x=(c%W)*(S+G), y=(c/W|0)*(S+G); let tot=0,best=-1,bv=0;\n"
+    "  for(let o=0;o<4;o++){ if(!show[o])continue; tot+=cnt[c][o]; if(cnt[c][o]>bv){bv=cnt[c][o];best=o} }\n"
+    "  if(cm[c]){ctx.fillStyle=css('--miss');ctx.fillRect(x,y,S,S);continue}\n"
+    "  ctx.fillStyle=css('--line'); ctx.fillRect(x,y,S,S);\n"
+    "  if(best>=0){ctx.globalAlpha=Math.min(1,.25+tot/256*.75);ctx.fillStyle=css(COL[best]);ctx.fillRect(x,y,S,S);ctx.globalAlpha=1}\n"
+    "  if(c===sel){ctx.strokeStyle=css('--sel');ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,S-2,S-2)}\n"
+    " }\n"
+    "}\n"
+    "function cellAt(ev){const r=cv.getBoundingClientRect(),S=13*(r.width/cv.width);return ((ev.clientY-r.top)/S|0)*W+((ev.clientX-r.left)/S|0)}\n"
+    "function hex(n,w){return n.toString(16).toUpperCase().padStart(w,'0')}\n"
+    "function pick(c){\n"
+    " if(c<0||c>=ncell)return; sel=c; draw();\n"
+    " const t=document.getElementById('ins');t.innerHTML='';\n"
+    " let n=0;for(let o=c*CELL;o<c*CELL+CELL;o++){const k=byOff.get(o);if(k===undefined)continue;n++;\n"
+    "  const x=I[k],tr=document.createElement('tr');tr.className='ins';tr.dataset.k=k;\n"
+    "  tr.innerHTML=`<td class=\"mut\">$${hex(x[0],6)}</td><td>$${hex(x[1],4)}</td><td>${x[5]}</td><td><span class=\"tag\">${HOW[x[2]]}</span></td>`;\n"
+    "  tr.onclick=()=>why(k);t.appendChild(tr)}\n"
+    " document.getElementById('cellhead').textContent=`Celda $${hex(c*CELL,6)}-$${hex(c*CELL+CELL-1,6)}: ${n} instrucciones`+(cm[c]?' · contiene código ejecutado que no se descubrió':'');\n"
+    "}\n"
+    "function why(k){\n"
+    " document.querySelectorAll('tr.sel').forEach(e=>e.classList.remove('sel'));\n"
+    " const row=document.querySelector(`tr[data-k=\"${k}\"]`);if(row)row.classList.add('sel');\n"
+    " const ol=document.getElementById('chain');ol.innerHTML='';let cur=k,guard=0;\n"
+    " while(cur!==undefined&&guard++<5000){\n"
+    "  const x=I[cur];let run=0,first=cur;\n"
+    "  while(x&&I[cur][2]===2&&I[cur][3]>=0){cur=byOff.get(I[cur][3]);run++;if(cur===undefined)break}\n"
+    "  const a=I[first],b=I[cur]||a,li=document.createElement('li');\n"
+    "  li.innerHTML=run?`<code>$${hex(a[0],6)} ${a[5]}</code> <span class=\"mut\">…${run} seguidas desde</span> <code>$${hex(b[0],6)} ${b[5]}</code>`:`<code>$${hex(a[0],6)} $${hex(a[1],4)} ${a[5]}</code>`;\n"
+    "  ol.appendChild(li);\n"
+    "  const how=b[2],par=b[3];\n"
+    "  const m=document.createElement('li');m.className='mut';m.innerHTML=par<0?`↳ punto de entrada: <b>${HOW[how]}</b> (${ORG[b[4]]})`:`↳ <b>${HOW[how]}</b> desde`;ol.appendChild(m);\n"
+    "  if(par<0)break; cur=byOff.get(par);\n"
+    " }\n"
+    "}\n"
+    "cv.onclick=e=>pick(cellAt(e));\n"
+    "function go(){const v=parseInt(document.getElementById('goto').value,16);if(isNaN(v))return;pick(v/CELL|0);const k=byOff.get(v);if(k!==undefined)why(k)}\n"
+    "document.getElementById('go').onclick=go;document.getElementById('goto').onkeydown=e=>{if(e.key==='Enter')go()};\n"
+    "matchMedia('(prefers-color-scheme: dark)').onchange=draw;\n"
+    "draw();\n"
+    "</script></body></html>\n";
+
+static void write_html(const char *path, const char *rom_name)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    fputs(html_head, f);
+    fputs("{\"name\":", f); json_str(f, rom_name);
+    fprintf(f, ",\"mapper\":%d,\"prg\":%zu,\"bytes\":%u,\"orgs\":[", cart->mapper, prg_size, stat_bytes);
+    for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
+    fputs("],\"hows\":[", f);
+    for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    fputs("],\"missing\":[", f);
+    int first = 1;
+    if (missing_mark) for (size_t i = 0; i < prg_size; i++) if (missing_mark[i]) { fprintf(f, first ? "%zu" : ",%zu", i); first = 0; }
+    fputs("],\"ins\":[\n", f);
+    first = 1;
+    for (size_t i = 0; i < prg_size; i++) {
+        if (!site[i].state) continue;
+        char d[64]; disasm(i, d, sizeof d);
+        fprintf(f, "%s[%zu,%u,%d,%ld,%d,", first ? "" : ",\n", i, site[i].addr, how_at[i],
+                parent[i] == NO_PARENT ? -1L : (long)parent[i], origin[i]);
+        json_str(f, d);
+        fprintf(f, ",%d]", mode_len[ins_tab[site[i].opc].mode]);
+        first = 0;
+    }
+    fputs("\n]}", f);
+    fputs(html_tail, f);
+    fclose(f);
+}
+
 /* ------------------------------------------------------------------ */
 
 static void sanitize(char *s)
@@ -1151,7 +1296,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
     const char *traces[32]; int ntraces = 0;
-    const char *coverage = NULL, *events_path = NULL;
+    const char *coverage = NULL, *events_path = NULL, *html_path = NULL;
     size_t why_list[32]; int nwhy = 0, viz = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
@@ -1161,6 +1306,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
         else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = strtoul(argv[++i], NULL, 16);
         else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--html") && i + 1 < argc) html_path = argv[++i];
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events_path = argv[++i];
         else if (!strcmp(argv[i], "--no-tables")) use_tables = 0;
         else if (!strcmp(argv[i], "--no-spec")) use_spec = 0;
@@ -1171,7 +1317,7 @@ int main(int argc, char **argv)
         else die("argumento desconocido: %s (ver --help)", argv[i]);
     }
     if (!in_path) { fputs(usage_text, stderr); return 2; }
-    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path) die("falta -o carpeta");
+    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path) die("falta -o carpeta");
 
     rom_file = slurp(in_path, &rom_file_size);
     if (!rom_file) die("no se pudo leer %s", in_path);
@@ -1188,7 +1334,7 @@ int main(int argc, char **argv)
 
     seed_vectors();
     discover();
-    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz) return 0; }
+    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz && !nwhy && !events_path && !html_path) return 0; }
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
     discover();
@@ -1204,9 +1350,14 @@ int main(int argc, char **argv)
     }
 
     if (events_path) write_events(events_path);
+    if (html_path) {
+        const char *b = strrchr(in_path, '/'); b = b ? b + 1 : in_path;
+        write_html(html_path, b);
+        printf("visor escrito en %s\n", html_path);
+    }
     if (viz) viz_map(isatty(1));
     for (int i = 0; i < nwhy; i++) explain(why_list[i]);
-    if (!out_dir && !dis_arg && (viz || nwhy || events_path)) return 0;
+    if (!out_dir && !dis_arg && (viz || nwhy || events_path || html_path)) return 0;
 
     if (dis_arg) {
         unsigned long off, addr, cnt;

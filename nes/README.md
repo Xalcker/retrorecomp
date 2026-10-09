@@ -5,13 +5,89 @@ Recompilador estático de juegos de NES, basado en la arquitectura de GBRecomp: 
 (código recompilado más el intérprete 6502 de respaldo), sin datos de la ROM en el proyecto
 generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el intérprete.
 
+## Un caso completo: recompilar Super Mario Bros.
+
+Se necesita un compilador C99, `make`, `pkg-config` y SDL2 (macOS: `brew install sdl2 pkg-config`; Debian:
+`apt install build-essential pkg-config libsdl2-dev`). La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
+
+**1. Compilar el recompilador y sus herramientas**
+
 ```
-make                                  # nesrecomp, nes (intérprete con ventana) y herramientas
-./nestrace juego.nes traza.txt 3000 start:120-125 right:400-3000   # qué código ejecuta el juego
-./nesrecomp juego.nes -o juego/ --trace traza.txt
-cd juego && make && ./juego juego.nes
-./difftest juego.nes 1500 start:150-155 right:700-1500
+make
+make test        # opcional: nestest, Blargg, mappers, recompilado contra intérprete...
 ```
+
+**2. Probar la ROM con el intérprete** (ventana SDL2; teclas en Ayuda → Controles)
+
+```
+./nes "roms/Super Mario Bros. (Japan, USA).nes"
+```
+
+**3. Recompilar.** Con solo el análisis estático (vectores, bancos, tablas de saltos) casi todos los juegos ya salen
+completos:
+
+```
+./nesrecomp "roms/Super Mario Bros. (Japan, USA).nes" -o juegos/smb --name smb
+```
+```
+roms/Super Mario Bros. (Japan, USA).nes: mapper 0, PRG 32 KB, CHR 8 KB
+código: 10754 instrucciones (22921 bytes, 69.95% del PRG)
+26 funciones
+proyecto escrito en juegos/smb/ (ejecutable: smb)
+```
+
+**4. Compilar el proyecto generado y jugarlo**
+
+```
+cd juegos/smb && make -j8
+./smb "../../roms/Super Mario Bros. (Japan, USA).nes"    # valida el SHA1 de la ROM; sin argumentos busca un .nes con ese SHA1 en la carpeta
+```
+
+El proyecto no contiene la ROM. El ejecutable la pide una vez y guarda una copia en su carpeta de datos
+(`~/Library/Application Support/NESRecomp/smb/` en macOS), junto con la partida, los estados, las preferencias y lo exportado.
+
+**5. Comprobar que el código recompilado hace lo mismo que el intérprete.** `difftest` los corre lado a lado y compara
+CPU, RAM, PPU, APU, mapper, y por cuadro la imagen y el audio:
+
+```
+./difftest "../../roms/Super Mario Bros. (Japan, USA).nes" 600 start:120-125 right:300-600
+```
+```
+difftest: 600 cuadros iguales (106686 llamadas, 106686 a código recompilado, 100.0% de los ciclos)
+```
+
+Los argumentos `boton:desde-hasta` son los cuadros en que se mantiene cada botón (`a b select start up down left right`).
+Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos nuevos.
+
+**6. Velocidad** (sin ventana ni límite de cuadros):
+
+```
+./bench "../../roms/Super Mario Bros. (Japan, USA).nes" 3000
+```
+
+**7. Si el análisis estático no alcanza** (el juego toca código que no encontró y corre más lento en el intérprete), se agrega una
+traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas programadas, o jugando:
+
+```
+./nestrace "roms/Super Mario Bros. (Japan, USA).nes" smb.trace 3000 start:120-125 right:300-3000 a:700-720 a:1100-1120
+./nesrecomp "roms/Super Mario Bros. (Japan, USA).nes" -o juegos/smb --name smb --trace smb.trace
+# o jugando en la ventana:  NES_TRACE=smb.trace ./nes juego.nes   (se puede repetir --trace con varias trazas)
+```
+
+`tests/recomp_game.sh rom nombre` hace los pasos 3, 4 y 5 de una vez (con `NOTRACE=1` solo con el análisis estático).
+
+**8. Entender qué encontró el recompilador**
+
+```
+./nesrecomp juego.nes --viz                          # mapa del PRG en la terminal, coloreado por origen
+./nesrecomp juego.nes --why 175                      # por qué esa instrucción (offset hex en PRG) es código
+./nesrecomp juego.nes --html visor.html              # lo mismo, interactivo: una página sola, sin servidor
+./nesrecomp juego.nes --html visor.html --coverage smb.trace    # y en rojo lo que el juego ejecutó y no se encontró
+```
+
+`visor.html` muestra el mapa del PRG (una celda por 256 bytes, color por origen: flujo desde los vectores, traza, tabla de saltos,
+especulativo), las instrucciones de cada celda y, al hacer clic en una, la cadena de saltos, tablas y bancos que llevó hasta
+ella. `--coverage` también imprime cuántas de las instrucciones ejecutadas se descubrieron sin ayuda (en SMB: 100 %).
 
 Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
@@ -76,7 +152,7 @@ ni un byte de imagen o audio.
 | `nesshot rom salida.png cuadros [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. |
 | `nesaudio rom salida.wav cuadros [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [cuadros]` | Velocidad sin ventana. |
-| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
+| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
 | `nestest`, `sramtest`, `statetest`, `mappertest` | Pruebas. `make test` corre todas. |
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza y lo compara contra el intérprete.
@@ -90,13 +166,12 @@ ni un byte de imagen o audio.
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `ref_gb/` | Código de GBRecomp como referencia de diseño. No se compila. |
-| `tools/` | `visor.html` y `truth/` copiados de GBRecomp (por adaptar a 6502). |
+| `tools/` | `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Pendiente
 
-- Visor en el navegador del descubrimiento (el `tools/visor.html` de GBRecomp lee otro formato de eventos).
 - Más mappers (VRC2/4/6/7, mapper 15), la pantalla dividida del MMC5 y el audio 5B del FME-7.
 
 ## Créditos

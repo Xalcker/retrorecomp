@@ -95,6 +95,9 @@ siguiente cubre lo que el flujo constante no alcanza, sin necesitar una traza:
 (`tests/coverage.sh` lo hace para los juegos de `roms/`): 94-100 % en los ocho, frente a 3-100 % con
 solo el flujo constante. `--no-tables` y `--no-spec` apagan las heurísticas para comparar.
 
+`--why`, `--viz`, `--html` (visor interactivo de una sola página) y `--events` explican el resultado: cada instrucción guarda de
+qué instrucción se llegó (`parent`), cómo (`how`) y su origen (flujo, traza, tabla, especulativo).
+
 `--trace` agrega las instrucciones que ejecutó el juego (`OFFSET:DIRECCION`, que escribe `nestrace`, la
 ventana con `--trace`/`--uncovered`, o `nes` con `NES_TRACE`) como puntos de entrada: es lo que falta
 cuando alguna heurística no alcanza.

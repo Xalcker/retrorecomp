@@ -142,7 +142,7 @@ typedef struct NES {
     int  run_irq, prev_run_irq;               /* IRQ visto en el penúltimo ciclo */
     int  irq_seen;              /* irq_line un ciclo antes (el IRQ llega al CPU con un ciclo de retraso) */
     int  irq_line;              /* bit 0 = mapper, 1 = APU (frame), 2 = DMC */
-    int  stall;                 /* ciclos que el CPU espera (DMA de DMC) */
+    int  stall;                 /* 1: el DMC pidió un byte (DMA) y el CPU lo cumplirá en su próxima lectura */
     u8   bus;                   /* último valor en el bus de datos del CPU (lo que leen las direcciones sin nada) */
     u64  cyc_recomp;            /* ciclos ejecutados por código recompilado (estadística) */
     u32 *trace;                 /* NULL, o por cada byte de PRG: 0 = no ejecutado, 0x10000|dirección */
@@ -217,6 +217,8 @@ void ppu_reg_write(NES *n, u16 addr, u8 v);
 #define APU_RATE 44100
 void apu_reset(NES *n);
 void apu_sync(NES *n);                           /* ejecuta lo pendiente hasta el ciclo actual de la consola */
+void apu_dmc_dma_done(NES *n, u8 v);             /* el DMA del DMC entregó su byte */
+u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a leer */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */
 void apu_write(NES *n, u16 addr, u8 v);          /* $4000-$4013, $4015, $4017 */

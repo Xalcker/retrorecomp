@@ -75,15 +75,49 @@ static inline void cycle_end(NES *n, int wr)
     n->cyc++;
 }
 
-/* Ciclos de espera (DMA de DMC) pendientes antes del siguiente acceso */
-static void drain_stall(NES *n)
+/* ---- DMA del DMC ----
+ * Cuando el DMC necesita un byte, el CPU se detiene en su próxima lectura (las escrituras no se pueden detener): el
+ * ciclo de parada y los de "alineación" repiten la lectura que el CPU iba a hacer (con sus efectos en $2007,
+ * $4015...), y en un ciclo "get" (par) se lee el byte del DMC. Son 3 o 4 ciclos según la alineación. Después el CPU
+ * hace su lectura de verdad. Los registros de los controles ($4016/$4017) solo se leen en el ciclo de parada:
+ * lecturas seguidas de la misma dirección no vuelven a dar pulso de reloj. */
+#ifndef DMA_GET_PARITY
+#define DMA_GET_PARITY 0
+#endif
+
+static void dma_dummy(NES *n, u16 a, int do_read)
 {
-    while (n->stall > 0) { n->stall--; cycle_begin(n, 0); cycle_end(n, 0); }
+    cycle_begin(n, 0);
+    if (do_read) {
+        if (a >= 0x2000 && a < 0x4000) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);
+        u8 v = nes_read(n, a);
+        if (a != 0x4015) n->bus = v;                    /* leer $4015 no pone nada en el bus */
+    }
+    cycle_end(n, 0);
+}
+
+static void dma_run(NES *n, u16 a)
+{
+    n->stall = 0;
+    int ctrl = (a == 0x4016 || a == 0x4017);
+    dma_dummy(n, a, 1);                                  /* ciclo de parada */
+    int need_dummy = 1;
+    for (;;) {
+        int get = ((n->cyc & 1) == DMA_GET_PARITY);
+        if (get && !need_dummy) break;
+        dma_dummy(n, a, !ctrl);                          /* ciclo "dummy" y, si hace falta, de alineación */
+        need_dummy = 0;
+    }
+    cycle_begin(n, 0);
+    u8 v = nes_read(n, apu_dmc_addr(n));
+    n->bus = v;
+    cycle_end(n, 0);
+    apu_dmc_dma_done(n, v);
 }
 
 u8 nes_cpu_read(NES *n, u16 a)
 {
-    if (UNLIKELY(n->stall)) drain_stall(n);
+    if (UNLIKELY(n->stall)) dma_run(n, a);
     if (UNLIKELY(n->ppu_eager)) cycle_begin(n, 0);
     u8 v;
     if (a < 0x2000) v = n->ram[a & 0x7FF];                                           /* lo más común */
@@ -92,14 +126,14 @@ u8 nes_cpu_read(NES *n, u16 a)
         if (a < 0x4000) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);                      /* registros de la PPU */
         v = nes_read(n, a);
     }
-    n->bus = v;
+    if (a != 0x4015) n->bus = v;                    /* leer $4015 no pone nada en el bus */
     cycle_end(n, 0);
     return v;
 }
 
 void nes_cpu_tick(NES *n)
 {
-    if (UNLIKELY(n->stall)) drain_stall(n);
+    if (UNLIKELY(n->stall)) dma_run(n, 0x8000);
     if (UNLIKELY(n->ppu_eager)) cycle_begin(n, 0);
     cycle_end(n, 0);
 }
@@ -129,7 +163,6 @@ void nes_cpu_ticks(NES *n, int k)
 
 void nes_cpu_write(NES *n, u16 a, u8 v)
 {
-    if (UNLIKELY(n->stall)) drain_stall(n);
     cycle_begin(n, 1);
     /* registros de la PPU, DMA de OAM y registros del mapper (cambian CHR y espejado) */
     if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000 || (n->cart.low_regs && a >= 0x4020))
@@ -180,7 +213,6 @@ void nes_write(NES *n, u16 a, u8 v)
     if (a < 0x2000) n->ram[a & 0x7FF] = v;
     else if (a < 0x4000) ppu_reg_write(n, a, v);
     else if (a == 0x4014) {                      /* OAM DMA: 513 o 514 ciclos */
-        n->stall = 0;
         int was_eager = n->ppu_eager;
         n->ppu_eager = 1;                                /* la OAM se llena mientras la PPU sigue */
         cycle_begin(n, 0); cycle_end(n, 0);              /* ciclo de espera */

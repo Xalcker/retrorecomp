@@ -95,13 +95,22 @@ static void half(Apu *a)
 
 /* ---- DMC ---- */
 
+/* El DMC pide un byte: el CPU se detiene en su próxima lectura y cumple el DMA (ver dma_run en nes.c) */
 static void dmc_fetch(NES *n)
 {
     Dmc *d = &n->apu.d;
-    if (!d->buf_empty || !d->remaining) return;
-    d->buf = nes_read(n, d->cur);
+    if (!d->buf_empty || !d->remaining || n->stall) return;
+    n->stall = 1;
+}
+
+u16 apu_dmc_addr(const NES *n) { return n->apu.d.cur; }
+
+void apu_dmc_dma_done(NES *n, u8 v)
+{
+    Dmc *d = &n->apu.d;
+    if (!d->remaining || !d->buf_empty) return;          /* el DMA se canceló mientras esperaba */
+    d->buf = v;
     d->buf_empty = 0;
-    n->stall += 4;
     d->cur = (u16)((d->cur + 1) | 0x8000);
     if (--d->remaining == 0) {
         if (d->loop) { d->cur = d->addr; d->remaining = d->length; }

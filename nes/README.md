@@ -45,8 +45,9 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 ### Rendimiento
 
 PPU y APU perezosos (solo avanzan cuando hace falta, resultado idéntico bit a bit; ver la arquitectura). Super Mario
-Bros.: ~55x tiempo real recompilado y ~40x con el intérprete (antes 13x y 11x). Los juegos con MMC3 (la PPU avanza
-en cada ciclo por su IRQ) van a ~12x en el intérprete. `tests/golden.sh` vigila que ninguna optimización cambie
+Bros.: ~55x tiempo real recompilado y ~42x con el intérprete (antes 13x y 11x); Super Mario Bros. 3 (MMC3) ~25x con el
+intérprete (antes 12x). Con el MMC3 la PPU solo va ciclo a ciclo a partir del punto 256 de cada línea, donde se
+levanta su IRQ. `tests/golden.sh` vigila que ninguna optimización cambie
 ni un byte de imagen o audio.
 
 ### Conocido
@@ -87,7 +88,7 @@ ni un byte de imagen o audio.
 ## Pendiente
 
 - Visualización del descubrimiento (`viz`, `--why` de GBRecomp).
-- Más mappers (9/10, 11, 66, 34...). Acelerar el MMC3 (baldosas de la PPU con eventos de A12).
+- Más mappers (MMC2/MMC4, FME-7, MMC5, VRC).
 
 ## Créditos
 

@@ -62,13 +62,26 @@ static void ppu_tile_bg(NES *n);
 
 /* Próximo punto en que algo visible desde fuera de la PPU puede pasar: la bandera de vblank sube
  * (241, 1), baja (261, 1) o el cuadro termina (261, 339 y 340: el cuadro impar pierde un punto). */
-static void set_event(Ppu *p)
+static void set_event(NES *n)
 {
+    Ppu *p = &n->ppu;
     static const int ev[4] = { 241 * 341 + 1, 261 * 341 + 1, 261 * 341 + 339, 261 * 341 + 340 };
     int pos = p->scanline * 341 + p->dot, best = 1 << 30;
     for (int i = 0; i < 4; i++) {
         int d = ev[i] - pos;
         if (d < 0) d += 262 * 341;
+        if (d < best) best = d;
+    }
+    /* MMC3: su IRQ se levanta con las lecturas de la PPU a partir del punto 256 de las líneas con dibujo (y en
+     * toda la pre-render). Ahí la consola tiene que ir al día en cada ciclo; antes no hace falta. */
+    if (n->cart.mapper == 4 && (p->mask & 0x18)) {
+        int sl = p->scanline;
+        if (sl == 261 || (sl < 240 && p->dot >= 256)) { p->event_dot = 0; return; }
+        int w = sl < 239 ? (p->dot < 256 ? sl * 341 + 256 : (sl + 1) * 341 + 256) : sl < 240 ? 261 * 341 : 261 * 341;
+        if (sl < 240 && p->dot < 256) w = sl * 341 + 256;
+        else if (sl < 239) w = (sl + 1) * 341 + 256;
+        else w = 261 * 341;
+        int d = w - pos;
         if (d < best) best = d;
     }
     p->event_dot = p->clock + (u64)best + 1;
@@ -82,20 +95,23 @@ void ppu_sync(NES *n, u64 target)
 {
     Ppu *p = &n->ppu;
     if (p->clock >= target) return;
-    const int fast = n->cart.mapper != 4;
+    const int mmc3 = n->cart.mapper == 4;
     do {
         u64 left = target - p->clock;
         int sl = p->scanline, d = p->dot;
-        if (fast) {
+        {
             if (sl < 240) {
                 if (p->mask & 0x18) {
-                    if (d >= 1 && d <= 249 && ((d - 1) & 7) == 0 && left >= 8) {
+                    /* con el MMC3, una subida de A12 que cuenta no puede quedar dentro de una baldosa: solo si A12
+                     * ya está alto o el fondo usa la tabla $0000 (no hay subida) */
+                    if (d >= 1 && d <= 249 && ((d - 1) & 7) == 0 && left >= 8 &&
+                        (!mmc3 || n->cart.reg[13] || !(p->ctrl & 0x10))) {
                         if (p->spr_count == 0 && (p->mask & 8) && (d > 8 || (p->mask & 2))) ppu_tile_bg(n);
                         else ppu_tile(n);
                         continue;
                     }
-                    if (d == 258 && left >= 63) { p->dot = 321; p->clock += 63; continue; }
-                    if ((d == 321 || d == 329) && left >= 8) { ppu_prefetch_tile(n); continue; }
+                    if (!mmc3 && d == 258 && left >= 63) { p->dot = 321; p->clock += 63; continue; }
+                    if (!mmc3 && (d == 321 || d == 329) && left >= 8) { ppu_prefetch_tile(n); continue; }
                 }
             } else if (sl < 261) {
                 /* línea 240 y vblank: lo único que pasa es la bandera en (241, 1) */
@@ -112,7 +128,7 @@ void ppu_sync(NES *n, u64 target)
         }
         ppu_tick(n);
     } while (p->clock < target);
-    set_event(p);
+    set_event(n);
 }
 
 void ppu_flush(NES *n)
@@ -225,6 +241,7 @@ void ppu_reg_write(NES *n, u16 addr, u8 v)
         a12(n, (p->v >> 12) & 1);
         break;
     }
+    if (n->cart.mapper == 4) set_event(n);          /* $2001 puede encender el dibujo: cambia la ventana del IRQ */
 }
 
 /* ---- Dibujo ---- */
@@ -349,6 +366,17 @@ static void ppu_prefetch_tile(NES *n)
     p->clock += 8;
 }
 
+/* Evento de A12 de un punto dentro de una baldosa: 'clock' es el valor del reloj en ese punto */
+static inline void a12_at(NES *n, u64 clock, int bit)
+{
+    if (n->cart.mapper == 4) {
+        u64 save = n->ppu.clock;
+        n->ppu.clock = clock;
+        mapper_a12(n, bit);
+        n->ppu.clock = save;
+    }
+}
+
 /* Baldosa de 8 puntos en una línea sin sprites y con el fondo activo (y sin recorte a la izquierda en
  * estas columnas). Mismo resultado que ppu_tile, pero sin desplazar los registros punto a punto: tras
  * cargar el mosaico en el primer punto, el pixel k sale del bit (15 - fine_x - k) de cada registro, y al final
@@ -365,14 +393,20 @@ static void ppu_tile_bg(NES *n)
     hi = (hi & 0xFF00) | p->nt_hi;
     alo = (alo & 0xFF00) | ((p->nt_attr & 1) ? 0xFF : 0);
     ahi = (ahi & 0xFF00) | ((p->nt_attr & 2) ? 0xFF : 0);
+    const u64 clock0 = p->clock;
+    const int pbit = (p->ctrl >> 4) & 1;
+    a12_at(n, clock0 + 1, 0);
     p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF));
+    a12_at(n, clock0 + 3, 0);
     {   /* punto 2: atributo */
         u8 a = vrd(n, 0x23C0 | (p->v & 0x0C00) | ((p->v >> 4) & 0x38) | ((p->v >> 2) & 7));
         if (p->v & 0x40) a >>= 4;
         if (p->v & 2) a >>= 2;
         p->nt_attr = a & 3;
     }
+    a12_at(n, clock0 + 5, pbit);
     p->nt_lo = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7));
+    a12_at(n, clock0 + 7, pbit);
     p->nt_hi = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7) + 8);
     const int top = 15 - p->fine_x;
     const u16 emph = (u16)((mask & 0xE0) << 1);
@@ -400,6 +434,8 @@ static void ppu_tile(NES *n)
     Ppu *p = &n->ppu;
     const int sl = p->scanline, c = p->dot;
     const u8 mask = p->mask;
+    const u64 clock0 = p->clock;
+    const int pbit = (p->ctrl >> 4) & 1;
     for (int k = 0; k < 8; k++) {
         const int cy = c + k;
         if (cy >= 2) {
@@ -411,14 +447,15 @@ static void ppu_tile(NES *n)
                 }
         }
         switch (k) {
-        case 0: load_bg(p); p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF)); break;
+        case 0: a12_at(n, clock0 + 1, 0); load_bg(p); p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF)); break;
         case 2: {
+            a12_at(n, clock0 + 3, 0);
             u8 a = vrd(n, 0x23C0 | (p->v & 0x0C00) | ((p->v >> 4) & 0x38) | ((p->v >> 2) & 7));
             if (p->v & 0x40) a >>= 4;
             if (p->v & 2) a >>= 2;
             p->nt_attr = a & 3; break; }
-        case 4: p->nt_lo = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7)); break;
-        case 6: p->nt_hi = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7) + 8); break;
+        case 4: a12_at(n, clock0 + 5, pbit); p->nt_lo = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7)); break;
+        case 6: a12_at(n, clock0 + 7, pbit); p->nt_hi = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7) + 8); break;
         case 7: inc_x(p); break;
         }
         if (cy == 256) inc_y(p);

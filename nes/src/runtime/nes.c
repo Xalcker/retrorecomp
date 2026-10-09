@@ -149,7 +149,7 @@ void nes_reset(NES *n)
     n->irq_line = n->stall = 0;
     ppu_reset(n);
     apu_reset(n);
-    n->ppu_eager = n->cart.mapper == 4;
+    n->ppu_eager = 0;
     for (int i = 0; i < 7; i++) { cycle_begin(n, 0); cycle_end(n, 0); }   /* secuencia de reset */
 }
 

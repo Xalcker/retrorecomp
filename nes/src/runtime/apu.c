@@ -243,6 +243,36 @@ static void apu_cycle(NES *n)
  * al acceder a sus registros, al leer el audio y cuando un evento puede verse desde fuera
  * (IRQ del frame counter, lectura de muestras del DMC). */
 
+/* Un contador que en cada tick baja de 'timer' y, al llegar a 0, se recarga con 'period' y "vence": cuántas veces
+ * vence en T ticks y cómo queda. Vence una vez cada period + 1 ticks. */
+static u64 adv_timer(u32 *timer, u32 period, u64 T)
+{
+    if (T <= *timer) { *timer -= (u32)T; return 0; }
+    u64 r = T - *timer - 1, per = (u64)period + 1;
+    *timer = (u32)(period - (u32)(r % per));
+    return 1 + r / per;
+}
+
+/* ¿Es inaudible el canal (su salida es 0 pase lo que pase con su secuenciador)? Sus eventos solo cambian estado
+ * interno y se pueden adelantar de golpe. */
+static int pulse_inert(const Apu *a, int i)
+{
+    const Pulse *p = &a->p[i];
+    if ((a->mute >> i) & 1) return 1;
+    if (!p->on || !p->len || p->period < 8) return 1;
+    if (!p->sw_neg && sweep_target(p, i) > 0x7FF) return 1;
+    return (p->cst ? p->vol : p->env_decay) == 0;
+}
+static int tri_inert(const Apu *a)
+{
+    return a->t.period < 2 || !a->t.len || !a->t.lin;       /* el paso no avanza */
+}
+static int noise_inert(const Apu *a)
+{
+    const Noise *z = &a->nz;
+    return (a->mute & 8) || !z->on || !z->len || (z->cst ? z->vol : z->env_decay) == 0;
+}
+
 /* Cuántos ciclos se pueden saltar sin que ocurra ningún evento */
 static u64 safe_skip(const Apu *a)
 {
@@ -250,10 +280,11 @@ static u64 safe_skip(const Apu *a)
     if (a->p[0].rel | a->p[1].rel | a->t.rel | a->nz.rel | (a->p[0].lhalt ^ a->p[0].hnew) | (a->p[1].lhalt ^ a->p[1].hnew) |
         (a->t.lhalt ^ a->t.hnew) | (a->nz.lhalt ^ a->nz.hnew)) return 0;     /* hay un cambio por aplicar en el próximo ciclo */
     #define LIM(v) do { u64 v_ = (v); if (v_ < k) k = v_; } while (0)
-    LIM(a->t.timer);
-    LIM(a->nz.timer);
+    if (!tri_inert(a)) LIM(a->t.timer);
+    if (!noise_inert(a)) LIM(a->nz.timer);
     LIM(a->d.timer);
     for (int i = 0; i < 2; i++) {
+        if (pulse_inert(a, i)) continue;
         /* los pulsos avanzan en los ciclos impares: cuántos ciclos caben con timer pasos */
         u64 c0 = a->cycle;
         LIM(2 * (u64)a->p[i].timer + 2 * ((c0 + 1) >> 1) - c0);
@@ -272,7 +303,7 @@ static u64 safe_skip(const Apu *a)
     return k;
 }
 
-/* Avanza k ciclos sin eventos */
+/* Avanza k ciclos sin eventos (salvo los de canales inaudibles, que solo cambian estado interno) */
 static void bulk(NES *n, u64 k)
 {
     Apu *a = &n->apu;
@@ -281,11 +312,30 @@ static void bulk(NES *n, u64 k)
     a->cycle += k;
     a->fcc += (int)k;
     if (a->delay) a->delay -= (int)k;
-    a->t.timer -= (u16)k;
-    a->nz.timer -= (u16)k;
-    a->d.timer -= (u16)k;
-    a->p[0].timer -= (u16)pulse_ticks;
-    a->p[1].timer -= (u16)pulse_ticks;
+    {   /* triángulo: si es inaudible el paso no avanza; solo se recarga el temporizador */
+        u32 t = a->t.timer;
+        adv_timer(&t, a->t.period, k);
+        a->t.timer = (u16)t;
+    }
+    {   /* ruido: cada vencimiento mueve el registro de desplazamiento */
+        u32 t = a->nz.timer;
+        u64 f = adv_timer(&t, noise_tab[a->nz.period] - 1, k);
+        a->nz.timer = (u16)t;
+        u16 sh = a->nz.shift;
+        int bit = a->nz.mode ? 6 : 1;
+        for (u64 i = 0; i < f; i++) sh = (u16)((sh >> 1) | ((((sh & 1) ^ ((sh >> bit) & 1))) << 14));
+        a->nz.shift = sh;
+    }
+    for (int i = 0; i < 2; i++) {
+        u32 t = a->p[i].timer;
+        u64 f = adv_timer(&t, a->p[i].period, pulse_ticks);
+        a->p[i].timer = (u16)t;
+        a->p[i].step = (u8)((a->p[i].step - (u32)(f & 7)) & 7);
+    }
+    {   u32 t = a->d.timer;
+        adv_timer(&t, a->d.rate - 1, k);                 /* (safe_skip no deja pasar un vencimiento del DMC) */
+        a->d.timer = (u16)t;
+    }
     /* la mezcla no cambia en estos ciclos */
     int p = ((a->mute & 1) ? 0 : pulse_out(&a->p[0], 0)) + ((a->mute & 2) ? 0 : pulse_out(&a->p[1], 1));
     int tri = (a->mute & 4) ? 0 : tri_tab[a->t.step];

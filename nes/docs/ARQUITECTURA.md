@@ -32,10 +32,13 @@ La PPU y el APU no avanzan en cada ciclo de CPU sino cuando hace falta; el resul
   cuando va a pasar algo visible desde fuera (bandera de vblank, fin de cuadro: `event_dot`). En las líneas
   visibles va de 8 en 8 puntos (`ppu_tile`, y `ppu_tile_bg` si no hay sprites: cada pixel sale del bit que le
   toca de los registros, sin desplazarlos punto a punto), salta los puntos 258-320 y avanza de golpe el
-  vblank. Con el MMC3 (su IRQ depende de las lecturas de la PPU) y durante el DMA avanza en cada ciclo.
+  vblank. Con el MMC3 (su IRQ depende de las lecturas de la PPU) va ciclo a ciclo solo a partir del punto 256 de las líneas
+  con dibujo y en la pre-render (`set_event`); las baldosas reproducen los eventos de A12 y no se usan si una subida
+  que cuenta podría quedar dentro de una. Durante el DMA de OAM avanza en cada ciclo.
 - **APU** (`apu.c`): entre dos eventos (un temporizador que vence, un paso del frame counter, una muestra
   de salida) nada cambia y esos ciclos se saltan de golpe. Solo se pone al día al acceder a sus registros,
-  al leer el audio y cuando algo visible puede pasar (IRQ, DMA del DMC; `deadline`).
+  al leer el audio y cuando algo visible puede pasar (IRQ, DMA del DMC; `deadline`). Los canales inaudibles
+  (triángulo con periodo 0, ruido sin volumen...) también se adelantan de golpe: solo se actualiza su estado interno.
 - **Bus**: lectura de ROM y RAM por tablas (`prg_map`, `chr_page`); en el código recompilado los ciclos sin
   acceso (`TICKS(k)`) se agrupan.
 

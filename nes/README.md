@@ -123,6 +123,10 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ### Rendimiento
 
+El proyecto que genera `nesrecomp` se compila con el mapper de la ROM fijo (`-DNES_MAPPER=<n>`, que sale de la cabecera): el
+compilador elimina el código de los demás mappers y los `switch` del camino caliente. En Super Mario Bros. (NROM): `mapper.o` de
+10,6 KB a 2,5 KB y ~20 % más rápido (39x frente a 32x tiempo real). El intérprete `nes` sigue decidiendo el mapper al cargar.
+
 PPU y APU perezosos (solo avanzan cuando hace falta, resultado idéntico bit a bit; ver la arquitectura). Super Mario
 Bros.: ~55x tiempo real recompilado y ~42x con el intérprete (antes 13x y 11x); Super Mario Bros. 3 (MMC3) ~25x con el
 intérprete (antes 12x). Con el MMC3 la PPU solo va ciclo a ciclo a partir del punto 256 de cada línea, donde se

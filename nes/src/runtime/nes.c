@@ -19,6 +19,9 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
     if (!prg || prg & (prg - 1)) { if (err) *err = "tamaño de PRG no soportado (no es potencia de 2)"; return -1; }
     if (off + prg + chr > len)   { if (err) *err = "ROM truncada"; return -1; }
     if (!mapper_supported(c->mapper)) { if (err) *err = "mapper no soportado"; return -1; }
+#ifdef NES_MAPPER
+    if (c->mapper != NES_MAPPER) { if (err) *err = "esta ROM tiene otro mapper que el recompilado"; return -1; }
+#endif
     c->prg = malloc(prg); c->prg_size = prg;
     memcpy(c->prg, d + off, prg);
     if (f6 & 4) memcpy(c->prg_ram + 0x1000, d + 16, 512);          /* el 'trainer' va a $7000-$71FF */
@@ -198,7 +201,7 @@ void nes_cpu_write(NES *n, u16 a, u8 v)
 {
     cycle_begin(n, 1);
     /* registros de la PPU, DMA de OAM y registros del mapper (cambian CHR y espejado) */
-    if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000 || (n->cart.low_regs && a >= 0x4020))
+    if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000 || (CART_LOWREGS(&n->cart) && a >= 0x4020))
         ppu_sync(n, 3 * n->cyc + PPU_PRE_WRITE);
     n->bus = v;
     nes_write(n, a, v);
@@ -250,7 +253,7 @@ u8 nes_read(NES *n, u16 a)
     }
     if (a == 0x4015) return (apu_read(n, a) & 0xDF) | (n->bus & 0x20);    /* el bit 5 es el bus abierto */
     if (a < 0x4020) return n->bus;                            /* $4000-$4014: solo escritura */
-    if (a < 0x6000 && !n->cart.mmc5) return n->bus;          /* sin dispositivo */
+    if (a < 0x6000 && !CART_MMC5(&n->cart)) return n->bus;          /* sin dispositivo */
     return mapper_cpu_read(n, a);
 }
 

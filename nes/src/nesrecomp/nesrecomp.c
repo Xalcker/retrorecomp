@@ -966,7 +966,7 @@ static void emit_makefile(const char *dir, const char *name)
         "# Generado por nesrecomp. Compila con cualquier gcc/clang C99 con SDL2.\n\n"
         "CC     ?= cc\n"
         "CFLAGS ?= -std=c99 -O2 -Wall -Wno-unused-label\n"
-        "INC    := -Iruntime -Igen -Iplatform -DNES_RECOMP\n"
+        "INC    := -Iruntime -Igen -Iplatform -DNES_RECOMP -DNES_MAPPER=%d\n"
         "SDL_CFLAGS := $(shell pkg-config --cflags sdl2)\n"
         "SDL_LIBS   := $(shell pkg-config --libs sdl2)\n\n"
         "RT_OBJ  := $(patsubst runtime/%%.c,build/rt_%%.o,$(wildcard runtime/*.c))\n"
@@ -990,7 +990,7 @@ static void emit_makefile(const char *dir, const char *name)
         "bench: platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "clean:\n\trm -rf build %s difftest bench\n",
-        name, name, name);
+        cart->mapper, name, name, name);
     fclose(f);
 }
 

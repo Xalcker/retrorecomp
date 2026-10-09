@@ -37,7 +37,7 @@ void apu_reset(NES *n)
     memset(a, 0, sizeof *a);
     a->mute = keep_mute;
     a->nz.shift = 1;
-    a->m5 = n->cart.mmc5;
+    a->m5 = CART_MMC5(&n->cart);
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
     a->cps = CPU_HZ / APU_RATE;
     a->rate_mul = 1.0;

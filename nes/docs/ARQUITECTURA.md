@@ -147,6 +147,9 @@ L_8000: /* lda #$10 */
 
 ## Mappers
 
+El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros `CART_MMC3/MMC5/CHRHOOK/LOWREGS/EXGFX` (nes.h) pasan
+a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
+
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119 y 5. Un mapper
 nuevo es un caso en `mapper_prg_offset`, `mapper_cpu_write`, `chr_off` y las consultas del
 recompilador (`mapper_prg_window`, `mapper_prg_granule`).

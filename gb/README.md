@@ -143,9 +143,12 @@ juego, junto con la partida y los estados.
 **Multijugador local:**
 - **Cable link** (menú Juego, o `--link`): un segundo Game Boy con la misma
   ROM, conectado por cable, a la derecha de la ventana. Lo maneja el jugador
-  2, con su propia partida (`<juego>_jugador2.sav`); se oye el audio del
-  jugador 1. Con el cable conectado no hay estados guardados (guardarían un
-  solo lado).
+  2, con su propia partida (`<juego>_jugador2.sav`). Las etiquetas J1 y J2
+  aparecen al conectar, en pausa o con un menú abierto. En el menú Audio se
+  elige si se oye al jugador 1, al 2, a los dos mezclados, o cada uno en un
+  oído (audífonos: el jugador 1 a la izquierda y el 2 a la derecha, en mono). Los estados guardados (F5 /
+  F8) guardan los dos Game Boy juntos; al cargar uno así sin el cable, el
+  cable se conecta solo. La paleta es la misma para los dos.
 - **Super Game Boy:** los juegos de varios jugadores (MLT_REQ) leen los
   controles 2 a 4.
 - **Controles:** el jugador 1 usa las flechas, X, Z, Enter y Shift derecho, y

@@ -61,6 +61,7 @@
 #include "recomp.h"
 #include "settings.h"
 #include "sha1.h"
+#include "ui_font.h"
 #include "ui_menu.h"
 
 static void fail(const char *msg)
@@ -281,6 +282,7 @@ enum {
     A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3,
     A_REC_MUSIC, A_COLLECT_TILES, A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
+    A_LINK_AUDIO_0, A_LINK_AUDIO_3 = A_LINK_AUDIO_0 + 3,
     A_LANGUAGE_0,
 };
 
@@ -316,6 +318,7 @@ typedef struct {
     GB gb2;
     GbLink link;
     char save_path2[1024];
+    Uint32 labels_until;    /* "J1"/"J2" sobre las pantallas hasta este instante */
 
     MenuBar bar;
     Dialog dlg;
@@ -444,11 +447,15 @@ static void notify(App *app, const char *text)
     app->notice_until = SDL_GetTicks() + 2500;
 }
 
+/* Paleta del modo de compatibilidad del GBC: la misma para los dos Game Boy
+ * del cable link (las del DMG se aplican al dibujar, a los dos) */
 static void apply_palette(App *app)
 {
     if (!is_compat(&app->gb)) return;
     const char *p = app->forced_palette ? app->forced_palette : app->cfg.compat_palette;
-    if (!gb_compat_palette(&app->gb, p)) gb_compat_palette(&app->gb, "auto");
+    GB *gbs[2] = { &app->gb, app->linked ? &app->gb2 : NULL };
+    for (int i = 0; i < 2; i++)
+        if (gbs[i] && !gb_compat_palette(gbs[i], p)) gb_compat_palette(gbs[i], "auto");
 }
 
 /* --- Exportar --- */
@@ -574,13 +581,14 @@ static void link_start(App *app)
 {
     const char *err = gb_init_model(&app->gb2, app->rom.data, (u32)app->rom.size, app->model);
     if (err) fail(err);
-    if (is_compat(&app->gb2)) gb_compat_palette(&app->gb2, app->forced_palette ? app->forced_palette
-                                                                                 : app->cfg.compat_palette);
     if (!app->interp_only) app->gb2.recomp_lookup = recomp_lookup;
     if (app->uncovered_path) app->gb2.trace = mark_uncovered;
     if (gb_has_battery(&app->gb2)) load_game(&app->gb2, app->save_path2);
+    app->gb2.apu.enabled = 1;
     gb_link_connect(&app->link, &app->gb, &app->gb2);
     app->linked = 1;
+    app->labels_until = SDL_GetTicks() + 4000;
+    apply_palette(app);
 }
 
 static void link_stop(App *app)
@@ -620,6 +628,7 @@ static void toggle_link(App *app)
 {
     if (app->linked) link_stop(app);
     else link_start(app);
+    build_menus(app);       /* el menú Audio cambia con el cable */
     resize_window(app);
     notify(app, tr(app->linked ? T_TITLE_LINK_ON : T_TITLE_LINK_OFF));
 }
@@ -631,12 +640,70 @@ static void state_path(const App *app, int slot, char *out, size_t size)
     snprintf(out, size, "%s%s.estado%d", app->pref, recomp_name, slot);
 }
 
+/*
+ * Con el cable, un estado guarda los dos Game Boy: "GBRL", versión, el
+ * tiempo real de cada uno al conectar el cable (GbLink.base) y los dos
+ * estados del runtime (largo de 4 bytes y datos). Sin cable es el estado del
+ * runtime tal cual ("GBRS").
+ */
+#define LINK_STATE_HEADER (4 + 4 + 8 + 8)
+
+static void put32(u8 *p, u64 v, int n)
+{
+    for (int i = 0; i < n; i++) p[i] = (u8)(v >> (8 * i));
+}
+
+static u64 get32(const u8 *p, int n)
+{
+    u64 v = 0;
+    for (int i = 0; i < n; i++) v |= (u64)p[i] << (8 * i);
+    return v;
+}
+
+static u8 *link_state_save(App *app, size_t *size)
+{
+    size_t n1, n2;
+    u8 *a = gb_state_save(&app->gb, &n1), *b = gb_state_save(&app->gb2, &n2);
+    u8 *data = a && b ? malloc(LINK_STATE_HEADER + 8 + n1 + n2) : NULL;
+    if (data) {
+        memcpy(data, "GBRL", 4);
+        put32(data + 4, 1, 4);
+        put32(data + 8, app->link.base[0], 8);
+        put32(data + 16, app->link.base[1], 8);
+        put32(data + LINK_STATE_HEADER, n1, 4);
+        memcpy(data + LINK_STATE_HEADER + 4, a, n1);
+        put32(data + LINK_STATE_HEADER + 4 + n1, n2, 4);
+        memcpy(data + LINK_STATE_HEADER + 8 + n1, b, n2);
+        *size = LINK_STATE_HEADER + 8 + n1 + n2;
+    }
+    free(a);
+    free(b);
+    return data;
+}
+
+/* 1 si se cargó; 0 si el archivo no es un par de esta ROM */
+static int link_state_load(App *app, const u8 *data, size_t size)
+{
+    if (size < LINK_STATE_HEADER + 8 || memcmp(data, "GBRL", 4) != 0 || get32(data + 4, 4) != 1) return 0;
+    size_t n1 = (size_t)get32(data + LINK_STATE_HEADER, 4);
+    if (LINK_STATE_HEADER + 8 + n1 > size) return 0;
+    size_t n2 = (size_t)get32(data + LINK_STATE_HEADER + 4 + n1, 4);
+    if (LINK_STATE_HEADER + 8 + n1 + n2 != size) return 0;
+    const u8 *a = data + LINK_STATE_HEADER + 4, *b = data + LINK_STATE_HEADER + 8 + n1;
+    /* gb_state_load revisa el encabezado (ROM, versión, tamaños) antes de
+     * tocar nada; los dos se guardaron juntos, así que fallan o pasan juntos */
+    if (!gb_state_load(&app->gb, a, n1) || !gb_state_load(&app->gb2, b, n2)) return 0;
+    app->link.base[0] = get32(data + 8, 8);
+    app->link.base[1] = get32(data + 16, 8);
+    return 1;
+}
+
 static void save_state(App *app)
 {
     char path[1100], text[1300];
     state_path(app, app->cfg.slot, path, sizeof path);
     size_t size;
-    u8 *data = gb_state_save(&app->gb, &size);
+    u8 *data = app->linked ? link_state_save(app, &size) : gb_state_save(&app->gb, &size);
     if (data && u8_write_file(path, data, size)) {
         snprintf(text, sizeof text, tr(T_TITLE_SAVED_FMT), app->cfg.slot);
         notify(app, text);
@@ -658,19 +725,37 @@ static void load_state(App *app)
         message(app, tr(T_STATE_TITLE), text);
         return;
     }
+    int pair = size >= 4 && memcmp(data, "GBRL", 4) == 0;
+    if (!pair && app->linked) {
+        snprintf(text, sizeof text, tr(T_STATE_SINGLE), app->cfg.slot);
+        message(app, tr(T_STATE_TITLE), text);
+        free(data);
+        return;
+    }
     /* Un estado de otra consola cambia el tamaño de la imagen y los menús */
     stop_music(app, 0);     /* el tiempo de la grabación saltaría */
     int was_sgb = app->gb.sgb, was_compat = is_compat(&app->gb), was_cgb = app->gb.cgb_hw;
-    if (gb_state_load(&app->gb, data, size)) {
-        snprintf(text, sizeof text, tr(T_TITLE_LOADED_FMT), app->cfg.slot);
+    int connected = 0;
+    if (pair && !app->linked) {
+        link_start(app);    /* un estado con cable: se conecta el cable */
+        connected = 1;
+    }
+    int ok = pair ? link_state_load(app, data, size) : gb_state_load(&app->gb, data, size);
+    if (ok) {
+        snprintf(text, sizeof text, tr(connected ? T_STATE_NEEDS_LINK : T_TITLE_LOADED_FMT), app->cfg.slot);
         notify(app, text);
-        if (was_sgb != app->gb.sgb || was_compat != is_compat(&app->gb) || was_cgb != app->gb.cgb_hw) {
+        if (connected || was_sgb != app->gb.sgb || was_compat != is_compat(&app->gb) || was_cgb != app->gb.cgb_hw) {
             app->model = app->gb.sgb ? GB_MODEL_SGB : app->gb.cgb_hw ? GB_MODEL_CGB : GB_MODEL_DMG;
             build_menus(app);
             set_window_icon(app);
             resize_window(app);
         }
     } else {
+        if (connected) {
+            link_stop(app);
+            build_menus(app);
+            resize_window(app);
+        }
         snprintf(text, sizeof text, tr(T_STATE_BAD_FMT), app->cfg.slot);
         message(app, tr(T_STATE_TITLE), text);
     }
@@ -684,7 +769,7 @@ static void load_state(App *app)
 #define COUNT(a) (int)(sizeof a / sizeof a[0])
 
 /* Se arman con los textos del idioma actual y según la consola encendida */
-static MenuItem menu_game[20], menu_video[12], menu_palette[16], menu_audio[6];
+static MenuItem menu_game[20], menu_video[12], menu_palette[16], menu_audio[12];
 static MenuItem menu_export[5], menu_language[LANG_COUNT], menu_help[3];
 static Menu menus[7];
 static char slot_labels[4][40], compat_labels[12][48], size_labels[6][40], volume_labels[4][40];
@@ -755,6 +840,14 @@ static void build_menus(App *app)
         snprintf(volume_labels[i], sizeof volume_labels[i], tr(T_VOLUME_FMT), 25 * (i + 1));
         ITEM(menu_audio, n, volume_labels[i], NULL, A_VOLUME_25 + i, ITEM_RADIO);
     }
+    if (app->linked) {
+        /* Con el cable: de qué Game Boy viene el sonido */
+        SEPARATOR(menu_audio, n);
+        ITEM(menu_audio, n, tr(T_LINK_AUDIO_P1), NULL, A_LINK_AUDIO_0, ITEM_RADIO);
+        ITEM(menu_audio, n, tr(T_LINK_AUDIO_P2), NULL, A_LINK_AUDIO_0 + 1, ITEM_RADIO);
+        ITEM(menu_audio, n, tr(T_LINK_AUDIO_BOTH), NULL, A_LINK_AUDIO_0 + 2, ITEM_RADIO);
+        ITEM(menu_audio, n, tr(T_LINK_AUDIO_SPLIT), NULL, A_LINK_AUDIO_0 + 3, ITEM_RADIO);
+    }
     menus[k++] = (Menu){ tr(T_MENU_AUDIO), menu_audio, n };
 
     n = 0;
@@ -794,10 +887,7 @@ static int menu_state(void *ctx, int action, int *checked)
     switch (action) {
     case A_RESET:        return !replay;
     case A_PAUSE:        *checked = app->paused; return 1;
-    /* Un estado guarda una sola consola: con el cable, el otro lado quedaría
-     * a mitad de una transferencia */
-    case A_SAVE_STATE:   return !app->linked;
-    case A_LOAD_STATE:   return !replay && !app->linked;
+    case A_LOAD_STATE:   return !replay;
     case A_LINK:         *checked = app->linked; return !replay;
     case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
         static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
@@ -826,6 +916,9 @@ static int menu_state(void *ctx, int action, int *checked)
             return !app->fullscreen;
         } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             *checked = app->cfg.volume == 25 * (action - A_VOLUME_25 + 1);
+            return app->cfg.sound;
+        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_3) {
+            *checked = app->cfg.link_audio == action - A_LINK_AUDIO_0;
             return app->cfg.sound;
         } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT)
             *checked = (int)i18n_get() == action - A_LANGUAGE_0;
@@ -871,8 +964,8 @@ static void do_action(App *app, int action)
     switch (action) {
     case A_RESET:        power_on(app); break;
     case A_PAUSE:        app->paused = !app->paused; break;
-    case A_SAVE_STATE:   if (!app->linked) save_state(app); break;
-    case A_LOAD_STATE:   if (!app->linked) load_state(app); break;
+    case A_SAVE_STATE:   save_state(app); break;
+    case A_LOAD_STATE:   load_state(app); break;
     case A_LINK:         toggle_link(app); break;
     case A_CONSOLE_DMG: case A_CONSOLE_CGB: case A_CONSOLE_SGB: {
         static const int models[3] = { GB_MODEL_DMG, GB_MODEL_CGB, GB_MODEL_SGB };
@@ -933,6 +1026,8 @@ static void do_action(App *app, int action)
             resize_window(app);
         } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             app->cfg.volume = 25 * (action - A_VOLUME_25 + 1);
+        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_3) {
+            app->cfg.link_audio = action - A_LINK_AUDIO_0;
         } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT) {
             i18n_set((Language)(action - A_LANGUAGE_0));
             snprintf(app->cfg.language, sizeof app->cfg.language, "%s", i18n_code(i18n_get()));
@@ -1118,8 +1213,6 @@ static void step(App *app)
         /* Cable: el jugador 2 maneja el Game Boy de la derecha */
         gb_set_pad(&app->gb2, pads[1]);
         gb_link_run_frame(&app->link);
-        static float discard[4096 * 2];
-        gb_audio_pull(&app->gb2, discard, 4096);    /* se oye el del jugador 1 */
     } else {
         /* Super Game Boy multijugador: los controles 2-4 */
         if (app->gb.sgb)
@@ -1134,9 +1227,30 @@ static void step(App *app)
     if (app->linked && app->gb2.sram_dirty && app->frame % 300 == 0 && gb_has_battery(&app->gb2))
         save_game(&app->gb2, app->save_path2);
 
-    static float samples[4096 * 2];
+    static float samples[4096 * 2], samples2[4096 * 2];
     int n = gb_audio_pull(&app->gb, samples, 4096);
     music_samples(&app->music, samples, n);    /* el WAV se graba aunque esté sin sonido */
+    if (app->linked) {
+        /* Cable: el jugador 1, el 2, la mezcla de los dos (a la mitad, para
+         * no saturar) o audífonos: cada uno en mono, el 1 a la izquierda y el
+         * 2 a la derecha. Los dos avanzan lo mismo: sobra a lo más una muestra */
+        int n2 = gb_audio_pull(&app->gb2, samples2, 4096);
+        if (app->cfg.link_audio == 1) {
+            memcpy(samples, samples2, (size_t)n2 * 2 * sizeof samples[0]);
+            n = n2;
+        } else if (app->cfg.link_audio == 2) {
+            if (n2 < n) n = n2;
+            for (int i = 0; i < n * 2; i++) samples[i] = 0.5f * (samples[i] + samples2[i]);
+        } else if (app->cfg.link_audio == 3) {
+            if (n2 < n) n = n2;
+            for (int i = 0; i < n; i++) {
+                float left = 0.5f * (samples[i * 2] + samples[i * 2 + 1]);
+                float right = 0.5f * (samples2[i * 2] + samples2[i * 2 + 1]);
+                samples[i * 2] = left;
+                samples[i * 2 + 1] = right;
+            }
+        }
+    }
     if (!app->audio || !app->cfg.sound) return;
     float vol = app->cfg.volume / 100.0f;
     for (int i = 0; i < n * 2; i++) samples[i] *= vol;
@@ -1226,6 +1340,22 @@ static void render(App *app)
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
     SDL_RenderClear(app->ren);
     SDL_RenderCopy(app->ren, app->tex, NULL, &dst);
+
+    /* Cable: "J1"/"J2" sobre cada pantalla al conectar, en pausa o con un
+     * menú abierto (jugando no tapan nada) */
+    if (app->linked && (!SDL_TICKS_PASSED(SDL_GetTicks(), app->labels_until) || !game_running(app))) {
+        for (int k = 0; k < 2; k++) {
+            char label[16];
+            snprintf(label, sizeof label, tr(T_PLAYER_FMT), k + 1);
+            int tw = ui_text_width(label, ui), pad = 3 * ui;
+            int x = dst.x + k * (GB_SCREEN_W + LINK_GAP) * s + 4 * ui, y = dst.y + 4 * ui;
+            SDL_Rect box = { x, y, tw + 2 * pad, UI_GLYPH_H * ui + 2 * pad };
+            SDL_SetRenderDrawBlendMode(app->ren, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 170);
+            SDL_RenderFillRect(app->ren, &box);
+            ui_draw_text(app->ren, x + pad, y + pad, ui, label, (SDL_Color){ 255, 255, 255, 255 });
+        }
+    }
     if (bar_visible(app))
         menubar_draw(&app->bar, app->ren, w, ui);
     dialog_draw(&app->dlg, app->ren, w, h, ui);
@@ -1318,6 +1448,11 @@ int main(int argc, char *argv[])
                                 GB_SCREEN_W * app->cfg.scale, GB_SCREEN_H * app->cfg.scale,
                                 SDL_WINDOW_RESIZABLE | (ui_shot_path ? SDL_WINDOW_HIDDEN : 0));
     if (!app->win) fail(SDL_GetError());
+    /* SDL2 empieza con la entrada de texto activa; el juego solo lee teclas.
+     * Apagarla evita que macOS conecte el método de entrada (InputMethodKit),
+     * que a veces deja "error messaging the mach port for
+     * IMKCFRunLoopWakeUpReliable" en la consola */
+    SDL_StopTextInput();
     app->ren = SDL_CreateRenderer(app->win, -1, ui_shot_path ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED);
     if (!app->ren) app->ren = SDL_CreateRenderer(app->win, -1, 0);
     if (!app->ren) fail(SDL_GetError());
@@ -1378,7 +1513,10 @@ int main(int argc, char *argv[])
     power_on(app);
     /* Con --play, la grabación maneja al jugador 1 (para pruebas); grabar
      * solo guarda al jugador 1, así que no se combina con el cable */
-    if (start_linked && !record_path) link_start(app);
+    if (start_linked && !record_path) {
+        link_start(app);
+        build_menus(app);   /* el menú Audio cambia con el cable */
+    }
     if (app->forced_palette && is_compat(&app->gb) && !gb_compat_palette(&app->gb, app->forced_palette))
         fail(tr(T_BAD_PALETTE));
 

@@ -1,0 +1,1109 @@
+/*
+ * nesrecomp: recompilador estático de ROMs de NES a C99.
+ *
+ * Uso: nesrecomp juego.nes -o salida/ [--trace traza.txt] [--name nombre]
+ *
+ * Genera un proyecto completo (código recompilado, runtime, plataforma y
+ * Makefile). El proyecto no contiene datos de la ROM: el ejecutable carga la
+ * ROM del usuario y valida su SHA1.
+ *
+ * Pasos:
+ *   1. Descubrimiento: recorrido recursivo desde los vectores (RESET, NMI, IRQ)
+ *      siguiendo saltos, llamadas y bifurcaciones con destino constante. Las
+ *      instrucciones que ejecutó el juego (--trace, ver nestrace) se agregan
+ *      como puntos de entrada: así se resuelven los saltos indirectos y los
+ *      bancos intercambiables.
+ *   2. Partición en funciones: tramos contiguos de PRG que no cruzan una
+ *      ventana de banco.
+ *   3. Emisión de C. Cada instrucción hace los mismos accesos al bus, en el
+ *      mismo orden, que el intérprete; las operaciones son las de cpu_ops.h.
+ *
+ * Las instrucciones se identifican por su desplazamiento en la ROM, no por la
+ * dirección del CPU: lo que no se descubrió, o está en RAM, lo ejecuta el
+ * intérprete. Descubrir de más no rompe nada; de menos, tampoco.
+ */
+#ifndef _WIN32
+#define _DEFAULT_SOURCE
+#endif
+#include <ctype.h>
+#include <dirent.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(p) _mkdir(p)
+#else
+#define MKDIR(p) mkdir(p, 0755)
+#endif
+
+#include "../runtime/cpu_ops.h"
+#include "../runtime/console.h"
+#include "../runtime/sha1.h"
+#include "embedded.h"
+
+#ifndef NESRECOMP_VERSION
+#define NESRECOMP_VERSION "dev"
+#endif
+
+static const char usage_text[] =
+    "nesrecomp " NESRECOMP_VERSION ": recompila una ROM de NES a un proyecto C99 con SDL2.\n"
+    "\n"
+    "uso: nesrecomp juego.nes -o salida/ [opciones]\n"
+    "  -o carpeta         dónde escribir el proyecto (se crea si no existe)\n"
+    "  --name nombre      nombre del ejecutable (por omisión, el de la ROM)\n"
+    "  --trace archivo    instrucciones que ejecutó el juego (las escribe nestrace o\n"
+    "                     la ventana con NES_TRACE=archivo); se agregan como entradas\n"
+    "                     (se puede repetir)\n"
+    "  --coverage archivo compara lo descubierto con las instrucciones que ejecutó el juego\n"
+    "                     (una traza): cuántas se encontraron sin ayuda y cuáles faltan\n"
+    "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
+    "  --no-spec          sin el descubrimiento especulativo en todos los bancos (para comparar)\n"
+    "  --dis OFFSET:DIR:N desensambla N instrucciones desde ese byte de PRG\n"
+    "  --verbose          detalles del descubrimiento\n"
+    "  --version, --help\n";
+
+/* ------------------------------------------------------------------ */
+/* Estado                                                              */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    u16 addr;           /* dirección del CPU con la que se decodificó */
+    u8  state;          /* 0 = sin descubrir, 1 = instrucción */
+    u8  opc;
+    u8  seed;           /* punto de entrada (vector o traza) */
+} Site;
+
+static NES nes;                 /* solo para la cabecera y las consultas del mapper */
+static Cart *cart;
+static u8 *rom_file;
+static size_t rom_file_size;
+static Site *site;
+static size_t prg_size;
+static int verbose;
+static int use_tables = 1;
+static int use_spec = 1;
+
+typedef struct { size_t off; u16 addr; } Work;
+static Work *work;
+static size_t nwork, capwork;
+
+static unsigned stat_bytes, stat_insns, stat_unresolved, stat_ind, stat_conflicts, stat_seeds, stat_trace;
+
+static void die(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "nesrecomp: ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    exit(1);
+}
+
+/* Opcodes oficiales (los NOP y el SBC $EB no oficiales cuentan como no oficiales) */
+static int opc_official(u8 opc)
+{
+    int op = ins_tab[opc].op;
+    if (op > TYA) return 0;
+    if (op == NOP && opc != 0xEA) return 0;
+    if (op == SBC && opc == 0xEB) return 0;
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Descubrimiento                                                      */
+/* ------------------------------------------------------------------ */
+
+static void push_work(size_t off, u16 addr)
+{
+    if (off >= prg_size) return;
+    if (site[off].state) return;
+    if (nwork == capwork) {
+        capwork = capwork ? capwork * 2 : 1024;
+        work = realloc(work, capwork * sizeof *work);
+    }
+    work[nwork++] = (Work){ off, addr };
+}
+
+/* Desplazamiento en PRG de un destino 'target' visto desde la instrucción en (src_off, src_addr):
+ * en la misma ventana por aritmética; en otra, solo si es fija. -1 si no se puede saber. */
+static long resolve(size_t src_off, u16 src_addr, u16 target)
+{
+    PrgWin w, tw;
+    target = mapper_prg_canon(cart, target);
+    if (target < 0x8000) return -1;
+    if (!mapper_prg_window(cart, src_addr, &w)) return -1;
+    if (target >= w.start && (u32)(target - w.start) < w.size)
+        return (long)src_off + ((int)target - (int)src_addr);
+    if (!mapper_prg_window(cart, target, &tw) || !tw.fixed) return -1;
+    return (long)(tw.off + (target - tw.start));
+}
+
+/* ¿Esta dirección de E/S o RAM es una que un programa usaría? (filtra operandos al azar) */
+static int sane_data_addr(u16 a)
+{
+    if (a < 0x2000) return 1;                    /* RAM y espejos */
+    if (a < 0x4000) return 1;                    /* PPU */
+    if (a < 0x4018) return 1;                    /* APU y controles */
+    if (a < 0x6000) return 0;                    /* no mapeado (salvo mappers raros) */
+    return 1;                                    /* RAM del cartucho y ROM */
+}
+
+/* Decodifica desde (off, addr) sin guardar nada: ¿parece código de verdad? Se exige una secuencia
+ * de opcodes oficiales, con destinos de salto que caigan en la ROM, que termine en un RTS/RTI/JMP o
+ * dure lo bastante. Los datos al azar casi nunca pasan. */
+static int is_inline_dispatcher(size_t off, u16 addr);
+
+static int plausible(size_t off, u16 addr)
+{
+    PrgWin w;
+    if (!mapper_prg_window(cart, addr, &w)) return 0;
+    for (int n = 0; n < 48; n++) {
+        if (off >= prg_size) return 0;
+        u8 opc = cart->prg[off];
+        const Ins *in = &ins_tab[opc];
+        int len = mode_len[in->mode];
+        if (!opc_official(opc) || in->op == JAM || in->op == BRK) return 0;
+        if ((u32)(addr - w.start) + len > w.size || off + len > prg_size) return 0;
+        u16 imm = (len > 1 ? cart->prg[off + 1] : 0) | (len > 2 ? cart->prg[off + 2] << 8 : 0);
+        switch (in->mode) {
+        case ABS: case ABX: case ABY:
+            if (in->op == JMP || in->op == JSR) { if (imm < 0x8000) return 0; }
+            else if (!sane_data_addr(imm)) return 0;
+            break;
+        case IND: if (!sane_data_addr(imm) || imm >= 0x8000) return 0; break;   /* el puntero está en RAM */
+        case REL: {
+            u16 t = (u16)(addr + 2 + (int8_t)cart->prg[off + 1]);
+            if (t < w.start || (u32)(t - w.start) >= w.size) return 0;
+            break; }
+        }
+        if (in->op == RTS || in->op == RTI) return 1;
+        if (in->op == JMP) return in->mode == ABS || n >= 1;     /* un JMP solo (vector de entrada) sí cuenta */
+        if (in->op == JSR && use_tables) {           /* una llamada a un despachador: lo que sigue es una tabla */
+            long t = resolve(off, addr, imm);
+            if (t >= 0 && is_inline_dispatcher((size_t)t, mapper_prg_canon(cart, imm))) return 1;
+        }
+        off += len; addr += len;
+    }
+    return 1;
+}
+
+static unsigned stat_spec, stat_spec_hits;
+static u8 spec_done[0x10000 / 8];
+
+/* Un destino en una ventana intercambiable al que se llega desde otra ventana: no se sabe qué banco
+ * habrá. Se prueban todos y se queda con los que parecen código. */
+static void spec_target(u16 target)
+{
+    PrgWin tw;
+    target = mapper_prg_canon(cart, target);
+    if (!use_spec || target < 0x8000 || !mapper_prg_window(cart, target, &tw) || tw.fixed) return;
+    if (spec_done[target >> 3] & (1u << (target & 7))) return;
+    spec_done[target >> 3] |= (u8)(1u << (target & 7));
+    stat_spec++;
+    for (size_t base = 0; base + tw.size <= prg_size; base += tw.size) {
+        size_t off = base + (target - tw.start);
+        if (off < prg_size && !site[off].state && plausible(off, target)) {
+            push_work(off, target);
+            stat_spec_hits++;
+        }
+    }
+}
+
+static void follow(size_t off, u16 addr, u16 target)
+{
+    long t = resolve(off, addr, target);
+    if (t < 0) { stat_unresolved++; spec_target(target); return; }
+    push_work(t, mapper_prg_canon(cart, target));
+}
+
+/* ------------------------------------------------------------------ */
+/* Tablas de saltos                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Las últimas instrucciones del recorrido actual: sirven para reconocer cómo se arma un salto
+ * indirecto (una tabla indexada, el truco de apilar la dirección y hacer RTS, etc.) */
+static size_t hist[16];
+static int nhist;
+static unsigned stat_tables, stat_table_entries, stat_inline;
+
+static void hist_push(size_t off)
+{
+    if (nhist == 16) { memmove(hist, hist + 1, 15 * sizeof *hist); nhist = 15; }
+    hist[nhist++] = off;
+}
+
+static int ins_op(size_t off) { return ins_tab[site[off].opc].op; }
+static int ins_mode(size_t off) { return ins_tab[site[off].opc].mode; }
+static u16 ins_operand(size_t off)
+{
+    int len = mode_len[ins_mode(off)];
+    return (len > 1 && off + 1 < prg_size ? cart->prg[off + 1] : 0) |
+           (len > 2 && off + 2 < prg_size ? cart->prg[off + 2] << 8 : 0);
+}
+
+/* Un destino de tabla: ¿tiene pinta de ser el inicio de una rutina? Resuelve el desplazamiento. */
+static int table_target(size_t tab_off, u16 tab_addr, u16 v, long *t)
+{
+    if (v < 0x8000) return 0;
+    *t = resolve(tab_off, tab_addr, v);
+    if (*t < 0) return 1;                        /* en otra ventana: se prueba en todos los bancos */
+    if ((size_t)*t >= prg_size) return 0;
+    u8 opc = cart->prg[*t];
+    if (!opc_official(opc) || ins_tab[opc].op == JAM || ins_tab[opc].op == BRK) return 0;
+    return plausible((size_t)*t, mapper_prg_canon(cart, v));
+}
+
+/* Lee una tabla de direcciones. Interleaved: palabras de 16 bits seguidas. Si no, un arreglo de bajos y
+ * otro de altos. plus1: son direcciones menos uno (se usan con RTS). 'max' limita la cuenta. */
+static void scan_table(size_t src_off, u16 src_addr, u16 lo_base, u16 hi_base, int interleaved, int plus1, int max)
+{
+    long lo_o = resolve(src_off, src_addr, lo_base);
+    long hi_o = interleaved ? lo_o + 1 : resolve(src_off, src_addr, hi_base);
+    if (lo_o < 0 || hi_o < 0) return;
+    if (!interleaved && hi_base != lo_base) {
+        int span = hi_base > lo_base ? hi_base - lo_base : lo_base - hi_base;
+        if (span < max) max = span;               /* los dos arreglos suelen ir pegados */
+    }
+    int step = interleaved ? 2 : 1, good = 0;
+    for (int i = 0; i < max; i++) {
+        size_t a = (size_t)lo_o + (size_t)i * step, b = (size_t)hi_o + (size_t)i * step;
+        if (a >= prg_size || b >= prg_size) break;
+        u16 v = (u16)((cart->prg[a] | (cart->prg[b] << 8)) + plus1);
+        long t;
+        if (!table_target((size_t)lo_o, lo_base, v, &t)) break;
+        if (t >= 0) push_work(t, mapper_prg_canon(cart, v)); else spec_target(v);
+        good++;
+    }
+    if (good) { stat_tables++; stat_table_entries += good; }
+}
+
+/* ¿Es esta rutina un "despachador con tabla en línea"? Saca de la pila la dirección de retorno (dos PLA),
+ * la usa como puntero (LDA (zp),Y) y salta con JMP (ind). Las llamadas a ella van seguidas de la tabla. */
+static signed char disp_cache[0x10000 / 1];       /* por dirección canónica de entrada: 0 sin ver, 1 sí, -1 no */
+
+static int is_inline_dispatcher(size_t off, u16 addr)
+{
+    if (disp_cache[addr]) return disp_cache[addr] > 0;
+    int pla = 0, izy = 0, found = 0;
+    PrgWin w;
+    size_t o = off; u16 a = addr;
+    for (int n = 0; n < 40 && mapper_prg_window(cart, a, &w) && o < prg_size; n++) {
+        u8 opc = cart->prg[o];
+        const Ins *in = &ins_tab[opc];
+        int len = mode_len[in->mode];
+        if (!opc_official(opc) || (u32)(a - w.start) + len > w.size) break;
+        if (in->op == PLA) pla++;
+        if (in->op == LDA && in->mode == IZY) izy++;
+        if (in->op == JMP) { found = in->mode == IND; break; }
+        if (in->op == RTS || in->op == RTI) break;
+        o += len; a += len;
+    }
+    int yes = found && pla >= 2 && izy >= 1;
+    disp_cache[addr] = yes ? 1 : -1;
+    return yes;
+}
+
+/* La tabla que sigue a un JSR a un despachador con tabla en línea */
+static void scan_inline_table(size_t jsr_off, u16 jsr_addr)
+{
+    size_t o = jsr_off + 3;
+    u16 a = (u16)(jsr_addr + 3);
+    int good = 0;
+    for (int i = 0; i < 128 && o + 1 < prg_size; i++, o += 2, a += 2) {
+        if (site[o].state) break;                  /* ya es código: terminó la tabla */
+        u16 v = cart->prg[o] | (cart->prg[o + 1] << 8);
+        long t;
+        if (!table_target(o, a, v, &t)) break;
+        if (t >= 0) push_work(t, mapper_prg_canon(cart, v)); else spec_target(v);
+        good++;
+    }
+    if (good) { stat_inline++; stat_table_entries += good; }
+}
+
+/* JMP (ptr): ¿de dónde sale el puntero? Busca "LDA tabla,X / STA ptr / LDA tabla2,X / STA ptr+1". */
+static u8 ind_ptr_seen[0x10000 / 8];     /* operandos de JMP (ind) vistos */
+static int ind_ptr(u16 m) { return (ind_ptr_seen[m >> 3] >> (m & 7)) & 1; }
+
+static void analyze_ind_jump(size_t off, u16 addr, u16 ptr)
+{
+    ind_ptr_seen[ptr >> 3] |= (u8)(1u << (ptr & 7));
+    int i_lo = -1, i_hi = -1;
+    for (int i = nhist - 2; i >= 0; i--) {         /* de lo más reciente a lo más antiguo (hist[nhist-1] es el JMP) */
+        size_t h = hist[i];
+        if (ins_op(h) != STA || (ins_mode(h) != ZP && ins_mode(h) != ABS)) continue;
+        u16 m = ins_operand(h);
+        if (m == ptr && i_lo < 0) i_lo = i;
+        if (m == (u16)(ptr + 1) && i_hi < 0) i_hi = i;
+    }
+    if (i_lo < 1 || i_hi < 1) return;
+    size_t l = hist[i_lo - 1], h = hist[i_hi - 1];
+    int lm = ins_mode(l), hm = ins_mode(h);
+    if (ins_op(l) != LDA || ins_op(h) != LDA) return;
+    if ((lm == ABX || lm == ABY) && (hm == ABX || hm == ABY)) {
+        u16 lb = ins_operand(l), hb = ins_operand(h);
+        if (hb == (u16)(lb + 1)) scan_table(off, addr, lb, hb, 1, 0, 128);
+        else scan_table(off, addr, lb, hb, 0, 0, 128);
+    }
+}
+
+/* RTS tras apilar una dirección: "LDA alto,X / PHA / LDA bajo,X / PHA / RTS" (la dirección va menos uno) */
+static void analyze_rts_trick(size_t off, u16 addr)
+{
+    int p2 = -1, p1 = -1;
+    for (int i = nhist - 2; i >= 1 && i >= nhist - 10; i--) {
+        if (ins_op(hist[i]) != PHA) continue;
+        if (p2 < 0) p2 = i; else { p1 = i; break; }
+    }
+    if (p1 < 1 || p2 < 1) return;
+    size_t lo = hist[p2 - 1], hi = hist[p1 - 1];
+    if (ins_op(lo) != LDA || ins_op(hi) != LDA) return;
+    int lm = ins_mode(lo), hm = ins_mode(hi);
+    if ((lm == ABX || lm == ABY) && (hm == ABX || hm == ABY)) {
+        scan_table(off, addr, ins_operand(lo), ins_operand(hi), 0, 1, 128);
+    } else if (lm == IMM && hm == IMM) {
+        u16 v = (u16)((ins_operand(lo) | (ins_operand(hi) << 8)) + 1);
+        long t;
+        if (table_target(off, addr, v, &t)) { if (t >= 0) push_work(t, mapper_prg_canon(cart, v)); else spec_target(v); }
+    }
+}
+
+/* Pares de cargas inmediatas que arman un puntero para un JMP (ind):
+ *   LDA #<rutina / STA ptr / LDA #>rutina / STA ptr+1   (en cualquier orden de las mitades) */
+static unsigned stat_pairs;
+
+static void scan_immediate_pairs(void)
+{
+    for (size_t i = 0; i < prg_size; i++) {
+        if (!site[i].state || ins_op(i) != LDA || ins_mode(i) != IMM) continue;
+        size_t b = i + 2;
+        if (b >= prg_size || !site[b].state || ins_op(b) != STA || (ins_mode(b) != ZP && ins_mode(b) != ABS)) continue;
+        size_t c = b + mode_len[ins_mode(b)];
+        if (c >= prg_size || !site[c].state || ins_op(c) != LDA || ins_mode(c) != IMM) continue;
+        size_t d = c + 2;
+        if (d >= prg_size || !site[d].state || ins_op(d) != STA || (ins_mode(d) != ZP && ins_mode(d) != ABS)) continue;
+        u16 m1 = ins_operand(b), m2 = ins_operand(d);
+        u16 v1 = ins_operand(i), v2 = ins_operand(c);
+        u16 v;
+        if (m2 == (u16)(m1 + 1) && ind_ptr(m1)) v = (u16)((v1 & 0xFF) | (v2 << 8));
+        else if (m1 == (u16)(m2 + 1) && ind_ptr(m2)) v = (u16)((v2 & 0xFF) | (v1 << 8));
+        else continue;
+        long t;
+        if (!table_target(i, site[i].addr, v, &t)) continue;
+        if (t >= 0) { if (!site[t].state) { push_work(t, mapper_prg_canon(cart, v)); stat_pairs++; } }
+        else spec_target(v);
+    }
+}
+
+/* Tablas de direcciones que ningún patrón de código delata: cuatro o más palabras seguidas que apuntan, todas,
+ * a algo con pinta de rutina. Los datos al azar casi nunca lo cumplen. */
+static unsigned stat_runs, stat_run_entries;
+
+static void scan_pointer_runs(void)
+{
+    size_t gran = mapper_prg_granule(cart);
+    for (u32 s = 0x8000; s < 0x10000; s += (u32)gran) {
+        PrgWin w;
+        if (!mapper_prg_window(cart, (u16)s, &w) || w.start != s) continue;
+        for (size_t base = w.fixed ? w.off : 0; base + w.size <= prg_size; base += w.size) {
+            for (int parity = 0; parity < 2; parity++) {
+                int run = 0;
+                size_t run_start = 0;
+                for (size_t o = base + parity; o + 1 < base + w.size; o += 2) {
+                    u16 v = cart->prg[o] | (cart->prg[o + 1] << 8);
+                    u16 a = (u16)(s + (o - base));
+                    long t;
+                    if (table_target(o, a, v, &t)) {
+                        if (run == 0) run_start = o;
+                        run++;
+                        if (run == 4) {                          /* se confirma: se agregan las cuatro */
+                            stat_runs++;
+                            for (int k = 0; k < 4; k++) {
+                                size_t ko = run_start + (size_t)k * 2;
+                                u16 kv = cart->prg[ko] | (cart->prg[ko + 1] << 8);
+                                long kt;
+                                u16 ka = (u16)(s + (ko - base));
+                                if (table_target(ko, ka, kv, &kt)) {
+                                    if (kt >= 0) push_work(kt, mapper_prg_canon(cart, kv)); else spec_target(kv);
+                                    stat_run_entries++;
+                                }
+                            }
+                        } else if (run > 4) {
+                            if (t >= 0) push_work(t, mapper_prg_canon(cart, v)); else spec_target(v);
+                            stat_run_entries++;
+                        }
+                    } else run = 0;
+                    if (w.fixed && 0) break;
+                }
+            }
+            if (w.fixed) break;
+        }
+    }
+}
+
+static int runs_done;
+
+static void resolve_tables(void)
+{
+    if (!runs_done) { runs_done = 1; scan_pointer_runs(); }
+    scan_immediate_pairs();
+}
+
+/* Recorre desde (off, addr) hasta encontrar un final de camino */
+static void walk(size_t off, u16 addr)
+{
+    PrgWin w;
+    nhist = 0;
+    for (;;) {
+        if (off >= prg_size) return;
+        if (site[off].state) {
+            if (site[off].addr != addr) stat_conflicts++;
+            return;
+        }
+        if (!mapper_prg_window(cart, addr, &w)) return;
+        u8 opc = cart->prg[off];
+        const Ins *in = &ins_tab[opc];
+        int len = mode_len[in->mode];
+        if (!opc_official(opc) && !site[off].seed) return;   /* datos, casi seguro */
+        if (in->op == JAM) return;
+        if ((u32)(addr - w.start) + len > w.size || off + len > prg_size) return;
+        site[off] = (Site){ addr, 1, opc, site[off].seed };
+        stat_insns++; stat_bytes += len;
+        hist_push(off);
+
+        u16 imm = (len > 1 ? cart->prg[off + 1] : 0) | (len > 2 ? cart->prg[off + 2] << 8 : 0);
+        switch (in->op) {
+        case JMP:
+            if (in->mode == ABS) follow(off, addr, imm);
+            else { stat_ind++; if (use_tables) analyze_ind_jump(off, addr, imm); }
+            return;
+        case JSR: {
+            follow(off, addr, imm);
+            long t = use_tables ? resolve(off, addr, imm) : -1;
+            if (t >= 0 && is_inline_dispatcher((size_t)t, mapper_prg_canon(cart, imm))) {
+                scan_inline_table(off, addr);      /* tras la llamada va una tabla, no código */
+                return;
+            }
+            break; }
+        case RTS:
+            if (use_tables) analyze_rts_trick(off, addr);
+            return;
+        case RTI: case BRK: return;
+        case BCC: case BCS: case BEQ: case BMI: case BNE: case BPL: case BVC: case BVS:
+            follow(off, addr, (u16)(addr + 2 + (int8_t)cart->prg[off + 1]));
+            break;
+        }
+        off += len; addr += len;
+    }
+}
+
+static void drain(void)
+{
+    while (nwork) {
+        Work w = work[--nwork];
+        walk(w.off, w.addr);
+    }
+}
+
+static void resolve_tables(void);
+
+/* Recorre todo lo pendiente; las heurísticas de tablas pueden agregar más y se repite */
+static void discover(void)
+{
+    for (;;) {
+        drain();
+        unsigned before = stat_insns;
+        if (use_tables) resolve_tables();
+        drain();
+        if (stat_insns == before) break;
+    }
+}
+
+static void seed(size_t off, u16 addr)
+{
+    if (off >= prg_size) return;
+    addr = mapper_prg_canon(cart, addr);
+    site[off].seed = 1;
+    stat_seeds++;
+    push_work(off, addr);
+}
+
+static void seed_vectors(void)
+{
+    static const u16 vec[3] = { 0xFFFA, 0xFFFC, 0xFFFE };
+    static const char *nm[3] = { "NMI", "RESET", "IRQ/BRK" };
+    for (int i = 0; i < 3; i++) {
+        PrgWin w;
+        u16 va = mapper_prg_canon(cart, vec[i]);
+        if (!mapper_prg_window(cart, va, &w)) continue;
+        size_t vo = w.off + (va - w.start);
+        u16 t = cart->prg[vo] | (cart->prg[vo + 1] << 8);
+        if (verbose) printf("vector %-8s = $%04X\n", nm[i], t);
+        PrgWin tw; t = mapper_prg_canon(cart, t);
+        if (t < 0x8000 || !mapper_prg_window(cart, t, &tw)) continue;   /* apunta a RAM: no es código de ROM */
+        seed(tw.off + (t - tw.start), t);
+    }
+}
+
+static void load_trace(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) die("no se pudo abrir %s", path);
+    char line[64];
+    unsigned long off, addr;
+    while (fgets(line, sizeof line, f)) {
+        if (sscanf(line, "%lx:%lx", &off, &addr) != 2) continue;
+        if (off >= prg_size || addr < 0x8000) continue;
+        seed(off, (u16)addr);
+        stat_trace++;
+    }
+    fclose(f);
+}
+
+/* ------------------------------------------------------------------ */
+/* Funciones                                                           */
+/* ------------------------------------------------------------------ */
+
+typedef struct { size_t lo, hi; unsigned n; int fixed; } Func;   /* hi: último byte de la última instrucción */
+static Func *funcs;
+static size_t nfuncs;
+static u32 *fn_of;      /* por desplazamiento: índice de función + 1 */
+
+static int ins_len(size_t off) { return mode_len[ins_tab[site[off].opc].mode]; }
+
+static void partition(void)
+{
+    size_t gran = mapper_prg_granule(cart);
+    size_t cap = 0;
+    fn_of = calloc(prg_size, sizeof *fn_of);
+    size_t i = 0;
+    while (i < prg_size) {
+        if (!site[i].state) { i++; continue; }
+        if (nfuncs == cap) { cap = cap ? cap * 2 : 256; funcs = realloc(funcs, cap * sizeof *funcs); }
+        Func *f = &funcs[nfuncs++];
+        PrgWin w;
+        mapper_prg_window(cart, site[i].addr, &w);
+        *f = (Func){ i, i + ins_len(i) - 1, 1, w.fixed };
+        fn_of[i] = (u32)nfuncs;
+        size_t last = i;
+        size_t j = i + ins_len(i);
+        while (j < prg_size && j / gran == i / gran && f->n < 1500) {
+            if (site[j].state) {
+                f->hi = j + ins_len(j) - 1; f->n++; fn_of[j] = (u32)nfuncs; last = j;
+                j += ins_len(j);
+            } else {
+                size_t k = j;
+                while (k < prg_size && !site[k].state && k - last < 32 && k / gran == i / gran) k++;
+                if (k >= prg_size || !site[k].state || k / gran != i / gran) break;
+                j = k;
+            }
+        }
+        i = f->hi + 1;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Emisión                                                             */
+/* ------------------------------------------------------------------ */
+
+static FILE *open_out(const char *dir, const char *name)
+{
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    return f;
+}
+
+static void make_dir(const char *path)
+{
+    char tmp[1024];
+    snprintf(tmp, sizeof tmp, "%s", path);
+    for (char *p = tmp + 1; *p; p++)
+        if (*p == '/') { *p = 0; MKDIR(tmp); *p = '/'; }
+    MKDIR(tmp);
+}
+
+static void upper(char *dst, const char *src)
+{
+    while (*src) *dst++ = (char)toupper((unsigned char)*src++);
+    *dst = 0;
+}
+
+static void disasm(size_t off, char *out, size_t sz)
+{
+    const Ins *in = &ins_tab[site[off].opc];
+    u16 a = site[off].addr;
+    u8 b1 = cart->prg[off + 1 < prg_size ? off + 1 : off], b2 = cart->prg[off + 2 < prg_size ? off + 2 : off];
+    u16 w = b1 | (b2 << 8);
+    const char *m = op_names[in->op];
+    switch (in->mode) {
+    case IMP: snprintf(out, sz, "%s", m); break;
+    case ACC: snprintf(out, sz, "%s a", m); break;
+    case IMM: snprintf(out, sz, "%s #$%02X", m, b1); break;
+    case ZP:  snprintf(out, sz, "%s $%02X", m, b1); break;
+    case ZPX: snprintf(out, sz, "%s $%02X,x", m, b1); break;
+    case ZPY: snprintf(out, sz, "%s $%02X,y", m, b1); break;
+    case ABS: snprintf(out, sz, "%s $%04X", m, w); break;
+    case ABX: snprintf(out, sz, "%s $%04X,x", m, w); break;
+    case ABY: snprintf(out, sz, "%s $%04X,y", m, w); break;
+    case IND: snprintf(out, sz, "%s ($%04X)", m, w); break;
+    case IZX: snprintf(out, sz, "%s ($%02X,x)", m, b1); break;
+    case IZY: snprintf(out, sz, "%s ($%02X),y", m, b1); break;
+    default:  snprintf(out, sz, "%s $%04X", m, (u16)(a + 2 + (int8_t)b1)); break;
+    }
+}
+
+/* ¿El destino 'target' (visto desde la instrucción en off) es una instrucción de la misma función? */
+static int in_func(size_t off, u16 target)
+{
+    long t = resolve(off, site[off].addr, target);
+    if (t < 0 || (size_t)t >= prg_size) return 0;
+    return site[t].state && site[t].addr == mapper_prg_canon(cart, target) && fn_of[t] == fn_of[off];
+}
+
+/* ¿Esta instrucción puede escribir en $8000-$FFFF (registros del mapper)? */
+static int may_write_mapper(size_t off)
+{
+    const Ins *in = &ins_tab[site[off].opc];
+    int k = op_kind(in->op);
+    if (k != K_WRITE && k != K_RMW) return 0;
+    u16 w = cart->prg[off + 1] | (mode_len[in->mode] > 2 ? cart->prg[off + 2] << 8 : 0);
+    switch (in->mode) {
+    case ABS: return w >= 0x8000;
+    case ABX: case ABY: return w >= 0x7F00;
+    case IZX: case IZY: return 1;
+    default: return 0;
+    }
+}
+
+static void emit_ins(FILE *f, size_t off)
+{
+    const Site *s = &site[off];
+    const Ins *in = &ins_tab[s->opc];
+    int op = in->op, mode = in->mode, len = mode_len[mode], kind = op_kind(op);
+    u16 addr = s->addr, next = (u16)(addr + len);
+    u8 b1 = len > 1 ? cart->prg[off + 1] : 0;
+    u16 w = b1 | (len > 2 ? cart->prg[off + 2] << 8 : 0);
+    char dis[64], opn[8];
+    disasm(off, dis, sizeof dis);
+    upper(opn, op_names[op]);
+    int terminal = 0;
+
+    fprintf(f, "L_%04X: /* %s */\n    FRAME(0x%04X);\n", addr, dis, addr);
+
+    switch (op) {
+    case JSR: {
+        u16 ret = (u16)(addr + 2);
+        fprintf(f, "    TICKS(3);\n    push(n, 0x%02X); push(n, 0x%02X);\n    TICK();\n    LEAVE(0x%04X);\n",
+                ret >> 8, ret & 0xFF, mapper_prg_canon(cart, w));
+        return; }
+    case RTS:
+        fprintf(f, "    TICKS(3);\n"
+                   "    { u16 lo = pull(n); u16 hi = pull(n); c->pc = (u16)((hi << 8) | lo); }\n"
+                   "    RD(c->pc); c->pc++;\n"
+                   "    if (UNLIKELY(n->prev_need_nmi | n->prev_run_irq)) nes_interrupt(n, 0);\n    return;\n");
+        return;
+    case RTI:
+        fprintf(f, "    TICKS(3);\n"
+                   "    c->p = (pull(n) & ~FLAG_B) | FLAG_U;\n"
+                   "    { u16 lo = pull(n); u16 hi = pull(n); c->pc = (u16)((hi << 8) | lo); }\n"
+                   "    if (UNLIKELY(n->prev_need_nmi | n->prev_run_irq)) nes_interrupt(n, 0);\n    return;\n");
+        return;
+    case BRK:
+        fprintf(f, "    TICK();\n    c->pc = 0x%04X; nes_interrupt(n, 1);\n    return;\n", (u16)(addr + 1));
+        return;
+    case JAM:
+        fprintf(f, "    TICK();\n    c->jammed = 1;\n    LEAVE(0x%04X);\n", addr);
+        return;
+    case PHA: fprintf(f, "    TICKS(2);\n    push(n, c->a);\n"); break;
+    case PHP: fprintf(f, "    TICKS(2);\n    push(n, c->p | FLAG_B | FLAG_U);\n"); break;
+    case PLA: fprintf(f, "    TICKS(3);\n    c->a = pull(n); set_nz(c, c->a);\n"); break;
+    case PLP: fprintf(f, "    TICKS(3);\n    c->p = (pull(n) & ~FLAG_B) | FLAG_U;\n"); break;
+    case BCC: case BCS: case BEQ: case BMI: case BNE: case BPL: case BVC: case BVS: {
+        u16 tgt = (u16)(addr + 2 + (int8_t)b1);
+        int cross = ((addr + 2) ^ tgt) & 0xFF00;
+        fprintf(f, "    TICKS(2);\n    if (op_branch_taken(c, %s)) {\n        TICK();%s\n", opn, cross ? " TICK();" : "");
+        if (in_func(off, tgt)) fprintf(f, "        ICHK(0x%04X);\n        goto L_%04X;\n    }\n", tgt, tgt);
+        else fprintf(f, "        LEAVE(0x%04X);\n    }\n", tgt);
+        break; }
+    case JMP:
+        fprintf(f, "    TICKS(3);\n");
+        if (mode == ABS) {
+            u16 t = mapper_prg_canon(cart, w);
+            if (in_func(off, t)) fprintf(f, "    ICHK(0x%04X);\n    goto L_%04X;\n", t, t);
+            else fprintf(f, "    LEAVE(0x%04X);\n", t);
+        } else {
+            fprintf(f, "    { u16 p = 0x%04X; u16 ea = RD(p); ea |= RD((p & 0xFF00) | ((p + 1) & 0xFF)) << 8;\n"
+                       "      LEAVE(ea); }\n", w);
+        }
+        terminal = 1;
+        break;
+    default: {
+        /* Direccionamiento */
+        int store_unstable = op == AHX || op == TAS || op == SHY || op == SHX;
+        fprintf(f, "    {\n");
+        int has_ea = 1;
+        switch (mode) {
+        case IMP: case ACC: fprintf(f, "        TICKS(2);\n"); has_ea = 0; break;
+        case IMM: fprintf(f, "        TICKS(2);\n"); has_ea = 0; break;
+        case ZP:  fprintf(f, "        TICKS(2);\n        u16 ea = 0x%02X;\n", b1); break;
+        case ZPX: case ZPY:
+            fprintf(f, "        TICKS(3);\n        u16 ea = (u8)(0x%02X + c->%c);\n", b1, mode == ZPX ? 'x' : 'y');
+            break;
+        case ABS: fprintf(f, "        TICKS(3);\n        u16 ea = 0x%04X;\n", w); break;
+        case ABX: case ABY:
+            fprintf(f, "        TICKS(3);\n"
+                       "        u16 ea = (u16)(0x%04X + c->%c);\n"
+                       "        int cross = (0x%04X ^ ea) & 0xFF00;\n", w, mode == ABX ? 'x' : 'y', w);
+            if (kind == K_READ) fprintf(f, "        if (cross) RD((0x%04X & 0xFF00) | (ea & 0xFF));\n", w);
+            else fprintf(f, "        RD((0x%04X & 0xFF00) | (ea & 0xFF));\n", w);
+            if (!store_unstable) fprintf(f, "        (void)cross;\n");
+            break;
+        case IZX:
+            fprintf(f, "        TICKS(3);\n"
+                       "        u8 z = (u8)(0x%02X + c->x);\n"
+                       "        u16 ea = RD(z); ea |= RD((u8)(z + 1)) << 8;\n", b1);
+            break;
+        case IZY:
+            fprintf(f, "        TICKS(2);\n"
+                       "        u16 base = RD(0x%02X); base |= RD((u8)(0x%02X + 1)) << 8;\n"
+                       "        u16 ea = (u16)(base + c->y);\n"
+                       "        int cross = (base ^ ea) & 0xFF00;\n", b1, b1);
+            if (kind == K_READ) fprintf(f, "        if (cross) RD((base & 0xFF00) | (ea & 0xFF));\n");
+            else fprintf(f, "        RD((base & 0xFF00) | (ea & 0xFF));\n");
+            if (!store_unstable) fprintf(f, "        (void)cross; (void)base;\n");
+            break;
+        }
+        switch (kind) {
+        case K_READ:
+            if (mode == IMM) fprintf(f, "        op_read(c, %s, 0x%02X);\n", opn, b1);
+            else if (has_ea) fprintf(f, "        op_read(c, %s, RD(ea));\n", opn);
+            break;
+        case K_WRITE:
+            if (store_unstable)
+            {
+                char bs[16];
+                if (mode == IZY) snprintf(bs, sizeof bs, "base"); else snprintf(bs, sizeof bs, "0x%04X", w);
+                fprintf(f, "        cpu_unstable_store(n, %s, %s, ea, cross);\n", opn, bs);
+            }
+            else fprintf(f, "        WR(ea, op_store(c, %s));\n", opn);
+            break;
+        case K_RMW:
+            if (mode == ACC) fprintf(f, "        c->a = op_rmw(c, %s, c->a);\n", opn);
+            else fprintf(f, "        { u8 v = RD(ea); WR(ea, v); WR(ea, op_rmw(c, %s, v)); }\n", opn);
+            break;
+        default:
+            fprintf(f, "        op_implied(c, %s);\n", opn);
+            break;
+        }
+        fprintf(f, "    }\n");
+        break; }
+    }
+
+    if (terminal) return;
+    fprintf(f, "    ICHK(0x%04X);\n", next);
+    PrgWin w2; mapper_prg_window(cart, addr, &w2);
+    if (!w2.fixed && may_write_mapper(off)) fprintf(f, "    MAPCHK(0x%04X);\n", next);
+    /* ¿sigue la instrucción siguiente en esta función? */
+    size_t noff = off + len;
+    if (!(noff < prg_size && site[noff].state && site[noff].addr == next && fn_of[noff] == fn_of[off]))
+        fprintf(f, "    c->pc = 0x%04X;\n    return;\n", next);
+}
+
+static void emit_function(FILE *f, size_t idx)
+{
+    const Func *fn = &funcs[idx];
+    fprintf(f, "/* PRG $%06zX-$%06zX (%u instrucciones) */\n", fn->lo, fn->hi, fn->n);
+    fprintf(f, "void f_%06zX(NES *n)\n{\n    Cpu *c = &n->cpu;\n    u32 ver0 = n->cart.map_ver; (void)ver0;\n    switch (c->pc) {\n", fn->lo);
+    for (size_t o = fn->lo; o <= fn->hi; o++)
+        if (site[o].state && fn_of[o] == idx + 1) fprintf(f, "    case 0x%04X: goto L_%04X;\n", site[o].addr, site[o].addr);
+    fprintf(f, "    default: cpu_step(n); return;\n    }\n");
+    for (size_t o = fn->lo; o <= fn->hi; o++)
+        if (site[o].state && fn_of[o] == idx + 1) emit_ins(f, o);
+    fprintf(f, "}\n\n");
+}
+
+static void emit_code(const char *dir)
+{
+    FILE *h = open_out(dir, "gen/gen.h");
+    fprintf(h, "/* Generado por nesrecomp: no editar. */\n#ifndef GEN_H\n#define GEN_H\n#include \"recomp.h\"\n\n");
+    for (size_t i = 0; i < nfuncs; i++) fprintf(h, "void f_%06zX(NES *n);\n", funcs[i].lo);
+    fprintf(h, "\n#endif\n");
+    fclose(h);
+
+    FILE *f = NULL;
+    unsigned in_file = 0, part = 0;
+    for (size_t i = 0; i < nfuncs; i++) {
+        if (!f || in_file >= 4000) {
+            if (f) fclose(f);
+            char name[64];
+            snprintf(name, sizeof name, "gen/code_%03u.c", part++);
+            f = open_out(dir, name);
+            fprintf(f, "/* Generado por nesrecomp: no editar. */\n#include \"gen.h\"\n\n");
+            in_file = 0;
+        }
+        emit_function(f, i);
+        in_file += funcs[i].n;
+    }
+    if (f) fclose(f);
+}
+
+static void emit_dispatch(const char *dir)
+{
+    FILE *f = open_out(dir, "gen/dispatch.c");
+    fprintf(f, "/* Generado por nesrecomp: no editar. */\n#include \"gen.h\"\n\n");
+    fprintf(f, "#define NFUNCS %zu\n\n", nfuncs);
+    fprintf(f, "static const u32 f_lo[%zu] = {", nfuncs ? nfuncs : 1);
+    for (size_t i = 0; i < nfuncs; i++) fprintf(f, "%s0x%zX,", i % 8 ? "" : "\n    ", funcs[i].lo);
+    if (!nfuncs) fprintf(f, "0");
+    fprintf(f, "\n};\nstatic const u32 f_hi[%zu] = {", nfuncs ? nfuncs : 1);
+    for (size_t i = 0; i < nfuncs; i++) fprintf(f, "%s0x%zX,", i % 8 ? "" : "\n    ", funcs[i].hi);
+    if (!nfuncs) fprintf(f, "0");
+    fprintf(f, "\n};\nstatic const RecompFn f_fn[%zu] = {", nfuncs ? nfuncs : 1);
+    for (size_t i = 0; i < nfuncs; i++) fprintf(f, "%sf_%06zX,", i % 4 ? "" : "\n    ", funcs[i].lo);
+    if (!nfuncs) fprintf(f, "0");
+    size_t pages = (prg_size + 255) >> 8;
+    fprintf(f, "\n};\n\n/* Por página de 256 bytes de PRG: primera función que termina en ella o después */\n");
+    fprintf(f, "static const u32 page_first[%zu] = {", pages);
+    size_t fi = 0;
+    for (size_t p = 0; p < pages; p++) {
+        while (fi < nfuncs && funcs[fi].hi < p * 256) fi++;
+        fprintf(f, "%s%zu,", p % 16 ? "" : "\n    ", fi);
+    }
+    fprintf(f, "\n};\n\n"
+               "RecompFn recomp_lookup(NES *n, u16 pc)\n{\n"
+               "    long off = mapper_prg_offset(&n->cart, pc);\n"
+               "    if (off < 0) return 0;\n"
+               "    u32 i = page_first[off >> 8];\n"
+               "    while (i < NFUNCS && f_hi[i] < (u32)off) i++;\n"
+               "    return (i < NFUNCS && f_lo[i] <= (u32)off) ? f_fn[i] : 0;\n}\n");
+    fclose(f);
+}
+
+static void emit_info(const char *dir, const char *sha1, const char *name)
+{
+    FILE *f = open_out(dir, "gen/info.c");
+    fprintf(f, "/* Generado por nesrecomp: no editar. */\n#include \"recomp.h\"\n\n");
+    fprintf(f, "const char recomp_rom_sha1[41] = \"%s\";\n", sha1);
+    fprintf(f, "const char recomp_name[] = \"%s\";\n", name);
+    fprintf(f, "const unsigned recomp_instructions = %u;\n", stat_insns);
+    fclose(f);
+}
+
+static void write_embedded(const char *dir)
+{
+    for (const EmbeddedFile *e = embedded_files; e->name; e++) {
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", dir, e->name);
+        char *slash = strrchr(path, '/');
+        if (slash) { *slash = 0; make_dir(path); *slash = '/'; }
+        FILE *f = fopen(path, "wb");
+        if (!f) die("no se pudo crear %s", path);
+        fwrite(e->data, 1, e->size, f);
+        fclose(f);
+    }
+}
+
+static void emit_makefile(const char *dir, const char *name)
+{
+    FILE *f = open_out(dir, "Makefile");
+    fprintf(f,
+        "# Generado por nesrecomp. Compila con cualquier gcc/clang C99 con SDL2.\n\n"
+        "CC     ?= cc\n"
+        "CFLAGS ?= -std=c99 -O2 -Wall -Wno-unused-label\n"
+        "INC    := -Iruntime -Igen -Iplatform -DNES_RECOMP\n"
+        "SDL_CFLAGS := $(shell pkg-config --cflags sdl2)\n"
+        "SDL_LIBS   := $(shell pkg-config --libs sdl2)\n\n"
+        "RT_OBJ  := $(patsubst runtime/%%.c,build/rt_%%.o,$(wildcard runtime/*.c))\n"
+        "GEN_OBJ := $(patsubst gen/%%.c,build/gen_%%.o,$(wildcard gen/*.c))\n\n"
+        ".PHONY: all clean\n"
+        "all: %s difftest bench\n\n"
+        "build:\n\tmkdir -p build\n\n"
+        "build/rt_%%.o: runtime/%%.c $(wildcard runtime/*.h) | build\n"
+        "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
+        "build/gen_%%.o: gen/%%.c $(wildcard runtime/*.h) gen/gen.h | build\n"
+        "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
+        "# Plataforma: ventana, menús, controles y audio (todo menos difftest y bench)\n"
+        "PLAT_OBJ := $(patsubst platform/%%.c,build/pl_%%.o,$(filter-out platform/difftest.c platform/bench.c,$(wildcard platform/*.c)))\n\n"
+        "build/pl_%%.o: platform/%%.c $(wildcard platform/*.h) $(wildcard runtime/*.h) | build\n"
+        "\t$(CC) $(CFLAGS) $(INC) $(SDL_CFLAGS) -c -o $@ $<\n\n"
+        "%s: $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ)\n"
+        "\t$(CC) -o $@ $^ $(SDL_LIBS) -lm\n\n"
+        "# Prueba diferencial: código recompilado contra el intérprete\n"
+        "difftest: platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
+        "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
+        "bench: platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
+        "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
+        "clean:\n\trm -rf build %s difftest bench\n",
+        name, name, name);
+    fclose(f);
+}
+
+static void emit_readme(const char *dir, const char *name, const char *sha1)
+{
+    FILE *f = open_out(dir, "LEEME.txt");
+    fprintf(f,
+        "Proyecto generado por nesrecomp.\n\n"
+        "Compilar (necesita un compilador C99, make y SDL2):\n"
+        "  macOS:   brew install sdl2 pkg-config\n"
+        "  Debian:  sudo apt install build-essential pkg-config libsdl2-dev\n"
+        "  Windows: MSYS2 UCRT64: pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2 make\n\n"
+        "  make\n"
+        "  ./%s juego.nes\n\n"
+        "El proyecto no contiene la ROM. El ejecutable la pide y comprueba que su SHA1 sea\n"
+        "%s.\n"
+        "Si se ejecuta sin argumentos busca un .nes con ese SHA1 en la carpeta actual.\n\n"
+        "Prueba diferencial (código recompilado contra el intérprete):\n"
+        "  ./difftest juego.nes 600\n", name, sha1);
+    fclose(f);
+}
+
+/* Cuántas de las instrucciones ejecutadas (una traza) se descubrieron sin esa ayuda */
+static void coverage_report(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) die("no se pudo abrir %s", path);
+    char line[64];
+    unsigned long off, addr;
+    unsigned total = 0, found = 0, missing_shown = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (sscanf(line, "%lx:%lx", &off, &addr) != 2 || off >= prg_size) continue;
+        total++;
+        if (site[off].state) { found++; continue; }
+        if (missing_shown < 12 || verbose) {
+            printf("  falta: PRG $%06lX = $%04lX  ", off, addr);
+            Site save = site[off]; site[off].opc = cart->prg[off]; site[off].addr = (u16)addr;
+            char d[64]; disasm(off, d, sizeof d); site[off] = save;
+            printf("%s\n", d);
+            missing_shown++;
+        }
+    }
+    fclose(f);
+    printf("cobertura: %u de %u instrucciones ejecutadas descubiertas sin traza (%.1f%%); descubiertas en total %u\n",
+           found, total, total ? 100.0 * found / total : 100.0, stat_insns);
+}
+
+/* ------------------------------------------------------------------ */
+
+static void sanitize(char *s)
+{
+    for (; *s; s++) if (!isalnum((unsigned char)*s) && *s != '-' && *s != '_') *s = '_';
+}
+
+static u8 *slurp(const char *path, size_t *len)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
+    u8 *b = malloc(sz ? sz : 1);
+    if (fread(b, 1, sz, f) != (size_t)sz) { fclose(f); free(b); return NULL; }
+    fclose(f); *len = sz;
+    return b;
+}
+
+int main(int argc, char **argv)
+{
+    console_utf8();
+    const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
+    const char *traces[32]; int ntraces = 0;
+    const char *coverage = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
+        else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
+        else if (!strcmp(argv[i], "--trace") && i + 1 < argc && ntraces < 32) traces[ntraces++] = argv[++i];
+        else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis_arg = argv[++i];
+        else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
+        else if (!strcmp(argv[i], "--no-tables")) use_tables = 0;
+        else if (!strcmp(argv[i], "--no-spec")) use_spec = 0;
+        else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--version")) { puts("nesrecomp " NESRECOMP_VERSION); return 0; }
+        else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) { fputs(usage_text, stdout); return 0; }
+        else if (argv[i][0] != '-' && !in_path) in_path = argv[i];
+        else die("argumento desconocido: %s (ver --help)", argv[i]);
+    }
+    if (!in_path) { fputs(usage_text, stderr); return 2; }
+    if (!out_dir && !dis_arg && !coverage) die("falta -o carpeta");
+
+    rom_file = slurp(in_path, &rom_file_size);
+    if (!rom_file) die("no se pudo leer %s", in_path);
+    const char *err = NULL;
+    if (nes_load(&nes, rom_file, rom_file_size, &err)) die("%s: %s", in_path, err);
+    cart = &nes.cart;
+    prg_size = cart->prg_size;
+    site = calloc(prg_size, sizeof *site);
+    printf("%s: mapper %d, PRG %zu KB, CHR %zu KB%s\n", in_path, cart->mapper, prg_size / 1024,
+           cart->chr_is_ram ? 0 : cart->chr_size / 1024, cart->chr_is_ram ? " (RAM)" : "");
+
+    seed_vectors();
+    discover();
+    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg) return 0; }
+    unsigned base_insns = stat_insns;
+    for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
+    discover();
+    printf("código: %u instrucciones (%u bytes, %.2f%% del PRG)", stat_insns, stat_bytes, 100.0 * stat_bytes / prg_size);
+    if (ntraces) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    printf("\n");
+    if (verbose) {
+        printf("saltos sin resolver: %u (especulados en todos los bancos: %u destinos, %u aceptados), "
+               "saltos indirectos: %u, conflictos de dirección: %u\n",
+               stat_unresolved, stat_spec, stat_spec_hits, stat_ind, stat_conflicts);
+        printf("tablas: %u con índice, %u en línea, %u destinos; %u pares de puntero, %u tablas sueltas (%u entradas)\n",
+               stat_tables, stat_inline, stat_table_entries, stat_pairs, stat_runs, stat_run_entries);
+    }
+
+    if (dis_arg) {
+        unsigned long off, addr, cnt;
+        if (sscanf(dis_arg, "%lx:%lx:%lu", &off, &addr, &cnt) != 3) die("--dis espera OFFSET:DIR:N");
+        for (unsigned long k = 0; k < cnt && off < prg_size; k++) {
+            const Ins *in = &ins_tab[cart->prg[off]];
+            Site tmp = site[off];
+            site[off].opc = cart->prg[off]; site[off].addr = (u16)addr;
+            char d[64]; disasm(off, d, sizeof d);
+            printf("%06lX  $%04lX  %s\n", off, addr, d);
+            int l = mode_len[in->mode]; off += l; addr += l; (void)tmp;
+        }
+        if (!out_dir) return 0;
+    }
+
+    partition();
+    printf("%zu funciones\n", nfuncs);
+
+    char sha1[41];
+    sha1_hex(rom_file, rom_file_size, sha1);
+    char nm[128];
+    if (name) snprintf(nm, sizeof nm, "%s", name);
+    else {
+        const char *b = strrchr(in_path, '/'); b = b ? b + 1 : in_path;
+        snprintf(nm, sizeof nm, "%s", b);
+        char *dot = strrchr(nm, '.'); if (dot) *dot = 0;
+    }
+    sanitize(nm);
+
+    make_dir(out_dir);
+    char gen[1024]; snprintf(gen, sizeof gen, "%s/gen", out_dir);
+    make_dir(gen);
+    /* se borra el código de una corrida anterior */
+    DIR *d = opendir(gen);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d))) {
+            if (!strncmp(e->d_name, "code_", 5)) {
+                char p[1280]; snprintf(p, sizeof p, "%s/%s", gen, e->d_name); remove(p);
+            }
+        }
+        closedir(d);
+    }
+    emit_code(out_dir);
+    emit_dispatch(out_dir);
+    emit_info(out_dir, sha1, nm);
+    write_embedded(out_dir);
+    emit_makefile(out_dir, nm);
+    emit_readme(out_dir, nm, sha1);
+    printf("proyecto escrito en %s/ (ejecutable: %s)\n", out_dir, nm);
+    return 0;
+}

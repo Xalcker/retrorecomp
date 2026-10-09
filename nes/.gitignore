@@ -1,0 +1,17 @@
+build/
+testroms/
+roms/
+*.nes
+*.sav
+out/
+dist/
+/nesrecomp
+/nestest
+.DS_Store
+/nes
+/nesshot
+/nesaudio
+/sramtest
+/nesbench
+/statetest
+/nestrace

@@ -222,8 +222,8 @@ proyectos generados; en macOS todavía no.
   canal de onda del DMG.
 - **PPU:** seis casos de Mealybug con cambios de LCDC o de la ventana a mitad
   de línea.
-- **Game Boy Color:** la doble velocidad está implementada pero sin un juego
-  que la verifique, y faltan algunos detalles finos de la HDMA.
+- **Game Boy Color:** faltan algunos detalles finos de la HDMA. La doble
+  velocidad se verificó con Shantae, Warlocked y Street Fighter Alpha.
 - La lista de pendientes está en los *issues* del repositorio.
 
 ## Aspectos legales
@@ -236,6 +236,14 @@ de un juego comercial.
 Las paletas del modo de compatibilidad del GBC (`src/runtime/compat.c`)
 vienen de la boot ROM libre de [SameBoy](https://github.com/LIJI32/SameBoy),
 con licencia MIT; el aviso está en ese archivo.
+
+Los íconos de los juegos recompilados (ventana y `.exe` de Windows) son de
+[Retro game console icons](https://github.com/KyleBing/retro-game-console-icons),
+de KyleBing, con licencia
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): recortados,
+centrados y escalados por `tools/iconos.py`. Los originales y el detalle de
+los cambios están en [`assets/iconos/`](assets/iconos/LEEME.md). Los proyectos
+generados llevan el crédito en su `LEEME.txt` y en Ayuda > Acerca de.
 
 ## Documentación
 

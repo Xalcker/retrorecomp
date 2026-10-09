@@ -1559,6 +1559,16 @@ static void write_embedded(const char *dir)
     }
 }
 
+/* Ícono del .exe en Windows: el Game Boy Color para los juegos de color, el
+ * Game Boy para los demás (la ventana cambia de ícono según la consola) */
+static void emit_icon_rc(const char *dir)
+{
+    FILE *f = open_out(dir, "platform/icono.rc");
+    fprintf(f, "/* Generado por gbrecomp: ícono del ejecutable en Windows */\n"
+               "1 ICON \"%s\"\n", (rom[0x143] & 0x80) ? "icono_gbc.ico" : "icono_gb.ico");
+    fclose(f);
+}
+
 /* Instrucciones para compilar el proyecto generado */
 static void emit_readme(const char *dir, const char *name, const char *title, const char *sha1)
 {
@@ -1600,7 +1610,12 @@ static void emit_readme(const char *dir, const char *name, const char *title, co
         "  ./difftest rom.gb --frames 6000 --seed 1\n"
         "\n"
         "El código en gen/ es una traducción del programa de la ROM: úsalo para\n"
-        "jugar tu propia copia; no lo distribuyas si el juego es comercial.\n",
+        "jugar tu propia copia; no lo distribuyas si el juego es comercial.\n"
+        "\n"
+        "Íconos (platform/iconos.c, platform/icono_*.ico): Retro game console\n"
+        "icons de KyleBing, https://github.com/KyleBing/retro-game-console-icons,\n"
+        "con licencia CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/);\n"
+        "recortados, centrados y escalados.\n",
         title, name, GBRECOMP_VERSION, sha1, name);
     fclose(f);
 }
@@ -1620,8 +1635,10 @@ static void emit_makefile(const char *dir, const char *name)
         "export TEMP := $(TMPDIR_WIN)\n"
         "EXE := .exe\n"
         "SDL_LIBS := -static $(shell pkg-config --libs --static sdl2) -lcomdlg32\n"
+        "ICON_OBJ := build/icono.o\n"
         "else\n"
         "SDL_LIBS := $(shell pkg-config --libs sdl2)\n"
+        "ICON_OBJ :=\n"
         "endif\n"
         "SDL_CFLAGS := $(shell pkg-config --cflags sdl2)\n\n"
         "RT_OBJ  := $(patsubst runtime/%%.c,build/rt_%%.o,$(wildcard runtime/*.c))\n"
@@ -1637,7 +1654,10 @@ static void emit_makefile(const char *dir, const char *name)
         "PLAT_OBJ := $(patsubst platform/%%.c,build/pl_%%.o,$(filter-out platform/difftest.c,$(wildcard platform/*.c)))\n\n"
         "build/pl_%%.o: platform/%%.c $(wildcard platform/*.h) $(wildcard runtime/*.h) | build\n"
         "\t$(CC) $(CFLAGS) $(INC) $(SDL_CFLAGS) -c -o $@ $<\n\n"
-        "%s$(EXE): $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ)\n"
+        "# Windows: el ícono del .exe (platform/icono.rc)\n"
+        "build/icono.o: platform/icono.rc $(wildcard platform/*.ico) | build\n"
+        "\twindres -I platform $< -O coff -o $@\n\n"
+        "%s$(EXE): $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ) $(ICON_OBJ)\n"
         "\t$(CC) -o $@ $^ $(SDL_LIBS)\n\n"
         "# Prueba diferencial: código recompilado contra el intérprete\n"
         "difftest$(EXE): platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
@@ -1919,6 +1939,7 @@ int main(int argc, char **argv)
     emit_dispatch(out);
     emit_info(out, sha1, title, exe_name, ninsns);
     emit_makefile(out, exe_name);
+    emit_icon_rc(out);
     emit_readme(out, exe_name, title, sha1);
     write_embedded(out);
 

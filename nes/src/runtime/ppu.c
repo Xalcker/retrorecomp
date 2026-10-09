@@ -470,9 +470,8 @@ static inline void draw_pixel(NES *n)
 static void ppu_prefetch_tile(NES *n)
 {
     Ppu *p = &n->ppu;
-    const u8 mask = p->mask;
     for (int k = 0; k < 8; k++) {
-        if (mask & 8) { p->bg_lo <<= 1; p->bg_hi <<= 1; p->at_lo <<= 1; p->at_hi <<= 1; }
+        { p->bg_lo = (u16)((p->bg_lo << 1) | 1); p->bg_hi = (u16)((p->bg_hi << 1) | 1); p->at_lo = (u16)((p->at_lo << 1) | 1); p->at_hi = (u16)((p->at_hi << 1) | 1); }   /* con solo sprites también se desplazan; entra un 1 por la derecha */
         switch (k) {
         case 0: load_bg(p); p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF)); break;
         case 2: {
@@ -511,7 +510,7 @@ static void ppu_tile_bg(NES *n)
     if (c == 65) { p->oam_snap = p->oam_addr; eval_sprites(n, p->scanline); }
     const u8 mask = p->mask;
     u32 lo = p->bg_lo, hi = p->bg_hi, alo = p->at_lo, ahi = p->at_hi;
-    if (c >= 2) { lo = (lo << 1) & 0xFFFF; hi = (hi << 1) & 0xFFFF; alo = (alo << 1) & 0xFFFF; ahi = (ahi << 1) & 0xFFFF; }
+    if (c >= 2) { lo = ((lo << 1) | 1) & 0xFFFF; hi = ((hi << 1) | 1) & 0xFFFF; alo = ((alo << 1) | 1) & 0xFFFF; ahi = ((ahi << 1) | 1) & 0xFFFF; }
     /* punto 0: carga el mosaico que se buscó en la baldosa anterior y empieza la siguiente búsqueda */
     lo = (lo & 0xFF00) | p->nt_lo;
     hi = (hi & 0xFF00) | p->nt_hi;
@@ -544,8 +543,8 @@ static void ppu_tile_bg(NES *n)
     }
     inc_x(p);                                      /* punto 7 */
     if (c == 249) inc_y(p);                        /* punto 256 */
-    p->bg_lo = (u16)(lo << 7); p->bg_hi = (u16)(hi << 7);
-    p->at_lo = (u16)(alo << 7); p->at_hi = (u16)(ahi << 7);
+    p->bg_lo = (u16)((lo << 7) | 0x7F); p->bg_hi = (u16)((hi << 7) | 0x7F);
+    p->at_lo = (u16)((alo << 7) | 0x7F); p->at_hi = (u16)((ahi << 7) | 0x7F);
     p->dot = c + 8;
     p->clock += 8;
 }
@@ -558,14 +557,13 @@ static void ppu_tile(NES *n)
     Ppu *p = &n->ppu;
     const int sl = p->scanline, c = p->dot;
     if (c == 65) { p->oam_snap = p->oam_addr; eval_sprites(n, p->scanline); }
-    const u8 mask = p->mask;
     const u64 clock0 = p->clock;
     const int pbit = (p->ctrl >> 4) & 1;
     for (int k = 0; k < 8; k++) {
         const int cy = c + k;
         if (cy >= 2) {
-            if (mask & 8) { p->bg_lo <<= 1; p->bg_hi <<= 1; p->at_lo <<= 1; p->at_hi <<= 1; }
-            if (mask & 0x10)
+            { p->bg_lo = (u16)((p->bg_lo << 1) | 1); p->bg_hi = (u16)((p->bg_hi << 1) | 1); p->at_lo = (u16)((p->at_lo << 1) | 1); p->at_hi = (u16)((p->at_hi << 1) | 1); }   /* con solo sprites también se desplazan; entra un 1 por la derecha */
+            if (1)
                 for (int i = 0; i < p->spr_count; i++) {
                     if (p->spr[i].x) p->spr[i].x--;
                     else { p->spr[i].lo <<= 1; p->spr[i].hi <<= 1; }
@@ -609,8 +607,8 @@ void ppu_tick(NES *n)
         }
         if (rend) {
             if ((cy >= 2 && cy < 258) || (cy >= 321 && cy < 338)) {
-                if (p->mask & 8) { p->bg_lo <<= 1; p->bg_hi <<= 1; p->at_lo <<= 1; p->at_hi <<= 1; }
-                if ((p->mask & 0x10) && cy < 258)
+                { p->bg_lo = (u16)((p->bg_lo << 1) | 1); p->bg_hi = (u16)((p->bg_hi << 1) | 1); p->at_lo = (u16)((p->at_lo << 1) | 1); p->at_hi = (u16)((p->at_hi << 1) | 1); }
+                if (cy < 258)
                     for (int i = 0; i < p->spr_count; i++) {
                         if (p->spr[i].x) p->spr[i].x--;
                         else { p->spr[i].lo <<= 1; p->spr[i].hi <<= 1; }

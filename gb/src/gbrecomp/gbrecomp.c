@@ -957,6 +957,28 @@ static int is_call_hl(u16 addr)
     return fetch_insn(0, addr, b, &in) && in.kind == INS_JP_HL;
 }
 
+/* `jp hl` de rutinas del banco 0 que ya se entienden (argumentos en línea,
+ * despachadores, trampolines, "call hl"): no se reportan como saltos sin
+ * resolver en --events / --viz */
+static u8 jp_hl_explained[0x4000];
+
+static void explain_routine(u16 entry)
+{
+    u16 pc = entry;
+    for (int i = 0; i < 64 && pc < 0x4000; i++) {
+        u8 b[3];
+        Insn in;
+        if (!fetch_insn(0, pc, b, &in)) return;
+        if (in.kind == INS_JP_HL) jp_hl_explained[pc] = 1;
+        if ((in.kind == INS_JP || in.kind == INS_JR) && !in.cond) {
+            pc = in.target;
+            continue;
+        }
+        if ((in.kind == INS_RET || in.kind == INS_JP_HL) && !in.cond) return;
+        pc = (u16)(pc + in.len);
+    }
+}
+
 static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
 {
     int started = 0;
@@ -1013,6 +1035,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             table_base = -1;
         }
         int call_hl = (in.kind == INS_CALL || in.kind == INS_RST) && !in.cond && is_call_hl(in.target);
+        if (call_hl) explain_routine(in.target);
         if (in.kind == INS_JP_HL || call_hl) {
             /* HL leído de una variable de RAM: puntero a código en RAM */
             int lo = st.r[R_L], hi = st.r[R_H];
@@ -1023,7 +1046,8 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             }
             long tb = table_base >= 0 ? bank_of(bank, (u16)table_base) : -1;
             if (tb >= 0 && !ram_ptr) add_table((u32)tb, (u16)table_base, 0);
-            else if (in.kind == INS_JP_HL && !ram_ptr) ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
+            else if (in.kind == INS_JP_HL && !ram_ptr && !(bank == 0 && jp_hl_explained[addr]))
+                ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
         }
 
         /* `ld rr, nn` + `push rr` poco antes de un salto indirecto, sin nada
@@ -1085,6 +1109,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 const InlineArgs *ia = (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0
                                        ? inline_args(in.target) : NULL;
                 if (ia && ia->n && in_region(bank, (u32)addr + in.len + ia->n)) {
+                    explain_routine(in.target);
                     const u8 *arg = bank_ptr(bank) + (addr + in.len - region_base(bank));
                     skip = ia->n;
                     noret = ia->noret;
@@ -1108,6 +1133,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 /* Llamada a un despachador: lo que sigue es su tabla */
                 if (!skip && (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0 &&
                     is_table_dispatcher((u32)tb, in.target)) {
+                    if (tb == 0) explain_routine(in.target);
                     add_table(bank, (u16)(addr + in.len), 1);
                     return;
                 }
@@ -1120,6 +1146,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 u16 fa;
                 int r = simulate_far_jump(in.target, st, in.kind != INS_JP, &fb, &fa);
                 if (!far_cache[in.target]) far_cache[in.target] = r < 0 ? -1 : 1;
+                if (r > 0) explain_routine(in.target);
                 int saved = push_ctx;
                 if (r > 0) {
                     push_ctx = fb != 0 ? (int)fb : saved;
@@ -1154,6 +1181,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             int breg = 0, kind = RK_NONE;
             if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.target < 0x4000)
                 kind = routine_kind(in.target, &breg);
+            if (kind == RK_TRAMPOLINE || kind == RK_TABLE_JUMPER) explain_routine(in.target);
             long hlv = pair_value(&st, R_H, R_L);
             int new_bank = st.bank;
             if (kind == RK_TRAMPOLINE && IS_CONST(st.r[breg]) && hlv >= 0 && hlv < 0x8000) {
@@ -2084,7 +2112,7 @@ int main(int argc, char **argv)
     write_embedded(out);
 
     printf("ROM: %s (%s), %u bancos, SHA1 %s\n", rom_path, title, nbanks, sha1);
-    printf("código: %u instrucciones (%u bytes, %.1f%% de la ROM) en %zu funciones\n",
+    printf("código: %u instrucciones (%u bytes, %.2f%% de la ROM) en %zu funciones\n",
            ninsns, nbytes, 100.0 * nbytes / rom_size, nfuncs);
     if (stat_tramp_calls)
         printf("llamadas a trampolines de banco resueltas: %u\n", stat_tramp_calls);

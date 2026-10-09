@@ -375,7 +375,7 @@ static void render(void)
         putf(" (%s)", org_name[last_walk->origin]);
     }
     put("\x1b[K\n");
-    putf("instrucciones %u · código %.1f %% de la ROM · tablas %u · sin resolver %u",
+    putf("instrucciones %u · código %.2f %% de la ROM · tablas %u · sin resolver %u",
          n_insns, 100.0 * n_code_bytes / ((double)v_nbanks * BANK_SIZE), n_tables, n_bad);
     if (nwants) putf(" · ejecutado sin descubrir %u", n_want);
     put("\x1b[K\n");

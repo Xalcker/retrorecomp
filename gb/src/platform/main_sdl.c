@@ -444,11 +444,15 @@ static void notify(App *app, const char *text)
     app->notice_until = SDL_GetTicks() + 2500;
 }
 
+/* Paleta del modo de compatibilidad del GBC: la misma para los dos Game Boy
+ * del cable link (las del DMG se aplican al dibujar, a los dos) */
 static void apply_palette(App *app)
 {
     if (!is_compat(&app->gb)) return;
     const char *p = app->forced_palette ? app->forced_palette : app->cfg.compat_palette;
-    if (!gb_compat_palette(&app->gb, p)) gb_compat_palette(&app->gb, "auto");
+    GB *gbs[2] = { &app->gb, app->linked ? &app->gb2 : NULL };
+    for (int i = 0; i < 2; i++)
+        if (gbs[i] && !gb_compat_palette(gbs[i], p)) gb_compat_palette(gbs[i], "auto");
 }
 
 /* --- Exportar --- */
@@ -574,13 +578,12 @@ static void link_start(App *app)
 {
     const char *err = gb_init_model(&app->gb2, app->rom.data, (u32)app->rom.size, app->model);
     if (err) fail(err);
-    if (is_compat(&app->gb2)) gb_compat_palette(&app->gb2, app->forced_palette ? app->forced_palette
-                                                                                 : app->cfg.compat_palette);
     if (!app->interp_only) app->gb2.recomp_lookup = recomp_lookup;
     if (app->uncovered_path) app->gb2.trace = mark_uncovered;
     if (gb_has_battery(&app->gb2)) load_game(&app->gb2, app->save_path2);
     gb_link_connect(&app->link, &app->gb, &app->gb2);
     app->linked = 1;
+    apply_palette(app);
 }
 
 static void link_stop(App *app)

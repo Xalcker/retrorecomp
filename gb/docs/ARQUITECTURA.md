@@ -91,6 +91,9 @@ la instrucción o entrada de tabla que lo agregó, cada instrucción, las tablas
 y sus entradas, los saltos al área de bancos sin banco conocido y los `jp hl`
 sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
+`tools/visor.html` lee el mismo registro en el navegador (mapa, línea de
+tiempo, desensamblado y la cadena de `--why`); su desensamblador y su
+explicación dan lo mismo que `gbrecomp --dis` y `--why`.
 
 Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
 cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia

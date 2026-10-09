@@ -117,6 +117,13 @@ como código: la cadena de saltos y tablas desde un punto de entrada.
 Sirve para revisar código descubierto de más, por ejemplo una tabla de
 punteros que se leyó más allá de su final.
 
+`tools/visor.html` es lo mismo en el navegador: se abre directo (sin
+servidor) y se le arrastra el registro de `--events`, y si se quiere la ROM y
+una lista de cobertura. Muestra el mapa de la ROM con una línea de tiempo para
+avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
+desensambla sus instrucciones y explica, como `--why`, por qué cada una es
+código. Los archivos se leen en la computadora; no se mandan a ningún lado.
+
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
 por el propio juego para verse igual en todos los sistemas; Alt o F10):
 

@@ -92,6 +92,7 @@ u8 nes_cpu_read(NES *n, u16 a)
         if (a < 0x4000) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);                      /* registros de la PPU */
         v = nes_read(n, a);
     }
+    n->bus = v;
     cycle_end(n, 0);
     return v;
 }
@@ -133,6 +134,7 @@ void nes_cpu_write(NES *n, u16 a, u8 v)
     /* registros de la PPU, DMA de OAM y registros del mapper (cambian CHR y espejado) */
     if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000 || (n->cart.low_regs && a >= 0x4020))
         ppu_sync(n, 3 * n->cyc + PPU_PRE_WRITE);
+    n->bus = v;
     nes_write(n, a, v);
     cycle_end(n, 1);
 }
@@ -165,10 +167,11 @@ u8 nes_read(NES *n, u16 a)
         u8 bit = n->pad_shift[i] & 1;
         if (!n->pad_strobe) n->pad_shift[i] = (n->pad_shift[i] >> 1) | 0x80;
         else n->pad_shift[i] = n->pad[i];
-        return bit | 0x40;
+        return bit | (n->bus & 0xE0);                        /* los bits 5-7 son el bus abierto (casi siempre $40) */
     }
-    if (a == 0x4015) return apu_read(n, a);
-    if (a < 0x4020) return 0;
+    if (a == 0x4015) return (apu_read(n, a) & 0xDF) | (n->bus & 0x20);    /* el bit 5 es el bus abierto */
+    if (a < 0x4020) return n->bus;                            /* $4000-$4014: solo escritura */
+    if (a < 0x6000 && !n->cart.mmc5) return n->bus;          /* sin dispositivo */
     return mapper_cpu_read(n, a);
 }
 
@@ -183,7 +186,7 @@ void nes_write(NES *n, u16 a, u8 v)
         cycle_begin(n, 0); cycle_end(n, 0);              /* ciclo de espera */
         if (n->cyc & 1) { cycle_begin(n, 0); cycle_end(n, 0); }   /* alineación */
         for (int i = 0; i < 256; i++) {
-            cycle_begin(n, 0); u8 b = nes_read(n, (u16)((v << 8) | i)); cycle_end(n, 0);
+            cycle_begin(n, 0); u8 b = nes_read(n, (u16)((v << 8) | i)); n->bus = b; cycle_end(n, 0);
             cycle_begin(n, 1); n->ppu.oam[(u8)(n->ppu.oam_addr + i)] = b; cycle_end(n, 1);
         }
         n->ppu_eager = was_eager;

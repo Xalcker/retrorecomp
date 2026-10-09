@@ -803,12 +803,12 @@ static void emit_ins(FILE *f, size_t off)
         case ZPX: case ZPY:
             fprintf(f, "        TICKS(3);\n        u16 ea = (u8)(0x%02X + c->%c);\n", b1, mode == ZPX ? 'x' : 'y');
             break;
-        case ABS: fprintf(f, "        TICKS(3);\n        u16 ea = 0x%04X;\n", w); break;
+        case ABS: fprintf(f, "        TICKS(3);\n        n->bus = 0x%02X;                  /* bus abierto: lo último que se leyó fue el byte alto */\n        u16 ea = 0x%04X;\n", w >> 8, w); break;
         case ABX: case ABY:
             fprintf(f, "        TICKS(3);\n"
                        "        u16 ea = (u16)(0x%04X + c->%c);\n"
                        "        int cross = (0x%04X ^ ea) & 0xFF00;\n", w, mode == ABX ? 'x' : 'y', w);
-            if (kind == K_READ) fprintf(f, "        if (cross) RD((0x%04X & 0xFF00) | (ea & 0xFF));\n", w);
+            if (kind == K_READ) fprintf(f, "        if (cross) RD((0x%04X & 0xFF00) | (ea & 0xFF)); else n->bus = 0x%02X;\n", w, w >> 8);
             else fprintf(f, "        RD((0x%04X & 0xFF00) | (ea & 0xFF));\n", w);
             if (!store_unstable) fprintf(f, "        (void)cross;\n");
             break;

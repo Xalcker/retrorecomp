@@ -6,6 +6,7 @@
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
 #include <string.h>
+#include <stdlib.h>
 #include "nes.h"
 
 int mapper_supported(int id)
@@ -36,6 +37,7 @@ void mapper_reset(NES *n)
         c->mirroring = MIRROR_CUSTOM;
         for (int i = 0; i < 4; i++) c->nt_map[i] = i & 1;
     }
+    { const char *alt = getenv("NES_MMC3_ALT"); c->mmc3_alt = alt && *alt == '1'; }
     c->mmc3 = c->mapper == 4 || c->mapper == 118 || c->mapper == 119;
     c->chr_hook = c->mapper == 9 || c->mapper == 10;
     if (c->chr_hook) { c->reg[5] = c->reg[6] = 1; }                /* latches en FE */
@@ -95,11 +97,14 @@ void mapper_a12(NES *n, int bit)
     }
     if (c->reg[13]) return;
     c->reg[13] = 1;
-    if (n->ppu.clock - c->a12_low < 9) return;   /* filtro: menos de ~3 ciclos de CPU en bajo */
-    if (c->reg[10] == 0 || c->reg[11]) c->reg[10] = c->reg[9];
+    if (n->ppu.clock - c->a12_low < 10) return;   /* filtro: menos de ~3 ciclos de CPU en bajo */
+    int reload = c->reg[10] == 0 || c->reg[11], forced = c->reg[11];
+    if (reload) c->reg[10] = c->reg[9];
     else c->reg[10]--;
     c->reg[11] = 0;
-    if (c->reg[10] == 0 && c->reg[12]) n->irq_line |= 1;
+    /* Revisión nueva (la de casi todos los juegos): hay IRQ siempre que el contador queda en 0. Revisión vieja
+     * (MMC3 rev. A, MMC6; NES_MMC3_ALT=1): solo si baja a 0 contando o por una recarga forzada con $C001. */
+    if (c->reg[10] == 0 && c->reg[12] && (!c->mmc3_alt || !reload || forced)) n->irq_line |= 1;
 }
 
 static inline size_t banks16(const Cart *c) { return c->prg_size >> 14; }

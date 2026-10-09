@@ -14,9 +14,12 @@ for f in $T/instr_test-v5/rom_singles/*.nes; do
     if ./nesshot "$f" build/shots/t.png 3000 >/dev/null; then echo "ok   $(basename "$f")"
     else echo "FALLA $(basename "$f")"; fail=1; fi
 done
-# MMC3 (mapper 4): clocking, details, A12 y revisión normal. 4 (temporización fina) y
-# 6 (variante alternativa) no pasan todavía.
-for t in 1-clocking 2-details 3-A12_clocking 5-MMC3; do
+# MMC3 (mapper 4): revisión normal; la vieja (rev. A / MMC6) con NES_MMC3_ALT=1
+NES_MMC3_ALT=1 ./nesshot $T/mmc3_test_2/rom_singles/6-MMC3_alt.nes build/shots/t.png 1500 >/dev/null && echo "ok   mmc3 6-MMC3_alt (rev. vieja)" || { echo "FALLA mmc3 6-MMC3_alt"; fail=1; }
+for t in 1-cli_latency 2-nmi_and_brk 3-nmi_and_irq 4-irq_and_dma 5-branch_delays_irq; do
+    ./nesshot $T/cpu_interrupts_v2/rom_singles/$t.nes build/shots/t.png 1500 >/dev/null && echo "ok   cpu_interrupts_v2 $t" || { echo "FALLA cpu_interrupts_v2 $t"; fail=1; }
+done
+for t in 1-clocking 2-details 3-A12_clocking 4-scanline_timing 5-MMC3; do
     f=$T/mmc3_test_2/rom_singles/$t.nes
     if ./nesshot "$f" build/shots/t.png 1500 >/dev/null; then echo "ok   mmc3 $t"
     else echo "FALLA mmc3 $t"; fail=1; fi

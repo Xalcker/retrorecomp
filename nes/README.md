@@ -60,8 +60,8 @@ ni un byte de imagen o audio.
   activar o desactivar el dibujo en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y varios
   detalles del bus abierto de la PPU y del APU. `RMW2007`, `CPUInstr` y `Unimplemented` no llegan a ejecutarse.
 
-- `mmc3_test_2/4-scanline_timing` falla en la subprueba 12; `cpu_interrupts_v2/4-irq_and_dma` (IRQ alrededor del DMA
-  de OAM y del DMC); DMA del DMC sin los ciclos exactos; `6-MMC3_alt` (otra revisión del chip).
+- Las pruebas que arrastraba el proyecto (`mmc3_test_2` completo, con la revisión vieja del MMC3 en `NES_MMC3_ALT=1`, y
+  `cpu_interrupts_v2` 1-5) ya pasan.
 - El código que el descubrimiento no alcanza (y que no está en la traza), o que está en RAM, lo corre el
   intérprete. Es correcto, solo más lento. El descubrimiento especulativo agrega mucho código que nunca
   se ejecuta (SMB3: 69 mil instrucciones, ~13 s de compilación con `make -j8`).

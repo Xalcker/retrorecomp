@@ -57,6 +57,7 @@ typedef struct {
     u8   wram_hi[7 * 0x2000];   /* MMC5: bancos 1-7 de PRG-RAM (el banco 0 es prg_ram) */
     u8   chr_ram[0x2000];       /* TQROM (119): 8 KB de RAM de CHR junto a la ROM */
     u8   chr_wr[8];             /* cada página de 1 KB de CHR: ¿se puede escribir? */
+    u8   mmc3_alt;              /* MMC3 revisión vieja (rev. A / MMC6): variable de entorno NES_MMC3_ALT=1 */
     u8   mmc3;                  /* MMC3 o derivado: IRQ por flanco de A12 */
     u8   chr_hook;              /* MMC2/MMC4: las lecturas de ciertos patrones cambian el banco */
     u8   nt_map[4];             /* MIRROR_CUSTOM: página de CIRAM (0 o 1) de cada nametable */

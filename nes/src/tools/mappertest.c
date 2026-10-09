@@ -126,6 +126,10 @@ int main(void)
     mapper_ppu_write(&n, 0x1000, 0xCD);
     if (n.cart.chr[7 * 1024] == 0xCD) { puts("FALLA mapper 119: escribió en la ROM"); fails++; }
 
+    /* 119 y 4: $A000 cambia el espejado (Pin Bot lo usa para cambiar entre dos imágenes) */
+    W(0xA000, 0); if (n.cart.mirroring != MIRROR_VERTICAL) { puts("FALLA mapper 119: espejado vertical"); fails++; }
+    W(0xA000, 1); if (n.cart.mirroring != MIRROR_HORIZONTAL) { puts("FALLA mapper 119: espejado horizontal"); fails++; }
+
     /* 1 SUROM (512 KB): el bit 4 del registro de CHR 0 elige el bloque de 256 KB */
     make(1, 512, 0, MIRROR_VERTICAL);
     EXPECT_PRG(0xE000, 31);                                      /* tras el reset: último banco del primer bloque */

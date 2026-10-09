@@ -5,6 +5,8 @@
  * El CPU y la PPU se sincronizan por instrucción (nes_step).
  */
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "nes.h"
 
 static const u32 pal_default[64] = {

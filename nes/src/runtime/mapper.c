@@ -72,7 +72,7 @@ static void mmc3_write(NES *n, u16 a, u8 v)
         else c->reg[1 + (c->reg[0] & 7)] = v;
         break;
     case 1:
-        if (!odd) { if (c->mapper == 4 && c->mirroring != MIRROR_FOUR) c->mirroring = (v & 1) ? MIRROR_HORIZONTAL : MIRROR_VERTICAL; }
+        if (!odd) { if ((c->mapper == 4 || c->mapper == 119) && c->mirroring != MIRROR_FOUR) c->mirroring = (v & 1) ? MIRROR_HORIZONTAL : MIRROR_VERTICAL; }
         else c->reg[14] = v;
         break;
     case 2:

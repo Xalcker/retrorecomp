@@ -239,7 +239,10 @@ static u8 joypad_lines(GB *g)
          * controles 2-4 no tienen botones presionados */
         int id = sgb_joypad_id(g);
         if (sel == 0x30) return (u8)(0x0F - id);
-        if (id) return 0x0F;
+        u8 pad = id ? g->pad_sgb[id - 1] : g->pad;
+        if (!(sel & 0x10)) low &= (u8)~(pad >> 4);
+        if (!(sel & 0x20)) low &= (u8)~(pad & 0x0F);
+        return low & 0x0F;
     }
     if (!(sel & 0x10)) low &= (u8)~(g->pad >> 4);
     if (!(sel & 0x20)) low &= (u8)~(g->pad & 0x0F);
@@ -261,6 +264,24 @@ void gb_set_pad(GB *g, u8 pad)
     joypad_update(g);
     if (g->cpu.stopped && pad) g->cpu.stopped = 0;
     g->next_event = 0;
+}
+
+void gb_set_pad_player(GB *g, int player, u8 pad)
+{
+    if (player <= 0) {
+        gb_set_pad(g, pad);
+        return;
+    }
+    if (player > 3) return;
+    gb_sync(g);
+    g->pad_sgb[player - 1] = pad;
+    joypad_update(g);
+    g->next_event = 0;
+}
+
+int gb_players(const GB *g)
+{
+    return g->sgb ? g->sgbs.players : 1;
 }
 
 /* ------------------------------------------------------------------ */

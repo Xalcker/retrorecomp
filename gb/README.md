@@ -122,7 +122,7 @@ por el propio juego para verse igual en todos los sistemas; Alt o F10):
 
 | Menú | Opciones |
 |---|---|
-| **Juego** | Reiniciar (`Ctrl+R`), Pausa (`P`), Guardar y cargar estado (`F5` / `F8`, cuatro ranuras), consola (Game Boy, Game Boy Color o Super Game Boy, según lo que admita el juego), Salir |
+| **Juego** | Reiniciar (`Ctrl+R`), Pausa (`P`), Guardar y cargar estado (`F5` / `F8`, cuatro ranuras), consola (Game Boy, Game Boy Color o Super Game Boy, según lo que admita el juego), cable link (2 jugadores), Salir |
 | **Video** | Borde del SGB, tamaño ×1 a ×6, pantalla completa (`F11`) |
 | **Paleta** | En DMG: verde, Pocket o grises. En compatibilidad GBC: la del juego o las 12 combinaciones de botones (`F2` las rota) |
 | **Audio** | Sonido (`Ctrl+M`) y volumen |
@@ -132,6 +132,19 @@ por el propio juego para verse igual en todos los sistemas; Alt o F10):
 
 Las preferencias se guardan en `settings.ini`, en la carpeta de datos del
 juego, junto con la partida y los estados.
+
+**Multijugador local:**
+- **Cable link** (menú Juego, o `--link`): un segundo Game Boy con la misma
+  ROM, conectado por cable, a la derecha de la ventana. Lo maneja el jugador
+  2, con su propia partida (`<juego>_jugador2.sav`); se oye el audio del
+  jugador 1. Con el cable conectado no hay estados guardados (guardarían un
+  solo lado).
+- **Super Game Boy:** los juegos de varios jugadores (MLT_REQ) leen los
+  controles 2 a 4.
+- **Controles:** el jugador 1 usa las flechas, X, Z, Enter y Shift derecho, y
+  el primer control que se conecte; el jugador 2 usa WASD, G (A), F (B), E
+  (Start) y Q (Select), y el segundo control; los jugadores 3 y 4, el tercer y
+  cuarto control.
 
 **Exportar** deja los archivos en `exportado/`, dentro de esa misma carpeta:
 - **Música:** el VGM guarda cada escritura del juego al chip de sonido con su

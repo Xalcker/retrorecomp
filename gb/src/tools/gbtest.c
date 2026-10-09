@@ -4,6 +4,7 @@
  * Uso: gbtest rom.gb [--seconds N] [--mooneye | --until-ldbb] [--input archivo]
  *                    [--expect esperado.png] [--dump salida.png] [--serial] [--no-block]
  *                    [--model dmg|cgb|sgb] [--palette up+a] [--dump-sgb imagen_sgb.png]
+ *                    [--input2 archivo] [--input3 archivo] [--input4 archivo]
  *
  * Criterios de resultado:
  *   - Mooneye (--mooneye): al ejecutar LD B,B, los registros deben valer
@@ -14,6 +15,8 @@
  *   - Captura: con --expect, al terminar el tiempo (o al ejecutar LD B,B con
  *     --until-ldbb, como en Mealybug) la pantalla debe ser
  *     idéntica al PNG (tonos #FFFFFF, #AAAAAA, #555555, #000000).
+ * --input2 a --input4: guiones de los controles 2-4 del Super Game Boy (para
+ * los juegos de varios jugadores).
  * Código de salida: 0 pasó, 1 falló, 2 sin resultado.
  */
 #include <stdio.h>
@@ -101,6 +104,8 @@ int main(int argc, char **argv)
     int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0;
     const char *input_path = NULL;
     InputScript script;
+    const char *extra_path[3] = { NULL, NULL, NULL };   /* controles 2-4 del SGB */
+    static InputScript extra[3];
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atof(argv[++i]);
@@ -117,6 +122,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--until-ldbb")) until_ldbb = 1;
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
+        else if (!strncmp(argv[i], "--input", 7) && argv[i][7] >= '2' && argv[i][7] <= '4' &&
+                 !argv[i][8] && i + 1 < argc) {
+            int k = argv[i][7] - '2';
+            extra_path[k] = argv[++i];
+        }
         else rom_path = argv[i];
     }
     if (!rom_path) {
@@ -139,6 +149,12 @@ int main(int argc, char **argv)
         if (!palette && script.palette[0]) palette = script.palette;
     }
 
+    for (int k = 0; k < 3; k++)
+        if (extra_path[k]) {
+            const char *ierr = inputs_load(&extra[k], extra_path[k]);
+            if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
+        }
+
     static GB g;
     const char *err = gb_init_model(&g, rom, (u32)size, model);
     free(rom);
@@ -159,6 +175,8 @@ int main(int argc, char **argv)
 
     for (long f = 0; f < frames; f++) {
         if (input_path) gb_set_pad(&g, inputs_pad(&script, f));
+        for (int k = 0; k < 3; k++)
+            if (extra_path[k]) gb_set_pad_player(&g, k + 1, inputs_pad(&extra[k], f));
         gb_run_frame(&g);
         if (mooneye && g.ld_bb_hit) {
             Cpu *c = &g.cpu;

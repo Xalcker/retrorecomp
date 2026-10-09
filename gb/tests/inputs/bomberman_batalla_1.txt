@@ -1,0 +1,24 @@
+modelo sgb
+# Bomberman Collection (J), Super Game Boy, jugador 1: elige Bomberman GB,
+# START, BATTLE, se inscribe (A), empieza (START dos veces) y camina a la
+# derecha. Con bomberman_batalla_2..4.txt.
+0 -
+700 START
+706 -
+1000 DOWN
+1006 -
+1050 START
+1056 -
+1950 START
+1956 -
+2300 DOWN
+2306 -
+2350 START
+2356 -
+2650 A
+2690 -
+2800 START
+2806 -
+3100 START
+3106 -
+3700 RIGHT

@@ -65,7 +65,8 @@ static inline void cycle_end(NES *n, int wr)
     if (line && !n->nmi_line) n->need_nmi = 1;
     n->nmi_line = line;
     n->prev_run_irq = n->run_irq;
-    n->run_irq = n->irq_line && !(n->cpu.p & FLAG_I);
+    n->run_irq = ((n->irq_line & 1) || (n->irq_seen & 6)) && !(n->cpu.p & FLAG_I);   /* el IRQ del APU llega con un ciclo de retraso */
+    n->irq_seen = n->irq_line;
     if (sync) ppu_sync(n, t3);
     n->cyc++;
 }
@@ -111,7 +112,8 @@ void nes_cpu_ticks(NES *n, int k)
     /* Hay que ir ciclo a ciclo si: el APU pidió un DMA de DMC (el siguiente acceso lo cumple antes de seguir),
      * en el tercer punto del ciclo subió o bajó la bandera de vblank (el NMI se ve en el siguiente ciclo), o
      * habrá un evento de la PPU o del APU dentro de estos ciclos. */
-    if (n->stall || (((n->ppu.status & 0x80) && (n->ppu.ctrl & 0x80)) != n->nmi_line) ||
+    if (n->stall || n->run_irq != (((n->irq_line & 1) || (n->irq_seen & 6)) && !(n->cpu.p & FLAG_I)) ||
+        (((n->ppu.status & 0x80) && (n->ppu.ctrl & 0x80)) != n->nmi_line) ||
         n->ppu.event_dot <= 3 * (n->cyc + (u64)k) || n->cyc + (u64)k >= n->apu.deadline) {
         while (k-- > 0) nes_cpu_tick(n);
         return;
@@ -126,7 +128,8 @@ void nes_cpu_write(NES *n, u16 a, u8 v)
     if (UNLIKELY(n->stall)) drain_stall(n);
     cycle_begin(n, 1);
     /* registros de la PPU, DMA de OAM y registros del mapper (cambian CHR y espejado) */
-    if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000) ppu_sync(n, 3 * n->cyc + PPU_PRE_WRITE);
+    if ((a >= 0x2000 && a < 0x4000) || a == 0x4014 || a >= 0x8000 || (n->cart.low_regs && a >= 0x4020))
+        ppu_sync(n, 3 * n->cyc + PPU_PRE_WRITE);
     nes_write(n, a, v);
     cycle_end(n, 1);
 }

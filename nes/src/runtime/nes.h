@@ -47,6 +47,7 @@ typedef struct {
     size_t prg_map[4];          /* desplazamiento de PRG de cada ventana de 8 KB ($8000, $A000, $C000, $E000) */
     u8  *chr_page[8];           /* puntero a cada página de 1 KB de CHR con los bancos actuales */
     u32  chr_mask;              /* tamaño de CHR - 1 si es potencia de 2 (si no, 0 y se usa el módulo) */
+    u8   low_regs;              /* el mapper tiene registros por debajo de $8000 (la PPU debe ir al día al escribirlos) */
     u32  map_ver;               /* sube con cada escritura a $8000-$FFFF (¿cambió el mapeo?) */
     u64  a12_low;               /* MMC3: reloj de la PPU cuando A12 pasó a 0 */
 } Cart;
@@ -85,9 +86,11 @@ typedef struct {
 } Ppu;
 
 typedef struct { u8 on, duty, step, len, halt, cst, vol, env_start, env_div, env_decay;
-                 u8 sw_en, sw_per, sw_neg, sw_shift, sw_div, sw_reload; u16 period, timer; } Pulse;
-typedef struct { u8 on, ctrl, lin_val, lin, lin_reload, step, len; u16 period, timer; } Triangle;
-typedef struct { u8 on, halt, cst, vol, env_start, env_div, env_decay, mode, len; u16 period, timer, shift; } Noise;
+                 u8 sw_en, sw_per, sw_neg, sw_shift, sw_div, sw_reload; u16 period, timer;
+                 u8 lhalt, hnew, rel, prev; } Pulse;      /* lhalt: halt del contador de longitud (se aplica al final del ciclo); rel/prev: carga pendiente */
+typedef struct { u8 on, ctrl, lin_val, lin, lin_reload, step, len; u16 period, timer; u8 lhalt, hnew, rel, prev; } Triangle;
+typedef struct { u8 on, halt, cst, vol, env_start, env_div, env_decay, mode, len; u16 period, timer, shift;
+                 u8 lhalt, hnew, rel, prev; } Noise;
 typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence;
                  u16 rate, timer, addr, cur, remaining, length; } Dmc;
 
@@ -118,6 +121,7 @@ typedef struct NES {
     Apu  apu;
     int  nmi_line, need_nmi, prev_need_nmi;   /* NMI: borde detectado por ciclo */
     int  run_irq, prev_run_irq;               /* IRQ visto en el penúltimo ciclo */
+    int  irq_seen;              /* irq_line un ciclo antes (el IRQ llega al CPU con un ciclo de retraso) */
     int  irq_line;              /* bit 0 = mapper, 1 = APU (frame), 2 = DMC */
     int  stall;                 /* ciclos que el CPU espera (DMA de DMC) */
     u64  cyc_recomp;            /* ciclos ejecutados por código recompilado (estadística) */

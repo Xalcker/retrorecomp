@@ -141,6 +141,6 @@ L_8000: /* lda #$10 */
 
 ## Mappers
 
-0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM. Un mapper
+0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180 y 206. Un mapper
 nuevo es un caso en `mapper_prg_offset`, `mapper_cpu_write`, `chr_off` y las consultas del
 recompilador (`mapper_prg_window`, `mapper_prg_granule`).

@@ -1,5 +1,6 @@
 /*
- * Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3, 7 AxROM.
+ * Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3, 7 AxROM, 11 Color Dreams, 34 BNROM/NINA-001,
+ * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés) y 206 (DxROM).
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
@@ -7,7 +8,11 @@
 
 int mapper_supported(int id)
 {
-    return id == 0 || id == 1 || id == 2 || id == 3 || id == 4 || id == 7;
+    switch (id) {
+    case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79:
+    case 87: case 140: case 180: case 206: return 1;
+    }
+    return 0;
 }
 
 /* MMC1: reg[0]=desplazamiento, [1]=cuenta, [2]=control, [3]=chr0, [4]=chr1, [5]=prg, [6]=último ciclo */
@@ -18,11 +23,12 @@ void mapper_reset(NES *n)
     c->a12_low = 0;
     c->chr_mask = (c->chr_size & (c->chr_size - 1)) == 0 ? (u32)(c->chr_size - 1) : 0;
     if (c->mapper == 1) { c->reg[2] = 0x0C; c->reg[6] = 0xFFFFFFFFu; }
-    if (c->mapper == 4) {
+    c->low_regs = c->mapper == 34 || c->mapper == 79 || c->mapper == 87 || c->mapper == 140;
+    if (c->mapper == 4 || c->mapper == 206) {
         /* reg[0]=selección, [1..8]=R0..R7, [9]=latch IRQ, [10]=contador, [11]=recarga,
          * [12]=IRQ activo, [13]=nivel de A12, [14]=protección de RAM */
         c->reg[8] = 1; c->reg[14] = 0x80;          /* R7 = 1, RAM activa */
-        c->mirroring = c->mirroring == MIRROR_FOUR ? MIRROR_FOUR : MIRROR_VERTICAL;
+        if (c->mapper == 4) c->mirroring = c->mirroring == MIRROR_FOUR ? MIRROR_FOUR : MIRROR_VERTICAL;
     }
     mapper_remap(c);
 }
@@ -34,6 +40,12 @@ static void mmc3_write(NES *n, u16 a, u8 v)
 {
     Cart *c = &n->cart;
     int odd = a & 1;
+    if (c->mapper == 206) {                      /* DxROM: solo $8000/$8001, sin inversión, espejado ni IRQ */
+        if (a >= 0xA000) return;
+        if (!odd) c->reg[0] = v & 7;
+        else { int r = c->reg[0] & 7; c->reg[1 + r] = r >= 6 ? v & 0x0F : v & 0x3F; }
+        return;
+    }
     switch ((a >> 13) & 3) {
     case 0:
         if (!odd) c->reg[0] = v;
@@ -79,6 +91,13 @@ static size_t prg_at(const Cart *c, size_t bank16, u16 off)
     return ((bank16 % banks16(c)) << 14) | (off & 0x3FFF);
 }
 
+static size_t prg32(const Cart *c, size_t bank, u16 a)
+{
+    size_t nb = c->prg_size >> 15;
+    if (!nb) nb = 1;
+    return (((bank % nb) << 15) | (a & 0x7FFF)) % c->prg_size;
+}
+
 static size_t mmc3_prg(const Cart *c, u16 a)
 {
     int slot = (a >> 13) & 3;                    /* 0:$8000 1:$A000 2:$C000 3:$E000 */
@@ -106,7 +125,10 @@ static long prg_offset_slow(const Cart *c, u16 a)
     }
     case 2:
         return (long)(a < 0xC000 ? prg_at(c, c->reg[0], a) : prg_at(c, banks16(c) - 1, a));
-    case 4: return (long)mmc3_prg(c, a);
+    case 4: case 206: return (long)mmc3_prg(c, a);
+    case 11: case 34: case 66: case 79: case 140: return (long)prg32(c, c->reg[0], a);
+    case 71: return (long)(a < 0xC000 ? prg_at(c, c->reg[0], a) : prg_at(c, banks16(c) - 1, a));
+    case 180: return (long)(a < 0xC000 ? prg_at(c, 0, a) : prg_at(c, c->reg[0], a));
     case 7: return (long)prg_at(c, (c->reg[0] & 7) * 2 + (a >= 0xC000), a);
     default:                                     /* 0 y 3: NROM-128 se refleja; -256 usa los 2 bancos */
         return (long)prg_at(c, a >> 14 & 1, a);
@@ -159,9 +181,31 @@ static void mmc1_write(NES *n, u16 a, u8 v)
     }
 }
 
+/* Registros por debajo de $8000 (NINA-03/06, 87, 140, NINA-001) */
+static int low_write(Cart *c, u16 a, u8 v)
+{
+    switch (c->mapper) {
+    case 79:  if (a >= 0x4100 && a < 0x6000 && (a & 0xE100) == 0x4100) { c->reg[0] = (v >> 3) & 1; c->reg[1] = v & 7; return 1; } break;
+    case 87:  if (a >= 0x6000 && a < 0x8000) { c->reg[1] = ((v & 1) << 1) | ((v >> 1) & 1); return 1; } break;
+    case 140: if (a >= 0x6000 && a < 0x8000) { c->reg[0] = (v >> 4) & 3; c->reg[1] = v & 15; return 1; } break;
+    case 34:
+        if (!c->chr_is_ram && a >= 0x7FFD && a <= 0x7FFF) {      /* NINA-001 */
+            if (a == 0x7FFD) c->reg[0] = v & 1;
+            else if (a == 0x7FFE) c->reg[1] = v & 15;
+            else c->reg[2] = v & 15;
+            c->prg_ram[a & 0x1FFF] = v;
+            return 1;
+        }
+        break;
+    }
+    return 0;
+}
+
 void mapper_cpu_write(NES *n, u16 a, u8 v)
 {
     Cart *c = &n->cart;
+    if (a < 0x4020) return;
+    if (c->low_regs && a < 0x8000 && low_write(c, a, v)) { c->map_ver++; mapper_remap(c); return; }
     if (a < 0x6000) return;
     if (a >= 0x8000) c->map_ver++;
     if (a < 0x8000) {
@@ -169,8 +213,16 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
         c->prg_ram[a & 0x1FFF] = v; return;
     }
     switch (c->mapper) {
-    case 4: mmc3_write(n, a, v); break;
+    case 4: case 206: mmc3_write(n, a, v); break;
     case 1: mmc1_write(n, a, v); break;
+    case 11: c->reg[0] = v & 3; c->reg[1] = v >> 4; break;
+    case 66: c->reg[0] = (v >> 4) & 3; c->reg[1] = v & 3; break;
+    case 34: if (c->chr_is_ram) c->reg[0] = v; break;                     /* BNROM (NINA-001 usa $7FFD-$7FFF) */
+    case 71:
+        if (a >= 0xC000) c->reg[0] = v & 15;
+        else if (a >= 0x9000 && a < 0xA000) c->mirroring = (v & 0x10) ? MIRROR_SINGLE1 : MIRROR_SINGLE0;
+        break;
+    case 180: c->reg[0] = v & 7; break;
     case 2: c->reg[0] = v; break;
     case 3: c->reg[0] = v; break;
     case 7:
@@ -195,7 +247,12 @@ static size_t chr_off(const Cart *c, u16 a)
         { size_t x = (size_t)(c->reg[3] & ~1u) << 12 | a; return WRAP(c, x); }
     case 3:
         { size_t x = (size_t)c->reg[0] << 13 | a; return WRAP(c, x); }
-    case 4: {
+    case 11: case 66: case 79: case 87: case 140:
+        { size_t x = (size_t)c->reg[1] << 13 | a; return WRAP(c, x); }
+    case 34:
+        if (c->chr_is_ram) { size_t x = a; return WRAP(c, x); }
+        { size_t x = (size_t)(a < 0x1000 ? c->reg[1] : c->reg[2]) << 12 | (a & 0xFFF); return WRAP(c, x); }
+    case 4: case 206: {
         int slot = (a >> 10) & 7;
         if (c->reg[0] & 0x80) slot ^= 4;
         size_t b;
@@ -226,14 +283,24 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
     if (addr < 0x8000) return 0;
     size_t ps = c->prg_size;
     switch (c->mapper) {
-    case 0: case 3:
+    case 0: case 3: case 87:
         if (ps >= 0x8000) { *w = (PrgWin){ 0x8000, 0x8000, 0, 1 }; return 1; }
         *w = (PrgWin){ 0xC000, 0x4000, 0, 1 }; return 1;       /* addr debe venir canónica */
     case 2: case 1:
         if (addr < 0xC000) *w = (PrgWin){ 0x8000, 0x4000, 0, 0 };
         else               *w = (PrgWin){ 0xC000, 0x4000, ps - 0x4000, 1 };
         return 1;
-    case 4:
+    case 11: case 34: case 66: case 79: case 140:
+        *w = (PrgWin){ 0x8000, 0x8000, 0, 0 }; return 1;
+    case 71:
+        if (addr < 0xC000) *w = (PrgWin){ 0x8000, 0x4000, 0, 0 };
+        else               *w = (PrgWin){ 0xC000, 0x4000, ps - 0x4000, 1 };
+        return 1;
+    case 180:
+        if (addr < 0xC000) *w = (PrgWin){ 0x8000, 0x4000, 0, 1 };
+        else               *w = (PrgWin){ 0xC000, 0x4000, 0, 0 };
+        return 1;
+    case 4: case 206:
         switch ((addr >> 13) & 3) {
         case 0: *w = (PrgWin){ 0x8000, 0x2000, 0, 0 }; break;
         case 1: *w = (PrgWin){ 0xA000, 0x2000, 0x2000, 0 }; break;
@@ -249,7 +316,7 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
 /* Las ROMs de 16 KB (NROM, CNROM) se ven en $8000 y en $C000: se toma $C000 como canónica */
 u16 mapper_prg_canon(const Cart *c, u16 addr)
 {
-    if ((c->mapper == 0 || c->mapper == 3) && c->prg_size < 0x8000 && addr >= 0x8000 && addr < 0xC000)
+    if ((c->mapper == 0 || c->mapper == 3 || c->mapper == 87) && c->prg_size < 0x8000 && addr >= 0x8000 && addr < 0xC000)
         return addr | 0x4000;
     return addr;
 }
@@ -258,9 +325,9 @@ u16 mapper_prg_canon(const Cart *c, u16 addr)
 size_t mapper_prg_granule(const Cart *c)
 {
     switch (c->mapper) {
-    case 4: return 0x2000;
-    case 1: case 2: return 0x4000;
-    case 7: return 0x8000;
+    case 4: case 206: return 0x2000;
+    case 1: case 2: case 71: case 180: return 0x4000;
+    case 7: case 11: case 34: case 66: case 79: case 140: return 0x8000;
     default: return c->prg_size >= 0x8000 ? 0x8000 : 0x4000;
     }
 }

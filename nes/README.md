@@ -19,12 +19,14 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 - CPU 6502 con opcodes no oficiales: pasa `nestest` y las 16 `instr_test-v5`.
 - PPU 2C02 punto por punto: fondo, sprites, scroll, sprite 0 hit (pasa las 11 `sprite_hit_tests`).
-- Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM.
+- Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11 Color Dreams,
+  34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 y 206 (DxROM).
 - APU: 2 pulsos, triángulo, ruido, DMC, frame counter con IRQ, mezcla no lineal y filtros. Pasa las 8
   `apu_test`; la ventana saca audio por SDL (tecla M = silencio).
 - Temporización por ciclo: cada acceso al bus (con lecturas y escrituras falsas) avanza 3 puntos de PPU y
   1 de APU. Pasa `nestest` (incluida la posición de la PPU), `cpu_timing_test`, `instr_timing`,
-  `instr_misc`, `branch_timing_tests` y las 10 `ppu_vbl_nmi`.
+  `instr_misc`, `branch_timing_tests`, las 10 `ppu_vbl_nmi`, `cpu_interrupts_v2` 1, 2, 3 y 5 y las 11 pruebas viejas del
+  frame counter del APU.
 - RAM con batería: `juego.sav` en la carpeta de datos del juego (se guarda al salir y cada 5 s si cambia).
 - **Interfaz** (SDL2, español e inglés): barra de menús y diálogos de Moskva 89 / GBRecomp; estados guardados (4 ranuras),
   pausa, avance rápido (Tab), 2 jugadores (teclado y mandos), tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7,
@@ -49,8 +51,8 @@ ni un byte de imagen o audio.
 
 ### Conocido
 
-- `mmc3_test_2/4-scanline_timing` falla en la subprueba 12; `cpu_interrupts_v2` 2-5 (NMI con BRK/IRQ/DMA,
-  retraso del IRQ en saltos); DMA del DMC sin los ciclos exactos; `6-MMC3_alt` (otra revisión del chip).
+- `mmc3_test_2/4-scanline_timing` falla en la subprueba 12; `cpu_interrupts_v2/4-irq_and_dma` (IRQ alrededor del DMA
+  de OAM y del DMC); DMA del DMC sin los ciclos exactos; `6-MMC3_alt` (otra revisión del chip).
 - El código que el descubrimiento no alcanza (y que no está en la traza), o que está en RAM, lo corre el
   intérprete. Es correcto, solo más lento. El descubrimiento especulativo agrega mucho código que nunca
   se ejecuta (SMB3: 69 mil instrucciones, ~13 s de compilación con `make -j8`).

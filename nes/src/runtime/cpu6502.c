@@ -25,7 +25,7 @@ void nes_interrupt(NES *n, int brk)
     push(n, (c->p | FLAG_U) | (brk ? FLAG_B : 0));
     c->p |= FLAG_I;
     u16 vec = 0xFFFE;
-    if (n->need_nmi) { n->need_nmi = 0; vec = 0xFFFA; }
+    if (n->prev_need_nmi) { n->need_nmi = 0; vec = 0xFFFA; }
     c->pc = RD(vec) | (RD(vec + 1) << 8);
     n->prev_need_nmi = 0; n->prev_run_irq = 0;
 }
@@ -86,8 +86,11 @@ int cpu_step(NES *n)
         int t = op_branch_taken(c, op);
         int8_t off = (int8_t)RD(c->pc++);
         if (t) {
-            RD(c->pc);                                   /* lectura falsa */
             u16 dst = (u16)(c->pc + off);
+            /* Un salto tomado sin cruzar página ignora un IRQ que llega en su último ciclo: la siguiente
+             * instrucción se ejecuta antes (prueba branch_delays_irq) */
+            if (!((c->pc ^ dst) & 0xFF00) && n->run_irq && !n->prev_run_irq) n->run_irq = 0;
+            RD(c->pc);                                   /* lectura falsa */
             if ((c->pc ^ dst) & 0xFF00) RD((c->pc & 0xFF00) | (dst & 0xFF));
             c->pc = dst;
         }

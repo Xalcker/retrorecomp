@@ -673,9 +673,10 @@ static int may_write_mapper(size_t off)
     int k = op_kind(in->op);
     if (k != K_WRITE && k != K_RMW) return 0;
     u16 w = cart->prg[off + 1] | (mode_len[in->mode] > 2 ? cart->prg[off + 2] << 8 : 0);
+    u16 lim = cart->low_regs ? 0x4020 : 0x8000;     /* algunos mappers tienen registros por debajo de $8000 */
     switch (in->mode) {
-    case ABS: return w >= 0x8000;
-    case ABX: case ABY: return w >= 0x7F00;
+    case ABS: return w >= lim;
+    case ABX: case ABY: return w >= lim - 0x100;
     case IZX: case IZY: return 1;
     default: return 0;
     }
@@ -727,7 +728,9 @@ static void emit_ins(FILE *f, size_t off)
     case BCC: case BCS: case BEQ: case BMI: case BNE: case BPL: case BVC: case BVS: {
         u16 tgt = (u16)(addr + 2 + (int8_t)b1);
         int cross = ((addr + 2) ^ tgt) & 0xFF00;
-        fprintf(f, "    TICKS(2);\n    if (op_branch_taken(c, %s)) {\n        TICK();%s\n", opn, cross ? " TICK();" : "");
+        fprintf(f, "    TICKS(2);\n    if (op_branch_taken(c, %s)) {\n", opn);
+        if (!cross) fprintf(f, "        if (UNLIKELY(n->run_irq & !n->prev_run_irq)) n->run_irq = 0;   /* ignora un IRQ recién llegado */\n");
+        fprintf(f, "        TICK();%s\n", cross ? " TICK();" : "");
         if (in_func(off, tgt)) fprintf(f, "        ICHK(0x%04X);\n        goto L_%04X;\n    }\n", tgt, tgt);
         else fprintf(f, "        LEAVE(0x%04X);\n    }\n", tgt);
         break; }

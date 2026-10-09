@@ -41,7 +41,7 @@ void apu_reset(NES *n)
     a->cps = CPU_HZ / APU_RATE;
     a->rate_mul = 1.0;
     a->next = a->cps;
-    a->delay = 3;                       /* $4017 = 0 al arrancar: reinicio con retraso */
+    a->delay = 0;                       /* como si $4017 = 0 se hubiera escrito ~10 ciclos antes de la primera instrucción */
 }
 
 /* ---- Envolvente, barrido y contadores ---- */
@@ -85,11 +85,11 @@ static void quarter(Apu *a)
 static void half(Apu *a)
 {
     for (int i = 0; i < 2; i++) {
-        if (!a->p[i].halt && a->p[i].len) a->p[i].len--;
+        if (!a->p[i].lhalt && a->p[i].len) a->p[i].len--;
         sweep_clock(&a->p[i], i);
     }
-    if (!a->t.ctrl && a->t.len) a->t.len--;
-    if (!a->nz.halt && a->nz.len) a->nz.len--;
+    if (!a->t.lhalt && a->t.len) a->t.len--;
+    if (!a->nz.lhalt && a->nz.len) a->nz.len--;
 }
 
 /* ---- DMC ---- */
@@ -133,6 +133,12 @@ static int pulse_out(const Pulse *p, int ch)
     if (!p->sw_neg && sweep_target(p, ch) > 0x7FF) return 0;
     if (!duty_tab[p->duty][p->step]) return 0;
     return p->cst ? p->vol : p->env_decay;
+}
+
+static void len_apply(u8 *len, u8 *lhalt, u8 hnew, u8 *rel, u8 prev)
+{
+    if (*rel) { if (*len == prev) *len = *rel; *rel = 0; }
+    *lhalt = hnew;
 }
 
 static void apu_cycle(NES *n)
@@ -193,6 +199,13 @@ static void apu_cycle(NES *n)
 
     dmc_clock(n);
 
+    /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
+     * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
+    len_apply(&a->p[0].len, &a->p[0].lhalt, a->p[0].hnew, &a->p[0].rel, a->p[0].prev);
+    len_apply(&a->p[1].len, &a->p[1].lhalt, a->p[1].hnew, &a->p[1].rel, a->p[1].prev);
+    len_apply(&a->t.len, &a->t.lhalt, a->t.hnew, &a->t.rel, a->t.prev);
+    len_apply(&a->nz.len, &a->nz.lhalt, a->nz.hnew, &a->nz.rel, a->nz.prev);
+
     /* mezcla */
     int p = ((a->mute & 1) ? 0 : pulse_out(&a->p[0], 0)) + ((a->mute & 2) ? 0 : pulse_out(&a->p[1], 1));
     int tri = (a->mute & 4) ? 0 : tri_tab[t->step];
@@ -234,6 +247,8 @@ static void apu_cycle(NES *n)
 static u64 safe_skip(const Apu *a)
 {
     u64 k = ~0ull;
+    if (a->p[0].rel | a->p[1].rel | a->t.rel | a->nz.rel | (a->p[0].lhalt ^ a->p[0].hnew) | (a->p[1].lhalt ^ a->p[1].hnew) |
+        (a->t.lhalt ^ a->t.hnew) | (a->nz.lhalt ^ a->nz.hnew)) return 0;     /* hay un cambio por aplicar en el próximo ciclo */
     #define LIM(v) do { u64 v_ = (v); if (v_ < k) k = v_; } while (0)
     LIM(a->t.timer);
     LIM(a->nz.timer);
@@ -352,12 +367,12 @@ u8 apu_read(NES *n, u16 addr)
 static void pulse_write(Pulse *p, int reg, u8 v)
 {
     switch (reg) {
-    case 0: p->duty = v >> 6; p->halt = (v >> 5) & 1; p->cst = (v >> 4) & 1; p->vol = v & 15; break;
+    case 0: p->duty = v >> 6; p->halt = p->hnew = (v >> 5) & 1; p->cst = (v >> 4) & 1; p->vol = v & 15; break;
     case 1: p->sw_en = v >> 7; p->sw_per = (v >> 4) & 7; p->sw_neg = (v >> 3) & 1;
             p->sw_shift = v & 7; p->sw_reload = 1; break;
     case 2: p->period = (p->period & 0x700) | v; break;
     case 3: p->period = (p->period & 0xFF) | ((v & 7) << 8);
-            if (p->on) p->len = len_tab[v >> 3];
+            if (p->on) { p->rel = len_tab[v >> 3]; p->prev = p->len; }   /* la carga se decide al final del ciclo */
             p->step = 0; p->env_start = 1; break;
     }
 }
@@ -369,15 +384,15 @@ void apu_write(NES *n, u16 addr, u8 v)
     switch (addr) {
     case 0x4000: case 0x4001: case 0x4002: case 0x4003: pulse_write(&a->p[0], addr & 3, v); break;
     case 0x4004: case 0x4005: case 0x4006: case 0x4007: pulse_write(&a->p[1], addr & 3, v); break;
-    case 0x4008: a->t.ctrl = v >> 7; a->t.lin_val = v & 0x7F; break;
+    case 0x4008: a->t.ctrl = a->t.hnew = v >> 7; a->t.lin_val = v & 0x7F; break;
     case 0x400A: a->t.period = (a->t.period & 0x700) | v; break;
     case 0x400B:
         a->t.period = (a->t.period & 0xFF) | ((v & 7) << 8);
-        if (a->t.on) a->t.len = len_tab[v >> 3];
+        if (a->t.on) { a->t.rel = len_tab[v >> 3]; a->t.prev = a->t.len; }
         a->t.lin_reload = 1; break;
-    case 0x400C: a->nz.halt = (v >> 5) & 1; a->nz.cst = (v >> 4) & 1; a->nz.vol = v & 15; break;
+    case 0x400C: a->nz.halt = a->nz.hnew = (v >> 5) & 1; a->nz.cst = (v >> 4) & 1; a->nz.vol = v & 15; break;
     case 0x400E: a->nz.mode = v >> 7; a->nz.period = v & 15; break;
-    case 0x400F: if (a->nz.on) a->nz.len = len_tab[v >> 3]; a->nz.env_start = 1; break;
+    case 0x400F: if (a->nz.on) { a->nz.rel = len_tab[v >> 3]; a->nz.prev = a->nz.len; } a->nz.env_start = 1; break;
     case 0x4010:
         a->d.irq_en = v >> 7; a->d.loop = (v >> 6) & 1; a->d.rate = dmc_tab[v & 15];
         if (!a->d.irq_en) n->irq_line &= ~4;
@@ -387,10 +402,10 @@ void apu_write(NES *n, u16 addr, u8 v)
     case 0x4013: a->d.length = (v << 4) | 1; break;
     case 0x4015:
         a->p[0].on = v & 1; a->p[1].on = (v >> 1) & 1; a->t.on = (v >> 2) & 1; a->nz.on = (v >> 3) & 1;
-        if (!a->p[0].on) a->p[0].len = 0;
-        if (!a->p[1].on) a->p[1].len = 0;
-        if (!a->t.on) a->t.len = 0;
-        if (!a->nz.on) a->nz.len = 0;
+        if (!a->p[0].on) a->p[0].len = a->p[0].rel = 0;
+        if (!a->p[1].on) a->p[1].len = a->p[1].rel = 0;
+        if (!a->t.on) a->t.len = a->t.rel = 0;
+        if (!a->nz.on) a->nz.len = a->nz.rel = 0;
         a->d.on = (v >> 4) & 1;
         n->irq_line &= ~4;
         if (!a->d.on) a->d.remaining = 0;

@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -60,6 +61,13 @@ static const char usage_text[] =
     "                     (se puede repetir)\n"
     "  --coverage archivo compara lo descubierto con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron sin ayuda y cuáles faltan\n"
+    "  --why OFFSET       explica por qué esa instrucción (desplazamiento hexadecimal en PRG) se tomó como\n"
+    "                     código: la cadena de saltos, tablas y bancos desde un punto de entrada (se puede\n"
+    "                     repetir; sin -o no genera el proyecto)\n"
+    "  --viz              mapa del PRG en la terminal: una celda por 256 bytes, coloreada por cómo se\n"
+    "                     descubrió (con --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
+    "  --events archivo   cada instrucción descubierta con su origen (texto: desplazamiento, dirección,\n"
+    "                     cómo se llegó, de dónde, origen, desensamblado)\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
     "  --no-spec          sin el descubrimiento especulativo en todos los bancos (para comparar)\n"
     "  --dis OFFSET:DIR:N desensambla N instrucciones desde ese byte de PRG\n"
@@ -87,7 +95,19 @@ static int verbose;
 static int use_tables = 1;
 static int use_spec = 1;
 
-typedef struct { size_t off; u16 addr; } Work;
+/* Cómo se llegó a una instrucción (para --why, --viz y --events) */
+enum { HOW_VECTOR, HOW_TRACE, HOW_LINEAR, HOW_JMP, HOW_JSR, HOW_BRANCH, HOW_TABLE, HOW_SPEC, HOW_PAIR, HOW_RUN, HOW_COUNT };
+static const char *const how_name[HOW_COUNT] = { "vector", "traza", "sigue", "jmp", "jsr", "bifurcación", "tabla", "especulativo",
+                                                 "par de cargas", "tabla suelta" };
+enum { ORG_FLOW, ORG_TRACE, ORG_TABLE, ORG_SPEC, ORG_COUNT };
+static const char *const org_name[ORG_COUNT] = { "flujo desde los vectores", "traza", "tabla de saltos", "especulativo (todos los bancos)" };
+#define NO_PARENT ((size_t)-1)
+static size_t cur_from = NO_PARENT;      /* instrucción que está haciendo el descubrimiento */
+static int cur_how = HOW_JMP;
+static size_t *parent;                   /* por desplazamiento: de qué instrucción se llegó */
+static u8 *how_at, *origin;
+
+typedef struct { size_t off; u16 addr; size_t from; u8 how; } Work;
 static Work *work;
 static size_t nwork, capwork;
 
@@ -126,7 +146,7 @@ static void push_work(size_t off, u16 addr)
         capwork = capwork ? capwork * 2 : 1024;
         work = realloc(work, capwork * sizeof *work);
     }
-    work[nwork++] = (Work){ off, addr };
+    work[nwork++] = (Work){ off, addr, cur_from, (u8)cur_how };
 }
 
 /* Desplazamiento en PRG de un destino 'target' visto desde la instrucción en (src_off, src_addr):
@@ -205,6 +225,8 @@ static void spec_target(u16 target)
     if (spec_done[target >> 3] & (1u << (target & 7))) return;
     spec_done[target >> 3] |= (u8)(1u << (target & 7));
     stat_spec++;
+    int save_how = cur_how;
+    cur_how = HOW_SPEC;
     for (size_t base = 0; base + tw.size <= prg_size; base += tw.size) {
         size_t off = base + (target - tw.start);
         if (off < prg_size && !site[off].state && plausible(off, target)) {
@@ -212,6 +234,7 @@ static void spec_target(u16 target)
             stat_spec_hits++;
         }
     }
+    cur_how = save_how;
 }
 
 static void follow(size_t off, u16 addr, u16 target)
@@ -262,6 +285,7 @@ static int table_target(size_t tab_off, u16 tab_addr, u16 v, long *t)
  * otro de altos. plus1: son direcciones menos uno (se usan con RTS). 'max' limita la cuenta. */
 static void scan_table(size_t src_off, u16 src_addr, u16 lo_base, u16 hi_base, int interleaved, int plus1, int max)
 {
+    cur_how = HOW_TABLE;
     long lo_o = resolve(src_off, src_addr, lo_base);
     long hi_o = interleaved ? lo_o + 1 : resolve(src_off, src_addr, hi_base);
     if (lo_o < 0 || hi_o < 0) return;
@@ -311,6 +335,7 @@ static int is_inline_dispatcher(size_t off, u16 addr)
 /* La tabla que sigue a un JSR a un despachador con tabla en línea */
 static void scan_inline_table(size_t jsr_off, u16 jsr_addr)
 {
+    cur_how = HOW_TABLE;
     size_t o = jsr_off + 3;
     u16 a = (u16)(jsr_addr + 3);
     int good = 0;
@@ -354,6 +379,7 @@ static void analyze_ind_jump(size_t off, u16 addr, u16 ptr)
 /* RTS tras apilar una dirección: "LDA alto,X / PHA / LDA bajo,X / PHA / RTS" (la dirección va menos uno) */
 static void analyze_rts_trick(size_t off, u16 addr)
 {
+    cur_how = HOW_TABLE;
     int p2 = -1, p1 = -1;
     for (int i = nhist - 2; i >= 1 && i >= nhist - 10; i--) {
         if (ins_op(hist[i]) != PHA) continue;
@@ -378,6 +404,7 @@ static unsigned stat_pairs;
 
 static void scan_immediate_pairs(void)
 {
+    cur_how = HOW_PAIR;
     for (size_t i = 0; i < prg_size; i++) {
         if (!site[i].state || ins_op(i) != LDA || ins_mode(i) != IMM) continue;
         size_t b = i + 2;
@@ -393,6 +420,7 @@ static void scan_immediate_pairs(void)
         else if (m1 == (u16)(m2 + 1) && ind_ptr(m2)) v = (u16)((v2 & 0xFF) | (v1 << 8));
         else continue;
         long t;
+        cur_from = i;
         if (!table_target(i, site[i].addr, v, &t)) continue;
         if (t >= 0) { if (!site[t].state) { push_work(t, mapper_prg_canon(cart, v)); stat_pairs++; } }
         else spec_target(v);
@@ -405,6 +433,7 @@ static unsigned stat_runs, stat_run_entries;
 
 static void scan_pointer_runs(void)
 {
+    cur_how = HOW_RUN; cur_from = NO_PARENT;
     size_t gran = mapper_prg_granule(cart);
     for (u32 s = 0x8000; s < 0x10000; s += (u32)gran) {
         PrgWin w;
@@ -451,12 +480,15 @@ static void resolve_tables(void)
 {
     if (!runs_done) { runs_done = 1; scan_pointer_runs(); }
     scan_immediate_pairs();
+    cur_from = NO_PARENT;
 }
 
 /* Recorre desde (off, addr) hasta encontrar un final de camino */
-static void walk(size_t off, u16 addr)
+static void walk(Work wk)
 {
     PrgWin w;
+    size_t off = wk.off, prev = NO_PARENT;
+    u16 addr = wk.addr;
     nhist = 0;
     for (;;) {
         if (off >= prg_size) return;
@@ -473,15 +505,26 @@ static void walk(size_t off, u16 addr)
         if ((u32)(addr - w.start) + len > w.size || off + len > prg_size) return;
         site[off] = (Site){ addr, 1, opc, site[off].seed };
         stat_insns++; stat_bytes += len;
+        if (prev == NO_PARENT) {
+            parent[off] = wk.from; how_at[off] = wk.how;
+            origin[off] = wk.from != NO_PARENT ? (wk.how == HOW_TABLE ? ORG_TABLE : wk.how == HOW_SPEC ? ORG_SPEC :
+                          wk.how == HOW_PAIR || wk.how == HOW_RUN ? ORG_TABLE : origin[wk.from])
+                          : (wk.how == HOW_TRACE ? ORG_TRACE : wk.how == HOW_SPEC ? ORG_SPEC : wk.how == HOW_RUN ? ORG_TABLE : ORG_FLOW);
+        } else {
+            parent[off] = prev; how_at[off] = HOW_LINEAR; origin[off] = origin[prev];
+        }
+        prev = off;
+        cur_from = off;
         hist_push(off);
 
         u16 imm = (len > 1 ? cart->prg[off + 1] : 0) | (len > 2 ? cart->prg[off + 2] << 8 : 0);
         switch (in->op) {
         case JMP:
-            if (in->mode == ABS) follow(off, addr, imm);
+            if (in->mode == ABS) { cur_how = HOW_JMP; follow(off, addr, imm); }
             else { stat_ind++; if (use_tables) analyze_ind_jump(off, addr, imm); }
             return;
         case JSR: {
+            cur_how = HOW_JSR;
             follow(off, addr, imm);
             long t = use_tables ? resolve(off, addr, imm) : -1;
             if (t >= 0 && is_inline_dispatcher((size_t)t, mapper_prg_canon(cart, imm))) {
@@ -494,6 +537,7 @@ static void walk(size_t off, u16 addr)
             return;
         case RTI: case BRK: return;
         case BCC: case BCS: case BEQ: case BMI: case BNE: case BPL: case BVC: case BVS:
+            cur_how = HOW_BRANCH;
             follow(off, addr, (u16)(addr + 2 + (int8_t)cart->prg[off + 1]));
             break;
         }
@@ -505,7 +549,7 @@ static void drain(void)
 {
     while (nwork) {
         Work w = work[--nwork];
-        walk(w.off, w.addr);
+        walk(w);
     }
 }
 
@@ -523,8 +567,9 @@ static void discover(void)
     }
 }
 
-static void seed(size_t off, u16 addr)
+static void seed(size_t off, u16 addr, int how)
 {
+    cur_from = NO_PARENT; cur_how = how;
     if (off >= prg_size) return;
     addr = mapper_prg_canon(cart, addr);
     site[off].seed = 1;
@@ -545,7 +590,7 @@ static void seed_vectors(void)
         if (verbose) printf("vector %-8s = $%04X\n", nm[i], t);
         PrgWin tw; t = mapper_prg_canon(cart, t);
         if (t < 0x8000 || !mapper_prg_window(cart, t, &tw)) continue;   /* apunta a RAM: no es código de ROM */
-        seed(tw.off + (t - tw.start), t);
+        seed(tw.off + (t - tw.start), t, HOW_VECTOR);
     }
 }
 
@@ -558,7 +603,7 @@ static void load_trace(const char *path)
     while (fgets(line, sizeof line, f)) {
         if (sscanf(line, "%lx:%lx", &off, &addr) != 2) continue;
         if (off >= prg_size || addr < 0x8000) continue;
-        seed(off, (u16)addr);
+        seed(off, (u16)addr, HOW_TRACE);
         stat_trace++;
     }
     fclose(f);
@@ -967,8 +1012,11 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
 }
 
 /* Cuántas de las instrucciones ejecutadas (una traza) se descubrieron sin esa ayuda */
+static u8 *missing_mark;
+
 static void coverage_report(const char *path)
 {
+    missing_mark = calloc(prg_size, 1);
     FILE *f = fopen(path, "r");
     if (!f) die("no se pudo abrir %s", path);
     char line[64];
@@ -978,6 +1026,7 @@ static void coverage_report(const char *path)
         if (sscanf(line, "%lx:%lx", &off, &addr) != 2 || off >= prg_size) continue;
         total++;
         if (site[off].state) { found++; continue; }
+        missing_mark[off] = 1;
         if (missing_shown < 12 || verbose) {
             printf("  falta: PRG $%06lX = $%04lX  ", off, addr);
             Site save = site[off]; site[off].opc = cart->prg[off]; site[off].addr = (u16)addr;
@@ -989,6 +1038,94 @@ static void coverage_report(const char *path)
     fclose(f);
     printf("cobertura: %u de %u instrucciones ejecutadas descubiertas sin traza (%.1f%%); descubiertas en total %u\n",
            found, total, total ? 100.0 * found / total : 100.0, stat_insns);
+}
+
+/* ------------------------------------------------------------------ */
+/* --why, --viz, --events                                              */
+/* ------------------------------------------------------------------ */
+
+static void explain(size_t off)
+{
+    if (off >= prg_size || !site[off].state) {
+        printf("PRG $%06zX: no se descubrió como código\n", off);
+        return;
+    }
+    printf("PRG $%06zX ($%04X) se tomó como código así:\n", off, site[off].addr);
+    char d[64];
+    size_t cur = off;
+    int steps = 0;
+    while (cur != NO_PARENT && steps++ < 4000) {
+        disasm(cur, d, sizeof d);
+        size_t par = parent[cur];
+        int how = how_at[cur];
+        /* las instrucciones seguidas se agrupan: solo se cuenta cuántas hubo */
+        size_t first = cur;
+        int run = 0;
+        while (how == HOW_LINEAR && par != NO_PARENT) { cur = par; par = parent[cur]; how = how_at[cur]; run++; }
+        if (run) {
+            char d0[64]; disasm(cur, d0, sizeof d0);
+            printf("  $%06zX $%04X  %-22s  ...%d instrucciones seguidas hasta  $%06zX $%04X  %s\n", first, site[first].addr, d, run, cur,
+                   site[cur].addr, d0);
+            disasm(cur, d, sizeof d);
+        } else {
+            printf("  $%06zX $%04X  %-22s\n", cur, site[cur].addr, d);
+        }
+        if (par == NO_PARENT) {
+            printf("  └ punto de entrada: %s\n", how_name[how]);
+            return;
+        }
+        printf("  └ %s desde\n", how_name[how]);
+        cur = par;
+    }
+}
+
+static void write_events(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    fprintf(f, "# desplazamiento dirección cómo-se-llegó desde origen desensamblado\n");
+    for (size_t i = 0; i < prg_size; i++) {
+        if (!site[i].state) continue;
+        char d[64]; disasm(i, d, sizeof d);
+        if (parent[i] == NO_PARENT) fprintf(f, "%06zX %04X %s - %s %s\n", i, site[i].addr, how_name[how_at[i]], org_name[origin[i]], d);
+        else fprintf(f, "%06zX %04X %s %06zX %s %s\n", i, site[i].addr, how_name[how_at[i]], parent[i], org_name[origin[i]], d);
+    }
+    fclose(f);
+}
+
+static void viz_map(int color)
+{
+    static const int org_color[ORG_COUNT] = { 46, 51, 226, 201 };        /* verde, cian, amarillo, magenta */
+    printf("\nMapa del PRG (una celda = 256 bytes; filas de 16 KB):\n");
+    for (int o = 0; o < ORG_COUNT; o++) {
+        if (color) printf("  \033[38;5;%dm#\033[0m %s\n", org_color[o], org_name[o]);
+        else printf("  %c %s\n", "#=%@"[o], org_name[o]);
+    }
+    if (missing_mark) printf("  %sX%s ejecutado por el juego y no descubierto\n", color ? "\033[41;97m" : "", color ? "\033[0m" : "");
+    printf("  . sin código   : menos de la mitad   # la mitad o más\n\n");
+    unsigned cells = 0, code_cells = 0;
+    for (size_t row = 0; row < prg_size; row += 0x4000) {
+        printf("%06zX ", row);
+        for (size_t cell = row; cell < row + 0x4000 && cell < prg_size; cell += 256) {
+            unsigned bytes = 0, cnt[ORG_COUNT] = { 0 };
+            int miss = 0;
+            for (size_t i = cell; i < cell + 256 && i < prg_size; i++) {
+                if (site[i].state) { int l = mode_len[ins_tab[site[i].opc].mode]; bytes += l; cnt[origin[i]] += l; }
+                if (missing_mark && missing_mark[i]) miss = 1;
+            }
+            cells++;
+            if (bytes) code_cells++;
+            if (miss) { printf("%s%s%s", color ? "\033[41;97m" : "", "X", color ? "\033[0m" : ""); continue; }
+            if (!bytes) { putchar('.'); continue; }
+            int best = 0;
+            for (int o = 1; o < ORG_COUNT; o++) if (cnt[o] > cnt[best]) best = o;
+            char ch = bytes >= 128 ? '#' : ':';
+            if (color) printf("\033[38;5;%dm%c\033[0m", org_color[best], ch);
+            else putchar(bytes >= 128 ? "#=%@"[best] : ':');
+        }
+        putchar('\n');
+    }
+    printf("\n%u de %u celdas con código (%.1f%% del PRG en bytes)\n", code_cells, cells, 100.0 * stat_bytes / prg_size);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1014,13 +1151,17 @@ int main(int argc, char **argv)
     console_utf8();
     const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
     const char *traces[32]; int ntraces = 0;
-    const char *coverage = NULL;
+    const char *coverage = NULL, *events_path = NULL;
+    size_t why_list[32]; int nwhy = 0, viz = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc && ntraces < 32) traces[ntraces++] = argv[++i];
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis_arg = argv[++i];
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
+        else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = strtoul(argv[++i], NULL, 16);
+        else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--events") && i + 1 < argc) events_path = argv[++i];
         else if (!strcmp(argv[i], "--no-tables")) use_tables = 0;
         else if (!strcmp(argv[i], "--no-spec")) use_spec = 0;
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
@@ -1030,7 +1171,7 @@ int main(int argc, char **argv)
         else die("argumento desconocido: %s (ver --help)", argv[i]);
     }
     if (!in_path) { fputs(usage_text, stderr); return 2; }
-    if (!out_dir && !dis_arg && !coverage) die("falta -o carpeta");
+    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path) die("falta -o carpeta");
 
     rom_file = slurp(in_path, &rom_file_size);
     if (!rom_file) die("no se pudo leer %s", in_path);
@@ -1039,12 +1180,15 @@ int main(int argc, char **argv)
     cart = &nes.cart;
     prg_size = cart->prg_size;
     site = calloc(prg_size, sizeof *site);
+    parent = malloc(prg_size * sizeof *parent);
+    for (size_t i = 0; i < prg_size; i++) parent[i] = NO_PARENT;
+    how_at = calloc(prg_size, 1); origin = calloc(prg_size, 1);
     printf("%s: mapper %d, PRG %zu KB, CHR %zu KB%s\n", in_path, cart->mapper, prg_size / 1024,
            cart->chr_is_ram ? 0 : cart->chr_size / 1024, cart->chr_is_ram ? " (RAM)" : "");
 
     seed_vectors();
     discover();
-    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg) return 0; }
+    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz) return 0; }
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
     discover();
@@ -1058,6 +1202,11 @@ int main(int argc, char **argv)
         printf("tablas: %u con índice, %u en línea, %u destinos; %u pares de puntero, %u tablas sueltas (%u entradas)\n",
                stat_tables, stat_inline, stat_table_entries, stat_pairs, stat_runs, stat_run_entries);
     }
+
+    if (events_path) write_events(events_path);
+    if (viz) viz_map(isatty(1));
+    for (int i = 0; i < nwhy; i++) explain(why_list[i]);
+    if (!out_dir && !dis_arg && (viz || nwhy || events_path)) return 0;
 
     if (dis_arg) {
         unsigned long off, addr, cnt;

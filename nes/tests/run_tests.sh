@@ -39,6 +39,11 @@ if [ -x ./nesrecomp ]; then
         else cat build/rt.log; echo "FALLA recomp $(basename "$f")"; fail=1; fi
     done
 fi
+# Descubrimiento: --why, --viz y --events
+if [ -x ./nesrecomp ]; then
+    ./nesrecomp $T/other/nestest.nes --why 0 --viz --events build/ev.txt 2>&1 | grep -q "punto de entrada: vector" \
+        && [ -s build/ev.txt ] && echo "ok   why/viz/events" || { echo "FALLA why/viz/events"; fail=1; }
+fi
 # Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
 if [ -x ./nes ]; then
     for m in 0 1 2 3 4 5 6; do

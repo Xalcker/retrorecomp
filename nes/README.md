@@ -75,7 +75,8 @@ ni un byte de imagen o audio.
 | `nesshot rom salida.png cuadros [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. |
 | `nesaudio rom salida.wav cuadros [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [cuadros]` | Velocidad sin ventana. |
-| `nestest`, `sramtest` | Pruebas. `make test` corre todas. |
+| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
+| `nestest`, `sramtest`, `statetest`, `mappertest` | Pruebas. `make test` corre todas. |
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza y lo compara contra el intérprete.
 
@@ -94,7 +95,7 @@ ni un byte de imagen o audio.
 
 ## Pendiente
 
-- Visualización del descubrimiento (`viz`, `--why` de GBRecomp).
+- Visor en el navegador del descubrimiento (el `tools/visor.html` de GBRecomp lee otro formato de eventos).
 - Más mappers (VRC2/4/6/7, mapper 15), el PCM del MMC5, el audio 5B del FME-7 y ExGrafix del MMC5.
 
 ## Créditos

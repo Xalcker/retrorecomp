@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visor de gbrecomp</title>
+<!--
+  Visor del registro de descubrimiento de gbrecomp (gbrecomp --events).
+
+  Se abre directo en el navegador, sin servidor. Los archivos se leen en la
+  computadora y no se mandan a ningún lado:
+    - el registro de eventos (obligatorio):  gbrecomp juego.gb -o salida/ --events eventos.txt
+    - la ROM (opcional): para desensamblar
+    - una lista de cobertura (opcional): lo que escribe el juego con --uncovered
+      (o una traza), para marcar lo que se ejecutó y no se descubrió
+
+  Se pueden arrastrar a la ventana o elegir con los botones.
+-->
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6a65; --line: #dddad2;
+  --empty: #e4e1d8; --accent: #2457c5;
+  --c-boot: #2f8f46; --c-irq: #1592a8; --c-table: #c58a0e; --c-trace: #b0379f; --c-data: #4a5fc1;
+  --c-bad: #d23a2c; --c-want: #ff6b5e; --lit: #111111;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1d1d1b; --text: #ecebe6; --muted: #9b9a93; --line: #34332f;
+    --empty: #2a2926; --accent: #7aa2ff;
+    --c-boot: #4fc46a; --c-irq: #3cc2d8; --c-table: #e8b23a; --c-trace: #df5fcc; --c-data: #7d8ff0;
+    --c-bad: #ff5a4a; --c-want: #ff8a7f; --lit: #ffffff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --panel: #1d1d1b; --text: #ecebe6; --muted: #9b9a93; --line: #34332f;
+  --empty: #2a2926; --accent: #7aa2ff;
+  --c-boot: #4fc46a; --c-irq: #3cc2d8; --c-table: #e8b23a; --c-trace: #df5fcc; --c-data: #7d8ff0;
+  --c-bad: #ff5a4a; --c-want: #ff8a7f; --lit: #ffffff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+header { padding: 14px 16px 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+header h1 { font-size: 18px; margin: 0; }
+header .sub { color: var(--muted); font-size: 13px; }
+.files { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 10px; }
+.files label {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
+  padding: 5px 10px; cursor: pointer; font-size: 13px;
+}
+.files label.ok { border-color: var(--accent); }
+.files input { display: none; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 0 16px 16px; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+.controls input[type=range] { flex: 1 1 240px; min-width: 160px; }
+button, select {
+  font: inherit; font-size: 13px; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+}
+.status { font-size: 13px; color: var(--muted); min-height: 1.4em; font-variant-numeric: tabular-nums; }
+.status b { color: var(--text); font-weight: 600; }
+#mapwrap { overflow: auto; max-height: 72vh; position: relative; }
+canvas { display: block; image-rendering: pixelated; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.legend span::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 5px; vertical-align: -1px; background: var(--sw);
+}
+#tip {
+  position: fixed; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; display: none; z-index: 5;
+  font-variant-numeric: tabular-nums;
+}
+.side h2 { font-size: 14px; margin: 0 0 6px; }
+.side .hint { color: var(--muted); font-size: 13px; }
+pre {
+  font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; margin: 0;
+  white-space: pre-wrap; word-break: break-word;
+}
+.addr { color: var(--accent); cursor: pointer; text-decoration: underline dotted; }
+.drop {
+  position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent);
+  display: none; align-items: center; justify-content: center; font-size: 18px; z-index: 10;
+  border: 3px dashed var(--accent);
+}
+.empty-state { padding: 40px 12px; text-align: center; color: var(--muted); }
+.empty-state code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Visor de gbrecomp</h1>
+  <span class="sub" id="romname">Arrastra aquí el registro de <code>--events</code>, la ROM y la cobertura</span>
+  <button id="theme" title="Cambiar tema" style="margin-left:auto">Tema</button>
+</header>
+<div class="files">
+  <label id="l-ev">Eventos… <input type="file" id="f-ev" accept=".txt,text/plain"></label>
+  <label id="l-rom">ROM (opcional)… <input type="file" id="f-rom" accept=".gb,.gbc,.sgb"></label>
+  <label id="l-cov">Cobertura (opcional)… <input type="file" id="f-cov" accept=".txt,text/plain"></label>
+</div>
+<main>
+  <section class="card">
+    <div class="controls">
+      <button id="play">▶ Reproducir</button>
+      <input type="range" id="time" min="0" max="0" value="0" aria-label="Línea de tiempo">
+      <select id="speed" aria-label="Velocidad">
+        <option value="200">lento</option>
+        <option value="1500" selected>normal</option>
+        <option value="8000">rápido</option>
+      </select>
+      <select id="cellsize" aria-label="Bytes por celda">
+        <option value="16">16 B/celda</option>
+        <option value="32">32 B/celda</option>
+        <option value="64" selected>64 B/celda</option>
+        <option value="128">128 B/celda</option>
+        <option value="256">256 B/celda</option>
+      </select>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="status" id="current"></div>
+    <div id="mapwrap">
+      <canvas id="map"></canvas>
+      <div class="empty-state" id="empty">
+        Genera el registro con <code>gbrecomp juego.gb -o salida/ --events eventos.txt</code>
+        y ábrelo aquí.
+      </div>
+    </div>
+    <div class="legend">
+      <span style="--sw:var(--c-boot)">arranque</span>
+      <span style="--sw:var(--c-irq)">interrupción</span>
+      <span style="--sw:var(--c-table)">tabla</span>
+      <span style="--sw:var(--c-trace)">traza</span>
+      <span style="--sw:var(--c-data)">datos (tablas, argumentos)</span>
+      <span style="--sw:var(--c-bad)">sin resolver</span>
+      <span style="--sw:var(--c-want)">ejecutado sin descubrir</span>
+      <span style="--sw:var(--empty)">sin código</span>
+    </div>
+  </section>
+  <aside class="card side">
+    <h2 id="seltitle">Celda</h2>
+    <div class="hint" id="selhint">Haz clic en una celda del mapa para ver sus instrucciones y por qué se tomaron como código.</div>
+    <pre id="selbody"></pre>
+    <h2 style="margin-top:14px">¿Por qué es código?</h2>
+    <pre id="why" class="hint">Elige una instrucción.</pre>
+  </aside>
+</main>
+<div id="tip"></div>
+<div class="drop" id="drop">Suelta los archivos</div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/* Registro de eventos                                                 */
+/* ------------------------------------------------------------------ */
+
+const EV = { PHASE: 0, WALK: 1, INSN: 2, TABLE: 3, TENTRY: 4, UNRES: 5, INDIRECT: 6, TRACE: 7, ARGS: 8 };
+const ORIGINS = ['arranque', 'irq', 'tabla', 'traza'];
+const ORIGIN_NAMES = ['arranque', 'interrupción', 'tabla', 'traza'];
+const PHASE_NAMES = {
+  'vectores': 'vectores de arranque e interrupciones', 'tablas': 'tablas de punteros',
+  'traza': 'traza: puntos de entrada', 'traza-tablas': 'traza: tablas de punteros'
+};
+const NONE = 0xFFFF;
+
+/* Convierte el texto de --events en arreglos (uno por campo) */
+function parseEvents(text) {
+  const lines = text.split(/\r?\n/);
+  const n = lines.length;
+  const ev = {
+    type: new Uint8Array(n), bank: new Uint16Array(n), addr: new Uint16Array(n),
+    bank2: new Uint16Array(n), addr2: new Uint16Array(n), len: new Uint8Array(n),
+    aux: new Uint8Array(n), origin: new Uint8Array(n), phase: [], count: 0, maxBank: 0
+  };
+  const ba = s => { const m = /^([0-9A-F?]+):([0-9A-F]+)$/i.exec(s); if (!m) return null;
+    return [m[1].startsWith('?') ? NONE : parseInt(m[1], 16), parseInt(m[2], 16)]; };
+  let k = 0, walkOrigin = 0;
+  for (const line of lines) {
+    if (!line || line[0] === '#') continue;
+    const p = line.trim().split(/\s+/);
+    let t = -1, a = null, b = null, len = 0, aux = 0, origin = walkOrigin;
+    switch (p[0]) {
+    case 'fase': t = EV.PHASE; ev.phase.push([k, p[1]]); break;
+    case 'recorrido':
+      t = EV.WALK; a = ba(p[1]); origin = Math.max(0, ORIGINS.indexOf(p[2])); walkOrigin = origin;
+      if (p[3] === 'desde' || p[3] === 'desde-entrada') { b = ba(p[4]); aux = p[3] === 'desde-entrada' ? 1 : 0; }
+      break;
+    case 'insn': t = EV.INSN; a = ba(p[1]); len = parseInt(p[2], 10) || 1; break;
+    case 'tabla': t = EV.TABLE; a = ba(p[1]); aux = p[2] === 'en-linea' ? 1 : 0; if (p[3] === 'desde') b = ba(p[4]); break;
+    case 'entrada': t = EV.TENTRY; a = ba(p[1]); b = ba(p[3]); len = 2; break;
+    case 'sin-banco': t = EV.UNRES; a = ba(p[1]); b = [NONE, parseInt(p[3], 16)]; break;
+    case 'jp-hl': t = EV.INDIRECT; a = ba(p[1]); break;
+    case 'traza': t = EV.TRACE; a = ba(p[1]); aux = p[2] === 'conocida' ? 1 : 0; break;
+    case 'args': t = EV.ARGS; a = ba(p[1]); len = parseInt(p[2], 10) || 1; break;
+    default: continue;
+    }
+    ev.type[k] = t; ev.len[k] = len; ev.aux[k] = aux; ev.origin[k] = origin;
+    if (a) { ev.bank[k] = a[0]; ev.addr[k] = a[1]; if (a[0] !== NONE && a[0] > ev.maxBank) ev.maxBank = a[0]; }
+    ev.bank2[k] = b ? b[0] : NONE; ev.addr2[k] = b ? b[1] : 0;
+    k++;
+  }
+  ev.count = k;
+  if (!k) throw new Error('El archivo no parece un registro de gbrecomp --events');
+  return ev;
+}
+
+/* Lista "BB:AAAA" (cobertura o traza) */
+function parseAddrList(text) {
+  const out = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\s*([0-9A-F]+):([0-9A-F]+)/i.exec(line);
+    if (m) out.push([parseInt(m[1], 16), parseInt(m[2], 16)]);
+  }
+  return out;
+}
+
+const base = bank => bank === 0 ? 0 : 0x4000;
+const hex = (v, w) => v.toString(16).toUpperCase().padStart(w, '0');
+const fmt = (b, a) => `${b === NONE ? '??' : hex(b, 2)}:${hex(a, 4)}`;
+
+/*
+ * ¿Por qué bank:addr es código? Igual que gbrecomp --why: la instrucción que
+ * cubre la dirección, el recorrido que la decodificó y quién agregó ese
+ * recorrido (una instrucción o una entrada de tabla, y entonces quién
+ * encontró la tabla), hasta un punto de entrada. Cada paso va a eventos
+ * anteriores, así que termina.
+ */
+function explain(ev, bank, addr, limit) {
+  const steps = [];
+  for (let guard = 0; guard < 200; guard++) {
+    let i = 0;
+    for (; i < limit; i++)
+      if (ev.type[i] === EV.INSN && ev.bank[i] === bank && ev.addr[i] <= addr && addr < ev.addr[i] + ev.len[i]) break;
+    if (i === limit) {
+      steps.push({ kind: guard ? 'lost' : 'none', bank, addr });
+      return steps;
+    }
+    let w = i;
+    while (w > 0 && ev.type[w] !== EV.WALK) w--;
+    steps.push({ kind: 'insn', bank, addr: ev.addr[i], walkBank: ev.bank[w], walkAddr: ev.addr[w] });
+    if (ev.bank2[w] === NONE) {
+      steps.push({ kind: 'entry', bank: ev.bank[w], addr: ev.addr[w], origin: ev.origin[w] });
+      return steps;
+    }
+    if (ev.aux[w]) {
+      let t = w;
+      while (t > 0 && !(ev.type[t] === EV.TENTRY && ev.bank[t] === ev.bank2[w] && ev.addr[t] === ev.addr2[w])) t--;
+      while (t > 0 && ev.type[t] !== EV.TABLE) t--;
+      steps.push({ kind: 'tentry', bank: ev.bank[w], addr: ev.addr[w], eb: ev.bank2[w], ea: ev.addr2[w],
+                   tb: ev.bank[t], ta: ev.addr[t], inline: ev.aux[t] });
+      if (ev.type[t] !== EV.TABLE || ev.bank2[t] === NONE) { steps.push({ kind: 'notable' }); return steps; }
+      bank = ev.bank2[t]; addr = ev.addr2[t]; limit = t;
+    } else {
+      steps.push({ kind: 'jump', bank: ev.bank[w], addr: ev.addr[w], fb: ev.bank2[w], fa: ev.addr2[w] });
+      bank = ev.bank2[w]; addr = ev.addr2[w]; limit = w;
+    }
+  }
+  return steps;
+}
+
+/* ------------------------------------------------------------------ */
+/* Desensamblador del SM83 (mismo formato que gbrecomp --dis)          */
+/* ------------------------------------------------------------------ */
+
+const R8 = ['b', 'c', 'd', 'e', 'h', 'l', '[hl]', 'a'];
+const R16 = ['bc', 'de', 'hl', 'sp'];
+const R16P = ['bc', 'de', 'hl', 'af'];
+const CC = ['nz', 'z', 'nc', 'c'];
+const ALU = ['add a, ', 'adc a, ', 'sub ', 'sbc a, ', 'and ', 'xor ', 'or ', 'cp '];
+const ROT = ['rlc', 'rrc', 'rl', 'rr', 'sla', 'sra', 'swap', 'srl'];
+
+/* [texto, largo] de la instrucción en b[0..2] (dirección pc) */
+function disasm(b, pc) {
+  const op = b[0], n = '$' + hex(b[1], 2), nn = '$' + hex(b[1] | b[2] << 8, 4);
+  const rel = () => '$' + hex((pc + 2 + ((b[1] << 24) >> 24)) & 0xFFFF, 4);
+  const x = op >> 6, y = (op >> 3) & 7, z = op & 7, p = y >> 1, q = y & 1;
+  if (op === 0xCB) {
+    const c = b[1], cx = c >> 6, cy = (c >> 3) & 7, r = R8[c & 7];
+    return [cx === 0 ? `${ROT[cy]} ${r}` : `${['', 'bit', 'res', 'set'][cx]} ${cy}, ${r}`, 2];
+  }
+  if (x === 1) return op === 0x76 ? ['halt', 1] : [`ld ${R8[y]}, ${R8[z]}`, 1];
+  if (x === 2) return [ALU[y] + R8[z], 1];
+  if (x === 0) {
+    switch (z) {
+    case 0:
+      if (y === 0) return ['nop', 1];
+      if (y === 1) return [`ld [${nn}], sp`, 3];
+      if (y === 2) return ['stop', 2];
+      if (y === 3) return [`jr ${rel()}`, 2];
+      return [`jr ${CC[y - 4]}, ${rel()}`, 2];
+    case 1: return q ? [`add hl, ${R16[p]}`, 1] : [`ld ${R16[p]}, ${nn}`, 3];
+    case 2: {
+      const m = ['[bc]', '[de]', '[hl+]', '[hl-]'][p];
+      return q ? [`ld a, ${m}`, 1] : [`ld ${m}, a`, 1];
+    }
+    case 3: return [`${q ? 'dec' : 'inc'} ${R16[p]}`, 1];
+    case 4: return [`inc ${R8[y]}`, 1];
+    case 5: return [`dec ${R8[y]}`, 1];
+    case 6: return [`ld ${R8[y]}, ${n}`, 2];
+    default: return [['rlca', 'rrca', 'rla', 'rra', 'daa', 'cpl', 'scf', 'ccf'][y], 1];
+    }
+  }
+  switch (op) {
+  case 0xC3: return [`jp ${nn}`, 3];
+  case 0xCD: return [`call ${nn}`, 3];
+  case 0xC9: return ['ret', 1];
+  case 0xD9: return ['reti', 1];
+  case 0xE9: return ['jp hl', 1];
+  case 0xF9: return ['ld sp, hl', 1];
+  case 0xE0: return [`ldh [$FF${hex(b[1], 2)}], a`, 2];
+  case 0xF0: return [`ldh a, [$FF${hex(b[1], 2)}]`, 2];
+  case 0xE2: return ['ldh [c], a', 1];
+  case 0xF2: return ['ldh a, [c]', 1];
+  case 0xD3: case 0xDB: case 0xDD: case 0xE3: case 0xE4: case 0xEB:
+  case 0xEC: case 0xED: case 0xF4: case 0xFC: case 0xFD:
+    return [`db $${hex(op, 2)}`, 1];      /* no existen en el SM83 */
+  case 0xEA: return [`ld [${nn}], a`, 3];
+  case 0xFA: return [`ld a, [${nn}]`, 3];
+  case 0xE8: return [`add sp, ${(b[1] << 24) >> 24}`, 2];
+  case 0xF8: return [`ld hl, sp${((b[1] << 24) >> 24) < 0 ? '' : '+'}${(b[1] << 24) >> 24}`, 2];
+  case 0xF3: return ['di', 1];
+  case 0xFB: return ['ei', 1];
+  }
+  switch (z) {
+  case 0: return [`ret ${CC[y]}`, 1];
+  case 1: return [`pop ${R16P[p]}`, 1];
+  case 2: return [`jp ${CC[y]}, ${nn}`, 3];
+  case 4: return [`call ${CC[y]}, ${nn}`, 3];
+  case 5: return [`push ${R16P[p]}`, 1];
+  case 6: return [ALU[y] + n, 2];
+  case 7: return [`rst $${hex(y * 8, 2)}`, 1];
+  }
+  return [`db $${hex(op, 2)}`, 1];
+}
+
+/* ------------------------------------------------------------------ */
+/* Estado del mapa en un instante                                       */
+/* ------------------------------------------------------------------ */
+
+const CATS = 5, CAT_DATA = 4;
+const S = {
+  ev: null, rom: null, romName: '', want: null, wantList: [],
+  nbanks: 0, bpc: 64, cellOf: null,          /* celda de cada evento (o -1) */
+  t: 0, playing: false, sel: -1, lastWalk: -1, phase: '',
+  counts: null, bad: null, wantCnt: null, painted: null, lit: null,
+  insns: 0, codeBytes: 0, tables: 0, bads: 0, missing: 0
+};
+
+function cellIndex(bank, addr) {
+  const off = addr - base(bank);
+  if (bank === NONE || bank >= S.nbanks || off < 0 || off >= 0x4000) return -1;
+  return (bank * 0x4000 + off) / S.bpc | 0;
+}
+
+/* Vuelve a calcular el estado hasta el evento t (sin incluirlo) */
+function rebuild(t) {
+  const cells = S.nbanks * 0x4000 / S.bpc;
+  S.counts = new Uint16Array(cells * CATS);
+  S.bad = new Uint8Array(cells);
+  S.wantCnt = new Uint16Array(cells);
+  S.lit = new Float32Array(cells);
+  S.painted = new Uint8Array(S.nbanks * 0x4000);
+  S.wanted = new Uint8Array(S.nbanks * 0x4000);
+  S.insns = S.codeBytes = S.tables = S.bads = S.missing = 0;
+  S.lastWalk = -1; S.phase = '';
+  for (const [b, a] of S.wantList) {
+    const off = a - base(b);
+    if (b >= S.nbanks || off < 0 || off >= 0x4000) continue;
+    const i = b * 0x4000 + off;
+    if (S.wanted[i]) continue;
+    S.wanted[i] = 1; S.wantCnt[i / S.bpc | 0]++; S.missing++;
+  }
+  S.t = 0;
+  advance(t, false);
+}
+
+function paint(bank, addr, len, cat, now) {
+  const off0 = addr - base(bank);
+  for (let k = 0; k < len; k++) {
+    const off = off0 + k;
+    if (bank >= S.nbanks || off < 0 || off >= 0x4000) return;
+    const i = bank * 0x4000 + off;
+    if (S.painted[i]) continue;
+    S.painted[i] = 1;
+    const c = i / S.bpc | 0;
+    S.counts[c * CATS + cat]++;
+    if (now) S.lit[c] = 1;
+    if (cat !== CAT_DATA) S.codeBytes++;
+  }
+}
+
+/* Aplica los eventos desde S.t hasta t */
+function advance(t, now) {
+  const ev = S.ev;
+  for (let i = S.t; i < t; i++) {
+    const b = ev.bank[i], a = ev.addr[i];
+    switch (ev.type[i]) {
+    case EV.PHASE: S.phase = ev.phase.find(p => p[0] === i)?.[1] || S.phase; break;
+    case EV.WALK: S.lastWalk = i; break;
+    case EV.INSN: {
+      S.insns++;
+      paint(b, a, ev.len[i], ev.origin[i], now);
+      const off = a - base(b);
+      if (b < S.nbanks && off >= 0 && off < 0x4000 && S.wanted[b * 0x4000 + off]) {
+        S.wanted[b * 0x4000 + off] = 0; S.wantCnt[(b * 0x4000 + off) / S.bpc | 0]--; S.missing--;
+      }
+      break;
+    }
+    case EV.TABLE: S.tables++; break;
+    case EV.TENTRY: case EV.ARGS: paint(b, a, ev.len[i], CAT_DATA, now); break;
+    case EV.UNRES: case EV.INDIRECT: {
+      const c = cellIndex(b, a);
+      if (c >= 0) { S.bad[c] = 1; if (now) S.lit[c] = 1; }
+      S.bads++;
+      break;
+    }
+    }
+  }
+  S.t = t;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dibujo                                                               */
+/* ------------------------------------------------------------------ */
+
+const $ = id => document.getElementById(id);
+const canvas = $('map'), ctx = canvas.getContext('2d');
+let layout = null, colors = null;
+
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = n => cs.getPropertyValue(n).trim();
+  colors = {
+    cats: [v('--c-boot'), v('--c-irq'), v('--c-table'), v('--c-trace'), v('--c-data')],
+    bad: v('--c-bad'), want: v('--c-want'), empty: v('--empty'), lit: v('--lit'),
+    text: v('--muted'), panel: v('--panel')
+  };
+}
+
+/* Bancos en columnas: cada banco, una cuadrícula de 64 celdas por renglón */
+function computeLayout() {
+  const wrapW = $('mapwrap').clientWidth || 800;
+  const cpb = 0x4000 / S.bpc, cpl = Math.min(64, cpb), lpb = cpb / cpl;
+  const label = 64, gap = 14;
+  let px = Math.max(3, Math.min(12, Math.floor((wrapW - label) / cpl)));
+  let cols = Math.max(1, Math.floor((wrapW + gap) / (label + cpl * px + gap)));
+  cols = Math.min(cols, S.nbanks);
+  const rows = Math.ceil(S.nbanks / cols);
+  const blockH = lpb * px + 6;
+  layout = { cpb, cpl, lpb, px, label, gap, cols, rows, blockH,
+             w: cols * (label + cpl * px + gap), h: rows * blockH + 4 };
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = layout.w * dpr; canvas.height = layout.h * dpr;
+  canvas.style.width = layout.w + 'px'; canvas.style.height = layout.h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function cellRect(c) {
+  const L = layout, bank = c / L.cpb | 0, k = c % L.cpb;
+  const col = bank % L.cols, row = bank / L.cols | 0;
+  const x = col * (L.label + L.cpl * L.px + L.gap) + L.label + (k % L.cpl) * L.px;
+  const y = row * L.blockH + (k / L.cpl | 0) * L.px + 2;
+  return [x, y];
+}
+
+function draw() {
+  if (!S.ev) return;
+  const L = layout, px = L.px, cells = S.nbanks * L.cpb;
+  ctx.clearRect(0, 0, L.w, L.h);
+  ctx.font = '11px ui-monospace, Menlo, monospace';
+  ctx.textBaseline = 'top';
+  for (let bank = 0; bank < S.nbanks; bank++) {
+    const [x, y] = cellRect(bank * L.cpb);
+    ctx.fillStyle = colors.text;
+    /* Una etiqueta por banco, y otra a la mitad si hay espacio */
+    const half = L.lpb >> 1;
+    ctx.fillText(fmt(bank, base(bank)), x - L.label + 2, y);
+    if (half && half * px >= 14)
+      ctx.fillText(fmt(bank, base(bank) + half * L.cpl * S.bpc), x - L.label + 2, y + half * px);
+  }
+  for (let c = 0; c < cells; c++) {
+    const [x, y] = cellRect(c);
+    let total = 0, best = 0;
+    for (let k = 0; k < CATS; k++) {
+      const v = S.counts[c * CATS + k];
+      total += v;
+      if (v > S.counts[c * CATS + best]) best = k;
+    }
+    const s = px - (px > 4 ? 1 : 0);
+    if (S.lit[c] > 0.05) {
+      ctx.fillStyle = colors.lit; ctx.globalAlpha = S.lit[c];
+      ctx.fillRect(x, y, s, s); ctx.globalAlpha = 1;
+      continue;
+    }
+    if (!total) {
+      ctx.fillStyle = S.wantCnt[c] ? colors.want : colors.empty;
+      ctx.fillRect(x, y, s, s);
+    } else {
+      ctx.fillStyle = colors.empty; ctx.fillRect(x, y, s, s);
+      ctx.fillStyle = colors.cats[best];
+      ctx.globalAlpha = 0.35 + 0.65 * Math.min(1, total / S.bpc);
+      ctx.fillRect(x, y, s, s); ctx.globalAlpha = 1;
+      if (S.wantCnt[c]) { ctx.fillStyle = colors.want; ctx.fillRect(x, y + s - Math.max(1, s >> 2), s, Math.max(1, s >> 2)); }
+    }
+    if (S.bad[c]) { ctx.strokeStyle = colors.bad; ctx.lineWidth = 1.5; ctx.strokeRect(x + 0.75, y + 0.75, s - 1.5, s - 1.5); }
+    if (c === S.sel) { ctx.strokeStyle = colors.lit; ctx.lineWidth = 2; ctx.strokeRect(x - 1, y - 1, s + 2, s + 2); }
+  }
+  updateStatus();
+}
+
+function updateStatus() {
+  const ev = S.ev;
+  const pct = 100 * S.codeBytes / (S.nbanks * 0x4000);
+  $('status').innerHTML =
+    `evento <b>${S.t.toLocaleString('es')}</b> de ${ev.count.toLocaleString('es')} · ` +
+    `instrucciones <b>${S.insns.toLocaleString('es')}</b> · código <b>${pct.toFixed(2)} %</b> de la ROM · ` +
+    `tablas <b>${S.tables}</b> · sin resolver <b>${S.bads}</b>` +
+    (S.wantList.length ? ` · ejecutado sin descubrir <b>${S.missing.toLocaleString('es')}</b>` : '');
+  const w = S.lastWalk;
+  let cur = S.phase ? `fase: ${PHASE_NAMES[S.phase] || S.phase}` : '';
+  if (w >= 0) {
+    cur += ` · recorrido ${fmt(ev.bank[w], ev.addr[w])}`;
+    if (ev.bank2[w] !== NONE) cur += ` ← ${fmt(ev.bank2[w], ev.addr2[w])}${ev.aux[w] ? ' (entrada de tabla)' : ''}`;
+    cur += ` (${ORIGIN_NAMES[ev.origin[w]]})`;
+  }
+  $('current').textContent = cur;
+}
+
+/* ------------------------------------------------------------------ */
+/* Selección y explicación                                              */
+/* ------------------------------------------------------------------ */
+
+function romByte(bank, addr) {
+  if (!S.rom) return 0;
+  const i = bank * 0x4000 + (addr - base(bank));
+  return i >= 0 && i < S.rom.length ? S.rom[i] : 0;
+}
+
+function insnText(bank, addr) {
+  if (!S.rom) return '';
+  const b = [romByte(bank, addr), romByte(bank, addr + 1), romByte(bank, addr + 2)];
+  const [txt, len] = disasm(b, addr);
+  return txt.padEnd(22) + ' ;' + b.slice(0, len).map(v => ' ' + hex(v, 2)).join('');
+}
+
+function linkAddr(b, a) {
+  return `<span class="addr" data-b="${b}" data-a="${a}">${fmt(b, a)}</span>`;
+}
+
+function selectCell(c) {
+  S.sel = c;
+  const L = layout, bank = c / L.cpb | 0, start = base(bank) + (c % L.cpb) * S.bpc;
+  $('seltitle').textContent = `Celda ${fmt(bank, start)}–${hex(start + S.bpc - 1, 4)}`;
+  const ev = S.ev, rows = [];
+  for (let i = 0; i < S.t; i++) {
+    const a = ev.addr[i];
+    if (ev.bank[i] !== bank || a < start || a >= start + S.bpc) continue;
+    if (ev.type[i] === EV.INSN) rows.push([a, `${linkAddr(bank, a)}  ${escapeHtml(insnText(bank, a))}`]);
+    else if (ev.type[i] === EV.TENTRY) rows.push([a, `${fmt(bank, a)}  entrada de tabla → ${fmt(ev.bank2[i], ev.addr2[i])}`]);
+    else if (ev.type[i] === EV.ARGS) rows.push([a, `${fmt(bank, a)}  ${ev.len[i]} byte(s) de argumentos en línea`]);
+    else if (ev.type[i] === EV.UNRES) rows.push([a, `${fmt(bank, a)}  <b>salto a $${hex(ev.addr2[i], 4)} sin banco conocido</b>`]);
+    else if (ev.type[i] === EV.INDIRECT) rows.push([a, `${fmt(bank, a)}  <b>jp hl sin tabla reconocida</b>`]);
+  }
+  rows.sort((x, y) => x[0] - y[0]);
+  const miss = [];
+  for (let a = start; a < start + S.bpc; a++)
+    if (S.wanted[bank * 0x4000 + (a - base(bank))]) miss.push(fmt(bank, a));
+  $('selhint').textContent = rows.length ? (S.rom ? '' : 'Carga la ROM para ver el desensamblado.') :
+    'Todavía no hay código descubierto en esta celda (en este punto de la línea de tiempo).';
+  $('selbody').innerHTML = rows.map(r => r[1]).join('\n') +
+    (miss.length ? `\n\nEjecutado sin descubrir: ${miss.slice(0, 12).join(', ')}${miss.length > 12 ? '…' : ''}` : '');
+  draw();
+}
+
+function showWhy(bank, addr) {
+  const steps = explain(S.ev, bank, addr, S.t);
+  const out = [];
+  for (const s of steps) {
+    switch (s.kind) {
+    case 'none': out.push(`${fmt(s.bank, s.addr)}: no se descubrió como código (hasta este punto de la línea de tiempo).`); break;
+    case 'lost': out.push(`(no se encontró la instrucción ${fmt(s.bank, s.addr)} en el registro)`); break;
+    case 'insn': out.push(`${linkAddr(s.bank, s.addr)}  ${escapeHtml(insnText(s.bank, s.addr))}\n        en el recorrido ${fmt(s.walkBank, s.walkAddr)}`); break;
+    case 'entry': out.push(`${fmt(s.bank, s.addr)}  ← punto de entrada (${ORIGIN_NAMES[s.origin]})`); break;
+    case 'jump': out.push(`${fmt(s.bank, s.addr)}  ← salto desde ${linkAddr(s.fb, s.fa)}`); break;
+    case 'tentry': out.push(`${fmt(s.bank, s.addr)}  ← entrada ${fmt(s.eb, s.ea)} de la tabla ${fmt(s.tb, s.ta)} (${s.inline ? 'en línea' : 'fuera de línea'})`); break;
+    case 'notable': out.push('(no se sabe qué instrucción encontró la tabla)'); break;
+    }
+  }
+  $('why').classList.remove('hint');
+  $('why').innerHTML = out.join('\n');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* ------------------------------------------------------------------ */
+/* Carga de archivos                                                    */
+/* ------------------------------------------------------------------ */
+
+function setBanks() {
+  let n = S.ev ? S.ev.maxBank + 1 : 2;
+  if (S.rom) n = Math.max(n, Math.ceil(S.rom.length / 0x4000));
+  let p = 2; while (p < n) p *= 2;
+  S.nbanks = p;
+}
+
+function reset(toEnd) {
+  setBanks();
+  computeLayout();
+  rebuild(toEnd ? S.ev.count : Math.min(S.t, S.ev.count));
+  $('time').max = S.ev.count;
+  $('time').value = S.t;
+  $('empty').style.display = 'none';
+  if (S.sel >= S.nbanks * layout.cpb) S.sel = -1;
+  draw();
+}
+
+function cargarEventos(text, name) {
+  S.ev = parseEvents(text);
+  S.t = S.ev.count; S.sel = -1;
+  /* Celdas más grandes en ROMs grandes, para que el mapa quepa */
+  setBanks();
+  S.bpc = S.nbanks > 64 ? 256 : 64;
+  $('cellsize').value = String(S.bpc);
+  $('l-ev').classList.add('ok');
+  $('l-ev').firstChild.textContent = (name || 'eventos') + ' ';
+  reset(true);
+}
+
+function cargarRom(bytes, name) {
+  S.rom = bytes; S.romName = name || 'ROM';
+  let title = '';
+  for (let i = 0x134; i < 0x144 && bytes[i]; i++) title += bytes[i] >= 32 && bytes[i] < 127 ? String.fromCharCode(bytes[i]) : '';
+  $('romname').textContent = `${title.trim() || S.romName} · ${bytes.length / 1024} KB`;
+  $('l-rom').classList.add('ok');
+  $('l-rom').firstChild.textContent = S.romName + ' ';
+  if (S.ev) reset(false);
+  if (S.sel >= 0) selectCell(S.sel);
+}
+
+function cargarCobertura(text, name) {
+  S.wantList = parseAddrList(text);
+  $('l-cov').classList.add('ok');
+  $('l-cov').firstChild.textContent = `${name || 'cobertura'} (${S.wantList.length}) `;
+  if (S.ev) reset(false);
+}
+
+/* Decide qué es cada archivo: ROM por extensión, eventos por su
+ * encabezado, el resto como lista de direcciones */
+async function loadFile(file) {
+  if (/\.(gbc?|sgb)$/i.test(file.name)) return cargarRom(new Uint8Array(await file.arrayBuffer()), file.name);
+  const text = await file.text();
+  if (/^#\s*gbrecomp eventos/m.test(text.slice(0, 200)) || /^(insn|recorrido|fase) /m.test(text.slice(0, 2000)))
+    return cargarEventos(text, file.name);
+  return cargarCobertura(text, file.name);
+}
+
+async function loadFiles(files) {
+  /* Primero la ROM y los eventos, luego la cobertura */
+  const list = [...files].sort((a, b) => (/\.(gbc?|sgb)$/i.test(b.name) ? 1 : 0) - (/\.(gbc?|sgb)$/i.test(a.name) ? 1 : 0));
+  for (const f of list) {
+    try { await loadFile(f); } catch (e) { alert(`${f.name}: ${e.message}`); }
+  }
+}
+
+$('f-ev').onchange = e => e.target.files[0] && loadFiles(e.target.files);
+$('f-rom').onchange = e => e.target.files[0] && loadFiles(e.target.files);
+$('f-cov').onchange = async e => { const f = e.target.files[0]; if (f) cargarCobertura(await f.text(), f.name); };
+addEventListener('dragover', e => { e.preventDefault(); $('drop').style.display = 'flex'; });
+addEventListener('dragleave', e => { if (e.target === $('drop')) $('drop').style.display = 'none'; });
+addEventListener('drop', e => { e.preventDefault(); $('drop').style.display = 'none'; loadFiles(e.dataTransfer.files); });
+
+/* ------------------------------------------------------------------ */
+/* Controles                                                            */
+/* ------------------------------------------------------------------ */
+
+function seek(t) {
+  t = Math.max(0, Math.min(S.ev.count, t | 0));
+  if (t >= S.t) advance(t, false); else rebuild(t);
+  S.lit.fill(0);
+  $('time').value = S.t;
+  draw();
+  if (S.sel >= 0) selectCell(S.sel);
+}
+
+$('time').oninput = e => S.ev && seek(+e.target.value);
+$('cellsize').onchange = e => { S.bpc = +e.target.value; S.sel = -1; if (S.ev) reset(false); };
+
+let lastFrame = 0;
+function tick(ts) {
+  if (!S.playing) return;
+  const dt = lastFrame ? Math.min(100, ts - lastFrame) : 16;
+  lastFrame = ts;
+  for (let i = 0; i < S.lit.length; i++) if (S.lit[i]) S.lit[i] = Math.max(0, S.lit[i] - dt / 400);
+  const step = Math.max(1, Math.round(+$('speed').value * dt / 1000));
+  advance(Math.min(S.ev.count, S.t + step), true);
+  $('time').value = S.t;
+  draw();
+  if (S.t >= S.ev.count) { S.playing = false; $('play').textContent = '▶ Reproducir'; S.lit.fill(0); draw(); return; }
+  requestAnimationFrame(tick);
+}
+$('play').onclick = () => {
+  if (!S.ev) return;
+  S.playing = !S.playing;
+  $('play').textContent = S.playing ? '⏸ Pausa' : '▶ Reproducir';
+  if (S.playing) {
+    if (S.t >= S.ev.count) rebuild(0);
+    lastFrame = 0;
+    requestAnimationFrame(tick);
+  }
+};
+
+function cellAt(e) {
+  const r = canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, L = layout;
+  const colW = L.label + L.cpl * L.px + L.gap;
+  const col = Math.floor(x / colW), row = Math.floor((y - 2) / L.blockH);
+  const cx = x - col * colW - L.label, cy = y - 2 - row * L.blockH;
+  if (col < 0 || col >= L.cols || cx < 0 || cx >= L.cpl * L.px || cy < 0 || cy >= L.lpb * L.px) return -1;
+  const bank = row * L.cols + col;
+  if (bank >= S.nbanks) return -1;
+  return bank * L.cpb + Math.floor(cy / L.px) * L.cpl + Math.floor(cx / L.px);
+}
+canvas.onmousemove = e => {
+  if (!S.ev) return;
+  const c = cellAt(e), tip = $('tip');
+  if (c < 0) { tip.style.display = 'none'; return; }
+  const bank = c / layout.cpb | 0, start = base(bank) + (c % layout.cpb) * S.bpc;
+  let total = 0;
+  for (let k = 0; k < CATS; k++) total += S.counts[c * CATS + k];
+  tip.textContent = `${fmt(bank, start)}  ·  ${total} de ${S.bpc} bytes` +
+    (S.bad[c] ? '  ·  sin resolver' : '') + (S.wantCnt[c] ? `  ·  ${S.wantCnt[c]} sin descubrir` : '');
+  tip.style.display = 'block';
+  tip.style.left = Math.min(innerWidth - 260, e.clientX + 12) + 'px';
+  tip.style.top = (e.clientY + 14) + 'px';
+};
+canvas.onmouseleave = () => { $('tip').style.display = 'none'; };
+canvas.onclick = e => { if (!S.ev) return; const c = cellAt(e); if (c >= 0) selectCell(c); };
+
+/* Clic en una dirección: la explica y selecciona su celda */
+document.addEventListener('click', e => {
+  const el = e.target.closest('.addr');
+  if (!el || !S.ev) return;
+  const b = +el.dataset.b, a = +el.dataset.a;
+  showWhy(b, a);
+  const c = cellIndex(b, a);
+  if (c >= 0 && c !== S.sel) {
+    const keep = $('why').innerHTML;
+    selectCell(c);
+    $('why').innerHTML = keep;
+  }
+});
+
+$('theme').onclick = () => {
+  const cur = document.documentElement.dataset.theme ||
+    (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  readColors(); draw();
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+addEventListener('resize', () => { if (S.ev) { computeLayout(); draw(); } });
+
+readColors();
+</script>
+</body>
+</html>

@@ -211,6 +211,17 @@ static void vwr(NES *n, u16 a, u8 v)
 
 static inline void a12(NES *n, int bit) { if (n->cart.mmc3) mapper_a12(n, bit); }
 
+static void inc_x(Ppu *p);
+static void inc_y(Ppu *p);
+
+/* Tras leer o escribir $2007: v sube 1 o 32; con el dibujo activo en una línea de dibujo, sube a la vez como
+ * el incremento de X grueso y el de Y (la PPU comparte los circuitos) */
+static void data_inc(Ppu *p)
+{
+    if ((p->mask & 0x18) && (p->scanline < 240 || p->scanline == 261)) { inc_x(p); inc_y(p); }
+    else p->v += (p->ctrl & 4) ? 32 : 1;
+}
+
 /* ---- Registros ---- */
 
 u8 ppu_reg_read(NES *n, u16 addr)
@@ -236,7 +247,7 @@ u8 ppu_reg_read(NES *n, u16 addr)
             r = p->read_buf;
             p->read_buf = vrd(n, p->v);
         }
-        p->v += (p->ctrl & 4) ? 32 : 1;
+        data_inc(p);
         a12(n, (p->v >> 12) & 1);
         break;
     default: return r;
@@ -270,7 +281,7 @@ void ppu_reg_write(NES *n, u16 addr, u8 v)
         break;
     case 7:
         vwr(n, p->v, v);
-        p->v += (p->ctrl & 4) ? 32 : 1;
+        data_inc(p);
         a12(n, (p->v >> 12) & 1);
         break;
     }

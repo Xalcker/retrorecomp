@@ -87,7 +87,7 @@ u8 nes_cpu_read(NES *n, u16 a)
     if (UNLIKELY(n->ppu_eager)) cycle_begin(n, 0);
     u8 v;
     if (a < 0x2000) v = n->ram[a & 0x7FF];                                           /* lo más común */
-    else if (a >= 0x8000) v = n->cart.prg[n->cart.prg_map[(a >> 13) & 3] + (a & 0x1FFF)];
+    else if (a >= 0x8000) v = n->cart.prg_ptr[(a >> 13) & 3][a & 0x1FFF];
     else {
         if (a < 0x4000) ppu_sync(n, 3 * n->cyc + PPU_PRE_READ);                      /* registros de la PPU */
         v = nes_read(n, a);

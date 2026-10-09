@@ -5,13 +5,14 @@
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
+#include <string.h>
 #include "nes.h"
 
 int mapper_supported(int id)
 {
     switch (id) {
     case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79:
-    case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: case 119: return 1;
+    case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: case 119: case 5: return 1;
     }
     return 0;
 }
@@ -25,11 +26,20 @@ void mapper_reset(NES *n)
     c->chr_mask = (c->chr_size & (c->chr_size - 1)) == 0 ? (u32)(c->chr_size - 1) : 0;
     if (c->mapper == 1) { c->reg[2] = 0x0C; c->reg[6] = 0xFFFFFFFFu; }
     c->irq_cycle = ~0ull; c->irq_t0 = 0;
+    c->mmc5 = c->mapper == 5;
+    if (c->mmc5) {
+        memset(c->m5, 0, sizeof c->m5);
+        c->m5[0x00] = 3; c->m5[0x14] = 0x7F; c->m5[0x15] = 0x7F; c->m5[0x16] = 0x7F; c->m5[0x17] = 0xFF;   /* PRG modo 3; últimos bancos */
+        c->m5[0x01] = 3;
+        c->m5_spr16 = c->m5_inframe = c->m5_pending = c->m5_counter = 0;
+        c->mirroring = MIRROR_CUSTOM;
+        for (int i = 0; i < 4; i++) c->nt_map[i] = i & 1;
+    }
     c->mmc3 = c->mapper == 4 || c->mapper == 118 || c->mapper == 119;
     c->chr_hook = c->mapper == 9 || c->mapper == 10;
     if (c->chr_hook) { c->reg[5] = c->reg[6] = 1; }                /* latches en FE */
     if (c->mapper == 69) { c->reg[0] = 0; c->reg[16] = 0; }
-    c->low_regs = c->mapper == 34 || c->mapper == 79 || c->mapper == 87 || c->mapper == 140;
+    c->low_regs = c->mapper == 34 || c->mapper == 79 || c->mapper == 87 || c->mapper == 140 || c->mapper == 5;
     if (c->mapper == 4 || c->mapper == 206 || c->mapper == 118 || c->mapper == 119) {
         /* reg[0]=selección, [1..8]=R0..R7, [9]=latch IRQ, [10]=contador, [11]=recarga,
          * [12]=IRQ activo, [13]=nivel de A12, [14]=protección de RAM */
@@ -96,6 +106,137 @@ static inline size_t banks16(const Cart *c) { return c->prg_size >> 14; }
 static size_t prg_at(const Cart *c, size_t bank16, u16 off)
 {
     return ((bank16 % banks16(c)) << 14) | (off & 0x3FFF);
+}
+
+/* ---- MMC5 ---- */
+
+static u8 *mmc5_ram(Cart *c, unsigned bank)
+{
+    bank &= 7;
+    return bank == 0 ? c->prg_ram : c->wram_hi + (size_t)(bank - 1) * 0x2000;
+}
+
+/* Cada ventana de 8 KB de $8000-$FFFF: ROM o RAM según el modo ($5100) y los registros $5114-$5117 */
+static void mmc5_remap_prg(Cart *c)
+{
+    int mode = c->m5[0x00] & 3;
+    size_t nb = c->prg_size >> 13;
+    for (int s = 0; s < 4; s++) {
+        unsigned v, span = 1, sub = 0;
+        int rom_only = 0;
+        switch (mode) {
+        case 0:  v = c->m5[0x17]; rom_only = 1; span = 4; sub = s; break;
+        case 1:  if (s < 2) { v = c->m5[0x15]; span = 2; sub = s; }
+                 else { v = c->m5[0x17]; rom_only = 1; span = 2; sub = s - 2; } break;
+        case 2:  if (s < 2) { v = c->m5[0x15]; span = 2; sub = s; }
+                 else if (s == 2) v = c->m5[0x16];
+                 else { v = c->m5[0x17]; rom_only = 1; } break;
+        default: v = c->m5[0x14 + s]; if (s == 3) rom_only = 1; break;
+        }
+        if (rom_only || (v & 0x80)) {
+            unsigned bank = ((v & 0x7F) & ~(span - 1)) + sub;
+            c->prg_map[s] = (size_t)(bank % nb) << 13;
+            c->prg_ptr[s] = c->prg + c->prg_map[s];
+        } else {
+            c->prg_map[s] = (size_t)-1;                    /* RAM: no hay desplazamiento en la ROM */
+            c->prg_ptr[s] = mmc5_ram(c, ((v & 7) & ~(span - 1)) + sub);
+        }
+    }
+}
+
+/* Número de banco de 1 KB de CHR para la página 'pg' (0-7) con el juego A (sprites) o B (fondo) */
+static unsigned mmc5_chr_bank(const Cart *c, int pg, int setB)
+{
+    int mode = c->m5[0x01] & 3;
+    unsigned up = (unsigned)(c->m5[0x30] & 3) << 8;
+    const u8 *r = c->m5 + (setB ? 0x28 : 0x20);        /* A: $5120-$5127; B: $5128-$512B */
+    if (!setB) {
+        switch (mode) {
+        case 0: return ((up | r[7]) << 3) + pg;
+        case 1: return ((up | r[pg < 4 ? 3 : 7]) << 2) + (pg & 3);
+        case 2: return ((up | r[(pg | 1)]) << 1) + (pg & 1);
+        default: return up | r[pg];
+        }
+    }
+    switch (mode) {
+    case 0: return ((up | r[3]) << 3) + pg;
+    case 1: return ((up | r[3]) << 2) + (pg & 3);
+    case 2: return ((up | r[(pg & 2) ? 3 : 1]) << 1) + (pg & 1);
+    default: return up | r[pg & 3];
+    }
+}
+
+static void mmc5_remap_chr(Cart *c)
+{
+    for (int pg = 0; pg < 8; pg++) {
+        size_t a = (size_t)mmc5_chr_bank(c, pg, 0) << 10, b = (size_t)mmc5_chr_bank(c, pg, 1) << 10;
+        a = c->chr_mask ? (a & c->chr_mask) : a % c->chr_size;
+        b = c->chr_mask ? (b & c->chr_mask) : b % c->chr_size;
+        c->chr_page_spr[pg] = c->chr + a;
+        c->chr_page[pg] = c->chr + (c->m5_spr16 ? b : a);      /* sprites 8x16: el fondo usa el juego B */
+        c->chr_wr[pg] = 0;
+    }
+}
+
+/* $5105: de dónde sale cada nametable (0 y 1: CIRAM; 2: ExRAM; 3: relleno) */
+static void mmc5_nametables(Cart *c)
+{
+    for (int i = 0; i < 4; i++) c->nt_map[i] = (c->m5[0x05] >> (i * 2)) & 3;
+}
+
+void mapper_ppu_ctrl(NES *n, u8 v)
+{
+    Cart *c = &n->cart;
+    u8 spr16 = (v >> 5) & 1;
+    if (spr16 != c->m5_spr16) { c->m5_spr16 = spr16; mmc5_remap_chr(c); }
+}
+
+/* La PPU empieza la línea 'line' con el dibujo activo (la línea 240 termina el cuadro) */
+void mapper_scanline(NES *n, int line)
+{
+    Cart *c = &n->cart;
+    if (line >= 240) { c->m5_inframe = 0; return; }
+    if (!c->m5_inframe) { c->m5_inframe = 1; c->m5_counter = 0; c->m5_pending = 0; n->irq_line &= ~1; }
+    else c->m5_counter++;
+    if (c->m5_counter == c->m5[0x53] && c->m5[0x53]) c->m5_pending = 1;     /* $5203 = 0 no genera IRQ */
+    if (c->m5_pending && (c->m5[0x54] & 0x80)) n->irq_line |= 1;
+}
+
+static u8 mmc5_read(NES *n, u16 a)
+{
+    Cart *c = &n->cart;
+    switch (a) {
+    case 0x5204: {
+        u8 v = (c->m5_pending ? 0x80 : 0) | (c->m5_inframe ? 0x40 : 0);
+        c->m5_pending = 0; n->irq_line &= ~1;
+        return v;
+    }
+    case 0x5205: return (u8)c->m5_prod;
+    case 0x5206: return (u8)(c->m5_prod >> 8);
+    }
+    if (a >= 0x5C00) return c->exram[a & 0x3FF];
+    return 0;
+}
+
+static void mmc5_write(NES *n, u16 a, u8 v)
+{
+    Cart *c = &n->cart;
+    if (a >= 0x5C00) { if ((c->m5[0x04] & 3) != 3) c->exram[a & 0x3FF] = v; return; }
+    if (a >= 0x5100 && a <= 0x5130) {
+        c->m5[a - 0x5100] = v;
+        if (a == 0x5105) mmc5_nametables(c);
+        if (a == 0x5100 || (a >= 0x5113 && a <= 0x5117)) mmc5_remap_prg(c);
+        if (a == 0x5101 || (a >= 0x5120 && a <= 0x512B) || a == 0x5130) mmc5_remap_chr(c);
+        return;
+    }
+    if (a >= 0x5200 && a <= 0x5206) {
+        c->m5[0x50 + (a - 0x5200)] = v;
+        if (a == 0x5205 || a == 0x5206) c->m5_prod = (u16)(c->m5[0x55] * c->m5[0x56]);
+        if (a == 0x5204 && c->m5_pending && (v & 0x80)) n->irq_line |= 1;
+        if (a == 0x5204 && !(v & 0x80)) n->irq_line &= ~1;
+        return;
+    }
+    /* $5000-$5015: audio del MMC5 (no se emula) */
 }
 
 static size_t prg32(const Cart *c, size_t bank, u16 a)
@@ -172,7 +313,12 @@ static size_t mmc3_chr_bank(const Cart *c, u16 a)
 
 void mapper_remap(Cart *c)
 {
-    for (int i = 0; i < 4; i++) c->prg_map[i] = (size_t)prg_offset_slow(c, (u16)(0x8000 + i * 0x2000));
+    if (c->mmc5) { mmc5_remap_prg(c); mmc5_remap_chr(c); return; }
+    for (int i = 0; i < 4; i++) {
+        c->prg_map[i] = (size_t)prg_offset_slow(c, (u16)(0x8000 + i * 0x2000));
+        c->prg_ptr[i] = c->prg + c->prg_map[i];
+    }
+    for (int i = 0; i < 8; i++) c->chr_page_spr[i] = NULL;
     for (int i = 0; i < 8; i++) {
         c->chr_page[i] = c->chr + chr_off(c, (u16)(i * 0x400));
         c->chr_wr[i] = c->chr_is_ram;
@@ -186,12 +332,18 @@ void mapper_remap(Cart *c)
 long mapper_prg_offset(const Cart *c, u16 a)
 {
     if (a < 0x8000) return -1;
-    return (long)(c->prg_map[(a >> 13) & 3] + (a & 0x1FFF));
+    size_t m = c->prg_map[(a >> 13) & 3];
+    return m == (size_t)-1 ? -1 : (long)(m + (a & 0x1FFF));                    /* -1: RAM (MMC5) */
 }
 
 u8 mapper_cpu_read(NES *n, u16 a)
 {
     Cart *c = &n->cart;
+    if (c->mmc5) {
+        if (a >= 0x5000 && a < 0x6000) return mmc5_read(n, a);
+        if (a >= 0x6000 && a < 0x8000) return mmc5_ram(c, c->m5[0x13])[a & 0x1FFF];
+        if (a >= 0x8000) return c->prg_ptr[(a >> 13) & 3][a & 0x1FFF];
+    }
     if (a < 0x6000) return 0;                    /* bus abierto (aprox.) */
     if (a < 0x8000) {
         if (c->mmc3 && !(c->reg[14] & 0x80)) return 0;
@@ -202,7 +354,7 @@ u8 mapper_cpu_read(NES *n, u16 a)
         if (c->mapper == 69 && !(c->reg[13] & 0x80)) return 0;    /* RAM desactivada */
         return c->prg_ram[a & 0x1FFF];
     }
-    return c->prg[mapper_prg_offset(c, a)];
+    return c->prg_ptr[(a >> 13) & 3][a & 0x1FFF];
 }
 
 static void mmc1_write(NES *n, u16 a, u8 v)
@@ -328,6 +480,16 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
 {
     Cart *c = &n->cart;
     if (a < 0x4020) return;
+    if (c->mmc5) {
+        int ram_ok = (c->m5[0x02] & 3) == 2 && (c->m5[0x03] & 3) == 1;           /* protección de PRG-RAM */
+        if (a >= 0x5000 && a < 0x6000) { mmc5_write(n, a, v); c->map_ver++; return; }
+        if (a >= 0x6000 && a < 0x8000) { if (ram_ok) mmc5_ram(c, c->m5[0x13])[a & 0x1FFF] = v; return; }
+        if (a >= 0x8000) {                                                        /* RAM mapeada en $8000-$DFFF */
+            int s = (a >> 13) & 3;
+            if (c->prg_map[s] == (size_t)-1 && ram_ok) c->prg_ptr[s][a & 0x1FFF] = v;
+        }
+        return;
+    }
     if (c->low_regs && a < 0x8000 && low_write(c, a, v)) { c->map_ver++; mapper_remap(c); return; }
     if (a < 0x6000) return;
     if (a >= 0x8000) c->map_ver++;
@@ -442,7 +604,7 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         default: *w = (PrgWin){ 0xE000, 0x2000, ps - 0x2000, 1 }; break;
         }
         return 1;
-    case 69:
+    case 69: case 5:
         switch ((addr >> 13) & 3) {
         case 0: *w = (PrgWin){ 0x8000, 0x2000, 0, 0 }; break;
         case 1: *w = (PrgWin){ 0xA000, 0x2000, 0x2000, 0 }; break;
@@ -475,7 +637,7 @@ u16 mapper_prg_canon(const Cart *c, u16 addr)
 size_t mapper_prg_granule(const Cart *c)
 {
     switch (c->mapper) {
-    case 4: case 206: case 118: case 119: case 9: case 69: return 0x2000;
+    case 4: case 206: case 118: case 119: case 9: case 69: case 5: return 0x2000;
     case 1: case 2: case 71: case 180: case 10: return 0x4000;
     case 7: case 11: case 34: case 66: case 79: case 140: return 0x8000;
     default: return c->prg_size >= 0x8000 ? 0x8000 : 0x4000;

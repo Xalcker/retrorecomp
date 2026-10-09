@@ -84,6 +84,11 @@ static void set_event(NES *n)
         int d = w - pos;
         if (d < best) best = d;
     }
+    if (n->cart.mmc5 && (p->mask & 0x18)) {         /* MMC5: la línea empieza ahí (cuenta de scanlines) */
+        int sl = p->scanline;
+        if (sl <= 240 && p->dot <= 8) { p->event_dot = 0; return; }
+        if (sl < 240) { int d = (sl + 1) * 341 - pos; if (d < best) best = d; }
+    }
     p->event_dot = p->clock + (u64)best + 1;
 }
 
@@ -105,7 +110,7 @@ void ppu_sync(NES *n, u64 target)
                     /* con el MMC3, una subida de A12 que cuenta no puede quedar dentro de una baldosa: solo si A12
                      * ya está alto o el fondo usa la tabla $0000 (no hay subida) */
                     if (d >= 1 && d <= 249 && ((d - 1) & 7) == 0 && left >= 8 &&
-                        (!mmc3 || n->cart.reg[13] || !(p->ctrl & 0x10))) {
+                        (!mmc3 || n->cart.reg[13] || !(p->ctrl & 0x10)) && (!n->cart.mmc5 || d > 8)) {
                         if (p->spr_count == 0 && (p->mask & 8) && (d > 8 || (p->mask & 2))) ppu_tile_bg(n);
                         else ppu_tile(n);
                         continue;
@@ -117,6 +122,7 @@ void ppu_sync(NES *n, u64 target)
                 /* línea 240 y vblank: lo único que pasa es la bandera en (241, 1) */
                 int pos = sl * 341 + d, ev = 241 * 341 + 1, end = 261 * 341;
                 int room = pos < ev ? ev - pos : pos == ev ? 0 : end - pos;
+                if (n->cart.mmc5 && pos == 240 * 341) room = 0;          /* el MMC5 mira el punto 0 de la línea 240 */
                 if (room > 0) {
                     u64 k = left < (u64)room ? left : (u64)room;
                     int np = pos + (int)k;
@@ -170,15 +176,36 @@ static u8 vrd(NES *n, u16 a)
         if (__builtin_expect(n->cart.chr_hook, 0)) mapper_chr_latch(&n->cart, a);   /* MMC2/MMC4: cambia el banco después de leer */
         return v;
     }
-    if (a < 0x3F00) return n->ppu.vram[nt_index(n, a) * 0x400 + (a & 0x3FF)];
+    if (a < 0x3F00) {
+        int pg = nt_index(n, a);
+        if (__builtin_expect(n->cart.mirroring == MIRROR_CUSTOM && n->cart.mmc5, 0)) {     /* MMC5: ExRAM o relleno */
+            if (pg == 2) return n->cart.exram[a & 0x3FF];
+            if (pg == 3) return (a & 0x3FF) < 0x3C0 ? n->cart.m5[0x06] : (u8)((n->cart.m5[0x07] & 3) * 0x55);
+        }
+        return n->ppu.vram[pg * 0x400 + (a & 0x3FF)];
+    }
     return n->ppu.pal[pal_idx(a)];
+}
+
+/* Lectura de patrones de un sprite: con el MMC5 y sprites 8x16 usa su propio juego de bancos */
+static u8 vrd_s(NES *n, u16 a)
+{
+    if (__builtin_expect(n->cart.mmc5, 0) && a < 0x2000) return n->cart.chr_page_spr[(a >> 10) & 7][a & 0x3FF];
+    return vrd(n, a);
 }
 
 static void vwr(NES *n, u16 a, u8 v)
 {
     a &= 0x3FFF;
     if (a < 0x2000) mapper_ppu_write(n, a, v);
-    else if (a < 0x3F00) n->ppu.vram[nt_index(n, a) * 0x400 + (a & 0x3FF)] = v;
+    else if (a < 0x3F00) {
+        int pg = nt_index(n, a);
+        if (n->cart.mirroring == MIRROR_CUSTOM && n->cart.mmc5) {
+            if (pg == 2) n->cart.exram[a & 0x3FF] = v;
+            if (pg >= 2) return;
+        }
+        n->ppu.vram[pg * 0x400 + (a & 0x3FF)] = v;
+    }
     else n->ppu.pal[pal_idx(a)] = v & 0x3F;
 }
 
@@ -226,6 +253,7 @@ void ppu_reg_write(NES *n, u16 addr, u8 v)
     case 0:
         p->ctrl = v;
         p->t = (p->t & 0xF3FF) | ((v & 3) << 10);
+        if (n->cart.mmc5) mapper_ppu_ctrl(n, v);
         break;
     case 1: p->mask = v; break;
     case 3: p->oam_addr = v; break;
@@ -246,7 +274,7 @@ void ppu_reg_write(NES *n, u16 addr, u8 v)
         a12(n, (p->v >> 12) & 1);
         break;
     }
-    if (n->cart.mmc3) set_event(n);                 /* $2001 puede encender el dibujo: cambia la ventana del IRQ */
+    if (n->cart.mmc3 || n->cart.mmc5) set_event(n);  /* $2001 puede encender el dibujo: cambia la ventana del IRQ */
 }
 
 /* ---- Dibujo ---- */
@@ -301,7 +329,7 @@ static void eval_sprites(NES *n, int line)
         else {
             addr = ((tile & 1) << 12) | ((tile & 0xFE) << 4) | ((row & 8) << 1) | (row & 7);
         }
-        u8 lo = vrd(n, addr), hi = vrd(n, addr + 8);
+        u8 lo = vrd_s(n, addr), hi = vrd_s(n, addr + 8);
         if (attr & 0x40) { lo = rev8(lo); hi = rev8(hi); }
         p->spr[cnt].x = p->oam[i * 4 + 3];
         p->spr[cnt].attr = attr;
@@ -523,12 +551,14 @@ void ppu_tick(NES *n)
             if (cy == 338 || cy == 340) p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF));
             if (pre && cy >= 280 && cy < 305) p->v = (p->v & ~0x7BE0) | (p->t & 0x7BE0);
         }
+        if (n->cart.mmc5 && rend && cy == 4 && !pre) mapper_scanline(n, sl);       /* MMC5: cuenta de líneas */
         if (!pre && cy >= 1 && cy <= 256) {
             if (rend) draw_pixel(n);
             else p->fb[sl * 256 + cy - 1] = (u16)((p->pal[0] & 0x3F) | ((p->mask & 0xE0) << 1));
         }
     }
 
+    if (n->cart.mmc5 && sl == 240 && cy == 0) mapper_scanline(n, 240);              /* fin del cuadro visible */
     if (sl == 241 && cy == 1) {
         if (!p->suppress_vbl) p->status |= 0x80;
         p->suppress_vbl = 0;

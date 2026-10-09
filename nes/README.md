@@ -20,8 +20,10 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 - CPU 6502 con opcodes no oficiales: pasa `nestest` y las 16 `instr_test-v5`.
 - PPU 2C02 punto por punto: fondo, sprites, scroll, sprite 0 hit (pasa las 11 `sprite_hit_tests`).
 - Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11 Color Dreams,
-  34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180, 206 (DxROM) y, sin probar con ROMs reales
-  (solo `mappertest`, con cartuchos sintéticos), 9 (MMC2), 10 (MMC4), 69 (FME-7, sin el audio 5B) y 118 (TxSROM).
+  34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180, 206 (DxROM), 9 (MMC2), 10 (MMC4), 69 (FME-7,
+  sin el audio 5B), 119 (TQROM), 5 (MMC5, sin audio ni ExGrafix) y 118 (TxSROM, solo con `mappertest`). Probados con
+  juegos reales: Punch-Out, Fire Emblem, Batman: Return of the Joker, Pin Bot, Castlevania III, Kirby, Battletoads,
+  Dragon Warrior III (512 KB), Gauntlet, Micro Machines, Crystal Mines, SMB + Duck Hunt y Tiles of Fate.
 - APU: 2 pulsos, triángulo, ruido, DMC, frame counter con IRQ, mezcla no lineal y filtros. Pasa las 8
   `apu_test`; la ventana saca audio por SDL (tecla M = silencio).
 - Temporización por ciclo: cada acceso al bus (con lecturas y escrituras falsas) avanza 3 puntos de PPU y
@@ -53,6 +55,9 @@ ni un byte de imagen o audio.
 
 ### Conocido
 
+- AccuracyCoin arranca y corre cientos de pruebas, pero hacia la prueba 154 la pantalla se corrompe (algún comportamiento del
+  bus o de la PPU que no se imita); sin analizar.
+
 - `mmc3_test_2/4-scanline_timing` falla en la subprueba 12; `cpu_interrupts_v2/4-irq_and_dma` (IRQ alrededor del DMA
   de OAM y del DMC); DMA del DMC sin los ciclos exactos; `6-MMC3_alt` (otra revisión del chip).
 - El código que el descubrimiento no alcanza (y que no está en la traza), o que está en RAM, lo corre el
@@ -83,13 +88,13 @@ ni un byte de imagen o audio.
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `ref_gb/` | Código de GBRecomp como referencia de diseño. No se compila. |
 | `tools/` | `visor.html` y `truth/` copiados de GBRecomp (por adaptar a 6502). |
-| `testroms/nes-test-roms/` | ROMs de prueba (nestest, Blargg, mmc3...). No se versionan. |
+| `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Pendiente
 
 - Visualización del descubrimiento (`viz`, `--why` de GBRecomp).
-- Más mappers (MMC2/MMC4, FME-7, MMC5, VRC).
+- Más mappers (VRC2/4/6/7, mapper 15), el audio del MMC5 y del FME-7, y ExGrafix del MMC5.
 
 ## Créditos
 

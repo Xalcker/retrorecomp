@@ -47,6 +47,13 @@ typedef struct {
     size_t prg_map[4];          /* desplazamiento de PRG de cada ventana de 8 KB ($8000, $A000, $C000, $E000) */
     u8  *chr_page[8];           /* puntero a cada página de 1 KB de CHR con los bancos actuales */
     u32  chr_mask;              /* tamaño de CHR - 1 si es potencia de 2 (si no, 0 y se usa el módulo) */
+    u8  *prg_ptr[4];            /* puntero a cada ventana de 8 KB de $8000-$FFFF (ROM, o RAM en el MMC5) */
+    u8  *chr_page_spr[8];       /* MMC5: páginas de CHR para las búsquedas de sprites (con sprites 8x16) */
+    u8   mmc5, m5_spr16, m5_inframe, m5_pending, m5_counter;
+    u8   m5[0x60];              /* registros del MMC5: $5100-$5130 -> 0x00-0x30; $5200-$5206 -> 0x50-0x56 */
+    u16  m5_prod;               /* resultado del multiplicador */
+    u8   exram[0x400];          /* MMC5: ExRAM */
+    u8   wram_hi[7 * 0x2000];   /* MMC5: bancos 1-7 de PRG-RAM (el banco 0 es prg_ram) */
     u8   chr_ram[0x2000];       /* TQROM (119): 8 KB de RAM de CHR junto a la ROM */
     u8   chr_wr[8];             /* cada página de 1 KB de CHR: ¿se puede escribir? */
     u8   mmc3;                  /* MMC3 o derivado: IRQ por flanco de A12 */
@@ -173,6 +180,8 @@ int  cpu_step(NES *n);
 int  mapper_supported(int id);
 void mapper_reset(NES *n);
 void mapper_remap(Cart *c);
+void mapper_ppu_ctrl(NES *n, u8 v);              /* MMC5: tamaño de los sprites */
+void mapper_scanline(NES *n, int line);          /* MMC5: la PPU empieza una línea con dibujo */
 void mapper_chr_latch(Cart *c, u16 addr);        /* MMC2/MMC4: tras leer un patrón */                      /* recalcula prg_map tras un cambio de bancos */
 u8   mapper_cpu_read(NES *n, u16 addr);          /* $4020-$FFFF */
 long mapper_prg_offset(const Cart *c, u16 addr);   /* rápida: usa prg_map */

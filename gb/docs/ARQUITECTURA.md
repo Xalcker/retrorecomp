@@ -319,6 +319,17 @@ particular:
    otros que todavía no se conocen. En Warlocked, `ld a, N` + `jp $0554`
    cambia de estado con una tabla de registros de 3 bytes (dirección y banco)
    en `$0521`.
+7. **Punteros a código guardados en RAM**: el juego guarda la dirección de su
+   estado actual en una variable (dos bytes) y en otro lado la carga y salta
+   a ella (`ld hl, $FFE4` / `ld a, [hl+]` / `ld h, [hl]` / `ld l, a` /
+   `jp hl`). El seguimiento de registros marca los bytes de RAM de valor
+   desconocido como "el byte de RAM en `$X`" (`V_RAM`), así que reconoce un HL
+   leído de una variable. Se juntan, en cualquier orden, las constantes de
+   ROM que el código escribe en cada variable (dos bytes seguidos) y las
+   variables que se usan como puntero; cuando coinciden se explora el
+   destino. Las constantes de variables que nunca se usan así no se
+   exploran. Una llamada a una rutina que solo hace `jp hl` cuenta como
+   `jp hl` (también para las tablas fuera de línea).
 
 Además, un `ld rr, nn` + `push rr` cuenta como dirección de regreso si, a lo
 más 12 instrucciones después, viene un `jp hl`, `ret` o `jp` sin que en medio
@@ -359,7 +370,8 @@ de arriba y código al que solo se llega por punteros en datos.
 Warlocked (sin la tabla de arriba, no estaba en la prueba en lote): con la
 heurística 6 el estático encuentra 40,432 instrucciones en lugar de 2,815.
 Con el juego corriendo, recompila de 97.6 a 99.4 % sin traza (3 semillas de
-6000 cuadros, sin diferencias). La cifra de 99.9 % que se midió al agregar la
+6000 cuadros, sin diferencias); con la heurística 7, de 99.5 a 99.7 % (3000
+cuadros). La cifra de 99.9 % que se midió al agregar la
 heurística era falsa: el juego estaba atorado en la pantalla blanca de #24 y
 solo se medía ese bucle.
 

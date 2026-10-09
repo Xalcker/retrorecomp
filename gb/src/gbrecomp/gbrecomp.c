@@ -360,11 +360,21 @@ static void mem_store(Regs *s, long addr, int v)
     s->mem_val[s->nmem++] = v;
 }
 
+/* "El byte de RAM en addr", sin saber su valor: así se reconoce un puntero
+ * leído de una variable (ver punteros a código en RAM) */
+#define V_RAM(a)   (0x10000 + (a))
+#define IS_RAM_VAL(v) ((v) >= V_RAM(0) && (v) < V_RAM(0x10000))
+
+static int is_ram(long addr)
+{
+    return (addr >= 0xA000 && addr < 0xE000) || (addr >= 0xFF80 && addr < 0xFFFF);
+}
+
 static int mem_load(const Regs *s, long addr)
 {
     for (int i = 0; addr >= 0 && i < s->nmem; i++)
         if (s->mem_addr[i] == addr) return s->mem_val[i];
-    return V_UNK;
+    return is_ram(addr) ? V_RAM(addr) : V_UNK;
 }
 
 /* Operación de ALU sobre A con operando `v` (`self`: el operando es A mismo) */
@@ -882,6 +892,71 @@ static int keeps_a(u8 op)
     }
 }
 
+/*
+ * Punteros a código guardados en RAM: el juego guarda la dirección de su
+ * estado actual en una variable (dos bytes) y en otro lado la carga y salta
+ * a ella (`ld hl, $FFE4` / `ld a, [hl+]` / `ld h, [hl]` / `ld l, a` / `jp hl`,
+ * o una llamada a una rutina que solo hace `jp hl`). Las dos partes pueden
+ * descubrirse en cualquier orden: se guardan las constantes de ROM escritas
+ * en cada variable y las variables usadas como puntero, y cuando coinciden
+ * se explora el destino. Las constantes de variables que nunca se usan como
+ * puntero (datos, gráficos) no se exploran.
+ */
+typedef struct { u16 var, addr; short bank; } RamPtr;   /* bank -1: no se sabe */
+static RamPtr *ram_ptrs;
+static size_t nram_ptrs, capram_ptrs;
+static short ram_ptr_use[0x10000];      /* 0: sin usar; 1 + banco del uso; -1 usado sin banco */
+static unsigned stat_ram_ptr_targets;
+
+static void ram_ptr_explore(const RamPtr *p, int use_bank)
+{
+    int b = p->addr < 0x4000 ? 0 : p->bank >= 0 ? p->bank : use_bank;
+    if (b < 0 || (u32)b >= nbanks || !in_region((u32)b, p->addr)) return;
+    if (*flag_at((u32)b, p->addr) & F_INSN) return;
+    int saved = push_ctx;
+    push_ctx = b != 0 ? b : V_UNK;
+    *flag_at((u32)b, p->addr) |= F_TARGET;
+    push_work((u32)b, p->addr);
+    push_ctx = saved;
+    stat_ram_ptr_targets++;
+}
+
+/* El código escribió la dirección de ROM `target` en la variable `var` */
+static void ram_ptr_store(u16 var, u16 target, int bank)
+{
+    if (target < 0x0100 || target >= 0x8000 || (target >= 0x0104 && target < 0x0150)) return;
+    for (size_t i = 0; i < nram_ptrs; i++)
+        if (ram_ptrs[i].var == var && ram_ptrs[i].addr == target && ram_ptrs[i].bank == bank) return;
+    if (nram_ptrs == capram_ptrs) {
+        capram_ptrs = capram_ptrs ? capram_ptrs * 2 : 64;
+        ram_ptrs = realloc(ram_ptrs, capram_ptrs * sizeof *ram_ptrs);
+        if (!ram_ptrs) die("sin memoria");
+    }
+    RamPtr *p = &ram_ptrs[nram_ptrs++];
+    p->var = var;
+    p->addr = target;
+    p->bank = (short)bank;
+    if (ram_ptr_use[var]) ram_ptr_explore(p, ram_ptr_use[var] > 0 ? ram_ptr_use[var] - 1 : -1);
+}
+
+/* El código saltó a lo que hay en la variable `var` */
+static void ram_ptr_jump(u16 var, int bank)
+{
+    if (ram_ptr_use[var] > 0 || (ram_ptr_use[var] < 0 && bank < 0)) return;
+    ram_ptr_use[var] = (short)(bank >= 0 ? bank + 1 : -1);
+    for (size_t i = 0; i < nram_ptrs; i++)
+        if (ram_ptrs[i].var == var) ram_ptr_explore(&ram_ptrs[i], bank);
+}
+
+/* ¿La rutina en addr (banco 0) es solo `jp hl`? Llamarla es "call hl" */
+static int is_call_hl(u16 addr)
+{
+    if (addr >= 0x4000) return 0;
+    u8 b[3];
+    Insn in;
+    return fetch_insn(0, addr, b, &in) && in.kind == INS_JP_HL;
+}
+
 static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
 {
     int started = 0;
@@ -937,10 +1012,18 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
         } else if (++since_base > 8) {
             table_base = -1;
         }
-        if (in.kind == INS_JP_HL) {
+        int call_hl = (in.kind == INS_CALL || in.kind == INS_RST) && !in.cond && is_call_hl(in.target);
+        if (in.kind == INS_JP_HL || call_hl) {
+            /* HL leído de una variable de RAM: puntero a código en RAM */
+            int lo = st.r[R_L], hi = st.r[R_H];
+            int ram_ptr = IS_RAM_VAL(lo) && IS_RAM_VAL(hi) && hi == lo + 1;
+            if (ram_ptr) {
+                int ub = bank != 0 ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
+                ram_ptr_jump((u16)(lo - V_RAM(0)), ub);
+            }
             long tb = table_base >= 0 ? bank_of(bank, (u16)table_base) : -1;
-            if (tb >= 0) add_table((u32)tb, (u16)table_base, 0);
-            else ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
+            if (tb >= 0 && !ram_ptr) add_table((u32)tb, (u16)table_base, 0);
+            else if (in.kind == INS_JP_HL && !ram_ptr) ev_add(EV_INDIRECT, 0, bank, addr, 0, 0, 0, 0);
         }
 
         /* `ld rr, nn` + `push rr` poco antes de un salto indirecto, sin nada
@@ -1113,7 +1196,25 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                               pair_value(&st, R_H, R_L) < 0x4000);
             if (bank_write && !IS_CONST(st.r[R_A])) bank_tied_to_a = 1;
             else if (!keeps_a(op)) bank_tied_to_a = 0;
+            /* Dirección que escribe (para los punteros a código en RAM) */
+            long w = -1;
+            if (op == 0xE0) w = 0xFF00 | b[1];
+            else if (op == 0xEA) w = b[1] | b[2] << 8;
+            else if (op == 0x02) w = pair_value(&st, R_B, R_C);
+            else if (op == 0x12) w = pair_value(&st, R_D, R_E);
+            else if (op == 0x22 || op == 0x32 || op == 0x36 || (op >= 0x70 && op <= 0x77 && op != 0x76))
+                w = pair_value(&st, R_H, R_L);
             regs_step(&st, b);
+            if (w >= 0 && is_ram(w)) {
+                int pb = bank != 0 ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
+                for (long x = w - 1; x <= w; x++) {
+                    int vlo = mem_load(&st, x), vhi = mem_load(&st, x + 1);
+                    if (IS_CONST(vlo) && IS_CONST(vhi) && is_ram(x) && is_ram(x + 1)) {
+                        u16 t = (u16)(vlo | vhi << 8);
+                        ram_ptr_store((u16)x, t, t < 0x4000 ? 0 : pb);
+                    }
+                }
+            }
             break;
         }
         default:
@@ -1995,6 +2096,8 @@ int main(int argc, char **argv)
         printf("saltos en filas de jp (tablas de vectores): %u\n", stat_jp_rows);
     if (stat_iface_calls)
         printf("llamadas a la interfaz común de varios bancos: %u\n", stat_iface_calls);
+    if (stat_ram_ptr_targets)
+        printf("destinos de punteros a código guardados en RAM: %u\n", stat_ram_ptr_targets);
     if (stat_sim_targets)
         printf("saltos resueltos simulando un despachador con tabla en la ROM: %u (y %u entradas de sus tablas)\n",
                stat_sim_targets, stat_sim_entries);

@@ -56,6 +56,134 @@ make dist       # dist/gbrecomp-<versión>.tar.gz
 puede copiar a cualquier carpeta. En Windows, el juego generado queda
 enlazado de forma estática y no necesita DLLs.
 
+## Recompilación paso a paso
+
+Un ejemplo completo con un juego cuya primera pasada se queda corta, Street
+Fighter Alpha (`roms/sfa2.gbc`). Los números son los de ese juego; con otros
+cambian, pero los pasos son los mismos. Las ROMs van en `roms/`, que no se
+sube al repositorio.
+
+**1. Primera pasada, mirando qué se descubre**
+
+```
+make
+./gbrecomp roms/sfa2.gbc -o out/sfa2 --name sfa2 --viz --events build/sfa2_eventos.txt
+```
+
+`--viz` anima el descubrimiento en la terminal y `--events` guarda cada paso
+para verlo después en el navegador. Al final, gbrecomp resume lo que
+encontró:
+
+```
+código: 6248 instrucciones (10519 bytes, 1.00% de la ROM) en 51 funciones
+```
+
+Ese porcentaje es de la ROM entera, que también trae gráficos, música y
+niveles: no dice qué tan bien va a correr. Para eso está el paso 2.
+
+**2. Compilar y medir cuánto se ejecuta recompilado**
+
+```
+make -C out/sfa2
+out/sfa2/difftest roms/sfa2.gbc --frames 6000 --seed 1
+```
+
+`difftest` juega solo, con entradas al azar, y compara el código recompilado
+contra el intérprete cuadro por cuadro:
+
+```
+Instrucciones: 66950387 recompiladas, 15236996 en el intérprete (81.461% recompilado)
+Sin diferencias.
+```
+
+Si el porcentaje recompilado pasa de ~98 % y dice "Sin diferencias", ya está:
+salta al paso 6. Si queda bajo (aquí, 75–81 % según la semilla), es que hay
+código al que el análisis estático no llega (saltos por punteros, tablas que
+no reconoce...). Lo que falta lo ejecuta el intérprete, así que el juego
+funciona igual, solo más lento. La traza lo resuelve.
+
+**3. Ciclo con trazas**
+
+```
+sh tests/recomp_game.sh roms/sfa2.gbc sfa2
+```
+
+Corre `difftest` con 3 semillas de 6000 cuadros, junta en `build/sfa2.trace`
+las direcciones que tuvo que ejecutar el intérprete, vuelve a recompilar con
+esa traza (`--trace`) y prueba otra vez (unos 3 minutos):
+
+```
+sfa2: primera ronda
+código: 6248 instrucciones (10519 bytes, 1.00% de la ROM) en 51 funciones
+  semilla 1    81.461% recompilado Direcciones de ROM interpretadas: 13821
+  semilla 2    81.035% recompilado Direcciones de ROM interpretadas: 13543
+  semilla 3    75.002% recompilado Direcciones de ROM interpretadas: 16582
+sfa2: con la traza (   17668 direcciones)
+código: 34659 instrucciones (59648 bytes, 5.69% de la ROM) en 118 funciones
+  semilla 1    99.428% recompilado
+  semilla 2    99.428% recompilado
+  semilla 3    99.419% recompilado
+Sin diferencias.
+```
+
+La traza se acumula: si corres el script otra vez, la primera ronda ya parte
+de ella.
+
+El proyecto queda en `out/sfa2`, ya compilado con la traza. Las entradas al
+azar no llegan a todo el juego: para lo que falte, juega con `--uncovered`,
+que agrega a un archivo lo que ejecutó el intérprete, y recompila con esa
+traza:
+
+```
+out/sfa2/sfa2 roms/sfa2.gbc --uncovered build/sfa2.trace
+./gbrecomp roms/sfa2.gbc -o out/sfa2 --name sfa2 --trace build/sfa2.trace && make -C out/sfa2
+```
+
+**4. Ver qué faltaba y por qué**
+
+```
+./gbrecomp roms/sfa2.gbc -o out/sfa2-viz --viz --coverage build/sfa2.trace
+./gbrecomp roms/sfa2.gbc -o out/sfa2-viz --viz --trace build/sfa2.trace \
+    --coverage build/sfa2.trace --events build/sfa2_traza.txt
+./gbrecomp roms/sfa2.gbc --why 00:0008
+./gbrecomp roms/sfa2.gbc --trace build/sfa2.trace --why 00:0008
+```
+
+- El primero marca en rojo (`×`) lo que el juego ejecutó y el análisis no
+  descubrió.
+- El segundo muestra cómo la traza lo va cubriendo (al final, 0 sin
+  descubrir).
+- `--why` explica por qué una dirección es código: sin la traza dice "no se
+  descubrió"; con ella, la cadena de saltos hasta un punto de entrada.
+
+Las zonas rojas grandes y los `!` (saltos sin resolver) son donde una nueva
+heurística de descubrimiento rendiría más (ver `docs/ARQUITECTURA.md`).
+
+**5. Verlo en el navegador**
+
+Abre `tools/visor.html` (doble clic; no necesita servidor) y arrastra a la
+ventana:
+- `build/sfa2_traza.txt` (o `build/sfa2_eventos.txt`, la primera pasada),
+- `roms/sfa2.gbc`, para el desensamblado,
+- `build/sfa2.trace`, como cobertura.
+
+Con la línea de tiempo se avanza, retrocede o reproduce el descubrimiento;
+la fase "traza" muestra el rojo apagándose. Al hacer clic en una celda se ven
+sus instrucciones, y al hacer clic en una dirección, la cadena de `--why`.
+
+**6. Jugar**
+
+```
+out/sfa2/sfa2 roms/sfa2.gbc
+```
+
+La primera vez guarda una copia de la ROM en su carpeta de datos; después
+basta con `out/sfa2/sfa2`. El menú Ayuda > Datos del juego dice qué porcentaje
+de lo ejecutado va recompilado.
+
+Con un juego que el análisis estático cubre bien, como Tetris (98.9 %
+recompilado sin traza), bastan los pasos 1, 2 y 6.
+
 ## Uso
 
 ```
@@ -132,7 +260,7 @@ por el propio juego para verse igual en todos los sistemas; Alt o F10):
 | **Juego** | Reiniciar (`Ctrl+R`), Pausa (`P`), Guardar y cargar estado (`F5` / `F8`, cuatro ranuras), consola (Game Boy, Game Boy Color o Super Game Boy, según lo que admita el juego), cable link (2 jugadores), Salir |
 | **Video** | Borde del SGB, tamaño ×1 a ×6, pantalla completa (`F11`) |
 | **Paleta** | En DMG: verde, Pocket o grises. En compatibilidad GBC: la del juego o las 12 combinaciones de botones (`F2` las rota) |
-| **Audio** | Sonido (`Ctrl+M`) y volumen |
+| **Audio** | Sonido (`Ctrl+M`), volumen y, con el cable link, de qué jugador viene el sonido |
 | **Exportar** | Grabar música en VGM y WAV (`Ctrl+G`), juntar gráficos (`Ctrl+T`), captura de pantalla (`F12`), abrir la carpeta |
 | **Idioma** | Español o English |
 | **Ayuda** | Controles (`F1`), datos del juego (consola, % recompilado, carpeta de datos), acerca de |
@@ -146,9 +274,10 @@ juego, junto con la partida y los estados.
   2, con su propia partida (`<juego>_jugador2.sav`). Las etiquetas J1 y J2
   aparecen al conectar, en pausa o con un menú abierto. En el menú Audio se
   elige si se oye al jugador 1, al 2, a los dos mezclados, o cada uno en un
-  oído (audífonos: el jugador 1 a la izquierda y el 2 a la derecha, en mono). Los estados guardados (F5 /
-  F8) guardan los dos Game Boy juntos; al cargar uno así sin el cable, el
-  cable se conecta solo. La paleta es la misma para los dos.
+  oído (audífonos: el jugador 1 a la izquierda y el 2 a la derecha, en
+  mono). Los estados guardados (F5 / F8) guardan los dos Game Boy juntos; al
+  cargar uno así sin el cable, el cable se conecta solo. La paleta es la
+  misma para los dos.
 - **Super Game Boy:** los juegos de varios jugadores (MLT_REQ) leen los
   controles 2 a 4.
 - **Controles:** el jugador 1 usa las flechas, X, Z, Enter y Shift derecho, y

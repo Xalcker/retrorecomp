@@ -187,6 +187,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_LINK_AUDIO_P1]    = { "Cable: oír al jugador 1", "Link: hear player 1" },
     [T_LINK_AUDIO_P2]    = { "Cable: oír al jugador 2", "Link: hear player 2" },
     [T_LINK_AUDIO_BOTH]  = { "Cable: oír a los dos", "Link: hear both" },
+    [T_LINK_AUDIO_SPLIT] = { "Cable: audífonos (J1 izq., J2 der.)", "Link: headphones (P1 left, P2 right)" },
     [T_PLAYER_FMT]       = { "J%d", "P%d" },
     [T_STATE_NEEDS_LINK] = { "Ranura %d cargada (cable conectado)", "Slot %d loaded (cable connected)" },
     [T_STATE_SINGLE]     = { "La ranura %d tiene el estado de un solo Game Boy.\nDesconecta el cable (menú Juego) para cargarlo.",

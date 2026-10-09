@@ -282,7 +282,7 @@ enum {
     A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3,
     A_REC_MUSIC, A_COLLECT_TILES, A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
-    A_LINK_AUDIO_0, A_LINK_AUDIO_2 = A_LINK_AUDIO_0 + 2,
+    A_LINK_AUDIO_0, A_LINK_AUDIO_3 = A_LINK_AUDIO_0 + 3,
     A_LANGUAGE_0,
 };
 
@@ -769,7 +769,7 @@ static void load_state(App *app)
 #define COUNT(a) (int)(sizeof a / sizeof a[0])
 
 /* Se arman con los textos del idioma actual y según la consola encendida */
-static MenuItem menu_game[20], menu_video[12], menu_palette[16], menu_audio[10];
+static MenuItem menu_game[20], menu_video[12], menu_palette[16], menu_audio[12];
 static MenuItem menu_export[5], menu_language[LANG_COUNT], menu_help[3];
 static Menu menus[7];
 static char slot_labels[4][40], compat_labels[12][48], size_labels[6][40], volume_labels[4][40];
@@ -846,6 +846,7 @@ static void build_menus(App *app)
         ITEM(menu_audio, n, tr(T_LINK_AUDIO_P1), NULL, A_LINK_AUDIO_0, ITEM_RADIO);
         ITEM(menu_audio, n, tr(T_LINK_AUDIO_P2), NULL, A_LINK_AUDIO_0 + 1, ITEM_RADIO);
         ITEM(menu_audio, n, tr(T_LINK_AUDIO_BOTH), NULL, A_LINK_AUDIO_0 + 2, ITEM_RADIO);
+        ITEM(menu_audio, n, tr(T_LINK_AUDIO_SPLIT), NULL, A_LINK_AUDIO_0 + 3, ITEM_RADIO);
     }
     menus[k++] = (Menu){ tr(T_MENU_AUDIO), menu_audio, n };
 
@@ -916,7 +917,7 @@ static int menu_state(void *ctx, int action, int *checked)
         } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             *checked = app->cfg.volume == 25 * (action - A_VOLUME_25 + 1);
             return app->cfg.sound;
-        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_2) {
+        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_3) {
             *checked = app->cfg.link_audio == action - A_LINK_AUDIO_0;
             return app->cfg.sound;
         } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT)
@@ -1025,7 +1026,7 @@ static void do_action(App *app, int action)
             resize_window(app);
         } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             app->cfg.volume = 25 * (action - A_VOLUME_25 + 1);
-        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_2) {
+        } else if (action >= A_LINK_AUDIO_0 && action <= A_LINK_AUDIO_3) {
             app->cfg.link_audio = action - A_LINK_AUDIO_0;
         } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT) {
             i18n_set((Language)(action - A_LANGUAGE_0));
@@ -1230,8 +1231,9 @@ static void step(App *app)
     int n = gb_audio_pull(&app->gb, samples, 4096);
     music_samples(&app->music, samples, n);    /* el WAV se graba aunque esté sin sonido */
     if (app->linked) {
-        /* Cable: el jugador 1, el 2 o la mezcla de los dos (a la mitad, para
-         * no saturar). Los dos avanzan lo mismo: sobra a lo más una muestra */
+        /* Cable: el jugador 1, el 2, la mezcla de los dos (a la mitad, para
+         * no saturar) o audífonos: cada uno en mono, el 1 a la izquierda y el
+         * 2 a la derecha. Los dos avanzan lo mismo: sobra a lo más una muestra */
         int n2 = gb_audio_pull(&app->gb2, samples2, 4096);
         if (app->cfg.link_audio == 1) {
             memcpy(samples, samples2, (size_t)n2 * 2 * sizeof samples[0]);
@@ -1239,6 +1241,14 @@ static void step(App *app)
         } else if (app->cfg.link_audio == 2) {
             if (n2 < n) n = n2;
             for (int i = 0; i < n * 2; i++) samples[i] = 0.5f * (samples[i] + samples2[i]);
+        } else if (app->cfg.link_audio == 3) {
+            if (n2 < n) n = n2;
+            for (int i = 0; i < n; i++) {
+                float left = 0.5f * (samples[i * 2] + samples[i * 2 + 1]);
+                float right = 0.5f * (samples2[i * 2] + samples2[i * 2 + 1]);
+                samples[i * 2] = left;
+                samples[i * 2 + 1] = right;
+            }
         }
     }
     if (!app->audio || !app->cfg.sound) return;

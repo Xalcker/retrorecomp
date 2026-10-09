@@ -45,7 +45,7 @@ void settings_load(Settings *s, const char *path)
         else if (!strcmp(key, "sound"))          s->sound = atoi(value) != 0;
         else if (!strcmp(key, "volume"))         s->volume = clamp(atoi(value), 25, 100);
         else if (!strcmp(key, "slot"))           s->slot = clamp(atoi(value), 1, 4);
-        else if (!strcmp(key, "link_audio"))     s->link_audio = clamp(atoi(value), 0, 2);
+        else if (!strcmp(key, "link_audio"))     s->link_audio = clamp(atoi(value), 0, 3);
         else if (!strcmp(key, "language"))       snprintf(s->language, sizeof s->language, "%.2s", value);
     }
     fclose(f);

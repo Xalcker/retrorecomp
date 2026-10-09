@@ -37,6 +37,7 @@ void apu_reset(NES *n)
     memset(a, 0, sizeof *a);
     a->mute = keep_mute;
     a->nz.shift = 1;
+    a->m5 = n->cart.mmc5;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
     a->cps = CPU_HZ / APU_RATE;
     a->rate_mul = 1.0;
@@ -130,7 +131,7 @@ static void dmc_clock(NES *n)
 static int pulse_out(const Pulse *p, int ch)
 {
     if (!p->on || !p->len || p->period < 8) return 0;
-    if (!p->sw_neg && sweep_target(p, ch) > 0x7FF) return 0;
+    if (ch < 2 && !p->sw_neg && sweep_target(p, ch) > 0x7FF) return 0;       /* los pulsos del MMC5 no tienen barrido */
     if (!duty_tab[p->duty][p->step]) return 0;
     return p->cst ? p->vol : p->env_decay;
 }
@@ -145,6 +146,17 @@ static void apu_cycle(NES *n)
 {
     Apu *a = &n->apu;
     a->cycle++;
+    if (a->m5) {                                    /* envolvente y longitud de los pulsos del MMC5: 240 Hz */
+        a->m5_acc += 10;
+        if (a->m5_acc >= 74574) {
+            a->m5_acc -= 74574;
+            for (int i = 2; i < 4; i++) {
+                Pulse *q = &a->p[i];
+                env_clock(&q->env_start, &q->env_div, &q->env_decay, q->vol, q->halt);
+                if (!q->lhalt && q->len) q->len--;
+            }
+        }
+    }
 
     /* frame counter */
     if (a->delay && --a->delay == 0) {
@@ -182,7 +194,7 @@ static void apu_cycle(NES *n)
 
     /* pulsos: cada 2 ciclos de CPU */
     if (a->cycle & 1)
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < (a->m5 ? 4 : 2); i++) {
             Pulse *p = &a->p[i];
             if (p->timer) p->timer--;
             else { p->timer = p->period; p->step = (p->step - 1) & 7; }
@@ -203,6 +215,10 @@ static void apu_cycle(NES *n)
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
     len_apply(&a->p[0].len, &a->p[0].lhalt, a->p[0].hnew, &a->p[0].rel, a->p[0].prev);
     len_apply(&a->p[1].len, &a->p[1].lhalt, a->p[1].hnew, &a->p[1].rel, a->p[1].prev);
+    if (a->m5) {
+        len_apply(&a->p[2].len, &a->p[2].lhalt, a->p[2].hnew, &a->p[2].rel, a->p[2].prev);
+        len_apply(&a->p[3].len, &a->p[3].lhalt, a->p[3].hnew, &a->p[3].rel, a->p[3].prev);
+    }
     len_apply(&a->t.len, &a->t.lhalt, a->t.hnew, &a->t.rel, a->t.prev);
     len_apply(&a->nz.len, &a->nz.lhalt, a->nz.hnew, &a->nz.rel, a->nz.prev);
 
@@ -212,6 +228,7 @@ static void apu_cycle(NES *n)
     int nz = (!z->on || !z->len || (z->shift & 1) || (a->mute & 8)) ? 0 : (z->cst ? z->vol : z->env_decay);
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
+    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)];
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -258,9 +275,9 @@ static u64 adv_timer(u32 *timer, u32 period, u64 T)
 static int pulse_inert(const Apu *a, int i)
 {
     const Pulse *p = &a->p[i];
-    if ((a->mute >> i) & 1) return 1;
+    if (i < 2 && ((a->mute >> i) & 1)) return 1;
     if (!p->on || !p->len || p->period < 8) return 1;
-    if (!p->sw_neg && sweep_target(p, i) > 0x7FF) return 1;
+    if (i < 2 && !p->sw_neg && sweep_target(p, i) > 0x7FF) return 1;
     return (p->cst ? p->vol : p->env_decay) == 0;
 }
 static int tri_inert(const Apu *a)
@@ -278,12 +295,14 @@ static u64 safe_skip(const Apu *a)
 {
     u64 k = ~0ull;
     if (a->p[0].rel | a->p[1].rel | a->t.rel | a->nz.rel | (a->p[0].lhalt ^ a->p[0].hnew) | (a->p[1].lhalt ^ a->p[1].hnew) |
-        (a->t.lhalt ^ a->t.hnew) | (a->nz.lhalt ^ a->nz.hnew)) return 0;     /* hay un cambio por aplicar en el próximo ciclo */
+        (a->t.lhalt ^ a->t.hnew) | (a->nz.lhalt ^ a->nz.hnew) |
+        (a->m5 && (a->p[2].rel | a->p[3].rel | (a->p[2].lhalt ^ a->p[2].hnew) | (a->p[3].lhalt ^ a->p[3].hnew)))) return 0;     /* hay un cambio por aplicar en el próximo ciclo */
     #define LIM(v) do { u64 v_ = (v); if (v_ < k) k = v_; } while (0)
     if (!tri_inert(a)) LIM(a->t.timer);
     if (!noise_inert(a)) LIM(a->nz.timer);
     LIM(a->d.timer);
-    for (int i = 0; i < 2; i++) {
+    if (a->m5) LIM(((74574 - (u64)a->m5_acc + 9) / 10) - 1);       /* reloj de 240 Hz del MMC5 */
+    for (int i = 0; i < (a->m5 ? 4 : 2); i++) {
         if (pulse_inert(a, i)) continue;
         /* los pulsos avanzan en los ciclos impares: cuántos ciclos caben con timer pasos */
         u64 c0 = a->cycle;
@@ -326,7 +345,8 @@ static void bulk(NES *n, u64 k)
         for (u64 i = 0; i < f; i++) sh = (u16)((sh >> 1) | ((((sh & 1) ^ ((sh >> bit) & 1))) << 14));
         a->nz.shift = sh;
     }
-    for (int i = 0; i < 2; i++) {
+    if (a->m5) a->m5_acc += (u32)(10 * k);
+    for (int i = 0; i < (a->m5 ? 4 : 2); i++) {
         u32 t = a->p[i].timer;
         u64 f = adv_timer(&t, a->p[i].period, pulse_ticks);
         a->p[i].timer = (u16)t;
@@ -343,6 +363,7 @@ static void bulk(NES *n, u64 k)
              (a->nz.cst ? a->nz.vol : a->nz.env_decay);
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
+    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)];
     /* k sumas de 'mix' (un float) en un double: exactas en ambos casos (menos de 50 bits), así que
      * una multiplicación da el mismo resultado que sumar ciclo a ciclo */
     a->acc += (double)mix * (double)k;
@@ -469,4 +490,26 @@ void apu_write(NES *n, u16 addr, u8 v)
         break;
     }
     set_deadline(a);
+}
+
+/* Audio del MMC5: dos pulsos como los del 2A03 pero sin barrido ($5000-$5007; $5015 los habilita) */
+void apu_mmc5_write(NES *n, u16 addr, u8 v)
+{
+    Apu *a = &n->apu;
+    apu_sync(n);
+    if (addr >= 0x5000 && addr <= 0x5007) {
+        int ch = 2 + ((addr - 0x5000) >> 2), reg = addr & 3;
+        if (reg != 1) pulse_write(&a->p[ch], reg, v);
+    } else if (addr == 0x5015) {
+        a->p[2].on = v & 1; a->p[3].on = (v >> 1) & 1;
+        if (!a->p[2].on) a->p[2].len = a->p[2].rel = 0;
+        if (!a->p[3].on) a->p[3].len = a->p[3].rel = 0;
+    }
+    set_deadline(a);
+}
+
+u8 apu_mmc5_status(NES *n)
+{
+    apu_sync(n);
+    return (n->apu.p[2].len ? 1 : 0) | (n->apu.p[3].len ? 2 : 0);
 }

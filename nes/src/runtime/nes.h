@@ -109,7 +109,9 @@ typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence;
 
 #define APU_BUF 16384
 typedef struct {
-    Pulse p[2]; Triangle t; Noise nz; Dmc d;
+    Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
+    u8   m5;                            /* hay audio de MMC5 */
+    u32  m5_acc;                        /* reloj de 240 Hz del MMC5, en décimas de ciclo de CPU */
     u8   mode5, inhibit, frame_irq;
     int  fcc, delay, pending;           /* contador del frame counter y escritura de $4017 retrasada */
     u64  cycle;                         /* ciclos de CPU que el APU ya ejecutó (puede ir detrás de nes.cyc) */
@@ -213,6 +215,8 @@ void apu_sync(NES *n);                           /* ejecuta lo pendiente hasta e
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */
 void apu_write(NES *n, u16 addr, u8 v);          /* $4000-$4013, $4015, $4017 */
+void apu_mmc5_write(NES *n, u16 addr, u8 v);     /* $5000-$5007 y $5015 */
+u8   apu_mmc5_status(NES *n);                    /* lectura de $5015 */
 int  apu_take(NES *n, int16_t *dst, int max);    /* saca muestras mono de 44100 Hz */
 
 /* Traza de ejecución (para guiar al recompilador) */

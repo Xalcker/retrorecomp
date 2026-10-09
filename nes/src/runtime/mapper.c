@@ -211,6 +211,7 @@ static u8 mmc5_read(NES *n, u16 a)
         c->m5_pending = 0; n->irq_line &= ~1;
         return v;
     }
+    case 0x5015: return apu_mmc5_status(n);
     case 0x5205: return (u8)c->m5_prod;
     case 0x5206: return (u8)(c->m5_prod >> 8);
     }
@@ -236,7 +237,7 @@ static void mmc5_write(NES *n, u16 a, u8 v)
         if (a == 0x5204 && !(v & 0x80)) n->irq_line &= ~1;
         return;
     }
-    /* $5000-$5015: audio del MMC5 (no se emula) */
+    if (a <= 0x5007 || a == 0x5015) apu_mmc5_write(n, a, v);    /* audio de los dos pulsos */
 }
 
 static size_t prg32(const Cart *c, size_t bank, u16 a)

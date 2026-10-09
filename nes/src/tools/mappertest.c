@@ -129,7 +129,7 @@ int main(void)
     /* 1 SUROM (512 KB): el bit 4 del registro de CHR 0 elige el bloque de 256 KB */
     make(1, 512, 0, MIRROR_VERTICAL);
     EXPECT_PRG(0xE000, 31);                                      /* tras el reset: último banco del primer bloque */
-    for (int i = 0; i < 5; i++) W(0xA000, i == 4 ? 1 : 0);       /* CHR 0 = $10 (bits de menos a más significativo) */
+    for (int i = 0; i < 5; i++) { n.cyc += 10; W(0xA000, i == 4 ? 1 : 0); }   /* CHR 0 = $10 (de menos a más significativo) */
     EXPECT_PRG(0xE000, 63);                                      /* segundo bloque */
     if (!fails) puts("mappertest: bien");
     return fails != 0;

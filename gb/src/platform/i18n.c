@@ -106,7 +106,10 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "un intérprete exacto al ciclo.\n"
         "\n"
         "Este programa no incluye datos del juego: usa\n"
-        "tu propia ROM, validada por su SHA1.",
+        "tu propia ROM, validada por su SHA1.\n"
+        "\n"
+        "Íconos: Retro game console icons de KyleBing\n"
+        "(CC BY 4.0), recortados y escalados.",
 
         "%s, recompiled with GBRecomp\n"
         "\n"
@@ -115,7 +118,10 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "on a cycle-accurate interpreter.\n"
         "\n"
         "This program contains no game data: it uses\n"
-        "your own ROM, validated by its SHA1.",
+        "your own ROM, validated by its SHA1.\n"
+        "\n"
+        "Icons: Retro game console icons by KyleBing\n"
+        "(CC BY 4.0), cropped and scaled.",
     },
     [T_STATE_TITLE]     = { "Estados guardados", "Save states" },
     [T_STATE_EMPTY_FMT] = { "La ranura %d está vacía.", "Slot %d is empty." },

@@ -56,6 +56,7 @@
 #include "export.h"
 #include "files.h"
 #include "i18n.h"
+#include "iconos.h"
 #include "inputs.h"
 #include "recomp.h"
 #include "settings.h"
@@ -552,6 +553,19 @@ static void open_exports(App *app)
 /* Enciende (o reinicia) la consola con el modelo elegido */
 static void build_menus(App *app);
 
+/* Ícono de la ventana según la consola encendida: Game Boy, Game Boy Color
+ * (también en el modo de compatibilidad) o Super Game Boy */
+static void set_window_icon(App *app)
+{
+    if (!app->win) return;
+    const unsigned char *rgba = app->gb.sgb ? icono_sgb : app->gb.cgb_hw ? icono_gbc : icono_gb;
+    SDL_Surface *s = SDL_CreateRGBSurfaceWithFormatFrom((void *)rgba, ICONO_LADO, ICONO_LADO, 32,
+                                                        ICONO_LADO * 4, SDL_PIXELFORMAT_RGBA32);
+    if (!s) return;
+    SDL_SetWindowIcon(app->win, s);
+    SDL_FreeSurface(s);
+}
+
 /* --- Cable link local --- */
 
 /* Enciende el Game Boy de la derecha (mismo modelo, su propia partida) y lo
@@ -598,6 +612,7 @@ static void power_on(App *app)
     if (gb_has_battery(&app->gb)) load_game(&app->gb, app->save_path);
     if (was_linked) link_start(app);
     build_menus(app);
+    set_window_icon(app);
     if (app->win) resize_window(app);
 }
 
@@ -652,6 +667,7 @@ static void load_state(App *app)
         if (was_sgb != app->gb.sgb || was_compat != is_compat(&app->gb) || was_cgb != app->gb.cgb_hw) {
             app->model = app->gb.sgb ? GB_MODEL_SGB : app->gb.cgb_hw ? GB_MODEL_CGB : GB_MODEL_DMG;
             build_menus(app);
+            set_window_icon(app);
             resize_window(app);
         }
     } else {

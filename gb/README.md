@@ -48,7 +48,7 @@ Se necesita un compilador C99, `make` y, para los juegos generados, SDL2.
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-make            # gbrecomp, gbtest y el runtime
+make            # gbrecomp, gbtest, linktest y el runtime
 make dist       # dist/gbrecomp-<versión>.tar.gz
 ```
 

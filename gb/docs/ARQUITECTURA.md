@@ -57,7 +57,18 @@ en temporización, y la prueba diferencial aísla errores del *recompilador*.
     línea de la PPU, fin de transferencia serial).
 - Las lecturas de ROM y WRAM van por un mapa de páginas (`rpage`/`wpage`) sin
   sincronizar. Durante un DMA de OAM el mapa se vacía y todo pasa por la ruta
-  lenta, que reproduce los choques de bus.
+  lenta, que reproduce los choques de bus. El código recompilado no lee sus
+  instrucciones del bus, así que una instrucción que choca con el DMA (por
+  ejemplo, el vector de una interrupción que llega mientras el juego espera
+  el DMA en HRAM) la ejecuta el intérprete: el despachador y `gb_check` lo
+  revisan con `dma_conflict`, y mientras el DMA está activo `next_event` se
+  revisa en cada M-ciclo.
+- El resultado no debe depender de dónde se corta la ejecución (`gb_run`
+  hasta un ciclo cualquiera). `next_event` nunca puede quedar después de un
+  evento que cambie IF: la PPU tiene que avisar del inicio del HBlank si su
+  interrupción está activa. Antes, con `p->dot == 89` (el modo 3 todavía no
+  empezaba a dibujar) caía al fin de la línea; Warlocked, corrido por cuadros
+  enteros, perdía esa interrupción y se quedaba en blanco (#24).
 
 ## Interrupciones y despachador
 
@@ -342,10 +353,12 @@ sin traza). Con las heurísticas 3 a 5 llega a 86-90 % sin traza (3 semillas de
 en lugar de 925. Lo que le falta lo mostró `--coverage`: el bucle desenrollado
 de arriba y código al que solo se llega por punteros en datos.
 
-Warlocked (sin la tabla de arriba, no estaba en la prueba en lote) pasó de
-8.4 % a 99.9 % recompilado sin traza con la heurística 6 (3 semillas de 6000
-cuadros, sin diferencias): el estático encuentra 40,432 instrucciones en lugar
-de 2,815, y lo que queda en el intérprete es casi todo código en HRAM.
+Warlocked (sin la tabla de arriba, no estaba en la prueba en lote): con la
+heurística 6 el estático encuentra 40,432 instrucciones en lugar de 2,815.
+Con el juego corriendo, recompila de 97.6 a 99.4 % sin traza (3 semillas de
+6000 cuadros, sin diferencias). La cifra de 99.9 % que se midió al agregar la
+heurística era falsa: el juego estaba atorado en la pantalla blanca de #24 y
+solo se medía ese bucle.
 
 `difftest` dice en qué zona ejecuta el intérprete (ROM, RAM del cartucho, WRAM,
 HRAM), para distinguir código no descubierto de código en RAM.

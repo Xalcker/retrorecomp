@@ -110,14 +110,14 @@ void ppu_sync(NES *n, u64 target)
                     /* con el MMC3, una subida de A12 que cuenta no puede quedar dentro de una baldosa: solo si A12
                      * ya está alto o el fondo usa la tabla $0000 (no hay subida) */
                     if (d >= 1 && d <= 249 && ((d - 1) & 7) == 0 && left >= 8 &&
-                        (!p->ovf_dot || p->ovf_dot < d || p->ovf_dot >= d + 8) &&
+                        (!p->ovf_dot || p->ovf_dot < d || p->ovf_dot >= d + 8) && !n->cart.exgfx &&
                         (!mmc3 || n->cart.reg[13] || !(p->ctrl & 0x10)) && (!n->cart.mmc5 || d > 8)) {
                         if (p->spr_count == 0 && (p->mask & 8) && (d > 8 || (p->mask & 2))) ppu_tile_bg(n);
                         else ppu_tile(n);
                         continue;
                     }
                     if (!mmc3 && d == 258 && left >= 63) { p->dot = 321; p->clock += 63; continue; }
-                    if (!mmc3 && (d == 321 || d == 329) && left >= 8) { ppu_prefetch_tile(n); continue; }
+                    if (!mmc3 && !n->cart.exgfx && (d == 321 || d == 329) && left >= 8) { ppu_prefetch_tile(n); continue; }
                 }
             } else if (sl < 261) {
                 /* línea 240 y vblank: lo único que pasa es la bandera en (241, 1) */
@@ -217,6 +217,16 @@ static void inc_y(Ppu *p);
 
 /* Tras leer o escribir $2007: v sube 1 o 32; con el dibujo activo en una línea de dibujo, sube a la vez como
  * el incremento de X grueso y el de Y (la PPU comparte los circuitos) */
+/* MMC5 ExGrafix: el patrón del fondo sale de un banco de CHR de 4 KB que elige el ExRAM de cada mosaico */
+static u8 exgfx_read(NES *n, int plane)
+{
+    Ppu *p = &n->ppu;
+    Cart *c = &n->cart;
+    size_t bank = ((size_t)(p->ex_byte & 0x3F) | ((size_t)(c->m5[0x30] & 3) << 6)) << 12;
+    bank = c->chr_mask ? (bank & c->chr_mask) : bank % c->chr_size;
+    return c->chr[bank + ((size_t)p->nt_id << 4) + ((p->v >> 12) & 7) + (size_t)plane];
+}
+
 static void data_inc(Ppu *p)
 {
     if ((p->mask & 0x18) && (p->scanline < 240 || p->scanline == 261)) { inc_x(p); inc_y(p); }
@@ -606,15 +616,18 @@ void ppu_tick(NES *n)
                         else { p->spr[i].lo <<= 1; p->spr[i].hi <<= 1; }
                     }
                 switch ((cy - 1) & 7) {
-                case 0: a12(n, 0); load_bg(p); p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF)); break;
+                case 0: a12(n, 0); load_bg(p); p->nt_id = vrd(n, 0x2000 | (p->v & 0x0FFF));
+                        if (n->cart.exgfx) p->ex_byte = n->cart.exram[p->v & 0x3FF]; break;
                 case 2: {
                     a12(n, 0);
                     u8 a = vrd(n, 0x23C0 | (p->v & 0x0C00) | ((p->v >> 4) & 0x38) | ((p->v >> 2) & 7));
                     if (p->v & 0x40) a >>= 4;
                     if (p->v & 2) a >>= 2;
-                    p->nt_attr = a & 3; break; }
-                case 4: a12(n, (p->ctrl >> 4) & 1); p->nt_lo = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7)); break;
-                case 6: a12(n, (p->ctrl >> 4) & 1); p->nt_hi = vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7) + 8); break;
+                    p->nt_attr = n->cart.exgfx ? (p->ex_byte >> 6) & 3 : a & 3; break; }
+                case 4: a12(n, (p->ctrl >> 4) & 1);
+                        p->nt_lo = n->cart.exgfx ? exgfx_read(n, 0) : vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7)); break;
+                case 6: a12(n, (p->ctrl >> 4) & 1);
+                        p->nt_hi = n->cart.exgfx ? exgfx_read(n, 8) : vrd(n, ((p->ctrl & 0x10) << 8) + (p->nt_id << 4) + ((p->v >> 12) & 7) + 8); break;
                 case 7: inc_x(p); break;
                 }
             }

@@ -21,7 +21,7 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 - PPU 2C02 punto por punto: fondo, sprites, scroll, sprite 0 hit (pasa las 11 `sprite_hit_tests`).
 - Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11 Color Dreams,
   34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180, 206 (DxROM), 9 (MMC2), 10 (MMC4), 69 (FME-7,
-  sin el audio 5B), 119 (TQROM), 5 (MMC5, con sus dos pulsos pero sin PCM ni ExGrafix) y 118 (TxSROM, solo con `mappertest`). Probados con
+  sin el audio 5B), 119 (TQROM), 5 (MMC5, con sus pulsos, PCM y ExGrafix; sin pantalla dividida) y 118 (TxSROM, solo con `mappertest`). Probados con
   juegos reales: Punch-Out, Fire Emblem, Batman: Return of the Joker, Pin Bot, Castlevania III, Kirby, Battletoads,
   Dragon Warrior III (512 KB), Gauntlet, Micro Machines, Crystal Mines, SMB + Duck Hunt y Tiles of Fate.
 - APU: 2 pulsos, triángulo, ruido, DMC, frame counter con IRQ, mezcla no lineal y filtros. Pasa las 8
@@ -97,7 +97,7 @@ ni un byte de imagen o audio.
 ## Pendiente
 
 - Visor en el navegador del descubrimiento (el `tools/visor.html` de GBRecomp lee otro formato de eventos).
-- Más mappers (VRC2/4/6/7, mapper 15), el PCM del MMC5, el audio 5B del FME-7 y ExGrafix del MMC5.
+- Más mappers (VRC2/4/6/7, mapper 15), la pantalla dividida del MMC5 y el audio 5B del FME-7.
 
 ## Créditos
 

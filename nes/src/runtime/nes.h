@@ -49,6 +49,7 @@ typedef struct {
     u32  chr_mask;              /* tamaño de CHR - 1 si es potencia de 2 (si no, 0 y se usa el módulo) */
     u8  *prg_ptr[4];            /* puntero a cada ventana de 8 KB de $8000-$FFFF (ROM, o RAM en el MMC5) */
     u8  *chr_page_spr[8];       /* MMC5: páginas de CHR para las búsquedas de sprites (con sprites 8x16) */
+    u8   exgfx;                 /* MMC5: ExRAM en modo 1 (ExGrafix: banco de CHR y paleta por mosaico) */
     u8   mmc5, m5_spr16, m5_inframe, m5_pending, m5_counter;
     u8   m5[0x60];              /* registros del MMC5: $5100-$5130 -> 0x00-0x30; $5200-$5206 -> 0x50-0x56 */
     u16  m5_prod;               /* resultado del multiplicador */
@@ -86,7 +87,7 @@ typedef struct {
     u64  frame;
     int  frame_done;
     /* fondo */
-    u8   nt_id, nt_attr, nt_lo, nt_hi;
+    u8   nt_id, nt_attr, nt_lo, nt_hi, ex_byte;     /* ex_byte: ExRAM del mosaico (MMC5 ExGrafix) */
     u16  bg_lo, bg_hi, at_lo, at_hi;
     /* sprites de la línea actual */
     SprSlot spr[8];
@@ -115,6 +116,7 @@ typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence;
 typedef struct {
     Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
     u8   m5;                            /* hay audio de MMC5 */
+    u8   m5_pcm, m5_pcm_read;           /* PCM del MMC5: valor de salida y modo lectura ($5010 bit 0) */
     u32  m5_acc;                        /* reloj de 240 Hz del MMC5, en décimas de ciclo de CPU */
     u8   mode5, inhibit, frame_irq;
     int  fcc, delay, pending;           /* contador del frame counter y escritura de $4017 retrasada */
@@ -223,7 +225,8 @@ u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a l
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */
 void apu_write(NES *n, u16 addr, u8 v);          /* $4000-$4013, $4015, $4017 */
-void apu_mmc5_write(NES *n, u16 addr, u8 v);     /* $5000-$5007 y $5015 */
+void apu_mmc5_write(NES *n, u16 addr, u8 v);     /* $5000-$5007, $5010, $5011 y $5015 */
+void apu_mmc5_pcm(NES *n, u8 v);                 /* el CPU leyó un byte de $8000-$BFFF con el PCM en modo lectura */
 u8   apu_mmc5_status(NES *n);                    /* lectura de $5015 */
 int  apu_take(NES *n, int16_t *dst, int max);    /* saca muestras mono de 44100 Hz */
 

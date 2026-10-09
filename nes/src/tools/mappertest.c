@@ -131,6 +131,19 @@ int main(void)
     EXPECT_PRG(0xE000, 31);                                      /* tras el reset: último banco del primer bloque */
     for (int i = 0; i < 5; i++) { n.cyc += 10; W(0xA000, i == 4 ? 1 : 0); }   /* CHR 0 = $10 (de menos a más significativo) */
     EXPECT_PRG(0xE000, 63);                                      /* segundo bloque */
+    /* 5 MMC5: PCM en modo escritura y en modo lectura; ExGrafix se activa con $5104 = 1 */
+    make(5, 256, 128, MIRROR_VERTICAL);
+    n.apu.m5 = 1;
+    W(0x5010, 0); W(0x5011, 0x40);
+    if (n.apu.m5_pcm != 0x40) { puts("FALLA mapper 5: PCM en modo escritura"); fails++; }
+    W(0x5010, 1); W(0x5011, 0x20);                         /* en modo lectura, escribir no cambia la salida */
+    if (n.apu.m5_pcm != 0x40) { puts("FALLA mapper 5: PCM ignora $5011 en modo lectura"); fails++; }
+    W(0x5100, 3); W(0x5114, 0x80 | 2);
+    (void)mapper_cpu_read(&n, 0x8000);                     /* lectura de $8000-$BFFF: fija la salida con el byte leído */
+    if (n.apu.m5_pcm != n.cart.prg[2 * 0x2000]) { puts("FALLA mapper 5: PCM en modo lectura"); fails++; }
+    W(0x5104, 1); if (!n.cart.exgfx) { puts("FALLA mapper 5: ExGrafix"); fails++; }
+    W(0x5104, 0); if (n.cart.exgfx) { puts("FALLA mapper 5: ExGrafix se queda"); fails++; }
+
     if (!fails) puts("mappertest: bien");
     return fails != 0;
 }

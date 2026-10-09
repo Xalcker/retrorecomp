@@ -32,6 +32,7 @@ void mapper_reset(NES *n)
         c->m5[0x00] = 3; c->m5[0x14] = 0x7F; c->m5[0x15] = 0x7F; c->m5[0x16] = 0x7F; c->m5[0x17] = 0xFF;   /* PRG modo 3; últimos bancos */
         c->m5[0x01] = 3;
         c->m5_spr16 = c->m5_inframe = c->m5_pending = c->m5_counter = 0;
+        c->exgfx = 0;
         c->mirroring = MIRROR_CUSTOM;
         for (int i = 0; i < 4; i++) c->nt_map[i] = i & 1;
     }
@@ -226,6 +227,7 @@ static void mmc5_write(NES *n, u16 a, u8 v)
     if (a >= 0x5100 && a <= 0x5130) {
         c->m5[a - 0x5100] = v;
         if (a == 0x5105) mmc5_nametables(c);
+        if (a == 0x5104) c->exgfx = (v & 3) == 1;
         if (a == 0x5100 || (a >= 0x5113 && a <= 0x5117)) mmc5_remap_prg(c);
         if (a == 0x5101 || (a >= 0x5120 && a <= 0x512B) || a == 0x5130) mmc5_remap_chr(c);
         return;
@@ -237,7 +239,7 @@ static void mmc5_write(NES *n, u16 a, u8 v)
         if (a == 0x5204 && !(v & 0x80)) n->irq_line &= ~1;
         return;
     }
-    if (a <= 0x5007 || a == 0x5015) apu_mmc5_write(n, a, v);    /* audio de los dos pulsos */
+    if (a <= 0x5007 || a == 0x5010 || a == 0x5011 || a == 0x5015) apu_mmc5_write(n, a, v);    /* audio: dos pulsos y PCM */
 }
 
 static size_t prg32(const Cart *c, size_t bank, u16 a)
@@ -343,7 +345,11 @@ u8 mapper_cpu_read(NES *n, u16 a)
     if (c->mmc5) {
         if (a >= 0x5000 && a < 0x6000) return mmc5_read(n, a);
         if (a >= 0x6000 && a < 0x8000) return mmc5_ram(c, c->m5[0x13])[a & 0x1FFF];
-        if (a >= 0x8000) return c->prg_ptr[(a >> 13) & 3][a & 0x1FFF];
+        if (a >= 0x8000) {
+            u8 v = c->prg_ptr[(a >> 13) & 3][a & 0x1FFF];
+            if (a < 0xC000 && n->apu.m5_pcm_read) apu_mmc5_pcm(n, v);          /* PCM en modo lectura */
+            return v;
+        }
     }
     if (a < 0x6000) return 0;                    /* bus abierto (aprox.) */
     if (a < 0x8000) {

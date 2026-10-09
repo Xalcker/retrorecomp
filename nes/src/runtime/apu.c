@@ -237,7 +237,7 @@ static void apu_cycle(NES *n)
     int nz = (!z->on || !z->len || (z->shift & 1) || (a->mute & 8)) ? 0 : (z->cst ? z->vol : z->env_decay);
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
-    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)];
+    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -372,7 +372,7 @@ static void bulk(NES *n, u64 k)
              (a->nz.cst ? a->nz.vol : a->nz.env_decay);
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
-    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)];
+    if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
     /* k sumas de 'mix' (un float) en un double: exactas en ambos casos (menos de 50 bits), así que
      * una multiplicación da el mismo resultado que sumar ciclo a ciclo */
     a->acc += (double)mix * (double)k;
@@ -509,6 +509,10 @@ void apu_mmc5_write(NES *n, u16 addr, u8 v)
     if (addr >= 0x5000 && addr <= 0x5007) {
         int ch = 2 + ((addr - 0x5000) >> 2), reg = addr & 3;
         if (reg != 1) pulse_write(&a->p[ch], reg, v);
+    } else if (addr == 0x5010) {
+        a->m5_pcm_read = v & 1;
+    } else if (addr == 0x5011) {
+        if (!a->m5_pcm_read && v) a->m5_pcm = v;
     } else if (addr == 0x5015) {
         a->p[2].on = v & 1; a->p[3].on = (v >> 1) & 1;
         if (!a->p[2].on) a->p[2].len = a->p[2].rel = 0;
@@ -521,4 +525,10 @@ u8 apu_mmc5_status(NES *n)
 {
     apu_sync(n);
     return (n->apu.p[2].len ? 1 : 0) | (n->apu.p[3].len ? 2 : 0);
+}
+
+void apu_mmc5_pcm(NES *n, u8 v)
+{
+    apu_sync(n);
+    if (v) n->apu.m5_pcm = v;                          /* en modo lectura, un byte de $8000-$BFFF fija la salida (0 se ignora) */
 }

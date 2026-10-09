@@ -201,6 +201,10 @@ void sgb_p1_write(GB *g, u8 v)
     Sgb *s = &g->sgbs;
     u8 sel = v & 0x30, prev = s->last_p1;
     s->last_p1 = sel;
+    /* Escribir lo mismo otra vez no mueve las líneas: no es un pulso (el
+     * Bomberman GB de Bomberman Collection escribe $00 dos veces seguidas al
+     * empezar un paquete; tomarlo como pulso inválido cancelaba su PAL_TRN) */
+    if (sel == prev) return;
 
     /* Cada subida de P15 pasa al siguiente control, también a mitad de un
      * paquete (SameSuite command_mlt_req*), con 2 o 4 jugadores */

@@ -596,6 +596,12 @@ En modo CGB el runtime tiene:
   siguiente control; los controles 2-4 devuelven `g->pad_sgb`
   (`gb_set_pad_player`). `tests/sgb_controles.c` lo comprueba leyendo P1 como
   un juego.
+  `tests/sgb_bomberman.sh` juega una batalla de 4 en Bomberman GB (Bomberman
+  Collection), cada jugador con su control (`gbtest --input2..4`).
+- **Paquetes del SGB:** escribir en P1 el mismo valor que ya tenía no es un
+  pulso. Bomberman Collection escribe `$00` dos veces al empezar un paquete, y
+  tomarlo como pulso inválido cancelaba su `PAL_TRN`: el título de Bomberman
+  GB quedaba en blanco.
 - **Doble velocidad:** KEY1 + STOP. Hay dos relojes: `g->hw_cyc` en ciclos del
   CPU (timer, serial, DMA de OAM) y `g->rt` en tiempo real (PPU y APU). En doble
   velocidad cada M-ciclo del CPU dura 2 puntos en lugar de 4, y el secuenciador

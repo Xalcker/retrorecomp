@@ -477,8 +477,9 @@ def get_events(system, rom_path, traces):
 def find_repo(name, env, explicit, marker):
     cands = [explicit, os.environ.get(env)]
     parent = os.path.dirname(HERE)
-    for up in (parent, os.path.dirname(parent), os.path.dirname(os.path.dirname(parent))):
+    for up in (parent, os.path.dirname(parent)):
         cands.append(up)                                  # retrorecomp dentro del repo (submódulo)
+        cands.append(os.path.join(os.path.dirname(up), name))   # y el otro recompilador, hermano de ese repo
     cands += [os.path.join(os.path.dirname(HERE), name), os.path.join(os.path.dirname(HERE), name.lower())]
     for c in cands:
         if c and os.path.isfile(os.path.join(c, "Makefile")) and os.path.isfile(os.path.join(c, marker)):

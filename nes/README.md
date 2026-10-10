@@ -20,19 +20,19 @@ Con [MSYS2](https://www.msys2.org) instalado en `C:\msys64`, abre la terminal **
 pacman -S --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2
 ```
 
-Después se usan los mismos comandos de abajo, con dos diferencias: hay que pasar `CC=gcc` (en MSYS2 no existe `cc`)
-y los ejecutables salen con `.exe`. En esa terminal tus carpetas de Windows están bajo `/c/Users/<tú>/...`:
+Después se usan los mismos comandos de abajo; los ejecutables salen con `.exe` (el Makefile usa `gcc` cuando no existe `cc`, así que no hace falta `CC=gcc`)
+y llevan el icono del control de NES. En esa terminal tus carpetas de Windows están bajo `/c/Users/<tú>/...`:
 
 ```
 cd /c/Users/<tú>/Documents/NESRecomp
-make -j8 CC=gcc
+make -j8
 ./nes.exe "roms/Super Mario Bros. (Japan, USA).nes"
 ./nesrecomp.exe "roms/Super Mario Bros. (Japan, USA).nes" -o juegos/smb --name smb
-cd juegos/smb && make -j8 CC=gcc && ./smb.exe "../../roms/Super Mario Bros. (Japan, USA).nes"
+cd juegos/smb && make -j8 && ./smb.exe "../../roms/Super Mario Bros. (Japan, USA).nes"
 ```
 
-Los `.exe` usan `SDL2.dll` de `C:\msys64\ucrt64\bin`: funcionan desde la terminal UCRT64; para llevarlos a otra
-carpeta o equipo, copia ahí `SDL2.dll` (y las DLL que pida). La carpeta de datos (partida, estados, preferencias)
+Los `.exe` usan `SDL2.dll` de `C:\msys64\ucrt64\bin`: funcionan desde la terminal UCRT64. Para llevar un juego a otra carpeta o equipo,
+`make dist` (dentro del proyecto generado) deja en `dist/` el ejecutable con las DLL que necesita. La carpeta de datos (partida, estados, preferencias)
 es `%APPDATA%\NESRecomp\<juego>\`.
 
 </details>

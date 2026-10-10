@@ -964,14 +964,17 @@ static void emit_makefile(const char *dir, const char *name)
     FILE *f = open_out(dir, "Makefile");
     fprintf(f,
         "# Generado por nesrecomp. Compila con cualquier gcc/clang C99 con SDL2.\n\n"
-        "CC     ?= cc\n"
+        "# En MSYS2 (Windows) no existe \"cc\": se usa gcc\n"
+        "ifeq ($(origin CC),default)\n"
+        "CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)\n"
+        "endif\n"
         "CFLAGS ?= -std=c99 -O2 -Wall -Wno-unused-label\n"
         "INC    := -Iruntime -Igen -Iplatform -DNES_RECOMP -DNES_MAPPER=%d\n"
         "SDL_CFLAGS := $(shell pkg-config --cflags sdl2)\n"
         "SDL_LIBS   := $(shell pkg-config --libs sdl2)\n\n"
         "RT_OBJ  := $(patsubst runtime/%%.c,build/rt_%%.o,$(wildcard runtime/*.c))\n"
         "GEN_OBJ := $(patsubst gen/%%.c,build/gen_%%.o,$(wildcard gen/*.c))\n\n"
-        ".PHONY: all clean\n"
+        ".PHONY: all clean dist\n"
         "all: %s difftest bench\n\n"
         "build:\n\tmkdir -p build\n\n"
         "build/rt_%%.o: runtime/%%.c $(wildcard runtime/*.h) | build\n"
@@ -982,15 +985,29 @@ static void emit_makefile(const char *dir, const char *name)
         "PLAT_OBJ := $(patsubst platform/%%.c,build/pl_%%.o,$(filter-out platform/difftest.c platform/bench.c,$(wildcard platform/*.c)))\n\n"
         "build/pl_%%.o: platform/%%.c $(wildcard platform/*.h) $(wildcard runtime/*.h) | build\n"
         "\t$(CC) $(CFLAGS) $(INC) $(SDL_CFLAGS) -c -o $@ $<\n\n"
-        "%s: $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ)\n"
+        "# Windows (MSYS2/MinGW): el icono del .exe sale de un recurso (windres)\n"
+        "IS_WIN := $(or $(filter Windows_NT,$(OS)),$(findstring MINGW,$(shell uname -s 2>/dev/null)),$(findstring MSYS,$(shell uname -s 2>/dev/null)))\n"
+        "ifneq ($(IS_WIN),)\n"
+        "WINRES := build/icono_res.o\n"
+        "$(WINRES): platform/icono.rc platform/icono.ico | build\n"
+        "\twindres -I platform -i $< -o $@ -O coff\n"
+        "endif\n\n"
+        "%s: $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ) $(WINRES)\n"
         "\t$(CC) -o $@ $^ $(SDL_LIBS) -lm\n\n"
+        "# dist/: el ejecutable y, en Windows, las DLL de MSYS2 que necesita (SDL2.dll...); se puede copiar a otro equipo\n"
+        "dist: %s\n"
+        "\tmkdir -p dist\n"
+        "\tcp $< dist/\n"
+        "ifneq ($(IS_WIN),)\n"
+        "\tldd $< | awk '/=> \\/(ucrt64|mingw64|mingw32|clang64|clangarm64)\\//{print $$3}' | xargs -r -I{} cp {} dist/\n"
+        "endif\n\n"
         "# Prueba diferencial: código recompilado contra el intérprete\n"
         "difftest: platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench: platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "clean:\n\trm -rf build %s difftest bench\n",
-        cart->mapper, name, name, name);
+        "clean:\n\trm -rf build dist %s difftest bench\n",
+        cart->mapper, name, name, name, name);
     fclose(f);
 }
 
@@ -1003,7 +1020,8 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "  macOS:   brew install sdl2 pkg-config\n"
         "  Debian:  sudo apt install build-essential pkg-config libsdl2-dev\n"
         "  Windows: MSYS2 UCRT64: pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2 make\n"
-        "           y compilar con: make CC=gcc  (en MSYS2 no existe cc)\n\n"
+        "           (el Makefile usa gcc si no hay cc; el .exe lleva el icono del juego)\n"
+        "           make dist deja en dist/ el ejecutable con las DLL que necesita\n\n"
         "  make\n"
         "  ./%s juego.nes\n\n"
         "El proyecto no contiene la ROM. El ejecutable la pide y comprueba que su SHA1 sea\n"

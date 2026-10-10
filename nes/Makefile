@@ -1,5 +1,9 @@
 # NESRecomp: runtime, intérprete 6502 y herramientas (en construcción).
 CC     ?= cc
+# En MSYS2 (Windows) no existe "cc": se usa gcc
+ifeq ($(origin CC),default)
+CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
+endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
@@ -30,7 +34,7 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
-                  settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h
+                  settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
@@ -68,8 +72,16 @@ nesaudio: src/tools/nesaudio.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 PLATFORM := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
-nes: $(PLATFORM:%=src/platform/%) $(wildcard src/platform/*.h) $(RT)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(PLATFORM:%=src/platform/%) $(RT) $(SDL_LIBS) -lm
+# Windows: el icono del .exe sale de un recurso (windres)
+IS_WIN := $(or $(filter Windows_NT,$(OS)),$(findstring MINGW,$(shell uname -s 2>/dev/null)),$(findstring MSYS,$(shell uname -s 2>/dev/null)))
+ifneq ($(IS_WIN),)
+WINRES := $(BUILD)/icono_res.o
+$(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
+	windres -I src/platform -i $< -o $@ -O coff
+endif
+
+nes: $(PLATFORM:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(PLATFORM:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -716,7 +716,9 @@ Si el juego no admite color pero sí SGB (`$146` = 3 con el licenciatario viejo
 - **Borde:** 256 mosaicos de 4 bits por píxel en formato SNES y un mapa de
   32×28 con las paletas 4-7. `gb_sgb_screen` da la imagen final de 256×224 en
   RGB555, con el juego en (48,40); `gb_framebuffer` sigue dando los 160×144
-  en tonos.
+  en tonos. El borde se decodifica solo cuando cambia (CHR_TRN, PCT_TRN o el
+  color 0, que es el fondo); lo que cae sobre el juego (el borde se dibuja
+  encima donde su color no es 0) se guarda aparte y se aplica en cada cuadro.
 - **Multijugador (MLT_REQ):** con 2 o 4 jugadores, cada subida de P15 pasa al
   siguiente control, también a mitad de un paquete. Con ambas líneas en alto,
   P1 da `$F` menos el número de control. El modo 2, que no está documentado, se
@@ -796,6 +798,12 @@ muestreo con el APU apagado (en el mismo intérprete de `gbbench`), el CPU,
 recompilado o interpretado, se lleva alrededor del 3 % del tiempo; la PPU,
 entre 64 % y 79 % (`ppu_advance` y `fetcher_step`, punto a punto en el modo
 3); el APU, entre 6 % y 12 %; el bucle por M-ciclo de `sync_hardware` y el
-timer, cerca de 10 %; y en el SGB, `sgb_frame` 16 % (el borde se decodifica
+timer, cerca de 10 %; y en el SGB, `sgb_frame` 16 % (el borde se decodificaba
 en cada cuadro). Por eso el recompilado corre casi a la misma velocidad que el
 intérprete: lo que conviene optimizar es el hardware, no el CPU.
+
+Optimizaciones hechas con esta línea base (golden igual en todas):
+
+| Cambio | Efecto (`gbbench`, 2400 cuadros, mejor de 3) |
+|---|---|
+| Borde del SGB en caché | Pokémon Rojo, DKL2 y Wario Land II en SGB: +15 % a +20 %; GBC sin cambio |

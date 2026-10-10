@@ -290,10 +290,12 @@ static void vram_transfer(Sgb *s, const u16 *shades)
         break;
     case CHR_TRN:
         memcpy(s->border_chr + (s->trn_arg & 1) * 4096, data, 4096);
+        s->border_ok = 0;
         break;
     case PCT_TRN:
         for (int i = 0; i < 32 * 28; i++) s->border_map[i] = (u16)(data[i * 2] | data[i * 2 + 1] << 8);
         for (int i = 0; i < 64; i++) s->border_pal[i / 16][i % 16] = word(data + 0x800 + i * 2);
+        s->border_ok = 0;
         break;
     case ATTR_TRN:
         memcpy(s->atf, data, sizeof s->atf);
@@ -303,9 +305,14 @@ static void vram_transfer(Sgb *s, const u16 *shades)
 
 /* --- Imagen final --- */
 
+#define SGB_CLEAR 0x8000    /* en border_ov: transparente (los colores son de 15 bits) */
+
+/* Decodifica el borde: el marco va directo a la pantalla y lo que cae sobre
+ * el juego, además, a border_ov, para no repetir esto en cada cuadro */
 static void draw_border(Sgb *s)
 {
     u16 back = s->pal[0][0];
+    s->border_over = 0;
     for (int ty = 0; ty < 28; ty++) {
         for (int tx = 0; tx < 32; tx++) {
             u16 e = s->border_map[ty * 32 + tx];
@@ -316,22 +323,31 @@ static void draw_border(Sgb *s)
                 int row = (e & 0x8000) ? 7 - r : r;
                 u8 p0 = t[row * 2], p1 = t[row * 2 + 1], p2 = t[16 + row * 2], p3 = t[16 + row * 2 + 1];
                 u16 *dst = &s->screen[(ty * 8 + r) * SGB_SCREEN_W + tx * 8];
+                u16 *ov = in_game ? &s->border_ov[((ty - 5) * 8 + r) * GB_SCREEN_W + (tx - 6) * 8] : NULL;
                 for (int x = 0; x < 8; x++) {
                     int b = (e & 0x4000) ? x : 7 - x;
                     int c = ((p0 >> b) & 1) | ((p1 >> b) & 1) << 1 | ((p2 >> b) & 1) << 2 | ((p3 >> b) & 1) << 3;
                     /* El color 0 es transparente: deja ver el juego o el fondo */
                     if (c) dst[x] = pal[c];
                     else if (!in_game) dst[x] = back;
+                    if (ov) {
+                        ov[x] = c ? pal[c] : SGB_CLEAR;
+                        s->border_over |= c != 0;
+                    }
                 }
             }
         }
     }
+    s->border_back = back;
+    s->border_ok = 1;
 }
 
 void sgb_frame(GB *g, const u16 *shades)
 {
     Sgb *s = &g->sgbs;
     if (s->trn_wait && !--s->trn_wait) vram_transfer(s, shades);
+    /* El borde solo cambia con CHR_TRN, PCT_TRN o el color 0 */
+    int fresh = s->border_ok && s->border_back == s->pal[0][0];
 
     /* El juego, coloreado según el mapa de atributos */
     if (s->mask != 1) {
@@ -347,8 +363,18 @@ void sgb_frame(GB *g, const u16 *shades)
                 dst[x] = col;
             }
         }
+        /* Lo que el borde dibuja encima del juego. Con la pantalla congelada
+         * (MASK_EN 1) ya está ahí desde el cuadro en que se dibujó */
+        if (fresh && s->border_over) {
+            for (int y = 0; y < GB_SCREEN_H; y++) {
+                u16 *dst = &s->screen[(40 + y) * SGB_SCREEN_W + 48];
+                const u16 *ov = &s->border_ov[y * GB_SCREEN_W];
+                for (int x = 0; x < GB_SCREEN_W; x++)
+                    if (ov[x] != SGB_CLEAR) dst[x] = ov[x];
+            }
+        }
     }
-    draw_border(s);
+    if (!fresh) draw_border(s);
 }
 
 const u16 *gb_sgb_screen(const GB *g)

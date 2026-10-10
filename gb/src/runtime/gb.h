@@ -236,6 +236,13 @@ typedef struct {
     u16 border_map[32 * 28];
     u16 border_pal[4][16];      /* paletas 4-7 */
     u16 screen[SGB_SCREEN_W * SGB_SCREEN_H];   /* imagen final en RGB555 */
+    /* El borde ya dibujado (no se decodifica en cada cuadro): vale mientras
+     * border_ok y el color 0 (el fondo) siga siendo border_back. border_ov
+     * son los píxeles del borde que caen sobre el juego (SGB_CLEAR donde es
+     * transparente); border_over dice si hay alguno. */
+    u16 border_ov[GB_SCREEN_W * GB_SCREEN_H];
+    u16 border_back;
+    u8 border_ok, border_over;
 } Sgb;
 
 typedef struct GB GB;

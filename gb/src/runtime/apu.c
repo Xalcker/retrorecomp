@@ -332,6 +332,37 @@ static void advance_channel(GB *g, int n, int dots)
     }
 }
 
+/*
+ * Suma `d` a *x de a una vez, como el bucle original, hasta `limit` veces o
+ * hasta que la suma siguiente llegaría a una muestra; devuelve cuántas hizo.
+ * sample_acc empieza en 0, se le suman enteros y se le resta CPS, que es
+ * múltiplo de 2^-46: siempre es múltiplo de 2^-46 y menor que 128, así que
+ * cabe exacto en los 53 bits de un double y ninguna de esas sumas redondea.
+ * Entonces m sumas seguidas dan lo mismo que sumar m·d, y m sale de una
+ * división exacta (CPS - x es exacto por lo mismo; d es potencia de 2). Si x
+ * no tuviera esa forma, se suma de a una como antes.
+ */
+static u32 sample_steps(double *px, u32 d, u32 limit)
+{
+    double x = *px;
+    double scaled = x * 70368744177664.0;  /* x · 2^46 */
+    if ((d & (d - 1)) == 0 && x >= 0 && x < CYCLES_PER_SAMPLE && scaled == (double)(long long)scaled) {
+        double r = (CYCLES_PER_SAMPLE - x) / d;
+        u32 m = (u32)r;                     /* sumas con x + m·d < CPS */
+        if ((double)m == r) m--;
+        if (m > limit) m = limit;
+        *px = x + (double)(m * d);
+        return m;
+    }
+    u32 j = 0;
+    while (j < limit && x + d < CYCLES_PER_SAMPLE) {
+        x += d;
+        j++;
+    }
+    *px = x;
+    return j;
+}
+
 void apu_flush(GB *g)
 {
     Apu *a = &g->apu;
@@ -350,11 +381,8 @@ void apu_flush(GB *g)
             }
         }
         if (a->enabled) {
-            double x = a->sample_acc;
-            u32 j = 0;
-            while (j < k - 1 && x + d < CYCLES_PER_SAMPLE) { x += d; j++; }
+            u32 j = sample_steps(&a->sample_acc, d, k - 1);
             if (j < k - 1) k = j + 1;           /* la muestra sale en el M-ciclo j+1 */
-            a->sample_acc = x;
         }
         if (k > 1) {
             int dots = (int)((k - 1) * d);

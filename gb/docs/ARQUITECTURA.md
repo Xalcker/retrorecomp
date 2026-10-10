@@ -812,6 +812,7 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 | Modo 3 en régimen sin despacho (`mode3_fast`) | +3 % a +11 % (Tetris 27x→30x, SML 30.5x→33x, Harry Potter 21x→22x) |
 | Un mosaico de 8 puntos de una vez (`mode3_tile`) | con el anterior, +38 % a +64 % (Tetris 27.5x→45x, SML 30.6x→50x, Pokémon Rojo 26.7x→40x, Tetris DX 28.2x→42x, SMB Deluxe 27.4x→44.6x, Harry Potter 21.3x→29.5x) |
 | `bg_push_row` con tabla y búsqueda en OAM sin despacho (`mode2_fast`) | +5 % a +9 % (Tetris 42x→45.5x, SML 49x→53.6x, Tetris DX 39.8x→42.5x) |
+| Muestras del APU sin sumar de a un M-ciclo (`sample_steps`) | con el anterior, +9 % a +15 % (Tetris 44.4x→48.5x, SML 49.5x→55x, SMB Deluxe 43.5x→49.7x, Harry Potter 28.5x→31x) |
 
 **Sincronización en lote.** `sync_hardware` avanzaba el timer, la PPU y el
 APU de a un M-ciclo. Sin DMA de OAM ni transferencia serial, ahora pregunta a
@@ -857,7 +858,12 @@ puede cambiar (vence el temporizador de un canal audible o sale una muestra) y
 hace los anteriores de una vez: la salida de cada canal no cambia en ellos y
 las sumas son enteros exactos en `double`. Los canales inaudibles (apagados o
 con volumen 0) se adelantan de golpe; solo cambia su estado interno (paso,
-posición de la onda, LFSR). `sample_acc`, que tiene parte fraccionaria, se
-sigue sumando de a un M-ciclo. El resultado es idéntico bit a bit (golden
+posición de la onda, LFSR). `sample_acc` tiene parte fraccionaria, pero
+empieza en 0, se le suman enteros y se le resta `CYCLES_PER_SAMPLE`, que es
+múltiplo de 2^-46: siempre es múltiplo de 2^-46 y menor que 128, así que cabe
+exacto en un `double` y ninguna suma redondea. `sample_steps` calcula con una
+división exacta cuántos M-ciclos caben antes de la siguiente muestra en vez
+de sumar de a uno (si el valor no tuviera esa forma, suma de a uno). Se
+comparó contra el bucle original en 20 millones de casos al azar: iguales. El resultado es idéntico bit a bit (golden
 igual) y `difftest` no cambia: el recompilado y el intérprete hacen
 `apu_flush` en los mismos momentos del juego.

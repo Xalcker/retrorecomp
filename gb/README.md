@@ -259,6 +259,14 @@ avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
 desensambla sus instrucciones y explica, como `--why`, por qué cada una es
 código. Los archivos se leen en la computadora; no se mandan a ningún lado.
 
+**GUI local.** `python3 tools/gui/gbrecomp_gui.py` abre en el navegador (solo Python
+estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior: el mapa de
+cada banco como `--viz` con clic por celda y la cadena de `--why`, el avance por ROM (análisis,
+cobertura, proyecto, `difftest`, velocidad), trazas con `difftest --uncovered` o jugando, guiones
+de entradas (`--input`, `--play`, `--record`), recompilar, `difftest`, `gbbench`,
+`tests/recomp_game.sh`, sincronizar el repo y la salida de cada trabajo en vivo. Opciones:
+`--roms carpeta`, `--port N`.
+
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
 por el propio juego para verse igual en todos los sistemas; Alt o F10):
 

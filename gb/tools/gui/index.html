@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GBRecomp GUI</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--mut:#6a737d;--line:#d7dce1;--card:#f6f8fa;--c0:#1a9e3a;--c1:#0b8fb5;--c2:#c79a00;--c3:#c2188f;--c4:#4a5fc1;--miss:#d1242f;--sel:#0b5fff;--ok:#1a7f37;--bad:#cf222e;--con:#0d1117;--conf:#d0d7de}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--line:#30363d;--card:#161b22;--c0:#3fb950;--c1:#39c5cf;--c2:#e3b341;--c3:#f778ba;--c4:#7d8ff0;--miss:#ff7b72;--sel:#58a6ff;--ok:#3fb950;--bad:#ff7b72;--con:#010409;--conf:#c9d1d9}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:260px 1fr;grid-template-areas:"h h" "s m" "d d"}
+header{grid-area:h;padding:8px 14px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+h1{font-size:16px;margin:0}
+.mut{color:var(--mut)}
+aside{grid-area:s;border-right:1px solid var(--line);overflow:auto;padding:10px;min-height:0}
+main{grid-area:m;overflow:auto;padding:12px 16px;min-width:0;min-height:0}
+#dock{grid-area:d;border-top:1px solid var(--line);background:var(--card)}
+button,select,input,textarea{font:13px system-ui,sans-serif;color:var(--fg)}
+button{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--sel)}
+button:disabled{opacity:.5;cursor:default}
+button.pri{background:var(--sel);color:#fff;border-color:var(--sel)}
+input[type=text],input[type=number],select,textarea{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+textarea{font:12.5px ui-monospace,Menlo,monospace;width:100%;min-height:4.2em;resize:vertical}
+input.mono{font:12.5px ui-monospace,Menlo,monospace}
+.chip{font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);background:var(--card);white-space:nowrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:3px}
+.dot.on{background:var(--ok)}
+#roms{list-style:none;margin:8px 0 0;padding:0}
+#roms li{padding:5px 8px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;gap:6px;align-items:center}
+#roms li:hover{background:var(--card)}
+#roms li.sel{background:color-mix(in srgb,var(--sel) 18%,transparent)}
+#roms .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.tab{padding:6px 12px;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;color:var(--mut)}
+.tab.on{border-color:var(--line);background:var(--card);color:var(--fg);font-weight:600}
+.pane{display:none}.pane.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;min-width:0}
+.card h3{margin:0 0 8px;font-size:14px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+label.f{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--mut)}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.step{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--card)}
+.step b{display:block;font-size:12px;color:var(--mut);font-weight:600}
+.step .v{font-size:15px;font-weight:600}
+.step.ok{border-left:4px solid var(--ok)}.step.bad{border-left:4px solid var(--bad)}.step.todo{border-left:4px solid var(--line)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:5px}.bar>i{display:block;height:100%;background:var(--ok)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 8px;font-size:13px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-1px;margin-right:4px}
+#map{display:block;max-width:100%;border:1px solid var(--line);border-radius:4px;cursor:crosshair;background:var(--bg)}
+table{border-collapse:collapse;width:100%;font:12.5px ui-monospace,Menlo,monospace}
+td,th{padding:2px 6px;white-space:nowrap;text-align:left}
+th{font:12px system-ui;color:var(--mut);font-weight:600}
+tr.ins:hover{background:var(--line);cursor:pointer}
+.list{max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all}
+#why{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;max-height:30vh;overflow:auto}
+#log{background:var(--con);color:var(--conf);padding:8px 12px;height:130px;overflow:auto}
+#dockbar{display:flex;gap:6px;align-items:center;padding:4px 10px;overflow-x:auto}
+.jb{cursor:pointer;white-space:nowrap}.jb.sel{border-color:var(--sel)}
+.st-ok{color:var(--ok)}.st-error{color:var(--bad)}.st-running{color:var(--sel)}
+.msg{color:var(--bad);font-size:13px}
+.toast{position:fixed;right:14px;top:56px;background:var(--bad);color:#fff;padding:8px 12px;border-radius:8px;max-width:420px;z-index:9;display:none}
+@media(max-width:760px){body{grid-template-columns:1fr;grid-template-areas:"h" "s" "m" "d"}aside{max-height:30vh;border-right:none;border-bottom:1px solid var(--line)}}
+</style></head><body>
+<header>
+ <h1>GBRecomp</h1>
+ <span class="chip" id="gitchip">git…</span>
+ <button id="bSync" title="git fetch + fast-forward del repo (la carpeta del proyecto)">Sincronizar repo</button>
+ <button id="bBuild" title="make -j8: gbrecomp, gbtest, gbbench…">Compilar herramientas</button>
+ <button id="bTest" title="tests/run_tests.sh (necesita testroms/)">Pruebas de hardware</button>
+ <span id="tools" class="mut"></span>
+</header>
+<aside>
+ <input type="text" id="q" placeholder="Buscar ROM…" style="width:100%">
+ <ul id="roms"></ul>
+ <p class="mut" style="font-size:12px" id="romsdir"></p>
+</aside>
+<main>
+ <div id="nosel" class="mut">Elige una ROM de la lista.</div>
+ <div id="app" style="display:none">
+  <h2 id="romtitle" style="margin:0 0 8px;font-size:17px"></h2>
+  <div class="tabs" id="tabs">
+   <div class="tab on" data-p="p-avance">Avance</div>
+   <div class="tab" data-p="p-trazas">Trazas</div>
+   <div class="tab" data-p="p-recomp">Recompilar y probar</div>
+  </div>
+
+  <div class="pane on" id="p-avance">
+   <div class="steps" id="steps"></div>
+   <div class="grid2">
+    <div class="card">
+     <h3>Mapa de la ROM por banco <span class="mut" style="font-weight:400">(como <code>--viz</code>: una celda = 256 bytes)</span></h3>
+     <div class="legend" id="legend"></div>
+     <div class="row">
+      <label class="f">Trazas que se suman al análisis <span id="trsel" class="mut"></span></label>
+      <label class="f">Cobertura (en rojo lo que el juego ejecutó y no se halló)
+       <select id="cov"><option value="">— ninguna —</option></select></label>
+      <button id="bMap">Actualizar</button>
+      <button id="bEvents" title="gbrecomp --events; ábrelo en el visor de eventos (arrastrándolo)">Eventos y visor</button>
+     </div>
+     <div id="mapmsg" class="msg"></div>
+     <div style="max-height:62vh;overflow:auto"><canvas id="map"></canvas></div>
+     <div class="mut" id="mapstat" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+     <h3 id="celltitle">Celda</h3>
+     <div class="mut" id="cellhint">Haz clic en una celda del mapa para ver sus instrucciones; clic en una instrucción para ver por qué es código (<code>--why</code>).</div>
+     <div class="list" id="celllist" style="display:none"><table><thead><tr><th>Dir</th><th>Origen</th><th>Instrucción</th></tr></thead><tbody id="celltb"></tbody></table></div>
+     <h3 style="margin-top:10px" id="whytitle" hidden>Por qué</h3>
+     <pre id="why" hidden></pre>
+    </div>
+   </div>
+  </div>
+
+  <div class="pane" id="p-trazas">
+   <div class="grid2">
+    <div class="card">
+     <h3>Generar una traza con <code>difftest</code> (<code>--uncovered</code>)</h3>
+     <div class="mut" style="font-size:12px;margin-bottom:6px">Corre el proyecto recompilado contra el intérprete y guarda las direcciones que tuvo que interpretar. Necesita el proyecto compilado (pestaña Recompilar).</div>
+     <div class="row">
+      <label class="f">Cuadros<input type="number" id="tFrames" value="6000" min="1" style="width:7em"></label>
+      <label class="f">Semilla<input type="number" id="tSeed" value="1" style="width:6em"></label>
+      <label class="f">Entradas<select id="tInput"></select></label>
+      <label class="f">Nombre<input type="text" id="tName" value="difftest" style="width:9em"></label>
+     </div>
+     <div class="row"><button class="pri" id="bTrace">Generar traza</button><button id="bShot" title="gbtest --dump tras N segundos, sin entradas">Captura PNG</button></div>
+     <img id="shot" style="max-width:320px;image-rendering:pixelated;display:none;border:1px solid var(--line)">
+     <h3 style="margin-top:14px">Jugar y grabar</h3>
+     <div class="row">
+      <label class="f">Traza<input type="text" id="pName" value="jugada" style="width:9em"></label>
+      <label class="f">Entradas grabadas<input type="text" id="pIName" value="jugada" style="width:9em"></label>
+     </div>
+     <div class="row">
+      <button id="bPlayRec">Jugar grabando traza y entradas</button>
+      <button id="bPlay">Jugar</button>
+      <label class="f" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterp"> todo con el intérprete</label>
+     </div>
+     <div class="mut" style="font-size:12px">Se guardan al cerrar la ventana del juego. Las entradas grabadas quedan disponibles en la lista «Entradas».</div>
+    </div>
+    <div class="card">
+     <h3>Trazas de esta ROM</h3>
+     <div class="mut" style="font-size:12px;margin-bottom:6px">Las marcadas se agregan al análisis (mapa, recompilación).</div>
+     <table id="trtab"><thead><tr><th></th><th>Archivo</th><th>Dir.</th><th></th></tr></thead><tbody></tbody></table>
+     <div class="row"><input type="text" id="mName" value="unida" style="width:9em"><button id="bMerge">Unir marcadas</button></div>
+     <div id="trmsg" class="msg"></div>
+    </div>
+   </div>
+   <div class="card">
+    <h3>Entradas (guion de botones para <code>--input</code> / <code>--play</code>)</h3>
+    <div class="row">
+     <label class="f">Ver o editar<select id="iSel"></select></label>
+     <label class="f">Plantilla<select id="iTpl"></select></label>
+     <label class="f">Guardar como<input type="text" id="iName" value="mia" style="width:9em"></label>
+     <button id="iSave">Guardar</button><button id="iDel">Borrar</button>
+    </div>
+    <textarea id="iText" placeholder="modelo dmg&#10;0 -&#10;122 START&#10;129 -&#10;300 RIGHT+A"></textarea>
+    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
+   </div>
+  </div>
+
+  <div class="pane" id="p-recomp">
+   <div class="grid2">
+    <div class="card">
+     <h3>1. Recompilar (<code>gbrecomp</code> + <code>make</code>)</h3>
+     <div class="row">
+      <label class="f">Nombre del ejecutable<input type="text" id="rName" style="width:12em"></label>
+      <label class="f" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px"><input type="checkbox" id="rCompile" checked> compilar el proyecto</label>
+     </div>
+     <div class="mut" style="font-size:12px">Usa las trazas marcadas en la pestaña Trazas. Proyecto en <code id="rDir"></code>.</div>
+     <div class="row"><button class="pri" id="bRecomp">Recompilar</button></div>
+     <h3 style="margin-top:14px">Ciclo completo (<code>tests/recomp_game.sh</code>)</h3>
+     <div class="row"><label class="f">Cuadros<input type="number" id="gFrames" value="6000" min="1" style="width:7em"></label><button id="bGame" style="margin-top:14px">Correr ciclo completo</button></div>
+     <div class="mut" style="font-size:12px">Recompila, difftest con 3 semillas, junta lo que cayó al intérprete en <code>build/NOMBRE.trace</code>, recompila con esa traza y vuelve a probar.</div>
+    </div>
+    <div class="card">
+     <h3>2. Comparar contra el intérprete (<code>difftest</code>)</h3>
+     <div class="row">
+      <label class="f">Cuadros<input type="number" id="dFrames" value="6000" min="1" style="width:7em"></label>
+      <label class="f">Semilla<input type="number" id="dSeed" value="1" style="width:6em"></label>
+      <label class="f">Entradas<select id="dInput"></select></label>
+      <label class="f">Modelo<select id="dModel"><option value="">auto</option><option>dmg</option><option>cgb</option><option>sgb</option></select></label>
+     </div>
+     <div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="dUnc"> guardar lo no cubierto como traza «difftest»</label></div>
+     <div class="row"><button class="pri" id="bDiff">Correr difftest</button></div>
+     <h3 style="margin-top:14px">3. Velocidad</h3>
+     <div class="row">
+      <label class="f">Cuadros<input type="number" id="bFrames" value="3000" min="1" style="width:7em"></label>
+      <label class="f">Repeticiones<input type="number" id="bRepeat" value="3" min="1" style="width:5em"></label>
+     </div>
+     <div class="row"><button id="bBench">Intérprete (gbbench)</button><button id="bBenchRc">Recompilado (difftest --bench)</button><button id="bPlayRc">Jugar el recompilado</button></div>
+    </div>
+   </div>
+  </div>
+ </div>
+</main>
+<div id="dock">
+ <div id="dockbar"></div>
+ <pre id="log"></pre>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN="__TOKEN__";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const ORG=["arranque","interrupción","tabla de saltos","traza"];
+const S={rom:null,state:null,traces:[],checked:new Set(),map:null,cellsel:null,job:null,jobpos:0,lastRunning:false,romq:""};
+
+async function api(path,body){
+  const o={headers:{"X-Token":TOKEN}};
+  if(body!==undefined){o.method="POST";o.body=JSON.stringify(body);o.headers["Content-Type"]="application/json"}
+  const r=await fetch(path,o), j=await r.json().catch(()=>({error:"respuesta inválida"}));
+  if(j.error) throw new Error(j.error);
+  return j;
+}
+function toast(m,ok){const t=$("#toast");t.textContent=m;t.style.background=ok?"var(--ok)":"";t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",6000)}
+const guard=f=>async(...a)=>{try{await f(...a)}catch(e){toast(e.message)}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const qs=(o)=>Object.entries(o).flatMap(([k,v])=>Array.isArray(v)?v.map(x=>k+"="+encodeURIComponent(x)):[k+"="+encodeURIComponent(v)]).join("&");
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hex=(n,w)=>n.toString(16).toUpperCase().padStart(w,"0");
+
+/* ---------- estado y barra superior ---------- */
+async function refresh(){
+  const st=await api("/api/state"+(S.rom?"?rom="+encodeURIComponent(S.rom):""));
+  S.state=st;
+  const g=st.git;
+  $("#gitchip").textContent=`${g.branch} · ${g.head.slice(0,48)}${g.behind?` · ${g.behind} por bajar`:""}${g.ahead?` · ${g.ahead} sin subir`:""}${g.dirty?" · cambios locales":""}`;
+  $("#tools").innerHTML=Object.entries(st.tools).map(([n,ok])=>`<span title="${ok?"compilado":"falta (Compilar herramientas)"}"><span class="dot ${ok?"on":""}"></span>${n}</span>`).join(" ");
+  $("#romsdir").textContent=st.roms_dir;
+  renderRoms();
+  if(S.rom){S.traces=st.traces||[];renderTraces();renderInputs();renderSteps();$("#rDir").textContent="out/"+(st.project?.name||"")}
+  renderJobs();
+  const running=st.jobs.some(j=>j.status==="running");
+  if(S.lastRunning&&!running&&S.rom){loadMap().catch(()=>{})}
+  S.lastRunning=running;
+  for(const id of ["bSync","bBuild","bTest"]) $("#"+id).disabled=running;
+}
+function renderRoms(){
+  const p=S.state.progress, q=S.romq.toLowerCase();
+  $("#roms").innerHTML=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)).map(r=>{
+    const d=p[r.name]?.difftest, b=d?(d.ok?"✓":"✗"):"";
+    return `<li data-r="${esc(r.name)}" class="${r.name===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n">${esc(r.name.replace(/\.(gb|gbc|sgb)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`}).join("");
+}
+$("#roms").onclick=e=>{const li=e.target.closest("li");if(li)selectRom(li.dataset.r)};
+$("#q").oninput=e=>{S.romq=e.target.value;renderRoms()};
+
+const guessName=n=>(n.replace(/\(.*?\)|\[.*?\]/g,"").replace(/\.[^.]*$/,"").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,16))||"juego";
+async function selectRom(r){
+  S.rom=r;S.checked=new Set();S.map=null;S.cellsel=null;
+  $("#nosel").style.display="none";$("#app").style.display="";$("#romtitle").textContent=r;
+  $("#rName").value=guessName(r);
+  $("#celllist").style.display="none";$("#why").hidden=true;$("#whytitle").hidden=true;$("#shot").style.display="none";
+  await refresh();
+  await loadMap();
+}
+
+/* ---------- avance ---------- */
+function renderSteps(){
+  const st=S.state, pr=st.progress[S.rom]||{}, pj=st.project||{}, st_=[];
+  const an=S.map?.stats;
+  st_.push(["Análisis estático",an?`${an.pct}% de la ROM`:"—",an?"ok":"todo",an?an.pct:0,an?`${an.instr} instr. · ${an.mbc} · ${an.banks} bancos`:""]);
+  const cv=an?.cov_pct;
+  st_.push(["Cobertura",cv!=null?`${cv}%`:"sin medir",cv==null?"todo":(cv>=99?"ok":"bad"),cv||0,cv!=null?`${an.cov_total-an.cov_missing} de ${an.cov_total} direcciones halladas`:"elige una traza en «Cobertura»"]);
+  st_.push(["Trazas",`${S.traces.length}`,S.traces.length?"ok":"todo",0,S.traces.reduce((a,t)=>a+t.lines,0)+" direcciones"]);
+  st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,"out/"+(pj.name||"")]);
+  st_.push(["Compilado",pj.built?"sí":"no",pj.built?"ok":"todo",0,""]);
+  const d=pr.difftest;
+  st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_recomp??"?"}% recompilado`:""]);
+  const b=pr.bench;
+  st_.push(["Velocidad",b?.speed?`${b.speed}x`:"—",b?.speed?"ok":"todo",0,"tiempo real (último bench)"]);
+  $("#steps").innerHTML=st_.map(([t,v,c,pct,sub])=>`<div class="step ${c}"><b>${t}</b><span class="v">${esc(v)}</span>${pct?`<div class="bar"><i style="width:${Math.min(100,pct)}%"></i></div>`:""}<div class="mut" style="font-size:11px">${esc(sub)}</div></div>`).join("");
+}
+
+function legend(){
+  $("#legend").innerHTML=ORG.map((n,i)=>`<span><span class="sw" style="background:var(--c${i})"></span>${n}</span>`).join("")+
+   `<span><span class="sw" style="background:var(--c4)"></span>argumentos en línea (≡)</span><span><span class="sw" style="background:var(--miss)"></span>ejecutado y no descubierto</span><span><b style="color:var(--bad)">!</b> salto sin resolver</span><span class="mut">· la opacidad es la densidad de código</span>`;
+}
+legend();
+
+const CELL=10, GAP=1, LBL=30, NC=64;
+async function loadMap(){
+  if(!S.rom) return;
+  $("#mapmsg").textContent="";
+  const q={rom:S.rom,trace:[...S.checked]};
+  if($("#cov").value) q.coverage=$("#cov").value;
+  const m=await api("/api/map?"+qs(q)).catch(e=>({error:e.message}));
+  if(m.error){$("#mapmsg").textContent=m.error;S.map=null;drawMap();renderSteps();return}
+  S.map=m;drawMap();renderSteps();
+  const s=m.stats;
+  $("#mapstat").textContent=`${s.title||""} · ${s.mbc} · ${s.banks} bancos · ${s.instr} instrucciones (${s.bytes} bytes, ${s.pct}% de la ROM) · ${s.tables} tablas · ${s.unresolved} sin resolver`+(s.cov_total!=null?` · cobertura: ${s.cov_missing} de ${s.cov_total} sin descubrir`:"");
+}
+function drawMap(){
+  const c=$("#map"), m=S.map;
+  if(!m||!m.banks.length){c.width=10;c.height=10;return}
+  const dpr=window.devicePixelRatio||1, W=LBL+NC*(CELL+GAP), H=m.banks.length*(CELL+GAP)+4;
+  c.width=W*dpr;c.height=H*dpr;c.style.width=W+"px";c.style.height=H+"px";
+  const x=c.getContext("2d");x.scale(dpr,dpr);x.clearRect(0,0,W,H);
+  x.font="10px ui-monospace,Menlo,monospace";x.textBaseline="middle";x.textAlign="center";
+  const col=[0,1,2,3,4].map(i=>cssv("--c"+i)),miss=cssv("--miss"),line=cssv("--line"),mut=cssv("--mut"),sel=cssv("--sel"),bad=cssv("--bad");
+  m.banks.forEach((bk,ri)=>{
+    const y=ri*(CELL+GAP)+2;
+    x.fillStyle=mut;x.textAlign="left";x.fillText(hex(bk.bank,2),0,y+CELL/2);x.textAlign="center";
+    bk.cells.forEach((cl,ci)=>{
+      const px=LBL+ci*(CELL+GAP), [dens,cat,flag]=cl;
+      if(flag&1){x.fillStyle=miss;x.fillRect(px,y,CELL,CELL)}
+      else if(!dens){x.fillStyle=line;x.globalAlpha=.55;x.fillRect(px,y,CELL,CELL);x.globalAlpha=1}
+      else{x.fillStyle=col[cat];x.globalAlpha=.3+.7*dens/256;x.fillRect(px,y,CELL,CELL);x.globalAlpha=1}
+      if(flag&2){x.fillStyle=bad;x.fillText("!",px+CELL/2,y+CELL/2+1)}
+      if(S.cellsel&&S.cellsel[0]===bk.bank&&S.cellsel[1]===ci){x.strokeStyle=sel;x.lineWidth=2;x.strokeRect(px+1,y+1,CELL-2,CELL-2)}
+    });
+  });
+}
+function cellAt(ev){
+  const c=$("#map"), b=c.getBoundingClientRect(), k=parseFloat(c.style.width)/b.width||1, x=(ev.clientX-b.left)*k-LBL, y=(ev.clientY-b.top)*k-2;
+  if(x<0||y<0||!S.map) return null;
+  const ci=Math.floor(x/(CELL+GAP)), ri=Math.floor(y/(CELL+GAP));
+  const bk=S.map.banks[ri]; if(!bk||ci>=NC) return null;
+  return {bank:bk.bank,ci,base:bk.base};
+}
+$("#map").onmousemove=e=>{const c=cellAt(e);$("#map").title=c?`${hex(c.bank,2)}:${hex(c.base+c.ci*256,4)}`:""};
+$("#map").onclick=guard(async e=>{
+  const c=cellAt(e); if(!c) return;
+  S.cellsel=[c.bank,c.ci];drawMap();
+  const r=await api("/api/cell?"+qs({rom:S.rom,trace:[...S.checked],bank:hex(c.bank,2),off:hex(c.ci*256,4)}));
+  $("#celltitle").textContent=`Celda ${hex(c.bank,2)}:${hex(r.lo,4)}–${hex(r.lo+255,4)} (${r.events.length} instrucciones)`;
+  $("#cellhint").style.display=r.events.length?"none":"";$("#cellhint").textContent=r.events.length?"":"Sin código descubierto en esta celda.";
+  $("#celllist").style.display=r.events.length?"":"none";
+  $("#celltb").innerHTML=r.events.map(v=>`<tr class="ins" data-a="${hex(r.bank,2)}:${v.addr}"><td>${hex(r.bank,2)}:${v.addr}</td><td><span class="sw" style="background:var(--c${v.org})"></span>${ORG[v.org]||""}</td><td>${esc(v.dis)}</td></tr>`).join("");
+  $("#why").hidden=$("#whytitle").hidden=true;
+});
+$("#celltb").onclick=guard(async e=>{
+  const tr=e.target.closest("tr"); if(!tr) return;
+  const r=await api("/api/why?"+qs({rom:S.rom,trace:[...S.checked],addr:tr.dataset.a}));
+  $("#why").textContent=r.text;$("#why").hidden=$("#whytitle").hidden=false;
+});
+$("#bMap").onclick=guard(loadMap);
+$("#cov").onchange=guard(loadMap);
+$("#bEvents").onclick=guard(async()=>{
+  const j=await api("/api/job",{kind:"events",rom:S.rom,traces:[...S.checked]});
+  watch(j.id,()=>{window.open("/files/events?"+qs({t:TOKEN,rom:S.rom}),"_blank");window.open("/files/visor?t="+TOKEN,"_blank");toast("Guarda el texto de eventos y arrástralo al visor",true)});
+});
+
+/* ---------- trazas ---------- */
+function renderTraces(){
+  const sel=$("#cov"), cur=sel.value;
+  sel.innerHTML='<option value="">— ninguna —</option>'+S.traces.map(t=>`<option ${t.name===cur?"selected":""}>${esc(t.name)}</option>`).join("");
+  for(const n of [...S.checked]) if(!S.traces.find(t=>t.name===n)) S.checked.delete(n);
+  $("#trtab tbody").innerHTML=S.traces.length?S.traces.map(t=>`<tr><td><input type="checkbox" data-n="${esc(t.name)}" ${S.checked.has(t.name)?"checked":""}></td><td>${esc(t.name)}</td><td>${t.lines}</td><td><button data-del="${esc(t.name)}" title="borrar">✕</button></td></tr>`).join(""):`<tr><td colspan="4" class="mut">Sin trazas todavía.</td></tr>`;
+  $("#trsel").textContent=S.checked.size?`(${S.checked.size} marcada${S.checked.size>1?"s":""})`:"(ninguna: solo análisis estático)";
+}
+$("#trtab").onchange=guard(async e=>{const n=e.target.dataset.n;if(!n)return;e.target.checked?S.checked.add(n):S.checked.delete(n);renderTraces();await loadMap()});
+$("#trtab").onclick=guard(async e=>{
+  const n=e.target.dataset.del; if(!n||!confirm("¿Borrar "+n+"?")) return;
+  await api("/api/trace/delete",{rom:S.rom,name:n});S.checked.delete(n);await refresh();
+});
+$("#bMerge").onclick=guard(async()=>{
+  const r=await api("/api/trace/merge",{rom:S.rom,names:[...S.checked],out:$("#mName").value});
+  $("#trmsg").textContent=`${r.lines} direcciones unidas.`;await refresh();
+});
+
+/* ---------- entradas ---------- */
+function renderInputs(){
+  const ins=S.state.inputs||[], opt='<option value="">— ninguna / al azar —</option>'+ins.map(i=>`<option>${esc(i)}</option>`).join("");
+  for(const id of ["#tInput","#dInput"]){const c=$(id).value;$(id).innerHTML=opt;$(id).value=c}
+  const c=$("#iSel").value;$("#iSel").innerHTML='<option value="">— nueva —</option>'+ins.map(i=>`<option>${esc(i)}</option>`).join("");$("#iSel").value=c;
+  if(!$("#iTpl").options.length)$("#iTpl").innerHTML='<option value="">— plantilla —</option>'+Object.keys(S.state.presets).map(k=>`<option>${k}</option>`).join("");
+}
+$("#iSel").onchange=guard(async()=>{
+  const n=$("#iSel").value; if(!n){$("#iText").value="";return}
+  $("#iText").value=(await api("/api/input?"+qs({rom:S.rom,name:n}))).text;
+  if(n.startsWith("mia:"))$("#iName").value=n.slice(4).replace(/\.txt$/,"");
+});
+$("#iTpl").onchange=()=>{const t=S.state.presets[$("#iTpl").value];if(t)$("#iText").value=t};
+$("#iSave").onclick=guard(async()=>{const r=await api("/api/input",{rom:S.rom,name:$("#iName").value,text:$("#iText").value});await refresh();$("#iSel").value=r.name;toast("Guardada: "+r.name,true)});
+$("#iDel").onclick=guard(async()=>{
+  const n=$("#iSel").value; if(!n.startsWith("mia:")) throw new Error("Elige una de las tuyas (mia:)");
+  if(!confirm("¿Borrar "+n+"?")) return;
+  await api("/api/input/delete",{rom:S.rom,name:n});$("#iText").value="";await refresh();
+});
+
+/* ---------- acciones ---------- */
+$("#bTrace").onclick=guard(async()=>{
+  const j=await api("/api/job",{kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#tFrames").value,seed:$("#tSeed").value,input:$("#tInput").value,uncovered:true,uncovered_name:$("#tName").value});
+  watch(j.id,()=>{S.checked.add($("#tName").value.replace(/\.trace$/,"")+".trace");refresh().then(loadMap)});
+});
+$("#bShot").onclick=guard(async()=>{
+  const j=await api("/api/job",{kind:"screenshot",rom:S.rom,seconds:5});
+  watch(j.id,()=>{const i=$("#shot");i.src="/files/shot?"+qs({t:TOKEN,rom:S.rom,n:Date.now()});i.style.display=""});
+});
+const play=guard(async(rec,recompiled)=>{
+  const r=await api("/api/play",{rom:S.rom,record_trace:rec,trace_name:$("#pName").value,record_input:rec,input_name:$("#pIName").value,interp:$("#pInterp").checked});
+  toast(rec?"Grabando traza y entradas al cerrar la ventana":"Ventana abierta",true);
+});
+$("#bPlayRec").onclick=()=>play(true);$("#bPlay").onclick=()=>play(false);
+$("#bPlayRc").onclick=()=>play(false);
+
+const job=(body)=>guard(async()=>{const j=await api("/api/job",body());watch(j.id)});
+$("#bRecomp").onclick=job(()=>({kind:"recomp",rom:S.rom,name:$("#rName").value,traces:[...S.checked],compile:$("#rCompile").checked}));
+$("#bGame").onclick=job(()=>({kind:"recomp_game",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value}));
+$("#bDiff").onclick=job(()=>({kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#dFrames").value,seed:$("#dSeed").value,input:$("#dInput").value,model:$("#dModel").value,uncovered:$("#dUnc").checked,uncovered_name:"difftest"}));
+$("#bBench").onclick=job(()=>({kind:"bench",rom:S.rom,frames:$("#bFrames").value,repeat:$("#bRepeat").value,input:$("#dInput").value,model:$("#dModel").value}));
+$("#bBenchRc").onclick=job(()=>({kind:"bench",rom:S.rom,name:$("#rName").value,frames:$("#bFrames").value,recompiled:true}));
+$("#bSync").onclick=job(()=>({kind:"git_sync"}));
+$("#bBuild").onclick=job(()=>({kind:"build"}));
+$("#bTest").onclick=job(()=>({kind:"test"}));
+
+/* ---------- trabajos y registro ---------- */
+function renderJobs(){
+  const js=S.state.jobs;
+  $("#dockbar").innerHTML='<b style="font-size:12px">Registro</b>'+(js.length?"":'<span class="mut" style="font-size:12px">sin trabajos todavía</span>')+js.slice(0,12).map(j=>{
+    const t=j.t1?`${(j.t1-j.t0).toFixed(1)} s`:"…";
+    return `<span class="chip jb ${j.id===S.job?"sel":""}" data-j="${j.id}"><span class="st-${j.status}">●</span> ${esc(j.title)} <span class="mut">${t}${j.status==="running"&&j.steps>1?` ${j.step+1}/${j.steps}`:""}</span></span>`}).join("")+
+    (S.job&&js.find(j=>j.id===S.job&&j.status==="running")?'<button id="bStop">Detener</button>':"");
+  const stop=$("#bStop");if(stop)stop.onclick=guard(()=>api("/api/job/stop",{id:S.job}));
+}
+$("#dockbar").onclick=e=>{const c=e.target.closest(".jb");if(c){S.job=+c.dataset.j;S.jobpos=0;$("#log").textContent="";pollJob()}};
+let after=null;
+function watch(id,cb){after=cb||null;S.job=id;S.jobpos=0;$("#log").textContent="";refresh().then(pollJob)}
+async function pollJob(){
+  if(!S.job) return;
+  const id=S.job;
+  try{
+    const j=await api(`/api/job?id=${id}&from=${S.jobpos}`);
+    if(id!==S.job) return;
+    if(j.text){const lg=$("#log"),bot=lg.scrollTop+lg.clientHeight>=lg.scrollHeight-30;lg.textContent+=j.text;if(bot)lg.scrollTop=lg.scrollHeight}
+    S.jobpos=j.pos;
+    if(j.status==="running"){setTimeout(pollJob,500);refresh().catch(()=>{});return}
+    await refresh();
+    if(after){const f=after;after=null;f()}
+  }catch(e){toast(e.message)}
+}
+
+/* ---------- pestañas ---------- */
+$("#tabs").onclick=e=>{const t=e.target.closest(".tab");if(!t)return;$$(".tab").forEach(x=>x.classList.toggle("on",x===t));$$(".pane").forEach(p=>p.classList.toggle("on",p.id===t.dataset.p));if(t.dataset.p==="p-avance")drawMap()};
+
+(async()=>{
+  try{await refresh()}catch(e){toast(e.message)}
+  const first=S.state?.roms[0];
+  const run=S.state?.jobs.find(j=>j.status==="running");
+  if(run){S.job=run.id;pollJob()}
+  setInterval(()=>{if(!S.state?.jobs.some(j=>j.status==="running"))refresh().catch(()=>{})},15000);
+})();
+</script>
+</body></html>

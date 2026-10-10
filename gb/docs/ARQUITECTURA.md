@@ -808,11 +808,44 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 |---|---|
 | Borde del SGB en caché | Pokémon Rojo, DKL2 y Wario Land II en SGB: +15 % a +20 %; GBC sin cambio |
 | APU perezoso (`apu_flush`) | Tetris y SML +12 % a +25 %; Tetris DX +25 %; SMB Deluxe (doble velocidad) +50 % |
+| Sincronización en lote (`timer_skip`) | +23 % a +40 % en todos (Tetris 20x→27x, SML 23x→30x, SMB Deluxe 19x→26.5x, Harry Potter 15x→21x) |
+| Modo 3 en régimen sin despacho (`mode3_fast`) | +3 % a +11 % (Tetris 27x→30x, SML 30.5x→33x, Harry Potter 21x→22x) |
+| Un mosaico de 8 puntos de una vez (`mode3_tile`) | con el anterior, +38 % a +64 % (Tetris 27.5x→45x, SML 30.6x→50x, Pokémon Rojo 26.7x→40x, Tetris DX 28.2x→42x, SMB Deluxe 27.4x→44.6x, Harry Potter 21.3x→29.5x) |
 
-**APU perezoso.** `apu_mcycle` ya no procesa cada M-ciclo: solo los cuenta.
+**Sincronización en lote.** `sync_hardware` avanzaba el timer, la PPU y el
+APU de a un M-ciclo. Sin DMA de OAM ni transferencia serial, ahora pregunta a
+`timer_skip` cuántos M-ciclos faltan para que el timer haga algo más que
+contar (el flanco del bit que elige TAC, el de DIV que marca el secuenciador
+del APU, o un desborde en curso; el contador avanza de 4 en 4, así que los
+flancos caen en múltiplos exactos) y los hace de una vez: suma al contador,
+los acumula en el APU y pone la PPU al día al final del lote. Es equivalente
+porque la PPU no lee el timer ni los relojes globales, y lo único que
+comparten es IF, donde cada uno solo prende bits. Además, la PPU recibe
+tramos largos y salta de golpe los puntos ociosos (`idle_dots`) en vez de que
+se le pregunte en cada M-ciclo, que es de donde sale la mayor parte de la
+ganancia.
+
+**Modo 3 en régimen.** Mientras el dibujo va en régimen (ya pasó el descarte
+inicial, no hay sprite por descartar ni por leer en ese punto, la ventana no
+puede activarse, no hay píxel de la ventana por meter ni nada pendiente),
+cada punto es solo `render_pixel` y `fetcher_step`. `mode3_fast` hace eso
+mismo sin pasar por `ppu_dot`, `visible_line_dot` y `mode3_dot`, y le devuelve
+el control a la ruta general en cuanto una condición deja de cumplirse. Cubre
+entre 79 % y 93 % de los puntos del modo 3 en los juegos de golden.
+
+Dentro de eso, cuando el fetcher acaba de empujar (estado 0 y 8 píxeles de un
+mismo mosaico en la FIFO), la FIFO de sprites está vacía y en los 8 puntos
+siguientes no cae ningún sprite, la activación de la ventana ni el fin de la
+línea, `mode3_tile` hace los 8 puntos de una vez: escribe los 8 píxeles con
+una tabla de 4 colores, lee el mosaico siguiente con la posición que tendría
+el fetcher en su punto 1 y lo empuja como en el punto 8. Además de golden, se
+comparó el hash de imagen y audio de 300 ROMs al azar de la colección (20 s
+cada una) contra la versión sin estos dos cambios: 300 iguales.
+
+**APU perezoso.** `apu_mcycles` ya no procesa los M-ciclos: solo los cuenta.
 `apu_flush` los procesa cuando alguien va a mirar o cambiar el APU: al leer o
 escribir sus registros, en cada paso del secuenciador (lo llama el timer antes
-del `apu_mcycle` del mismo M-ciclo, como antes), al sacar audio y al terminar
+del `apu_mcycles` del mismo M-ciclo, como antes), al sacar audio y al terminar
 `gb_run`. Dentro de un tramo pendiente busca el próximo M-ciclo en que algo
 puede cambiar (vence el temporizador de un canal audible o sale una muestra) y
 hace los anteriores de una vez: la salida de cada canal no cambia en ellos y

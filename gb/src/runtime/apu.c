@@ -267,7 +267,7 @@ static void apu_step(GB *g, u32 dots)
 }
 
 /*
- * Ejecución perezosa: apu_mcycle solo cuenta los M-ciclos y apu_flush los
+ * Ejecución perezosa: apu_mcycles solo cuenta los M-ciclos y apu_flush los
  * procesa cuando alguien va a mirar o cambiar el APU (registros, paso del
  * secuenciador, audio, fin de la corrida). El resultado es idéntico bit a bit
  * al de procesar cada M-ciclo (tests/golden.sh):
@@ -278,12 +278,12 @@ static void apu_step(GB *g, u32 dots)
  *     de golpe: solo cambia su estado interno (paso, posición, LFSR).
  *   - sample_acc tiene parte fraccionaria: se suma de a un M-ciclo, como antes.
  */
-void apu_mcycle(GB *g, u32 dots)
+void apu_mcycles(GB *g, u32 dots, u32 n)
 {
     Apu *a = &g->apu;
     if (a->pend && a->pend_d != dots) apu_flush(g);     /* cambió la velocidad (CGB) */
     a->pend_d = dots;
-    a->pend++;
+    a->pend += n;
 }
 
 static int channel_period(GB *g, int n)

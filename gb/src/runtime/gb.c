@@ -317,8 +317,23 @@ static u64 rt_at(const GB *g, u64 cpu)
 
 static void sync_hardware(GB *g)
 {
+    int ppu_behind = 0;
     while (g->hw_cyc < g->cyc) {
         u32 dots = dots_per_mcycle(g);
+        if (!g->serial.active && !g->dma.active) {
+            /* Los M-ciclos en que el timer solo cuenta se hacen de una vez:
+             * el APU los acumula y la PPU se pone al día al final (no lee el
+             * timer ni los relojes; sin DMA nadie más toca la OAM) */
+            u32 k = timer_skip(g, (u32)((g->cyc - g->hw_cyc + 3) / 4));
+            if (k) {
+                g->hw_cyc += 4 * (u64)k;
+                g->rt += (u64)dots * k;
+                g->serial.last_sys = g->timer.sys;
+                apu_mcycles(g, dots, k);
+                ppu_behind = 1;
+                continue;
+            }
+        }
         g->hw_cyc += 4;
         g->rt += dots;
         timer_mcycle(g);
@@ -326,8 +341,10 @@ static void sync_hardware(GB *g)
         else g->serial.last_sys = g->timer.sys;
         if (g->dma.active) dma_mcycle(g);
         ppu_advance(g, g->rt - PPU_HOLD);
-        apu_mcycle(g, dots);
+        apu_mcycles(g, dots, 1);
+        ppu_behind = 0;
     }
+    if (ppu_behind) ppu_advance(g, g->rt - PPU_HOLD);
 }
 
 void gb_sync(GB *g)

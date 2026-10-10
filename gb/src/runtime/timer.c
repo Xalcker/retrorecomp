@@ -114,6 +114,30 @@ void timer_write(GB *g, u8 reg, u8 v)
     }
 }
 
+/* M-ciclos (contando el flanco) hasta que el contador, que avanza de 4 en 4,
+ * llegue al siguiente múltiplo de `period`: ahí baja el bit period/2 */
+static u32 steps_to_edge(u16 sys, u32 period)
+{
+    return (period - (sys & (period - 1)) + 3) / 4;
+}
+
+/* Adelanta hasta `n` M-ciclos en los que timer_mcycle solo sumaría 4 al
+ * contador (sin incremento de TIMA, sin paso del secuenciador del APU y sin
+ * desborde en curso). Devuelve cuántos adelantó. */
+u32 timer_skip(GB *g, u32 n)
+{
+    Timer *t = &g->timer;
+    if (t->state != TIMA_NORMAL) return 0;
+    u32 k = steps_to_edge(t->sys, g->double_speed ? 0x4000 : 0x2000) - 1;
+    if (t->tac & 4) {
+        u32 e = steps_to_edge(t->sys, (u32)tac_bit[t->tac & 3] * 2) - 1;
+        if (e < k) k = e;
+    }
+    if (n < k) k = n;
+    t->sys = (u16)(t->sys + 4 * k);
+    return k;
+}
+
 /* Primer ciclo en que el timer podría pedir una interrupción */
 u64 timer_next_event(GB *g)
 {

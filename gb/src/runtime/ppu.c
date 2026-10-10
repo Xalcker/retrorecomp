@@ -702,6 +702,123 @@ static u32 idle_dots(const Ppu *p)
     return p->line_len - 1 - p->dot;
 }
 
+/*
+ * Los 8 puntos de un mosaico de una vez. Con el fetcher recién empujado
+ * (estado 0, 8 píxeles en la FIFO, todos del mismo mosaico) y la FIFO de
+ * sprites vacía, los 8 puntos siguientes sacan esos 8 píxeles (solo fondo:
+ * el color sale de una tabla de 4) mientras el fetcher lee el mosaico
+ * siguiente (estados 0 a 5, con la posición del punto 1) y lo empuja en el
+ * punto 8, cuando la FIFO se vacía. Es lo mismo que hacen render_pixel y
+ * fetcher_step punto a punto en ese caso; mode3_fast revisa antes que ningún
+ * sprite, la ventana ni el fin de la línea caiga en esos 8 puntos.
+ */
+static void mode3_tile(GB *g)
+{
+    Ppu *p = &g->ppu;
+    u8 lcdc = LCDC(g);
+
+    /* Píxeles: los 8 de la FIFO, con la misma paleta (mismo mosaico) */
+    u8 attr = p->bg_attr[p->bg_head];
+    u16 lut[4];
+    for (int c = 0; c < 4; c++) {
+        if (g->cgb) {
+            const u8 *e = &g->bg_pal[(attr & 7) * 8 + c * 2];
+            lut[c] = (u16)(e[0] | e[1] << 8) & 0x7FFF;
+        } else {
+            u16 color = (g->io[IO_BGP] >> (((lcdc & LCDC_BGON) ? c : 0) * 2)) & 3;
+            if (g->cgb_hw) {
+                const u8 *e = &g->bg_pal[color * 2];
+                color = (u16)(e[0] | e[1] << 8) & 0x7FFF;
+            }
+            lut[c] = color;
+        }
+    }
+    u16 *row = &p->back[p->ly * GB_SCREEN_W];
+    u8 pos0 = p->pos;
+    for (int i = 0; i < 8; i++) {
+        u8 px = p->bg_fifo[(p->bg_head + i) & 15];
+        if (p->lcd_x < GB_SCREEN_W) row[p->lcd_x] = lut[px];
+        p->lcd_x++;
+    }
+    p->bg_head = (p->bg_head + 8) & 15;
+    p->bg_size = 0;
+    p->pos = (u8)(pos0 + 8);
+    p->window_fetching = 0;
+
+    /* Fetcher. Estado 0 (punto 1, la posición ya avanzó uno) */
+    if (!(lcdc & LCDC_WINON)) p->wx_triggered = 0;
+    u16 map = 0x1800;
+    if (p->wx_triggered ? (lcdc & LCDC_WIN9C00) : (lcdc & LCDC_BG9C00)) map = 0x1C00;
+    u8 y = fetcher_y(g), x;
+    if (p->wx_triggered) x = p->window_tile_x;
+    else x = (u8)(((g->io[IO_SCX] + (u8)(pos0 + 1) + 8) / 8) & 0x1F);
+    p->fetch_addr = (u16)(map + x + (y / 8) * 32);
+    /* Estados 1 a 5 */
+    p->fetch_tile = vram(g, p->fetch_addr);
+    p->fetch_attr = g->cgb ? vram(g, (u16)(p->fetch_addr + 0x2000)) : 0;
+    p->fetch_addr = tile_row_addr(g);
+    p->fetch_data[0] = vram(g, p->fetch_addr);
+    p->fetch_addr = (u16)(tile_row_addr(g) + 1);
+    p->fetch_data[1] = vram(g, p->fetch_addr);
+    if (p->wx_triggered) p->window_tile_x = (p->window_tile_x + 1) & 0x1F;
+    /* Punto 8: la FIFO quedó vacía y se empuja */
+    bg_push_row(p, p->fetch_data[0], p->fetch_data[1], p->fetch_attr);
+    p->fetch_state = 0;
+}
+
+/*
+ * Camino rápido del modo 3: mientras el dibujo va "en régimen" (ya pasó el
+ * descarte inicial, no hay sprite por leer cerca, la ventana no puede
+ * activarse y no hay nada pendiente), cada punto es solo sacar un píxel y
+ * avanzar el fetcher. Hace exactamente lo mismo que ppu_dot en esos puntos
+ * (mismas render_pixel y fetcher_step) sin pasar por el despacho general, y
+ * le devuelve el control en cuanto algo de eso deja de cumplirse. Devuelve
+ * cuántos puntos hizo (hasta `n`).
+ */
+static u32 mode3_fast(GB *g, u32 n)
+{
+    Ppu *p = &g->ppu;
+    u32 done = 0;
+    while (done < n) {
+        u8 lcdc = LCDC(g), wx = g->io[IO_WX];
+        /* visible_line_dot no hace nada más en estos puntos; la línea no termina */
+        if (!p->rendering || p->dot < 90 || p->dot + 1 >= p->line_len) break;
+        if (p->obj_state != OBJ_NONE || p->resume || p->insert_bg_pixel || p->wy_pending) break;
+        if (p->pos >= 160) break;                           /* descarte inicial (posiciones negativas) */
+        /* window_check no puede activar nada y no se mete un píxel de la ventana */
+        if (!p->wx_triggered && p->wy_triggered && (lcdc & LCDC_WINON)) break;
+        if (p->wx_triggered && wx == POS(p->pos + 7)) break;
+        if (!g->cgb_hw && p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) break;
+        /* Ningún sprite por descartar ni por leer en este punto */
+        if (p->n_objs && p->objs_x[p->n_objs - 1] <= POS(p->pos + 8)) break;
+
+        /* Un mosaico entero si en los 8 puntos no hay sprite, ventana ni fin
+         * de línea (pos + 7 < 159: el último píxel no es el 159) */
+        if (p->fetch_state == 0 && p->bg_size == 8 && p->obj_size == 0 && n - done >= 8 &&
+            p->dot + 8 < p->line_len && p->pos <= 151 &&
+            (!p->n_objs || p->objs_x[p->n_objs - 1] > p->pos + 15) &&
+            (!p->wx_triggered || (u8)(wx - p->pos - 7) >= 8)) {
+            mode3_tile(g);
+            p->wx_just_changed = 0;
+            p->wy_mod = (u8)(p->wy_mod + 8);
+            p->dot += 8;
+            p->cyc += 8;
+            done += 8;
+            continue;
+        }
+
+        render_pixel(g);
+        fetcher_step(g);
+        if (p->pos == 160) end_rendering(g);
+        p->wx_just_changed = 0;
+        p->wy_mod++;
+        p->dot++;
+        p->cyc++;
+        done++;
+    }
+    return done;
+}
+
 void ppu_advance(GB *g, u64 until)
 {
     Ppu *p = &g->ppu;
@@ -717,6 +834,10 @@ void ppu_advance(GB *g, u64 until)
             p->wy_mod = (u8)(p->wy_mod + k);
             p->cyc += k;
             continue;
+        }
+        if (p->rendering) {
+            u64 left = until - p->cyc;
+            if (mode3_fast(g, left > 456 ? 456 : (u32)left)) continue;
         }
         ppu_dot(g);
         p->cyc++;

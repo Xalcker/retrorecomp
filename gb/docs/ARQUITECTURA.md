@@ -811,6 +811,7 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 | Sincronización en lote (`timer_skip`) | +23 % a +40 % en todos (Tetris 20x→27x, SML 23x→30x, SMB Deluxe 19x→26.5x, Harry Potter 15x→21x) |
 | Modo 3 en régimen sin despacho (`mode3_fast`) | +3 % a +11 % (Tetris 27x→30x, SML 30.5x→33x, Harry Potter 21x→22x) |
 | Un mosaico de 8 puntos de una vez (`mode3_tile`) | con el anterior, +38 % a +64 % (Tetris 27.5x→45x, SML 30.6x→50x, Pokémon Rojo 26.7x→40x, Tetris DX 28.2x→42x, SMB Deluxe 27.4x→44.6x, Harry Potter 21.3x→29.5x) |
+| `bg_push_row` con tabla y búsqueda en OAM sin despacho (`mode2_fast`) | +5 % a +9 % (Tetris 42x→45.5x, SML 49x→53.6x, Tetris DX 39.8x→42.5x) |
 
 **Sincronización en lote.** `sync_hardware` avanzaba el timer, la PPU y el
 APU de a un M-ciclo. Sin DMA de OAM ni transferencia serial, ahora pregunta a
@@ -841,6 +842,11 @@ una tabla de 4 colores, lee el mosaico siguiente con la posición que tendría
 el fetcher en su punto 1 y lo empuja como en el punto 8. Además de golden, se
 comparó el hash de imagen y audio de 300 ROMs al azar de la colección (20 s
 cada una) contra la versión sin estos dos cambios: 300 iguales.
+
+La búsqueda en OAM (puntos 6 a 83) tiene el mismo tipo de camino rápido,
+`mode2_fast`: una entrada cada 2 puntos y los bloqueos del punto 80 del DMG,
+sin pasar por `ppu_dot`. `bg_push_row` reparte los bits de los dos bytes del
+mosaico con una tabla de 256 entradas (`spread`) en vez de bit por bit.
 
 **APU perezoso.** `apu_mcycles` ya no procesa los M-ciclos: solo los cuenta.
 `apu_flush` los procesa cuando alguien va a mirar o cambiar el APU: al leer o

@@ -49,9 +49,12 @@ enum { FETCH_PUSH = 6 };
 /* Lectura de un sprite en curso */
 enum { OBJ_NONE, OBJ_WAIT, OBJ_B, OBJ_B2, OBJ_C, OBJ_C2, OBJ_D };
 
+static void spread_init(void);
+
 void ppu_reset(GB *g)
 {
     Ppu *p = &g->ppu;
+    spread_init();
     memset(p, 0, sizeof *p);
     p->back = p->buf[1];
     p->line_len = 456;
@@ -141,12 +144,26 @@ static void add_object(GB *g, int index)
 /* Modo 3                                                              */
 /* ------------------------------------------------------------------ */
 
+/* spread[f][v]: el bit 7-i de v (o el bit i, con giro) en el byte i */
+static u64 spread[2][256];
+
+static void spread_init(void)
+{
+    if (spread[0][0x80]) return;
+    for (int v = 0; v < 256; v++)
+        for (int i = 0; i < 8; i++) {
+            spread[0][v] |= (u64)((v >> (7 - i)) & 1) << (i * 8);
+            spread[1][v] |= (u64)((v >> i) & 1) << (i * 8);
+        }
+}
+
 static void bg_push_row(Ppu *p, u8 lo, u8 hi, u8 attr)
 {
+    int flip = (attr & 0x20) != 0;              /* CGB: giro horizontal */
+    u64 px = spread[flip][lo] | spread[flip][hi] << 1;
     for (int i = 0; i < 8; i++) {
-        int b = (attr & 0x20) ? i : 7 - i;     /* CGB: giro horizontal */
         int slot = (p->bg_head + p->bg_size++) & 15;
-        p->bg_fifo[slot] = (u8)(((lo >> b) & 1) | (((hi >> b) & 1) << 1));
+        p->bg_fifo[slot] = (u8)(px >> (i * 8));
         p->bg_attr[slot] = attr;
     }
 }
@@ -819,6 +836,33 @@ static u32 mode3_fast(GB *g, u32 n)
     return done;
 }
 
+/* Camino rápido de la búsqueda en OAM (puntos 6 a 83 de una línea visible):
+ * lo mismo que ppu_dot en esos puntos (una entrada cada 2 puntos y, en el
+ * DMG, los bloqueos del punto 80) sin el despacho general. Devuelve cuántos
+ * puntos hizo (hasta `n`). */
+static u32 mode2_fast(GB *g, u32 n)
+{
+    Ppu *p = &g->ppu;
+    u32 done = 0;
+    while (done < n) {
+        u32 d = p->dot;
+        if (d < 6 || d >= 84 || p->rendering || p->lcd_first_line || p->ly >= 144) break;
+        if (p->wy_pending || p->hblank_irq_dot) break;
+        if (!(d & 1)) add_object(g, (int)(d - 6) / 2);
+        if (d == 80 && !g->cgb_hw) {
+            p->vram_rb = 1;
+            p->vram_wb = 0;
+            p->oam_wb = 0;
+        }
+        p->wx_just_changed = 0;
+        p->wy_mod++;
+        p->dot++;
+        p->cyc++;
+        done++;
+    }
+    return done;
+}
+
 void ppu_advance(GB *g, u64 until)
 {
     Ppu *p = &g->ppu;
@@ -838,6 +882,9 @@ void ppu_advance(GB *g, u64 until)
         if (p->rendering) {
             u64 left = until - p->cyc;
             if (mode3_fast(g, left > 456 ? 456 : (u32)left)) continue;
+        } else if (p->dot >= 6 && p->dot < 84) {
+            u64 left = until - p->cyc;
+            if (mode2_fast(g, left > 456 ? 456 : (u32)left)) continue;
         }
         ppu_dot(g);
         p->cyc++;

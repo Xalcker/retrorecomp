@@ -126,6 +126,7 @@ static void length_clock(ApuChannel *c)
 void apu_div_event(GB *g)
 {
     Apu *a = &g->apu;
+    apu_flush(g);
     if (!a->power) return;
 
     int step = a->seq_step;
@@ -221,10 +222,13 @@ static void push_sample(Apu *a, float l, float r)
     a->ring_head = next;
 }
 
-void apu_mcycle(GB *g, u32 dots)
+#define CYCLES_PER_SAMPLE ((double)GB_CPU_HZ / GB_SAMPLE_RATE)
+
+/* Un M-ciclo de `dots` puntos, tal cual */
+static void apu_step(GB *g, u32 dots)
 {
     Apu *a = &g->apu;
-    const double cycles_per_sample = (double)GB_CPU_HZ / GB_SAMPLE_RATE;
+    const double cycles_per_sample = CYCLES_PER_SAMPLE;
 
     if (a->power) {
         clock_channels(g, (int)dots);
@@ -262,9 +266,115 @@ void apu_mcycle(GB *g, u32 dots)
     push_sample(a, l * 0.15f, r * 0.15f);
 }
 
+/*
+ * Ejecución perezosa: apu_mcycle solo cuenta los M-ciclos y apu_flush los
+ * procesa cuando alguien va a mirar o cambiar el APU (registros, paso del
+ * secuenciador, audio, fin de la corrida). El resultado es idéntico bit a bit
+ * al de procesar cada M-ciclo (tests/golden.sh):
+ *   - Entre dos eventos (el temporizador de un canal audible que vence o una
+ *     muestra de salida) la salida de cada canal no cambia: las sumas, que
+ *     son enteros exactos en double, se hacen de una vez.
+ *   - Los canales inaudibles (apagados o con volumen 0) también se adelantan
+ *     de golpe: solo cambia su estado interno (paso, posición, LFSR).
+ *   - sample_acc tiene parte fraccionaria: se suma de a un M-ciclo, como antes.
+ */
+void apu_mcycle(GB *g, u32 dots)
+{
+    Apu *a = &g->apu;
+    if (a->pend && a->pend_d != dots) apu_flush(g);     /* cambió la velocidad (CGB) */
+    a->pend_d = dots;
+    a->pend++;
+}
+
+static int channel_period(GB *g, int n)
+{
+    ApuChannel *c = &g->apu.ch[n];
+    if (n < 2) return (2048 - c->freq) * 4;
+    if (n == 2) return (2048 - c->freq) * 2;
+    return noise_divisor[c->divisor] << c->clock_shift;
+}
+
+/* ¿Puede cambiar la salida del canal cuando vence su temporizador? */
+static int channel_audible(const ApuChannel *c, int n)
+{
+    if (!c->on) return 0;
+    if (n == 2) return c->volume_code != 0;     /* código 0: la muestra se corre 4 bits */
+    return c->volume != 0;
+}
+
+/* Avanza el temporizador de un canal `dots` puntos de una vez, con el mismo
+ * efecto que clock_channels de a poco */
+static void advance_channel(GB *g, int n, int dots)
+{
+    ApuChannel *c = &g->apu.ch[n];
+    c->timer -= dots;
+    if (c->timer > 0) return;
+    int period = channel_period(g, n);
+    int f = -c->timer / period + 1;             /* veces que vence */
+    c->timer += f * period;
+    switch (n) {
+    case 0:
+    case 1:
+        c->step = (c->step + f) & 7;
+        break;
+    case 2:
+        c->position = (c->position + f) & 31;
+        c->sample_buffer = REG(0xFF30 + c->position / 2);
+        break;
+    default:
+        for (int i = 0; i < f; i++) {
+            int bit = (c->lfsr ^ (c->lfsr >> 1)) & 1;
+            c->lfsr = (u16)((c->lfsr >> 1) | (bit << 14));
+            if (c->width7)
+                c->lfsr = (u16)((c->lfsr & ~0x40) | (bit << 6));
+        }
+        break;
+    }
+}
+
+void apu_flush(GB *g)
+{
+    Apu *a = &g->apu;
+    u32 rem = a->pend, d = a->pend_d;
+    a->pend = 0;
+    while (rem > 0) {
+        /* k = el próximo M-ciclo en que algo puede cambiar; los k-1
+         * anteriores se hacen de una vez y el k-ésimo, normal */
+        u32 k = rem;
+        if (a->power && a->enabled) {           /* sin muestras, la salida no importa */
+            for (int n = 0; n < 4; n++) {
+                ApuChannel *c = &a->ch[n];
+                if (!channel_audible(c, n)) continue;
+                u32 e = c->timer <= 0 ? 1 : (u32)(c->timer + (int)d - 1) / d;
+                if (e < k) k = e;
+            }
+        }
+        if (a->enabled) {
+            double x = a->sample_acc;
+            u32 j = 0;
+            while (j < k - 1 && x + d < CYCLES_PER_SAMPLE) { x += d; j++; }
+            if (j < k - 1) k = j + 1;           /* la muestra sale en el M-ciclo j+1 */
+            a->sample_acc = x;
+        }
+        if (k > 1) {
+            int dots = (int)((k - 1) * d);
+            if (a->power) {
+                for (int n = 0; n < 4; n++) {
+                    if (a->enabled) a->sum[n] += channel_output(g, n) * (double)dots;
+                    advance_channel(g, n, dots);
+                }
+            }
+            if (a->enabled) a->sum_cycles += dots;
+        }
+        apu_step(g, d);
+        rem -= k;
+    }
+}
+
 u8 apu_read(GB *g, u16 addr)
 {
     Apu *a = &g->apu;
+    apu_flush(g);
     if (addr >= 0xFF30) return REG(addr);
     if (addr == 0xFF26) {
         u8 v = (u8)((a->power ? 0x80 : 0) | 0x70);
@@ -279,6 +389,7 @@ void apu_write(GB *g, u16 addr, u8 v)
 {
     Apu *a = &g->apu;
     ApuChannel *c;
+    apu_flush(g);
 
     if (addr == 0xFF26) {
         int on = (v & 0x80) != 0;

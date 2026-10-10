@@ -807,3 +807,18 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 | Cambio | Efecto (`gbbench`, 2400 cuadros, mejor de 3) |
 |---|---|
 | Borde del SGB en caché | Pokémon Rojo, DKL2 y Wario Land II en SGB: +15 % a +20 %; GBC sin cambio |
+| APU perezoso (`apu_flush`) | Tetris y SML +12 % a +25 %; Tetris DX +25 %; SMB Deluxe (doble velocidad) +50 % |
+
+**APU perezoso.** `apu_mcycle` ya no procesa cada M-ciclo: solo los cuenta.
+`apu_flush` los procesa cuando alguien va a mirar o cambiar el APU: al leer o
+escribir sus registros, en cada paso del secuenciador (lo llama el timer antes
+del `apu_mcycle` del mismo M-ciclo, como antes), al sacar audio y al terminar
+`gb_run`. Dentro de un tramo pendiente busca el próximo M-ciclo en que algo
+puede cambiar (vence el temporizador de un canal audible o sale una muestra) y
+hace los anteriores de una vez: la salida de cada canal no cambia en ellos y
+las sumas son enteros exactos en `double`. Los canales inaudibles (apagados o
+con volumen 0) se adelantan de golpe; solo cambia su estado interno (paso,
+posición de la onda, LFSR). `sample_acc`, que tiene parte fraccionaria, se
+sigue sumando de a un M-ciclo. El resultado es idéntico bit a bit (golden
+igual) y `difftest` no cambia: el recompilado y el intérprete hacen
+`apu_flush` en los mismos momentos del juego.

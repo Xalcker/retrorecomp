@@ -770,6 +770,8 @@ void gb_run(GB *g, u64 until)
         if (fn) fn(g);
         else gb_interp_step(g);
     }
+    /* Al terminar la corrida el APU queda al día (estado comparable y audio listo) */
+    apu_flush(g);
 }
 
 u64 gb_frame_cycles(const GB *g)
@@ -942,6 +944,7 @@ const u16 *gb_framebuffer(const GB *g)
 int gb_audio_pull(GB *g, float *out, int max)
 {
     Apu *a = &g->apu;
+    apu_flush(g);
     int n = 0;
     while (n < max && a->ring_tail != a->ring_head) {
         out[n * 2] = a->ring[a->ring_tail * 2];

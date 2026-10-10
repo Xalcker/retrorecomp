@@ -188,6 +188,9 @@ typedef struct {
     float ring[APU_RING * 2];
     u32 ring_head, ring_tail;
     int enabled;        /* 0 = no generar muestras (pruebas sin audio) */
+    /* M-ciclos que ya pasaron pero el APU todavía no procesó (de pend_d
+     * puntos cada uno): se procesan de golpe en apu_flush */
+    u32 pend, pend_d;
 } Apu;
 
 typedef struct {
@@ -485,6 +488,7 @@ int  ppu_oam_blocked(GB *g, int write);
 
 void apu_reset(GB *g);
 void apu_mcycle(GB *g, u32 dots);   /* avanza `dots` puntos de tiempo real */
+void apu_flush(GB *g);              /* procesa los M-ciclos pendientes */
 void apu_div_event(GB *g);
 u8   apu_read(GB *g, u16 addr);
 void apu_write(GB *g, u16 addr, u8 value);

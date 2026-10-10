@@ -702,6 +702,44 @@ static u32 idle_dots(const Ppu *p)
     return p->line_len - 1 - p->dot;
 }
 
+/*
+ * Camino rápido del modo 3: mientras el dibujo va "en régimen" (ya pasó el
+ * descarte inicial, no hay sprite por leer cerca, la ventana no puede
+ * activarse y no hay nada pendiente), cada punto es solo sacar un píxel y
+ * avanzar el fetcher. Hace exactamente lo mismo que ppu_dot en esos puntos
+ * (mismas render_pixel y fetcher_step) sin pasar por el despacho general, y
+ * le devuelve el control en cuanto algo de eso deja de cumplirse. Devuelve
+ * cuántos puntos hizo (hasta `n`).
+ */
+static u32 mode3_fast(GB *g, u32 n)
+{
+    Ppu *p = &g->ppu;
+    u32 done = 0;
+    while (done < n) {
+        u8 lcdc = LCDC(g), wx = g->io[IO_WX];
+        /* visible_line_dot no hace nada más en estos puntos; la línea no termina */
+        if (!p->rendering || p->dot < 90 || p->dot + 1 >= p->line_len) break;
+        if (p->obj_state != OBJ_NONE || p->resume || p->insert_bg_pixel || p->wy_pending) break;
+        if (p->pos >= 160) break;                           /* descarte inicial (posiciones negativas) */
+        /* window_check no puede activar nada y no se mete un píxel de la ventana */
+        if (!p->wx_triggered && p->wy_triggered && (lcdc & LCDC_WINON)) break;
+        if (p->wx_triggered && wx == POS(p->pos + 7)) break;
+        if (!g->cgb_hw && p->wy_triggered && !(lcdc & LCDC_WINON) && !p->no_win_glitch) break;
+        /* Ningún sprite por descartar ni por leer en este punto */
+        if (p->n_objs && p->objs_x[p->n_objs - 1] <= POS(p->pos + 8)) break;
+
+        render_pixel(g);
+        fetcher_step(g);
+        if (p->pos == 160) end_rendering(g);
+        p->wx_just_changed = 0;
+        p->wy_mod++;
+        p->dot++;
+        p->cyc++;
+        done++;
+    }
+    return done;
+}
+
 void ppu_advance(GB *g, u64 until)
 {
     Ppu *p = &g->ppu;
@@ -717,6 +755,10 @@ void ppu_advance(GB *g, u64 until)
             p->wy_mod = (u8)(p->wy_mod + k);
             p->cyc += k;
             continue;
+        }
+        if (p->rendering) {
+            u64 left = until - p->cyc;
+            if (mode3_fast(g, left > 456 ? 456 : (u32)left)) continue;
         }
         ppu_dot(g);
         p->cyc++;

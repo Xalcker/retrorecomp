@@ -809,6 +809,7 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 | Borde del SGB en caché | Pokémon Rojo, DKL2 y Wario Land II en SGB: +15 % a +20 %; GBC sin cambio |
 | APU perezoso (`apu_flush`) | Tetris y SML +12 % a +25 %; Tetris DX +25 %; SMB Deluxe (doble velocidad) +50 % |
 | Sincronización en lote (`timer_skip`) | +23 % a +40 % en todos (Tetris 20x→27x, SML 23x→30x, SMB Deluxe 19x→26.5x, Harry Potter 15x→21x) |
+| Modo 3 en régimen sin despacho (`mode3_fast`) | +3 % a +11 % (Tetris 27x→30x, SML 30.5x→33x, Harry Potter 21x→22x) |
 
 **Sincronización en lote.** `sync_hardware` avanzaba el timer, la PPU y el
 APU de a un M-ciclo. Sin DMA de OAM ni transferencia serial, ahora pregunta a
@@ -822,6 +823,16 @@ comparten es IF, donde cada uno solo prende bits. Además, la PPU recibe
 tramos largos y salta de golpe los puntos ociosos (`idle_dots`) en vez de que
 se le pregunte en cada M-ciclo, que es de donde sale la mayor parte de la
 ganancia.
+
+**Modo 3 en régimen.** Mientras el dibujo va en régimen (ya pasó el descarte
+inicial, no hay sprite por descartar ni por leer en ese punto, la ventana no
+puede activarse, no hay píxel de la ventana por meter ni nada pendiente),
+cada punto es solo `render_pixel` y `fetcher_step`. `mode3_fast` hace eso
+mismo sin pasar por `ppu_dot`, `visible_line_dot` y `mode3_dot`, y le devuelve
+el control a la ruta general en cuanto una condición deja de cumplirse. Cubre
+entre 79 % y 93 % de los puntos del modo 3 en los juegos de golden. Además de
+golden, se comparó el hash de imagen y audio de 300 ROMs al azar de la
+colección (20 s cada una) contra la versión anterior: 300 iguales.
 
 **APU perezoso.** `apu_mcycles` ya no procesa los M-ciclos: solo los cuenta.
 `apu_flush` los procesa cuando alguien va a mirar o cambiar el APU: al leer o

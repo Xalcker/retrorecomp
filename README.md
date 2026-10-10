@@ -1,7 +1,7 @@
 # retrorecomp
 
 Una sola interfaz local para los recompiladores estáticos de Nintendo de esta serie:
-[NESRecomp](https://github.com/yherna63/NESRecomp) (NES) y [GBRecomp](https://github.com/Xalcker/GBRecomp)
+[NESRecomp](https://github.com/Xalcker/NESRecomp) (NES) y [GBRecomp](https://github.com/Xalcker/GBRecomp)
 (Game Boy, Game Boy Color y Super Game Boy). Detecta el sistema de cada ROM por su cabecera y llama a las
 herramientas del recompilador que corresponda; cada uno sigue siendo su propio repositorio.
 
@@ -10,7 +10,8 @@ python3 retrorecomp_gui.py            # abre el navegador; solo Python 3, sin de
 ```
 
 Busca los repositorios en `--nes DIR` / `--gb DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR`, en la carpeta que
-contiene a este (si va como submódulo de uno de ellos) o en las hermanas `NESRecomp` y `GBRecomp`. Las ROMs salen
+contiene a este (si va como submódulo de uno de ellos) o en las hermanas `NESRecomp` y `GBRecomp` (si es submódulo de uno, el otro se busca junto a ese).
+Como submódulo: `git submodule update --init` y `python3 tools/retrorecomp/retrorecomp_gui.py`. Las ROMs salen
 de la carpeta `roms/` de cada uno y de las que se pasen con `--roms DIR`. Compila las herramientas desde la
 propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
 

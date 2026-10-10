@@ -13,12 +13,12 @@ Las ROMs se extraen a build/compat/roms (no se versionan).
 # /// script
 # dependencies = ["pillow"]
 # ///
-import argparse, concurrent.futures as cf, json, os, pathlib, re, shutil, subprocess, sys, time, zipfile
+import argparse, zlib, concurrent.futures as cf, json, os, pathlib, re, shutil, subprocess, sys, time, zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / "build" / "compat"
 OUT = ROOT / "docs" / "compat"
-SUPPORTED = {0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 34, 66, 69, 71, 79, 87, 118, 119, 140, 180, 206}
+SUPPORTED = {0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 13, 18, 19, 23, 34, 66, 69, 71, 75, 79, 87, 95, 115, 118, 119, 140, 180, 184, 206, 210}
 # Cuántas ROMs de cada mapper entran a la etapa 2 (los demás, 3 si no se indica)
 CUPO = {0: 4, 1: 6, 2: 4, 3: 4, 4: 8, 5: 6, 7: 4}
 REUSAR = False
@@ -47,7 +47,8 @@ def sh(cmd, cwd=ROOT, timeout=900):
 def slug(nombre):
     s = re.sub(r"\([^)]*\)", "", nombre.rsplit(".", 1)[0])
     s = re.sub(r"[^a-z0-9]+", "", s.lower())
-    return "g" + (s[:24] or "rom")
+    # El CRC del nombre completo evita choques entre variantes (regiones, revisiones, colecciones)
+    return "g" + (s[:18] or "rom") + format(zlib.crc32(nombre.encode()) & 0xFFFFFF, "06x")
 
 
 def extraer(src, fila):
@@ -210,12 +211,16 @@ def main():
     ap.add_argument("src")
     ap.add_argument("--hilos", type=int, default=4)
     ap.add_argument("--solo", choices=["etapa1", "etapa2"])
+    ap.add_argument("--mappers", help="solo estos mappers, separados por comas (los demás resultados se conservan)")
     ap.add_argument("--reusar", action="store_true", help="no vuelve a correr nesshot si la captura ya existe")
     a = ap.parse_args()
     global REUSAR
     REUSAR = a.reusar
     scan = json.load(open(WORK.parent / "compat_scan.json"))
     filas = [f for f in scan if "mapper" in f]
+    if a.mappers:
+        solo = {int(m) for m in a.mappers.split(",")}
+        filas = [f for f in filas if f["mapper"] in solo]
     (OUT / "thumbs").mkdir(parents=True, exist_ok=True)
     res_path = OUT / "results.json"
     prev = {r["zip"]: r for r in json.load(open(res_path))} if res_path.exists() else {}
@@ -224,6 +229,8 @@ def main():
         with cf.ThreadPoolExecutor(8) as ex:
             for i, r in enumerate(ex.map(lambda f: etapa1(a.src, f), filas), 1):
                 prev.setdefault(r["zip"], {}).update(r)
+                if r["interprete"] != "error":
+                    prev[r["zip"]].pop("detalle", None)
                 if i % 100 == 0:
                     print(f"etapa 1: {i}/{len(filas)}", flush=True)
         json.dump(list(prev.values()), open(res_path, "w"), indent=1, ensure_ascii=False)

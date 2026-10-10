@@ -5,17 +5,21 @@ El resultado completo, con filtros y una miniatura de cada juego, está en [`com
 (datos crudos en [`compat/results.json`](compat/results.json)). Las ROMs no se versionan: el script las lee de la carpeta
 de zips que le indiques y las extrae a `build/compat/roms/`.
 
-## Resumen (9 de octubre de 2026)
+## Resumen (10 de octubre de 2026)
 
 | | |
 |---|---|
 | ROMs probadas | 732 |
-| Con mapper soportado | 712 (los otros 20 usan los mappers 13, 18, 19, 23, 75, 95, 105, 115, 184, 210, 268 y 446) |
-| Corren en el intérprete (etapa 1) | 711 de 712. La excepción es Galaxian (Evercade), de PRG que no es potencia de 2 |
-| Capturas casi uniformes | 10 de las 711, revisadas a ojo: 8 son pantallas de texto o menús sobre negro (Dragon Warrior I a IV, Destiny of an Emperor, Muppet Adventure, Simpsons Bart vs. the World, Flying Dragon). Gyromite y Gun.Smoke se ven bien con otras entradas (menú y título); el negro viene de las entradas guionadas. Ninguna es un fallo conocido |
-| Recompiladas y comparadas contra el intérprete (etapa 2) | 52 ROMs elegidas, **51 sin diferencias**; la que falla es Galaxian por el mismo motivo |
-| Mappers cubiertos en la etapa 2 | 0, 1, 2, 3, 4, 5, 7, 9, 34, 66, 69, 87, 118, 119, 206 |
+| Con mapper soportado | 726. Los otros 6 usan mappers sin soporte: 105 (Nintendo World Championships 1990), 268 (4 ROMs de Retro-Bit, multicarts MMC3 de 2 MB) y 446 (multicart de 1 MB) |
+| Corren en el intérprete (etapa 1) | 726 de 726 |
+| Capturas casi uniformes | 11 de las 726. Nueve son pantallas de texto o menús sobre negro (Dragon Warrior I a IV, Destiny of an Emperor, Muppet Adventure, Simpsons Bart vs. the World, Flying Dragon) o se ven bien con otras entradas (Gyromite, Gun.Smoke). **Kid Dracula (mapper 23) sí es un fallo**: pantalla gris, ver Hallazgos |
+| Recompiladas y comparadas contra el intérprete (etapa 2) | 66 ROMs elegidas, **66 sin diferencias** |
+| Mappers cubiertos en la etapa 2 | 0, 1, 2, 3, 4, 5, 7, 9, 13, 18, 19, 23, 34, 66, 69, 75, 87, 95, 115, 118, 119, 184, 206, 210 |
 | Mappers soportados sin ROM en la colección | 10, 11, 71, 79, 140, 180 (no se pudieron probar con juegos) |
+
+Mappers agregados en esta ronda (14 ROMs que antes no cargaban): 13 CPROM, 18 Jaleco SS88006, 19 Namco 163, 23 VRC2/VRC4, 75 VRC1,
+95 Namcot 3425, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340. Además, el cargador entiende ahora los tamaños de la cabecera NES 2.0
+(Galaxian de Evercade tiene un PRG de 8 KB en notación exponente-multiplicador, que se repite hasta 16 KB).
 
 ## Cómo se probó
 
@@ -39,8 +43,8 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
 
 ## Hallazgos
 
-- **Cobertura.** En 40 de las 51 ROMs aprobadas quedan instrucciones de PRG interpretadas tras la primera ronda (en promedio
-  ~510 por ROM) y la segunda ronda apenas las baja (~480). Causa, verificada en Gauntlet (MMC3) con `nesrecomp --why`: el
+- **Cobertura.** En 54 de las 66 ROMs aprobadas quedan instrucciones de PRG interpretadas tras la primera ronda (en promedio
+  ~530 por ROM) y la segunda ronda apenas las baja (~510). Causa, verificada en Gauntlet (MMC3) con `nesrecomp --why`: el
   recompilador asigna **una sola dirección a cada desplazamiento del PRG** (`nesrecomp.c`, cuenta los `conflictos`), y en
   mappers con ventanas intercambiables el mismo byte se ejecuta a veces en `$8003` y a veces en `$A003`. La traza trae la
   dirección con que se ejecutó (`000003:8003`), pero el código ya estaba tomado como `$A003`, así que no se puede
@@ -54,11 +58,21 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   interpretadas. Medido con un sondeo que cuenta ciclos por página de PC (1500 cuadros): ~28 % de los ciclos se ejecutan en
   `$0000-$0FFF`, es decir, desde RAM (el juego copia rutinas ahí), que el recompilador no puede cubrir. Es un límite del
   método (código generado en tiempo de ejecución), no un fallo; los demás juegos pasan del 98 %.
-- **Velocidad** del proyecto generado (MinGW, `-O2`, un solo hilo, medida sin otra carga): mediana 11,7× tiempo real; entre
-  4,8× (MMC5: Empereur, Gemfire, Bandit Kings) y 31× (R.C. Pro-Am). El README cita 39× para Super Mario Bros. en otra
+- **Velocidad** del proyecto generado (MinGW, `-O2`, un solo hilo, medida sin otra carga): mediana 21× tiempo real; entre
+  10,7× (juegos MMC5, MMC1 grandes) y 39× (R.C. Pro-Am). Varía de una corrida a otra (una medición anterior dio la mitad
+  con la máquina ocupada). El README cita 39× para Super Mario Bros. en otra
   máquina; no son comparables.
-- **Limitaciones conocidas que aparecen en la lista:** PRG que no es potencia de 2 (Galaxian Evercade) y los 20 mappers
-  sin soporte.
+- **Kid Dracula (mapper 23) no arranca.** Pantalla gris: el juego se queda en un bucle que interpreta una lista de comandos
+  leída por un puntero a `$6943`, en la RAM del cartucho, que está vacía y que nada del juego llegó a escribir. El resto de
+  los registros del mapper se comporta como esperaba (el juego escribe bancos de PRG y CHR en el esquema A2/A3 del VRC4e y las
+  pruebas sintéticas pasan), así que sospecho que falta algo del VRC2/VRC4 (por ejemplo el latch de `$6000` o el IRQ del VRC4,
+  que no está implementado), pero no lo comprobé. Es el único juego de los nuevos que no se ve bien.
+- **Ninja JaJaMaru: The Ninja Skill Book** usa mapper 75 con 256 KB de PRG, más de lo que direcciona un VRC1 real (4 bits de banco);
+  se aceptan 5 bits y con eso funciona.
+- **Aproximaciones en los mappers nuevos** (documentadas en `mapper.c`): Namco 163 sin audio de ondas y sin CHR ROM como
+  nametable; VRC2/4 sin el IRQ del VRC4; Jaleco SS88006 e IRQ de Namco 163 con la temporización por ciclos aproximada
+  (un ciclo de más o de menos); el espejado de `$E000` del Namco 340 (mapper 210) está tomado de memoria de la documentación.
+- **Limitaciones conocidas que aparecen en la lista:** mappers 105, 268 y 446 sin soporte.
 - La opción de la etapa 2 de elegir ROMs por mapper no mide fidelidad de audio o video: `difftest` solo prueba que el
   recompilado y el intérprete coinciden. Que el intérprete sea correcto lo cubren las pruebas de `make test`
   (nestest, Blargg...).

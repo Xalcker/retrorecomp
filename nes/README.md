@@ -123,6 +123,7 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 - CPU 6502 con opcodes no oficiales: pasa `nestest` y las 16 `instr_test-v5`.
 - PPU 2C02 punto por punto: fondo, sprites, scroll, sprite 0 hit (pasa las 11 `sprite_hit_tests`).
 - Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11 Color Dreams,
+  13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 23 VRC2/VRC4 (sin IRQ), 75 VRC1, 95, 115, 184 Sunsoft 1, 210 Namco 175/340,
   34 BNROM/NINA-001, 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180, 206 (DxROM), 9 (MMC2), 10 (MMC4), 69 (FME-7,
   sin el audio 5B), 119 (TQROM), 5 (MMC5, con sus pulsos, PCM y ExGrafix; sin pantalla dividida) y 118 (TxSROM, solo con `mappertest`). Probados con
   juegos reales: Punch-Out, Fire Emblem, Batman: Return of the Joker, Pin Bot, Castlevania III, Kirby, Battletoads,
@@ -175,8 +176,8 @@ ni un byte de imagen o audio.
 
 ### Compatibilidad
 
-Probado con 732 ROMs de la colección No-Intro: 711 corren en el intérprete y las 51 que se recompilaron como prueba (de 52, por mapper) no tuvieron
-diferencias. Detalle, lista por juego y cómo repetirlo en [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md) y [docs/compat/index.html](docs/compat/index.html).
+Probado con 732 ROMs de la colección No-Intro: 726 usan un mapper soportado y corren en el intérprete (Kid Dracula, mapper 23, no arranca) y las 66 que se recompilaron
+como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y cómo repetirlo en [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md) y [docs/compat/index.html](docs/compat/index.html).
 
 ## Herramientas
 
@@ -208,7 +209,7 @@ diferencias. Detalle, lista por juego y cómo repetirlo en [docs/COMPATIBILIDAD.
 
 ## Pendiente
 
-- Más mappers (VRC2/4/6/7, mapper 15), la pantalla dividida del MMC5 y el audio 5B del FME-7.
+- Más mappers (VRC4 con IRQ, VRC6/7, 105, 268, 446, mapper 15), el audio del Namco 163, la pantalla dividida del MMC5 y el audio 5B del FME-7. Kid Dracula (mapper 23) no arranca.
 
 ## Créditos
 

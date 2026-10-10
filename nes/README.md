@@ -202,6 +202,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `ramdump rom cuadros [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
+| `python3 tools/gui/nesrecomp_gui.py` | **GUI** local en el navegador (solo Python estándar): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM (análisis, cobertura, proyecto, difftest, velocidad), grabar/unir trazas (`nestrace`, `NES_TRACE`), recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y ver la salida en vivo. |
 | `uv run tools/compat/{scan,run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
@@ -216,7 +217,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `ref_gb/` | Código de GBRecomp como referencia de diseño. No se compila. |
-| `tools/` | `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
+| `tools/` | `gui/`: la GUI (`nesrecomp_gui.py` + `index.html`). `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |

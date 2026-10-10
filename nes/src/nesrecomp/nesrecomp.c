@@ -66,6 +66,7 @@ static const char usage_text[] =
     "                     repetir; sin -o no genera el proyecto)\n"
     "  --viz              mapa del PRG en la terminal: una celda por 256 bytes, coloreada por cómo se\n"
     "                     descubrió (con --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
+    "  --color            con --viz, colorea aunque la salida no sea una terminal (lo usa la GUI)\n"
     "  --html archivo     el descubrimiento como una página HTML sola: mapa del PRG, instrucciones por\n"
     "                     celda y la cadena de \"por qué\" al hacer clic (con --coverage marca lo que falta)\n"
     "  --events archivo   cada instrucción descubierta con su origen (texto: desplazamiento, dirección,\n"
@@ -1321,7 +1322,7 @@ int main(int argc, char **argv)
     const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
     const char *traces[32]; int ntraces = 0;
     const char *coverage = NULL, *events_path = NULL, *html_path = NULL;
-    size_t why_list[32]; int nwhy = 0, viz = 0;
+    size_t why_list[32]; int nwhy = 0, viz = 0, force_color = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
@@ -1330,6 +1331,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
         else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = strtoul(argv[++i], NULL, 16);
         else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--color")) force_color = 1;
         else if (!strcmp(argv[i], "--html") && i + 1 < argc) html_path = argv[++i];
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events_path = argv[++i];
         else if (!strcmp(argv[i], "--no-tables")) use_tables = 0;
@@ -1379,7 +1381,7 @@ int main(int argc, char **argv)
         write_html(html_path, b);
         printf("visor escrito en %s\n", html_path);
     }
-    if (viz) viz_map(isatty(1));
+    if (viz) viz_map(force_color || isatty(1));
     for (int i = 0; i < nwhy; i++) explain(why_list[i]);
     if (!out_dir && !dis_arg && (viz || nwhy || events_path || html_path)) return 0;
 

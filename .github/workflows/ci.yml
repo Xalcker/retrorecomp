@@ -1,0 +1,14 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sintaxis de Python
+        run: python3 -m py_compile retrorecomp_gui.py tests/contract.py
+      - name: La página no usa nada fuera de la biblioteca estándar ni recursos externos
+        run: "! grep -E 'https?://' index.html"

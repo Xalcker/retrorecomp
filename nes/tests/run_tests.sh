@@ -55,7 +55,7 @@ if [ -x ./nes ]; then
         ./nes $T/other/nestest.nes --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
             && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; fail=1; }
     done
-    for a in 38 39 40; do
+    for a in 40 41 42; do
         ./nes $T/other/nestest.nes --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
             && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; fail=1; }
     done

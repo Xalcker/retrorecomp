@@ -1271,7 +1271,7 @@ int main(int argc, char *argv[])
         app->play = 1;
     }
 
-    app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0 };
+    app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0, 0 };
     build_menus(app);
     power_on(app);
     if (record_path && !(app->record = u8_fopen(record_path, "w"))) fail(tr(T_RECORD_FAILED));

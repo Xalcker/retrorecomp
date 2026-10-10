@@ -94,7 +94,10 @@ static SDL_Rect dropdown_rect(const MenuBar *mb, int scale)
     int h = 2 * scale;
     for (int i = 0; i < m->count; i++)
         h += item_height(&m->items[i], scale);
-    return (SDL_Rect){ t.x, t.y + t.h, dropdown_width(m, scale), h };
+    int w = dropdown_width(m, scale), x = t.x;
+    if (mb->width > 0 && x + w > mb->width) x = mb->width - w;      /* el último menú (Ayuda) no cabe a partir de su título */
+    if (x < 0) x = 0;
+    return (SDL_Rect){ x, t.y + t.h, w, h };
 }
 
 static SDL_Rect item_rect(const MenuBar *mb, int index, int scale)
@@ -118,6 +121,7 @@ static int item_enabled(const MenuBar *mb, const MenuItem *it, int *checked)
 void menubar_draw(MenuBar *mb, SDL_Renderer *ren, int width, int scale)
 {
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+    mb->width = width;
     int h = menubar_height(scale);
     fill(ren, (SDL_Rect){ 0, 0, width, h }, c_bar);
     fill(ren, (SDL_Rect){ 0, h - scale, width, scale }, c_bar_line);
@@ -298,13 +302,56 @@ typedef struct {
     int lines, line_w;
 } Layout;
 
+/* Parte las líneas más anchas que max_w por las palabras; la continuación conserva la sangría de la línea original */
+static void wrap_text(const char *src, char *dst, size_t cap, int max_w, int scale)
+{
+    size_t n = 0;
+    dst[0] = 0;
+    for (;;) {
+        const char *end = strchr(src, '\n');
+        size_t len = end ? (size_t)(end - src) : strlen(src);
+        char line[1024], cur[1024];
+        if (len >= sizeof line) len = sizeof line - 1;
+        memcpy(line, src, len); line[len] = 0;
+        int indent = 0;
+        while (line[indent] == ' ') indent++;
+        memset(cur, ' ', (size_t)indent); cur[indent] = 0;
+        int first = 1;
+        for (const char *p = line + indent; *p; ) {
+            const char *q = p;
+            while (*q == ' ') q++;
+            while (*q && *q != ' ') q++;
+            char cand[1024];
+            snprintf(cand, sizeof cand, "%s%.*s", cur, (int)(q - p), p);
+            if (!first && max_w > 0 && ui_text_width(cand, scale) > max_w) {
+                size_t k = strlen(cur);
+                if (n + k + 2 < cap) { memcpy(dst + n, cur, k); n += k; dst[n++] = '\n'; dst[n] = 0; }
+                const char *w = p;
+                while (*w == ' ') w++;                  /* la palabra nueva no arrastra los espacios del corte */
+                memset(cur, ' ', (size_t)indent); cur[indent] = 0;
+                snprintf(cand, sizeof cand, "%s%.*s", cur, (int)(q - w), w);
+            }
+            snprintf(cur, sizeof cur, "%s", cand);
+            first = 0;
+            p = q;
+        }
+        size_t k = strlen(cur);
+        if (n + k + 2 < cap) { memcpy(dst + n, cur, k); n += k; dst[n] = 0; }
+        if (!end) break;
+        if (n + 2 < cap) { dst[n++] = '\n'; dst[n] = 0; }
+        src = end + 1;
+    }
+}
+
+#define WRAP_MARGIN(scale) (6 * PAD * (scale))      /* lo que el cuadro agrega al texto a cada lado en total */
+
 static Layout layout(const Dialog *d, int width, int height, int scale)
 {
     Layout L;
     memset(&L, 0, sizeof L);
     /* Medir el texto línea por línea */
-    char buf[1024];
-    snprintf(buf, sizeof buf, "%s", d->text);
+    char buf[2048];
+    wrap_text(d->text, buf, sizeof buf, width - 8 - WRAP_MARGIN(scale), scale);
     int widest = ui_text_width(d->title, scale);
     L.lines = 0;
     for (char *line = buf, *next; line; line = next) {
@@ -367,8 +414,8 @@ void dialog_draw(const Dialog *d, SDL_Renderer *ren, int width, int height, int 
     frame(ren, L.box, c_border);
     ui_draw_text(ren, L.title.x + 3 * PAD * scale, L.title.y + 3 * scale, scale, d->title, c_text);
 
-    char buf[1024];
-    snprintf(buf, sizeof buf, "%s", d->text);
+    char buf[2048];
+    wrap_text(d->text, buf, sizeof buf, width - 8 - WRAP_MARGIN(scale), scale);
     int y = L.title.y + L.title.h + 2 * PAD * scale;
     for (char *line = buf, *next; line; line = next) {
         next = strchr(line, '\n');

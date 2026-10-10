@@ -12,7 +12,7 @@ de zips que le indiques y las extrae a `build/compat/roms/`.
 | ROMs probadas | 732 |
 | Con mapper soportado | 726. Los otros 6 usan mappers sin soporte: 105 (Nintendo World Championships 1990), 268 (4 ROMs de Retro-Bit, multicarts MMC3 de 2 MB) y 446 (multicart de 1 MB) |
 | Corren en el intérprete (etapa 1) | 726 de 726 |
-| Capturas casi uniformes | 11 de las 726. Nueve son pantallas de texto o menús sobre negro (Dragon Warrior I a IV, Destiny of an Emperor, Muppet Adventure, Simpsons Bart vs. the World, Flying Dragon) o se ven bien con otras entradas (Gyromite, Gun.Smoke). **Kid Dracula (mapper 23) sí es un fallo**: pantalla gris, ver Hallazgos |
+| Capturas casi uniformes | 10 de las 726: pantallas de texto o menús sobre negro (Dragon Warrior I a IV, Destiny of an Emperor, Muppet Adventure, Simpsons Bart vs. the World, Flying Dragon) o que se ven bien con otras entradas (Gyromite, Gun.Smoke). Ninguna es un fallo conocido |
 | Recompiladas y comparadas contra el intérprete (etapa 2) | 66 ROMs elegidas, **66 sin diferencias** |
 | Mappers cubiertos en la etapa 2 | 0, 1, 2, 3, 4, 5, 7, 9, 13, 18, 19, 23, 34, 66, 69, 75, 87, 95, 115, 118, 119, 184, 206, 210 |
 | Mappers soportados sin ROM en la colección | 10, 11, 71, 79, 140, 180 (no se pudieron probar con juegos) |
@@ -62,11 +62,12 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   10,7× (juegos MMC5, MMC1 grandes) y 39× (R.C. Pro-Am). Varía de una corrida a otra (una medición anterior dio la mitad
   con la máquina ocupada). El README cita 39× para Super Mario Bros. en otra
   máquina; no son comparables.
-- **Kid Dracula (mapper 23) no arranca.** Pantalla gris: el juego se queda en un bucle que interpreta una lista de comandos
-  leída por un puntero a `$6943`, en la RAM del cartucho, que está vacía y que nada del juego llegó a escribir. El resto de
-  los registros del mapper se comporta como esperaba (el juego escribe bancos de PRG y CHR en el esquema A2/A3 del VRC4e y las
-  pruebas sintéticas pasan), así que sospecho que falta algo del VRC2/VRC4 (por ejemplo el latch de `$6000` o el IRQ del VRC4,
-  que no está implementado), pero no lo comprobé. Es el único juego de los nuevos que no se ve bien.
+- **Kid Dracula (mapper 23)** no arrancaba (pantalla gris) y la causa no era el mapper: el juego guarda una lista de comandos en la RAM con
+  batería y, con ceros, la interpretaba para siempre. Una memoria sin programar se lee como `$FF`, y con eso arranca (título y primer nivel
+  se ven bien). Desde entonces la RAM con batería sin estrenar se inicializa a `$FF` (`nes_load`). Efecto en el resto: de las 60 ROMs con batería,
+  4 cambian su captura (Pirates!, StarTropics, Zoda's Revenge, Ultima: Warriors of Destiny) y en las que revisé es solo otro estado de partida
+  (por ejemplo StarTropics ya no muestra una ranura de guardado ocupada). En el nivel de Kid Dracula queda una franja con ruido en el borde
+  inferior en una de las capturas; no lo investigué (el VRC4 no tiene IRQ implementado, pero este juego no debería usarlo).
 - **Ninja JaJaMaru: The Ninja Skill Book** usa mapper 75 con 256 KB de PRG, más de lo que direcciona un VRC1 real (4 bits de banco);
   se aceptan 5 bits y con eso funciona.
 - **Aproximaciones en los mappers nuevos** (documentadas en `mapper.c`): Namco 163 sin audio de ondas y sin CHR ROM como

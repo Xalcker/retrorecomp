@@ -176,7 +176,7 @@ ni un byte de imagen o audio.
 
 ### Compatibilidad
 
-Probado con 732 ROMs de la colección No-Intro: 726 usan un mapper soportado y corren en el intérprete (Kid Dracula, mapper 23, no arranca) y las 66 que se recompilaron
+Probado con 732 ROMs de la colección No-Intro: 726 usan un mapper soportado y corren en el intérprete y las 66 que se recompilaron
 como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y cómo repetirlo en [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md) y [docs/compat/index.html](docs/compat/index.html).
 
 ## Herramientas
@@ -209,7 +209,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 
 ## Pendiente
 
-- Más mappers (VRC4 con IRQ, VRC6/7, 105, 268, 446, mapper 15), el audio del Namco 163, la pantalla dividida del MMC5 y el audio 5B del FME-7. Kid Dracula (mapper 23) no arranca.
+- Más mappers (VRC4 con IRQ, VRC6/7, 105, 268, 446, mapper 15), el audio del Namco 163, la pantalla dividida del MMC5 y el audio 5B del FME-7.
 
 ## Créditos
 

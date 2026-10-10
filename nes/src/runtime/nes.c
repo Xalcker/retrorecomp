@@ -32,7 +32,11 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
     size_t pad = prg < 0x4000 ? 0x4000 : prg;            /* PRG de 8 KB (NES 2.0): se repite hasta 16 KB */
     c->prg = malloc(pad); c->prg_size = pad;
     for (size_t o = 0; o < pad; o += prg) memcpy(c->prg + o, d + off, prg);
+    /* RAM con batería sin estrenar: se lee como $FF (así queda una memoria sin programar). Algunos juegos, como Kid Dracula
+     * (VRC2), se cuelgan interpretando ceros como una partida guardada válida */
+    if (c->battery) memset(c->prg_ram, 0xFF, sizeof c->prg_ram);
     if (f6 & 4) memcpy(c->prg_ram + 0x1000, d + 16, 512);          /* el 'trainer' va a $7000-$71FF */
+    memcpy(c->sram_saved, c->prg_ram, sizeof c->prg_ram);          /* sin cambios desde el arranque */
     if (chr) { c->chr = malloc(chr); c->chr_size = chr; memcpy(c->chr, d + off + prg, chr); }
     else     { size_t rs = c->mapper == 13 ? 0x4000 : 0x2000; c->chr = calloc(1, rs); c->chr_size = rs; c->chr_is_ram = 1; }   /* CPROM: 16 KB */
     nes_reset(n);
@@ -316,7 +320,7 @@ int nes_sram_load(NES *n, const char *path)
     if (!f) return 0;
     size_t k = fread(n->cart.prg_ram, 1, sizeof n->cart.prg_ram, f);
     fclose(f);
-    for (size_t i = k; i < sizeof n->cart.prg_ram; i++) n->cart.prg_ram[i] = 0;
+    for (size_t i = k; i < sizeof n->cart.prg_ram; i++) n->cart.prg_ram[i] = 0xFF;
     memcpy(n->cart.sram_saved, n->cart.prg_ram, sizeof n->cart.prg_ram);
     return k > 0;
 }

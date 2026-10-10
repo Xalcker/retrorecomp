@@ -9333,68 +9333,68 @@
   "espejo": "H",
   "nes2": true,
   "soportado": true,
-  "interprete_s": 5.29,
-  "colores": 1,
-  "dominante": 1.0,
+  "interprete_s": 2.95,
+  "colores": 10,
+  "dominante": 0.491,
   "thumb": "gkiddraculae7b5db.png",
   "capturas": [
-   1,
-   1,
-   1
+   5,
+   10,
+   9
   ],
-  "interprete": "pantalla uniforme",
+  "interprete": "ok",
   "recompilador": {
    "fases": [
     {
      "ronda": 1,
-     "instrucciones": 37418,
-     "pct_prg": 60.08,
+     "instrucciones": 37432,
+     "pct_prg": 60.1,
      "funciones": 290,
-     "compilacion_s": 89.5,
+     "compilacion_s": 52.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 6.7,
+       "segundos": 4.3,
        "ciclos_recompilados_pct": 100.0,
-       "interpretadas": 94
+       "interpretadas": 1418
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 6.2,
+       "segundos": 4.0,
        "ciclos_recompilados_pct": 100.0,
-       "interpretadas": 94
+       "interpretadas": 1502
       }
      ]
     },
     {
      "ronda": 2,
-     "instrucciones": 37418,
-     "pct_prg": 60.08,
+     "instrucciones": 37432,
+     "pct_prg": 60.1,
      "funciones": 290,
-     "compilacion_s": 88.1,
+     "compilacion_s": 46.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 6.0,
+       "segundos": 3.8,
        "ciclos_recompilados_pct": 100.0,
-       "interpretadas": 94
+       "interpretadas": 1418
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 5.7,
+       "segundos": 3.7,
        "ciclos_recompilados_pct": 100.0,
-       "interpretadas": 94
+       "interpretadas": 1502
       }
      ]
     }
    ],
    "resultado": "ok",
-   "velocidad_x": 23.9,
-   "total_s": 209.7
+   "velocidad_x": 22.8,
+   "total_s": 118.4
   }
  },
  {

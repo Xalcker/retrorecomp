@@ -54,6 +54,9 @@ jobs:
       - name: Compilar
         run: make -j4
 
+      - name: Contrato de línea de comandos común con NESRecomp
+        run: sh tests/contract.sh
+
       - name: ROMs de prueba (c-sp/game-boy-test-roms v7.0)
         run: |
           curl -fsSL -o roms.zip https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip

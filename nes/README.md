@@ -31,8 +31,8 @@ make -j8
 cd juegos/smb && make -j8 && ./smb.exe "../../roms/Super Mario Bros. (Japan, USA).nes"
 ```
 
-Los `.exe` usan `SDL2.dll` de `C:\msys64\ucrt64\bin`: funcionan desde la terminal UCRT64. Para llevar un juego a otra carpeta o equipo,
-`make dist` (dentro del proyecto generado) deja en `dist/` el ejecutable con las DLL que necesita. La carpeta de datos (partida, estados, preferencias)
+En Windows SDL2 se enlaza de forma estática: el `.exe` no pide `SDL2.dll` ni otras DLL de MSYS2 y se puede copiar a otra carpeta o equipo.
+(`make dist` en el proyecto generado lo copia a `dist/`). La carpeta de datos (partida, estados, preferencias)
 es `%APPDATA%\NESRecomp\<juego>\`.
 
 </details>

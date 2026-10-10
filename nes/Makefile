@@ -7,7 +7,13 @@ endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
-SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
+# Windows (MSYS2/MinGW): SDL2 enlazado de forma estática, para que el .exe no pida SDL2.dll
+IS_WIN := $(or $(filter Windows_NT,$(OS)),$(findstring MINGW,$(shell uname -s 2>/dev/null)),$(findstring MSYS,$(shell uname -s 2>/dev/null)))
+ifneq ($(IS_WIN),)
+SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdlg32
+else
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+endif
 
 RUNTIME := nes.c cpu6502.c ppu.c apu.c mapper.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
@@ -73,7 +79,6 @@ nesaudio: src/tools/nesaudio.c $(RT)
 
 PLATFORM := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
 # Windows: el icono del .exe sale de un recurso (windres)
-IS_WIN := $(or $(filter Windows_NT,$(OS)),$(findstring MINGW,$(shell uname -s 2>/dev/null)),$(findstring MSYS,$(shell uname -s 2>/dev/null)))
 ifneq ($(IS_WIN),)
 WINRES := $(BUILD)/icono_res.o
 $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)

@@ -775,3 +775,27 @@ específicas del DMG al cambiar LCDC o la ventana a mitad del dibujo:
 Blargg `dmg_sound`: **9 de 12**. Fallan las tres de rarezas del canal de onda
 del DMG (leer o escribir la RAM de onda mientras suena, y la corrupción al
 dispararlo mientras toca), que los juegos casi no usan.
+
+### Línea base para optimizar el runtime
+
+`difftest` compara el código recompilado contra el intérprete, pero los dos
+comparten la PPU, el APU y el timer: un error en una optimización de esas
+piezas sale igual en ambas máquinas y pasa sin diferencias. Para eso está
+`tests/golden.sh`, que guarda en `tests/golden.txt` un hash FNV-1a de cada
+cuadro (pantalla del GB y, en el SGB, la de la SNES con el borde) y de cada
+muestra de audio de 24 casos: juegos de DMG, SGB y GBC con entradas fijas
+(`tests/inputs/golden.txt`, las mismas de `tools/compat/run.py`) y pruebas de
+la PPU y del APU. El hash se acumula cuadro a cuadro, así que también detecta
+diferencias que no llegan a la imagen final; se comprobó cambiando un solo
+píxel de un solo cuadro y un factor del mezclador de audio.
+
+La medida de la velocidad es `gbbench`: corre el intérprete sin ventana, con
+el APU generando muestras como en la ventana, y reporta la corrida más rápida
+de `--repeat N` (la menos afectada por otros programas). Según un perfil por
+muestreo con el APU apagado (en el mismo intérprete de `gbbench`), el CPU,
+recompilado o interpretado, se lleva alrededor del 3 % del tiempo; la PPU,
+entre 64 % y 79 % (`ppu_advance` y `fetcher_step`, punto a punto en el modo
+3); el APU, entre 6 % y 12 %; el bucle por M-ciclo de `sync_hardware` y el
+timer, cerca de 10 %; y en el SGB, `sgb_frame` 16 % (el borde se decodifica
+en cada cuadro). Por eso el recompilado corre casi a la misma velocidad que el
+intérprete: lo que conviene optimizar es el hardware, no el CPU.

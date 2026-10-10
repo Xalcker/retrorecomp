@@ -4,7 +4,7 @@
  * Uso: gbtest rom.gb [--seconds N] [--mooneye | --until-ldbb] [--input archivo]
  *                    [--expect esperado.png] [--dump salida.png] [--serial] [--no-block]
  *                    [--model dmg|cgb|sgb] [--palette up+a] [--dump-sgb imagen_sgb.png]
- *                    [--input2 archivo] [--input3 archivo] [--input4 archivo]
+ *                    [--input2 archivo] [--input3 archivo] [--input4 archivo] [--hash]
  *
  * Criterios de resultado:
  *   - Mooneye (--mooneye): al ejecutar LD B,B, los registros deben valer
@@ -17,6 +17,9 @@
  *     idéntica al PNG (tonos #FFFFFF, #AAAAAA, #555555, #000000).
  * --input2 a --input4: guiones de los controles 2-4 del Super Game Boy (para
  * los juegos de varios jugadores).
+ * --hash: imprime un hash de todos los cuadros (pantalla del GB y, en el SGB,
+ * la de la SNES con el borde) y de todo el audio. Lo usa tests/golden.sh para
+ * comprobar que una optimización no cambia nada de lo que se ve o se oye.
  * Código de salida: 0 pasó, 1 falló, 2 sin resultado.
  */
 #include <stdio.h>
@@ -94,6 +97,13 @@ static int serial_contains(GB *g, const char *text)
     return 0;
 }
 
+/* FNV-1a de 64 bits, acumulable */
+static void fnv(u64 *h, const void *data, size_t n)
+{
+    const unsigned char *p = data;
+    for (size_t i = 0; i < n; i++) *h = (*h ^ p[i]) * 0x100000001B3ull;
+}
+
 int main(int argc, char **argv)
 {
     console_utf8();
@@ -101,7 +111,8 @@ int main(int argc, char **argv)
     int model = GB_MODEL_AUTO;
     const char *palette = NULL;
     double seconds = 30;
-    int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0;
+    int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0, hash = 0;
+    u64 h_img = 0xCBF29CE484222325ull, h_aud = 0xCBF29CE484222325ull;
     const char *input_path = NULL;
     InputScript script;
     const char *extra_path[3] = { NULL, NULL, NULL };   /* controles 2-4 del SGB */
@@ -121,6 +132,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--no-block")) no_block = 1;
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--until-ldbb")) until_ldbb = 1;
+        else if (!strcmp(argv[i], "--hash")) hash = 1;
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
         else if (!strncmp(argv[i], "--input", 7) && argv[i][7] >= '2' && argv[i][7] <= '4' &&
                  !argv[i][8] && i + 1 < argc) {
@@ -163,6 +175,7 @@ int main(int argc, char **argv)
         return 2;
     }
     if (no_block) g.block_vram = 0;
+    if (hash) g.apu.enabled = 1;
     if (palette && !gb_compat_palette(&g, palette)) {
         fprintf(stderr, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC "
                         "(up, up+a, up+b, down, ..., right+b)\n", palette);
@@ -178,6 +191,13 @@ int main(int argc, char **argv)
         for (int k = 0; k < 3; k++)
             if (extra_path[k]) gb_set_pad_player(&g, k + 1, inputs_pad(&extra[k], f));
         gb_run_frame(&g);
+        if (hash) {
+            static float aud[4096 * 2];
+            int n;
+            fnv(&h_img, gb_framebuffer(&g), GB_SCREEN_W * GB_SCREEN_H * sizeof(u16));
+            if (gb_sgb_screen(&g)) fnv(&h_img, gb_sgb_screen(&g), SGB_SCREEN_W * SGB_SCREEN_H * sizeof(u16));
+            while ((n = gb_audio_pull(&g, aud, 4096)) > 0) fnv(&h_aud, aud, (size_t)n * 2 * sizeof(float));
+        }
         if (mooneye && g.ld_bb_hit) {
             Cpu *c = &g.cpu;
             int ok = c->b == 3 && c->c == 5 && c->d == 8 && c->e == 13 && c->h == 21 && c->l == 34;
@@ -233,6 +253,7 @@ int main(int argc, char **argv)
         putchar('\n');
     }
 
+    if (hash) printf("hash imagen %016llx audio %016llx\n", (unsigned long long)h_img, (unsigned long long)h_aud);
     printf("%s %s (%s)\n", result == 0 ? "PASA " : result == 1 ? "FALLA" : "-----", rom_path, why);
     gb_free(&g);
     return result;

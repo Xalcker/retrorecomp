@@ -272,13 +272,14 @@ gbaudio rom.gb audio.wav   --frames 600 --seed 3                            # WA
 `gbrecomp --trace` o a `--coverage` igual que la de `--uncovered`. Sin `--input` ni `--seed` no se
 pulsa ningún botón; con `--seed` el mando es el mismo al azar de `difftest --seed`.
 
-**GUI local.** `python3 tools/gui/gbrecomp_gui.py` abre en el navegador (solo Python
-estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior: el mapa de
-cada banco como `--viz` con clic por celda y la cadena de `--why`, el avance por ROM (análisis,
-cobertura, proyecto, `difftest`, velocidad), trazas con `difftest --uncovered` o jugando, guiones
-de entradas (`--input`, `--play`, `--record`), `gbtrace`/`gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`,
-`tests/recomp_game.sh`, sincronizar el repo y la salida de cada trabajo en vivo. Opciones:
-`--roms carpeta`, `--port N`.
+**GUI local.** `python3 tools/retrorecomp/retrorecomp_gui.py` abre en el navegador (solo Python
+estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior, común con
+NESRecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`:
+`git submodule update --init`): el mapa de cada banco como `--viz` con clic por celda y la cadena de
+`--why`, el avance por ROM (análisis, cobertura, proyecto, `difftest`, velocidad), trazas con
+`gbtrace`, `difftest --uncovered` o jugando, guiones de entradas (`--input`, `--play`, `--record`),
+`gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`, `tests/recomp_game.sh`, sincronizar el repo y la
+salida de cada trabajo en vivo.
 
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
 por el propio juego para verse igual en todos los sistemas; Alt o F10):

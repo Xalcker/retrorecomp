@@ -12,7 +12,7 @@ de zips que le indiques y las extrae a `build/compat/roms/`.
 | ROMs probadas | 732 |
 | Con mapper soportado | 712 (los otros 20 usan los mappers 13, 18, 19, 23, 75, 95, 105, 115, 184, 210, 268 y 446) |
 | Corren en el intérprete (etapa 1) | 711 de 712. La excepción es Galaxian (Evercade), de PRG que no es potencia de 2 |
-| Capturas casi uniformes (revisar) | 10 de las 711 (Dragon Warrior I a IV, Destiny of an Emperor, Gun.Smoke, Gyromite, Simpsons Bart vs. the World...). Varias son pantallas de texto sobre negro; no se revisaron una por una |
+| Capturas casi uniformes | 10 de las 711, revisadas a ojo: 8 son pantallas de texto o menús sobre negro (Dragon Warrior I a IV, Destiny of an Emperor, Muppet Adventure, Simpsons Bart vs. the World, Flying Dragon). Gyromite y Gun.Smoke se ven bien con otras entradas (menú y título); el negro viene de las entradas guionadas. Ninguna es un fallo conocido |
 | Recompiladas y comparadas contra el intérprete (etapa 2) | 52 ROMs elegidas, **51 sin diferencias**; la que falla es Galaxian por el mismo motivo |
 | Mappers cubiertos en la etapa 2 | 0, 1, 2, 3, 4, 5, 7, 9, 34, 66, 69, 87, 118, 119, 206 |
 | Mappers soportados sin ROM en la colección | 10, 11, 71, 79, 140, 180 (no se pudieron probar con juegos) |
@@ -40,9 +40,13 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
 ## Hallazgos
 
 - **Cobertura.** En 40 de las 51 ROMs aprobadas quedan instrucciones de PRG interpretadas tras la primera ronda (en promedio
-  ~510 por ROM) y la segunda ronda apenas las baja (~480): lo que cae al intérprete casi no cambia con la traza
-  (no se investigó la causa; podrían ser rutas que el mando aleatorio no alcanza o código que la traza no convierte en función). No hubo diferencias
-  entre el intérprete y el código recompilado en ninguna ROM.
+  ~510 por ROM) y la segunda ronda apenas las baja (~480). Causa, verificada en Gauntlet (MMC3) con `nesrecomp --why`: el
+  recompilador asigna **una sola dirección a cada desplazamiento del PRG** (`nesrecomp.c`, cuenta los `conflictos`), y en
+  mappers con ventanas intercambiables el mismo byte se ejecuta a veces en `$8003` y a veces en `$A003`. La traza trae la
+  dirección con que se ejecutó (`000003:8003`), pero el código ya estaba tomado como `$A003`, así que no se puede
+  recompilar y sigue cayendo al intérprete. Por eso la segunda ronda de `recomp_game.sh` aporta poco. Arreglarlo exigiría
+  emitir una función por cada par (desplazamiento, dirección); no se hizo. No hubo diferencias entre el intérprete y el
+  código recompilado en ninguna ROM.
 - **3-D WorldRunner** (mapper 2) corre solo el 57-62 % de los ciclos en código recompilado, con 0 instrucciones de PRG
   interpretadas, así que el resto probablemente es código que corre desde RAM (no se verificó). Es el caso más bajo; todos los demás pasan del 98 %.
 - **Velocidad** del proyecto generado (MinGW, `-O2`, un solo hilo, medida sin otra carga): mediana 11,7× tiempo real; entre

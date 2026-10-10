@@ -3,6 +3,9 @@ testroms/
 *.exe
 /gbtest
 /gbbench
+/gbtrace
+/gbshot
+/gbaudio
 /linktest
 *.gb
 *.sav

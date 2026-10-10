@@ -259,11 +259,24 @@ avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
 desensambla sus instrucciones y explica, como `--why`, por qué cada una es
 código. Los archivos se leen en la computadora; no se mandan a ningún lado.
 
+**Herramientas sin ventana** (las mismas opciones que `nestrace`, `nesshot` y `nesaudio` de NESRecomp:
+`--frames N`, `--input archivo`, `--seed S`, `--model dmg|cgb|sgb`):
+
+```
+gbtrace rom.gb traza.txt --frames 3000 --input tests/inputs/partida1.txt   # direcciones de ROM ejecutadas (formato BB:AAAA)
+gbshot  rom.gb captura.png --frames 900 --input tests/inputs/partida1.txt
+gbaudio rom.gb audio.wav   --frames 600 --seed 3                            # WAV estéreo y nivel por segundo
+```
+
+`gbtrace` corre el intérprete, así que no necesita el proyecto compilado: la traza se pasa a
+`gbrecomp --trace` o a `--coverage` igual que la de `--uncovered`. Sin `--input` ni `--seed` no se
+pulsa ningún botón; con `--seed` el mando es el mismo al azar de `difftest --seed`.
+
 **GUI local.** `python3 tools/gui/gbrecomp_gui.py` abre en el navegador (solo Python
 estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior: el mapa de
 cada banco como `--viz` con clic por celda y la cadena de `--why`, el avance por ROM (análisis,
 cobertura, proyecto, `difftest`, velocidad), trazas con `difftest --uncovered` o jugando, guiones
-de entradas (`--input`, `--play`, `--record`), recompilar, `difftest`, `gbbench`,
+de entradas (`--input`, `--play`, `--record`), `gbtrace`/`gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`,
 `tests/recomp_game.sh`, sincronizar el repo y la salida de cada trabajo en vivo. Opciones:
 `--roms carpeta`, `--port N`.
 

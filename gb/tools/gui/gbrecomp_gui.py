@@ -224,7 +224,7 @@ def git_info():
 
 
 def tools_status():
-    return {n: os.path.isfile(tool(n)) for n in ("gbrecomp", "gbtest", "gbbench", "linktest", "vgmcheck")}
+    return {n: os.path.isfile(tool(n)) for n in ("gbrecomp", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "linktest", "vgmcheck")}
 
 
 # --------------------------------------------------------------------------- descubrimiento (--events)
@@ -540,10 +540,21 @@ def make_job(p):
         os.makedirs(WORK, exist_ok=True)
         argv = [tool("gbrecomp"), rp, "--why", "00:0000", "--events", os.path.join(WORK, f"eventos_{stem(rom)}.txt"), *tflags]
         return start_job("eventos (--events)", [{"argv": argv}], rom, "events")
-    if kind == "screenshot":
-        out = os.path.join(WORK, f"shot_{stem(rom)}.png")
-        os.makedirs(WORK, exist_ok=True)
-        return start_job("gbtest --dump", [{"argv": [tool("gbtest"), rp, "--seconds", str(pint(p.get("seconds") or 5, 1, 600, "segundos")), "--dump", out]}], rom, "screenshot")
+    if kind in ("trace", "screenshot", "audio"):
+        # gbtrace / gbshot / gbaudio: mismas opciones que nestrace / nesshot / nesaudio
+        tn = safe_name(p.get("trace_name") or "guiada")
+        out = {"trace": os.path.join(trace_dir(rom), (tn[:-6] if tn.endswith(".trace") else tn) + ".trace"),
+               "screenshot": os.path.join(WORK, f"shot_{stem(rom)}.png"),
+               "audio": os.path.join(WORK, f"audio_{stem(rom)}.wav")}[kind]
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        tool_name = {"trace": "gbtrace", "screenshot": "gbshot", "audio": "gbaudio"}[kind]
+        argv = [tool(tool_name), rp, out, "--frames", str(pint(p.get("frames") or 600, 1, 2000000, "cuadros"))]
+        if inp:
+            argv += ["--input", inp]
+        elif str(p.get("seed", "")).strip():
+            argv += ["--seed", str(pint(p["seed"], 0, 2**31, "semilla"))]
+        argv += model_args(p)
+        return start_job(f"{tool_name} {rom}", [{"argv": argv}], rom, kind)
     raise ValueError("trabajo desconocido: " + str(kind))
 
 
@@ -662,6 +673,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, "sin captura", "text/plain; charset=utf-8")
             with open(p, "rb") as f:
                 return self._send(200, f.read(), "image/png")
+        if path == "/files/audio":
+            p = os.path.join(WORK, f"audio_{stem(one('rom'))}.wav")
+            if not os.path.isfile(p):
+                return self._send(404, "sin audio", "text/plain; charset=utf-8")
+            with open(p, "rb") as f:
+                return self._send(200, f.read(), "audio/wav")
         if path == "/files/events":
             p = os.path.join(WORK, f"eventos_{stem(one('rom'))}.txt")
             if not os.path.isfile(p):

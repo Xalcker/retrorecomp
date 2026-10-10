@@ -116,16 +116,17 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
   <div class="pane" id="p-trazas">
    <div class="grid2">
     <div class="card">
-     <h3>Generar una traza con <code>difftest</code> (<code>--uncovered</code>)</h3>
-     <div class="mut" style="font-size:12px;margin-bottom:6px">Corre el proyecto recompilado contra el intérprete y guarda las direcciones que tuvo que interpretar. Necesita el proyecto compilado (pestaña Recompilar).</div>
+     <h3>Grabar una traza sin ventana (<code>gbtrace</code>)</h3>
+     <div class="mut" style="font-size:12px;margin-bottom:6px">Corre el intérprete y guarda las direcciones de ROM que ejecuta. Sin entradas ni semilla no se pulsa nada; no necesita el proyecto compilado.</div>
      <div class="row">
-      <label class="f">Cuadros<input type="number" id="tFrames" value="6000" min="1" style="width:7em"></label>
-      <label class="f">Semilla<input type="number" id="tSeed" value="1" style="width:6em"></label>
+      <label class="f">Cuadros<input type="number" id="tFrames" value="3000" min="1" style="width:7em"></label>
+      <label class="f">Semilla (mando al azar)<input type="number" id="tSeed" style="width:7em"></label>
       <label class="f">Entradas<select id="tInput"></select></label>
-      <label class="f">Nombre<input type="text" id="tName" value="difftest" style="width:9em"></label>
+      <label class="f">Nombre<input type="text" id="tName" value="guiada" style="width:9em"></label>
      </div>
-     <div class="row"><button class="pri" id="bTrace">Generar traza</button><button id="bShot" title="gbtest --dump tras N segundos, sin entradas">Captura PNG</button></div>
+     <div class="row"><button class="pri" id="bTrace">Grabar traza</button><button id="bTraceD" title="difftest --uncovered: lo que el proyecto recompilado dejó al intérprete (necesita el proyecto compilado)">Con difftest (--uncovered)</button><button id="bShot">Captura PNG</button><button id="bAudio">Audio WAV</button></div>
      <img id="shot" style="max-width:320px;image-rendering:pixelated;display:none;border:1px solid var(--line)">
+     <audio id="aud" controls style="display:none;width:100%;margin-top:6px"></audio>
      <h3 style="margin-top:14px">Jugar y grabar</h3>
      <div class="row">
       <label class="f">Traza<input type="text" id="pName" value="jugada" style="width:9em"></label>
@@ -380,13 +381,22 @@ $("#iDel").onclick=guard(async()=>{
 });
 
 /* ---------- acciones ---------- */
+const tbody=()=>({rom:S.rom,frames:$("#tFrames").value,seed:$("#tSeed").value,input:$("#tInput").value,trace_name:$("#tName").value});
 $("#bTrace").onclick=guard(async()=>{
-  const j=await api("/api/job",{kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#tFrames").value,seed:$("#tSeed").value,input:$("#tInput").value,uncovered:true,uncovered_name:$("#tName").value});
+  const j=await api("/api/job",{kind:"trace",...tbody()});
+  watch(j.id,()=>{S.checked.add($("#tName").value.replace(/\.trace$/,"")+".trace");refresh().then(loadMap)});
+});
+$("#bTraceD").onclick=guard(async()=>{
+  const j=await api("/api/job",{kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#tFrames").value,seed:$("#tSeed").value||"1",input:$("#tInput").value,uncovered:true,uncovered_name:$("#tName").value});
   watch(j.id,()=>{S.checked.add($("#tName").value.replace(/\.trace$/,"")+".trace");refresh().then(loadMap)});
 });
 $("#bShot").onclick=guard(async()=>{
-  const j=await api("/api/job",{kind:"screenshot",rom:S.rom,seconds:5});
+  const j=await api("/api/job",{kind:"screenshot",...tbody()});
   watch(j.id,()=>{const i=$("#shot");i.src="/files/shot?"+qs({t:TOKEN,rom:S.rom,n:Date.now()});i.style.display=""});
+});
+$("#bAudio").onclick=guard(async()=>{
+  const j=await api("/api/job",{kind:"audio",...tbody()});
+  watch(j.id,()=>{const a=$("#aud");a.src="/files/audio?"+qs({t:TOKEN,rom:S.rom,n:Date.now()});a.style.display=""});
 });
 const play=guard(async(rec,recompiled)=>{
   const r=await api("/api/play",{rom:S.rom,record_trace:rec,trace_name:$("#pName").value,record_input:rec,input_name:$("#pIName").value,interp:$("#pInterp").checked});

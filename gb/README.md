@@ -340,6 +340,34 @@ Ninguno tuvo diferencias. La cobertura sin traza varía entre 1 % y 99 % según
 qué tan indirecto es el código del juego (ver `docs/ARQUITECTURA.md`). Con el
 ciclo de trazas, los juegos revisados quedaron entre 97 % y 99.9 %.
 
+**Lista de compatibilidad** ([`docs/compat/index.html`](docs/compat/index.html)):
+las 948 ROMs de las colecciones No-Intro de Game Boy y Game Boy Color, cada
+una con su captura, estado, MBC, consola y, para una selección por MBC y
+consola, el resultado del ciclo completo del recompilador y su velocidad.
+Se genera con tres scripts de Python que se corren con
+[uv](https://docs.astral.sh/uv/) (instala Python y Pillow solo), desde la
+raíz del repo y con todo compilado con `make`:
+
+```
+uv run tools/compat/scan.py "DIR/Nintendo - Game Boy" "DIR/Nintendo - Game Boy Color"
+uv run tools/compat/run.py        # etapa 1 (todas) y etapa 2 (selección); ~15 min + ~1 h
+uv run tools/compat/report.py     # escribe docs/compat/index.html
+```
+
+- `scan.py` lee la cabecera de cada zip (tipo de cartucho, tamaños, banderas
+  de GBC y SGB) y deja `build/compat/scan.json`.
+- `run.py`, etapa 1: corre cada ROM en el intérprete (`gbtest`) con entradas
+  guionadas y toma capturas en los cuadros 450, 900 y 1500; marca las que no
+  cargan, ejecutan un opcode ilegal o quedan en blanco. Etapa 2: para unas 30
+  ROMs elegidas por MBC y consola, `gbrecomp`, compilar, `difftest` con dos
+  semillas y una segunda ronda con lo que cayó al intérprete
+  (`--uncovered` → `--trace`), más `difftest --bench`. Opciones: `--solo
+  etapa1|etapa2`, `--juego TEXTO` (solo esos juegos, y todos pasan a la etapa
+  2), `--reusar` (no repite capturas) y `--hilos N`.
+- Los resultados quedan en `docs/compat/results.json` (se acumulan entre
+  corridas) y las capturas en `docs/compat/thumbs/`; las ROMs extraídas y los
+  proyectos, en `build/compat/` (los proyectos sin diferencias se borran).
+
 La integración continua compila, corre la batería y recompila una ROM de
 prueba en Linux, macOS y Windows. En Linux y Windows además se jugaron los
 proyectos generados; en macOS todavía no.

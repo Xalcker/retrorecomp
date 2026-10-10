@@ -2,6 +2,7 @@ build/
 testroms/
 *.exe
 /gbtest
+/gbbench
 /linktest
 *.gb
 *.sav

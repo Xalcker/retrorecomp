@@ -48,7 +48,7 @@ Se necesita un compilador C99, `make` y, para los juegos generados, SDL2.
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-make            # gbrecomp, gbtest, linktest y el runtime
+make            # gbrecomp, gbtest, gbbench, linktest y el runtime
 make dist       # dist/gbrecomp-<versión>.tar.gz
 ```
 
@@ -316,6 +316,16 @@ Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.
+
+**Línea base exacta** (`sh tests/golden.sh`): 24 casos (11 juegos de
+`roms/` con entradas fijas, más acid2, Mealybug, HDMA y `cgb_sound`) con el
+hash de todos los cuadros y de todo el audio (`gbtest --hash`). Una
+optimización del runtime no debe cambiar ni un byte: `difftest` no lo
+detectaría, porque el código recompilado y el intérprete usan la misma PPU y
+el mismo APU. Tarda unos 30 s. Tras un cambio que sí debe cambiar la salida, se
+revisa a ojo y se regenera con `sh tests/golden.sh --update`. La velocidad se
+mide con `gbbench rom.gb [--frames N] [--repeat N] [--input archivo]`
+(intérprete sin ventana, con audio; reporta la más rápida de N corridas).
 
 **Juegos probados**, sin diferencias en `difftest`, con el porcentaje de
 instrucciones que corrió como código recompilado:

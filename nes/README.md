@@ -194,16 +194,28 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 |---|---|
 | `nes juego.nes` | Ventana SDL2 con el intérprete. `NES_TRACE=archivo` guarda la traza mientras juegas. |
 | `nesrecomp` | El recompilador. |
-| `nestrace rom traza cuadros [boton:desde-hasta ...]` | Traza de ejecución sin ventana. |
-| `nesshot rom salida.png cuadros [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. |
-| `nesaudio rom salida.wav cuadros [...]` | Audio a WAV, con el nivel por segundo. |
-| `nesbench rom [cuadros]` | Velocidad sin ventana. |
+| `nestrace rom traza [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (también `cuadros [boton:desde-hasta ...]`). |
+| `nesshot rom salida.png [--frames N] [--input archivo] [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. |
+| `nesaudio rom salida.wav [--frames N] [--input archivo] [...]` | Audio a WAV, con el nivel por segundo. |
+| `nesbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
 | `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
 | `ramdump rom cuadros [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
 | `python3 tools/gui/nesrecomp_gui.py` | **GUI** local en el navegador (solo Python estándar): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM (análisis, cobertura, proyecto, difftest, velocidad), grabar/unir trazas (`nestrace`, `NES_TRACE`), recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y ver la salida en vivo. |
 | `uv run tools/compat/{scan,run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
+
+**Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
+`bench` de cada proyecto) aceptan las mismas opciones que `gbtrace`, `gbshot`, `gbaudio`, `gbbench` y `difftest` de
+GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `src/platform/inputs.h`),
+`--seed S` (mando aleatorio reproducible) y, en `nesbench`/`bench`, `--repeat N` (se reporta la corrida más rápida).
+Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde-hasta`):
+
+```
+./nestrace "roms/juego.nes" juego.trace --frames 3000 --input partida.txt
+./nesshot  "roms/juego.nes" captura.png --frames 900 --input partida.txt
+./nesbench "roms/juego.nes" --frames 3000 --repeat 3
+```
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
 `tests/golden.sh` compara el hash de imagen y audio de varios casos con una línea base; `tests/coverage.sh` mide la cobertura del análisis estático.

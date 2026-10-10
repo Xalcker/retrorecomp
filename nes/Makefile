@@ -25,21 +25,21 @@ all: nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest r
 nestest: src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-nesshot: src/tools/nesshot.c src/platform/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^
+nesshot: src/tools/nesshot.c src/platform/png.c src/platform/cli.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesshot.c src/platform/png.c $(RT)
 
-nesbench: src/platform/bench.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+nesbench: src/platform/bench.c src/platform/cli.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
-nestrace: src/tools/nestrace.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+nestrace: src/tools/nestrace.c src/platform/cli.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
@@ -74,8 +74,8 @@ statetest: src/tools/statetest.c $(RT)
 sramtest: src/tools/sramtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-nesaudio: src/tools/nesaudio.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+nesaudio: src/tools/nesaudio.c src/platform/cli.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
 
 PLATFORM := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
 # Windows: el icono del .exe sale de un recurso (windres)

@@ -1,6 +1,7 @@
 /*
  * nesshot: corre una ROM sin ventana y guarda una captura en PNG.
- *   nesshot rom.nes salida.png cuadros [boton:desde-hasta ...]
+ *   nesshot rom.nes salida.png [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
+ * (también vale la sintaxis de antes: nesshot rom.nes salida.png cuadros [boton:desde-hasta ...])
  * Ejemplo: nesshot smb.nes smb.png 600 start:90-95 right:200-500 a:300-320
  * Botones: a b select start up down left right.
  * Zapper: zapper:X,Y,desde-hasta apunta a (X,Y) y aprieta el gatillo en esos cuadros (activa el Zapper en el puerto 2);
@@ -10,10 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "nes.h"
+#include "cli.h"
 #include "png.h"
 
-typedef struct { int btn, from, to; } Hold;
 typedef struct { int x, y, from, to; } Zap;
 
 static u8 *slurp(const char *path, size_t *len)
@@ -27,37 +27,29 @@ static u8 *slurp(const char *path, size_t *len)
     return b;
 }
 
-static int btn_by_name(const char *s)
-{
-    static const char *nm[] = { "a", "b", "select", "start", "up", "down", "left", "right" };
-    for (int i = 0; i < 8; i++) if (!strcmp(s, nm[i])) return 1 << i;
-    return 0;
-}
-
 int main(int argc, char **argv)
 {
-    if (argc < 4) { fprintf(stderr, "uso: nesshot rom.nes salida.png cuadros [boton:desde-hasta ...]\n"); return 2; }
-    size_t len; u8 *rom = slurp(argv[1], &len);
-    if (!rom) { fprintf(stderr, "no pude leer %s\n", argv[1]); return 2; }
+    static Cli c;
+    if (cli_parse(&c, argc, argv, 2, 600)) {
+        fprintf(stderr, "uso: nesshot rom.nes salida.png [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...] [zapper:X,Y,desde-hasta]\n");
+        return 2;
+    }
+    size_t len; u8 *rom = slurp(c.pos[0], &len);
+    if (!rom) { fprintf(stderr, "no pude leer %s\n", c.pos[0]); return 2; }
     static NES n; const char *err = NULL;
     if (nes_load(&n, rom, len, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
-    int frames = atoi(argv[3]);
-    Hold h[64]; int nh = 0;
+    long frames = c.frames;
     Zap z[64]; int nz = 0, zap_aim[64];
-    for (int i = 4; i < argc && nh < 64; i++) {
-        char name[16]; int a, b, zx, zy, za, zb;
-        if (!strncmp(argv[i], "zapper:", 7) && sscanf(argv[i] + 7, "%d,%d,%d-%d", &zx, &zy, &za, &zb) == 4 && nz < 64) {
-            zap_aim[nz] = strstr(argv[i], ",mira") != NULL;
+    for (int i = 0; i < c.nextra; i++) {
+        int zx, zy, za, zb;
+        if (!strncmp(c.extra[i], "zapper:", 7) && sscanf(c.extra[i] + 7, "%d,%d,%d-%d", &zx, &zy, &za, &zb) == 4 && nz < 64) {
+            zap_aim[nz] = strstr(c.extra[i], ",mira") != NULL;
             z[nz++] = (Zap){ zx, zy, za, zb };
-            continue;
         }
-        if (sscanf(argv[i], "%15[a-z]:%d-%d", name, &a, &b) == 3 && btn_by_name(name))
-            h[nh++] = (Hold){ btn_by_name(name), a, b };
     }
-    for (int f = 0; f < frames; f++) {
-        u8 pad = 0;
-        for (int i = 0; i < nh; i++) if (f >= h[i].from && f <= h[i].to) pad |= h[i].btn;
-        n.pad[0] = pad;
+    for (long f = 0; f < frames; f++) {
+        n.pad[0] = cli_pad(&c, f, 0);
+        n.pad[1] = cli_pad(&c, f, 1);
         if (nz) {
             n.zapper_on = 1; n.zap_x = n.zap_y = -1; n.zap_trigger = 0;
             for (int i = 0; i < nz; i++) if (f >= z[i].from && f <= z[i].to) { n.zap_x = z[i].x; n.zap_y = z[i].y; n.zap_trigger = !zap_aim[i]; }
@@ -75,11 +67,11 @@ int main(int argc, char **argv)
         u32 c = ppu_argb(pal, n.ppu.fb[i]);
         rgb[i * 3] = c >> 16; rgb[i * 3 + 1] = c >> 8; rgb[i * 3 + 2] = c;
     }
-    if (!png_write_rgb(argv[2], rgb, 256, 240)) { fprintf(stderr, "no pude escribir el PNG\n"); return 2; }
+    if (!png_write_rgb(c.pos[1], rgb, 256, 240)) { fprintf(stderr, "no pude escribir el PNG\n"); return 2; }
     u8 *s = n.cart.prg_ram;
     if (s[1] == 0xDE && s[2] == 0xB0 && s[3] == 0x61)
         printf("Blargg: estado $%02X\n%s\n", s[0], (char *)s + 4);
-    printf("%s: %d cuadros, mapper %d\n", argv[2], frames, n.cart.mapper);
+    printf("%s: %ld cuadros, mapper %d\n", c.pos[1], frames, n.cart.mapper);
     if (s[1] == 0xDE && s[0] != 0) return 1;
     return 0;
 }

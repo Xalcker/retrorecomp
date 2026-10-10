@@ -44,6 +44,13 @@ make
 make test        # opcional: nestest, Blargg, mappers, recompilado contra intérprete...
 ```
 
+`make test` necesita las ROMs de prueba abiertas en `testroms/` (no se versionan):
+
+```
+git clone --depth 1 https://github.com/christopherpow/nes-test-roms testroms/nes-test-roms
+git clone --depth 1 https://github.com/100thCoin/AccuracyCoin testroms/accuracycoin      # opcional (tests/accuracycoin.py; usa uv)
+```
+
 **2. Probar la ROM con el intérprete** (ventana SDL2; teclas en Ayuda → Controles)
 
 ```
@@ -84,7 +91,9 @@ difftest: 600 cuadros iguales (106686 llamadas, 106686 a código recompilado, 10
 ```
 
 Los argumentos `boton:desde-hasta` son los cuadros en que se mantiene cada botón (`a b select start up down left right`).
-Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos nuevos.
+Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos nuevos. Dos opciones más: `--seed S` suma un
+mando aleatorio (reproducible con la semilla) y `--uncovered archivo` escribe, en formato de traza, las instrucciones de PRG que
+tuvo que interpretar (sirve como `--trace` de `nesrecomp`).
 
 **6. Velocidad** (sin ventana ni límite de cuadros):
 
@@ -134,7 +143,7 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
   1 de APU. Pasa `nestest` (incluida la posición de la PPU), `cpu_timing_test`, `instr_timing`,
   `instr_misc`, `branch_timing_tests`, las 10 `ppu_vbl_nmi`, `cpu_interrupts_v2` 1, 2, 3 y 5 y las 11 pruebas viejas del
   frame counter del APU.
-- RAM con batería: `juego.sav` en la carpeta de datos del juego (se guarda al salir y cada 5 s si cambia).
+- RAM con batería: `juego.sav` en la carpeta de datos del juego (se guarda al salir y cada 5 s si cambia). Sin partida previa, la RAM se lee como `$FF` (memoria sin programar).
 - **Interfaz** (SDL2, español e inglés): barra de menús y diálogos de Moskva 89 / GBRecomp; estados guardados (4 ranuras),
   pausa, avance rápido (Tab), 2 jugadores (teclado y mandos), **Four Score** (4 jugadores, con mandos), **Zapper** (ratón: apuntar y clic izquierdo; verificado con Duck Hunt: un programa que apunta a los patos los derriba y suma puntos), tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7,
   overscan, paletas (predeterminada, grises, saturada y `paleta.pal` propia), volumen y silenciar canales del APU,
@@ -163,7 +172,7 @@ ni un byte de imagen o audio.
 
 ### Conocido
 
-- AccuracyCoin (`testroms/accuracycoin`, marcador con `tests/accuracycoin.py`): 114 de 146 pruebas pasan. Faltan, sobre todo, el
+- AccuracyCoin (`testroms/accuracycoin`, marcador con `tests/accuracycoin.py`): 114 de 149 pruebas pasan (32 fallan; el detalle por grupos está en el issue #11). Faltan, sobre todo, el
   comportamiento por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, registros de desplazamiento "viejos",
   activar o desactivar el dibujo en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y varios
   detalles del bus abierto de la PPU y del APU. `RMW2007`, `CPUInstr` y `Unimplemented` no llegan a ejecutarse.
@@ -190,9 +199,13 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nesaudio rom salida.wav cuadros [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [cuadros]` | Velocidad sin ventana. |
 | `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
+| `ramdump rom cuadros [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
+| `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
+| `uv run tools/compat/{scan,run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
+`tests/golden.sh` compara el hash de imagen y audio de varios casos con una línea base; `tests/coverage.sh` mide la cobertura del análisis estático.
 
 ## Estructura
 
@@ -203,13 +216,16 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `ref_gb/` | Código de GBRecomp como referencia de diseño. No se compila. |
-| `tools/` | `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
+| `tools/` | `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
+| `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Pendiente
 
 - Más mappers (VRC4 con IRQ, VRC6/7, 105, 268, 446, mapper 15), el audio del Namco 163, la pantalla dividida del MMC5 y el audio 5B del FME-7.
+  El resto está en los [issues](https://github.com/yherna63/NESRecomp/issues).
 
 ## Créditos
 

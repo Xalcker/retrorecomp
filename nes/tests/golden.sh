@@ -9,12 +9,15 @@ mkdir -p build/gold
 OUT=build/gold/now.txt
 : > $OUT
 A1="start:120-125 right:400-3000 a:500-520 a:700-720 a:900-920 a:1100-1120"
+md5f() {    # md5 de un archivo (macOS: md5; Linux y MSYS2: md5sum)
+    if command -v md5 >/dev/null 2>&1; then md5 -q "$1"; else md5sum "$1" | cut -d' ' -f1; fi
+}
 one() {     # rom nombre cuadros [botones...]
     rom="$1"; name="$2"; fr="$3"; shift 3
     [ -f "$rom" ] || return
     ./nesshot "$rom" build/gold/$name.png "$fr" "$@" >/dev/null 2>&1
     ./nesaudio "$rom" build/gold/$name.wav "$fr" "$@" >/dev/null 2>&1
-    printf "%s img %s aud %s\n" "$name" "$(md5 -q build/gold/$name.png)" "$(md5 -q build/gold/$name.wav)" >> $OUT
+    printf "%s img %s aud %s\n" "$name" "$(md5f build/gold/$name.png)" "$(md5f build/gold/$name.wav)" >> $OUT
 }
 one "roms/Super Mario Bros. (Japan, USA).nes" smb 1500 $A1
 one "roms/Super Mario Bros. 3 (U) (PRG0) [!].nes" smb3 1800 start:300-305 start:400-405 a:500-505 start:600-605 right:1000-1010 up:1100-1110 a:1300-1305 a:1400-1405 right:1500-1800
@@ -33,4 +36,12 @@ one $T/mmc3_test_2/rom_singles/3-A12_clocking.nes mmc3 200
 one $T/other/PCM.demo.wgraphics.nes pcm 600
 one $T/other/SimpleParallaxDemo.nes parallax 400
 if [ "$1" = "--update" ]; then cp $OUT tests/golden.txt; echo "tests/golden.txt actualizado ($(wc -l < $OUT) casos)"; exit 0; fi
-if diff -u tests/golden.txt $OUT >/dev/null; then echo "golden: igual ($(wc -l < $OUT) casos)"; else diff -u tests/golden.txt $OUT; echo "golden: DIFERENTE"; exit 1; fi
+if [ "$(cat tests/golden.txt)" = "$(cat $OUT)" ]; then echo "golden: igual ($(wc -l < $OUT) casos)"; else
+    # Solo se comparan los casos que se pudieron correr (faltan los juegos de roms/ que no tengas)
+    bad=0
+    while read -r name rest; do
+        want=$(grep "^$name " tests/golden.txt)
+        [ "$want" = "$name $rest" ] || { echo "DIFERENTE: $name"; echo "  esperado: $want"; echo "  ahora:    $name $rest"; bad=1; }
+    done < $OUT
+    [ $bad = 0 ] && echo "golden: igual en los $(wc -l < $OUT) casos que se pudieron correr (de $(wc -l < tests/golden.txt))" || { echo "golden: DIFERENTE"; exit 1; }
+fi

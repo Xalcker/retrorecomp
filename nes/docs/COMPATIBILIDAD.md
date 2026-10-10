@@ -27,7 +27,7 @@ Mappers agregados en esta ronda (14 ROMs que antes no cargaban): 13 CPROM, 18 Ja
 
 ```
 uv run tools/compat/scan.py "<carpeta de zips>" build/compat_scan.json    # cabeceras iNES -> mappers
-uv run tools/compat/run.py  "<carpeta de zips>"                           # etapas 1 y 2 (--solo etapa1|etapa2, --reusar, --hilos N)
+uv run tools/compat/run.py  "<carpeta de zips>"                           # etapas 1 y 2 (--solo etapa1|etapa2, --mappers 13,18, --reusar, --hilos N)
 uv run tools/compat/report.py                                             # docs/compat/index.html
 ```
 

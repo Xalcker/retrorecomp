@@ -8,11 +8,12 @@ distribuyen datos de la ROM. Sigue el diseño de GBRecomp.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `nes.c` (cartucho iNES, bus, reloj, DMA, joypads, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `recomp.h` (macros del código generado). |
+| `src/runtime/` | La consola: `nes.c` (cartucho iNES y NES 2.0, bus, reloj, DMA, joypads, RAM con batería, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `recomp.h` (macros del código generado). |
 | `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. |
-| `src/platform/` | SDL2 (`main_sdl.c`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
-| `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `sramtest`, `embed`. |
-| `tests/` | `run_tests.sh` (nestest, Blargg, recompilador), `recomp_game.sh` (recompila un juego y lo compara). |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
+| `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `ramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
+| `tests/` | `run_tests.sh` (nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh`, `coverage.sh`, `accuracycoin.py`. |
+| `tools/compat/` | Prueba de compatibilidad con una colección de ROMs (`scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 
 ## Temporización
 
@@ -151,6 +152,14 @@ L_8000: /* lda #$10 */
 El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros `CART_MMC3/MMC5/CHRHOOK/LOWREGS/EXGFX` (nes.h) pasan
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
-0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119 y 5. Un mapper
-nuevo es un caso en `mapper_prg_offset`, `mapper_cpu_write`, `chr_off` y las consultas del
-recompilador (`mapper_prg_window`, `mapper_prg_granule`).
+0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
+13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 23 VRC2/VRC4 (sin IRQ), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
+Los IRQ por ciclos (FME-7, Jaleco, Namco 163) guardan en `cart.irq_cycle` el ciclo en que se levantan; `nes.c` lo compara en cada acceso al bus.
+
+Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
+si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
+`mapper_prg_granule`), más una prueba sintética en `src/tools/mappertest.c`.
+
+`nes_load` lee la cabecera iNES y NES 2.0 (tamaños con MSB o en notación exponente-multiplicador y los bits altos del mapper; no el submapper).
+Un PRG de 8 KB se repite hasta 16 KB. La RAM con batería sin estrenar se inicializa a `$FF`: con ceros, Kid Dracula interpreta la RAM como una
+partida válida y se cuelga.

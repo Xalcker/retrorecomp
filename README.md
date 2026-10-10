@@ -62,3 +62,7 @@ Si cambias una opción en un recompilador, cámbiala también en el otro y aquí
 | Jugar y grabar traza | `nes` con `NES_TRACE` | el recompilado con `--uncovered` |
 | Visor | HTML (`--html`) | `tools/visor.html` con los eventos |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` |
+
+## Licencia
+
+retrorecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp y GBRecomp.

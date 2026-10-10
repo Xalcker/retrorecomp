@@ -170,7 +170,7 @@ de un solo color; no garantiza que el juego se vea bien: las capturas de la tabl
 intérprete en ROM, se recompila con esas direcciones (<code>--uncovered</code> → <code>--trace</code>) y se repite. «Recompilado» = sin
 diferencias en todas las rondas. «Recompilado %» es la fracción de instrucciones ejecutadas por código recompilado en el peor caso de la
 última ronda (lo que falta suele ser código en RAM). La velocidad es la de <code>difftest --bench</code> (recompilado / intérprete, sin
-ventana ni límite de cuadros).</p>
+ventana, sin audio y sin límite de cuadros; con audio, <code>gbbench</code> da algo menos).</p>
 <p class="mut">Para repetirlo: <code>uv run tools/compat/scan.py DIR_GB DIR_GBC</code>, <code>uv run tools/compat/run.py</code> y
 <code>uv run tools/compat/report.py</code> (ver el README).</p>
 <h2>Por MBC</h2>

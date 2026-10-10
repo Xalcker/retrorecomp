@@ -60,23 +60,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.1,
+     "gbrecomp_s": 0.3,
      "instrucciones": 938,
      "pct_rom": 0.16,
      "funciones": 19,
-     "compilacion_s": 10.1,
+     "compilacion_s": 9.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.2,
+       "segundos": 4.8,
        "recompilado_pct": 27.342,
        "interpretadas": 5034
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.3,
+       "segundos": 6.2,
        "recompilado_pct": 24.938,
        "interpretadas": 4171
       }
@@ -89,19 +89,19 @@
      "instrucciones": 9925,
      "pct_rom": 1.72,
      "funciones": 48,
-     "compilacion_s": 43.0,
+     "compilacion_s": 37.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 10.3,
+       "segundos": 3.9,
        "recompilado_pct": 98.921,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 11.5,
+       "segundos": 3.9,
        "recompilado_pct": 98.876,
        "interpretadas": 0
       }
@@ -110,9 +110,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 101.7,
-   "velocidad_x": 19,
-   "velocidad_interp_x": 18
+   "total_s": 66.3,
+   "velocidad_x": 58,
+   "velocidad_interp_x": 52
   }
  },
  {
@@ -205,23 +205,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.1,
+     "gbrecomp_s": 0.2,
      "instrucciones": 3596,
      "pct_rom": 1.18,
      "funciones": 26,
-     "compilacion_s": 16.4,
+     "compilacion_s": 16.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.2,
+       "segundos": 3.6,
        "recompilado_pct": 63.479,
        "interpretadas": 5802
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.3,
+       "segundos": 3.8,
        "recompilado_pct": 32.713,
        "interpretadas": 6606
       }
@@ -234,19 +234,19 @@
      "instrucciones": 14580,
      "pct_rom": 5.04,
      "funciones": 76,
-     "compilacion_s": 28.6,
+     "compilacion_s": 31.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.5,
+       "segundos": 4.4,
        "recompilado_pct": 87.573,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.1,
+       "segundos": 4.5,
        "recompilado_pct": 76.664,
        "interpretadas": 0
       }
@@ -255,9 +255,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 95.4,
-   "velocidad_x": 15,
-   "velocidad_interp_x": 16
+   "total_s": 64.3,
+   "velocidad_x": 67,
+   "velocidad_interp_x": 63
   }
  },
  {
@@ -292,23 +292,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.5,
+     "gbrecomp_s": 0.1,
      "instrucciones": 1214,
      "pct_rom": 1.91,
      "funciones": 16,
-     "compilacion_s": 34.6,
+     "compilacion_s": 15.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 20.1,
+       "segundos": 6.2,
        "recompilado_pct": 56.222,
        "interpretadas": 2771
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.2,
+       "segundos": 6.3,
        "recompilado_pct": 80.207,
        "interpretadas": 3206
       }
@@ -317,23 +317,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.2,
      "instrucciones": 10256,
      "pct_rom": 14.13,
      "funciones": 38,
-     "compilacion_s": 69.8,
+     "compilacion_s": 31.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 24.0,
+       "segundos": 3.6,
        "recompilado_pct": 99.475,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 23.9,
+       "segundos": 3.2,
        "recompilado_pct": 99.652,
        "interpretadas": 0
       }
@@ -342,9 +342,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 186.4,
-   "velocidad_x": 23,
-   "velocidad_interp_x": 22
+   "total_s": 66.3,
+   "velocidad_x": 76,
+   "velocidad_interp_x": 64
   }
  },
  {
@@ -408,23 +408,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.1,
      "instrucciones": 11109,
      "pct_rom": 1.6,
      "funciones": 26,
-     "compilacion_s": 57.2,
+     "compilacion_s": 46.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.7,
+       "segundos": 5.5,
        "recompilado_pct": 90.625,
        "interpretadas": 3900
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.0,
+       "segundos": 7.2,
        "recompilado_pct": 85.752,
        "interpretadas": 4350
       }
@@ -437,19 +437,19 @@
      "instrucciones": 22977,
      "pct_rom": 3.58,
      "funciones": 53,
-     "compilacion_s": 51.8,
+     "compilacion_s": 58.6,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 22.5,
+       "segundos": 6.9,
        "recompilado_pct": 99.765,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 15.8,
+       "segundos": 5.7,
        "recompilado_pct": 99.532,
        "interpretadas": 0
       }
@@ -458,9 +458,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 174.5,
-   "velocidad_x": 15,
-   "velocidad_interp_x": 15
+   "total_s": 130.8,
+   "velocidad_x": 46,
+   "velocidad_interp_x": 44
   }
  },
  {
@@ -495,23 +495,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.1,
      "instrucciones": 8320,
      "pct_rom": 23.76,
      "funciones": 18,
-     "compilacion_s": 108.0,
+     "compilacion_s": 59.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.0,
+       "segundos": 4.3,
        "recompilado_pct": 98.42,
        "interpretadas": 310
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 22.1,
+       "segundos": 4.3,
        "recompilado_pct": 98.586,
        "interpretadas": 291
       }
@@ -520,23 +520,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.1,
      "instrucciones": 8630,
      "pct_rom": 24.51,
      "funciones": 21,
-     "compilacion_s": 98.4,
+     "compilacion_s": 47.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 17.0,
+       "segundos": 4.4,
        "recompilado_pct": 98.829,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 19.1,
+       "segundos": 5.7,
        "recompilado_pct": 98.835,
        "interpretadas": 0
       }
@@ -545,9 +545,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 279.1,
-   "velocidad_x": 20,
-   "velocidad_interp_x": 19
+   "total_s": 125.5,
+   "velocidad_x": 45,
+   "velocidad_interp_x": 42
   }
  },
  {
@@ -698,23 +698,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.4,
+     "gbrecomp_s": 0.1,
      "instrucciones": 2107,
      "pct_rom": 1.43,
      "funciones": 10,
-     "compilacion_s": 41.9,
+     "compilacion_s": 11.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 18.2,
+       "segundos": 6.4,
        "recompilado_pct": 66.052,
        "interpretadas": 4799
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 18.2,
+       "segundos": 5.8,
        "recompilado_pct": 61.315,
        "interpretadas": 4776
       }
@@ -723,23 +723,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.2,
      "instrucciones": 14772,
      "pct_rom": 11.18,
      "funciones": 60,
-     "compilacion_s": 95.6,
+     "compilacion_s": 43.3,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 21.6,
+       "segundos": 2.9,
        "recompilado_pct": 96.425,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 4.9,
        "recompilado_pct": 97.041,
        "interpretadas": 0
       }
@@ -748,9 +748,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 210.8,
-   "velocidad_x": 21,
-   "velocidad_interp_x": 18
+   "total_s": 74.9,
+   "velocidad_x": 66,
+   "velocidad_interp_x": 69
   }
  },
  {
@@ -930,23 +930,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.4,
+     "gbrecomp_s": 0.1,
      "instrucciones": 10229,
      "pct_rom": 7.88,
      "funciones": 55,
-     "compilacion_s": 83.3,
+     "compilacion_s": 45.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 24.2,
+       "segundos": 4.6,
        "recompilado_pct": 98.137,
        "interpretadas": 778
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 20.1,
+       "segundos": 4.4,
        "recompilado_pct": 98.049,
        "interpretadas": 843
       }
@@ -955,23 +955,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.1,
      "instrucciones": 13647,
      "pct_rom": 10.43,
      "funciones": 45,
-     "compilacion_s": 72.8,
+     "compilacion_s": 48.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.4,
+       "segundos": 3.7,
        "recompilado_pct": 98.467,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.9,
+       "segundos": 3.2,
        "recompilado_pct": 98.642,
        "interpretadas": 0
       }
@@ -980,9 +980,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 225.4,
-   "velocidad_x": 17,
-   "velocidad_interp_x": 17
+   "total_s": 110.5,
+   "velocidad_x": 60,
+   "velocidad_interp_x": 54
   }
  },
  {
@@ -1220,23 +1220,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.4,
+     "gbrecomp_s": 0.1,
      "instrucciones": 13603,
      "pct_rom": 4.64,
      "funciones": 61,
-     "compilacion_s": 70.4,
+     "compilacion_s": 41.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 11.7,
+       "segundos": 2.0,
        "recompilado_pct": 97.377,
        "interpretadas": 1404
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.9,
+       "segundos": 1.7,
        "recompilado_pct": 97.41,
        "interpretadas": 1403
       }
@@ -1245,23 +1245,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.5,
+     "gbrecomp_s": 0.1,
      "instrucciones": 15162,
      "pct_rom": 5.17,
      "funciones": 63,
-     "compilacion_s": 74.7,
+     "compilacion_s": 40.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 2.1,
        "recompilado_pct": 99.334,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 23.4,
+       "segundos": 2.1,
        "recompilado_pct": 99.309,
        "interpretadas": 0
       }
@@ -1270,9 +1270,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 209.7,
-   "velocidad_x": 24,
-   "velocidad_interp_x": 25
+   "total_s": 90.8,
+   "velocidad_x": 84,
+   "velocidad_interp_x": 78
   }
  },
  {
@@ -1311,19 +1311,19 @@
      "instrucciones": 4487,
      "pct_rom": 26.97,
      "funciones": 15,
-     "compilacion_s": 36.4,
+     "compilacion_s": 30.6,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 9.8,
+       "segundos": 6.3,
        "recompilado_pct": 92.499,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.8,
+       "segundos": 6.9,
        "recompilado_pct": 94.326,
        "interpretadas": 0
       }
@@ -1332,9 +1332,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 57.1,
-   "velocidad_x": 20,
-   "velocidad_interp_x": 20
+   "total_s": 43.9,
+   "velocidad_x": 37,
+   "velocidad_interp_x": 36
   }
  },
  {
@@ -1601,23 +1601,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.8,
+     "gbrecomp_s": 0.1,
      "instrucciones": 10576,
      "pct_rom": 14.91,
      "funciones": 42,
-     "compilacion_s": 103.8,
+     "compilacion_s": 45.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 35.1,
+       "segundos": 3.4,
        "recompilado_pct": 98.967,
        "interpretadas": 8
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 18.2,
+       "segundos": 2.8,
        "recompilado_pct": 95.362,
        "interpretadas": 465
       }
@@ -1630,19 +1630,19 @@
      "instrucciones": 11058,
      "pct_rom": 15.46,
      "funciones": 42,
-     "compilacion_s": 73.2,
+     "compilacion_s": 51.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 15.1,
+       "segundos": 3.8,
        "recompilado_pct": 98.975,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 15.7,
+       "segundos": 4.4,
        "recompilado_pct": 99.084,
        "interpretadas": 0
       }
@@ -1651,9 +1651,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 261.9,
-   "velocidad_x": 18,
-   "velocidad_interp_x": 17
+   "total_s": 111.8,
+   "velocidad_x": 56,
+   "velocidad_interp_x": 51
   }
  },
  {
@@ -1808,19 +1808,19 @@
      "instrucciones": 4102,
      "pct_rom": 0.66,
      "funciones": 32,
-     "compilacion_s": 22.5,
+     "compilacion_s": 25.0,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.2,
+       "segundos": 10.2,
        "recompilado_pct": 12.897,
        "interpretadas": 11040
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 15.9,
+       "segundos": 6.9,
        "recompilado_pct": 12.03,
        "interpretadas": 10210
       }
@@ -1829,23 +1829,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.7,
+     "gbrecomp_s": 0.2,
      "instrucciones": 26931,
      "pct_rom": 5.13,
      "funciones": 89,
-     "compilacion_s": 85.1,
+     "compilacion_s": 69.0,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 16.5,
+       "segundos": 5.7,
        "recompilado_pct": 98.268,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.0,
+       "segundos": 5.7,
        "recompilado_pct": 98.643,
        "interpretadas": 0
       }
@@ -1854,9 +1854,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 167.1,
-   "velocidad_x": 15,
-   "velocidad_interp_x": 14
+   "total_s": 122.8,
+   "velocidad_x": 62,
+   "velocidad_interp_x": 58
   }
  },
  {
@@ -2069,19 +2069,19 @@
      "instrucciones": 3981,
      "pct_rom": 21.09,
      "funciones": 25,
-     "compilacion_s": 31.9,
+     "compilacion_s": 25.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 9.0,
+       "segundos": 3.7,
        "recompilado_pct": 98.459,
        "interpretadas": 21
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 6.9,
+       "segundos": 3.8,
        "recompilado_pct": 96.478,
        "interpretadas": 394
       }
@@ -2094,19 +2094,19 @@
      "instrucciones": 4379,
      "pct_rom": 22.87,
      "funciones": 26,
-     "compilacion_s": 18.6,
+     "compilacion_s": 18.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 7.5,
+       "segundos": 2.7,
        "recompilado_pct": 99.059,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 6.6,
+       "segundos": 2.7,
        "recompilado_pct": 99.526,
        "interpretadas": 0
       }
@@ -2115,9 +2115,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 80.6,
-   "velocidad_x": 21,
-   "velocidad_interp_x": 21
+   "total_s": 57.8,
+   "velocidad_x": 54,
+   "velocidad_interp_x": 52
   }
  },
  {
@@ -2413,23 +2413,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.1,
      "instrucciones": 19459,
      "pct_rom": 6.2,
      "funciones": 63,
-     "compilacion_s": 72.9,
+     "compilacion_s": 64.6,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.3,
+       "segundos": 5.9,
        "recompilado_pct": 91.405,
        "interpretadas": 13748
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.3,
+       "segundos": 4.2,
        "recompilado_pct": 86.606,
        "interpretadas": 15306
       }
@@ -2442,19 +2442,19 @@
      "instrucciones": 34797,
      "pct_rom": 10.51,
      "funciones": 80,
-     "compilacion_s": 70.2,
+     "compilacion_s": 73.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.1,
+       "segundos": 3.7,
        "recompilado_pct": 97.839,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.8,
+       "segundos": 3.4,
        "recompilado_pct": 97.865,
        "interpretadas": 0
       }
@@ -2463,9 +2463,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 194.2,
-   "velocidad_x": 15,
-   "velocidad_interp_x": 15
+   "total_s": 156.1,
+   "velocidad_x": 62,
+   "velocidad_interp_x": 61
   }
  },
  {
@@ -4072,19 +4072,19 @@
      "instrucciones": 5081,
      "pct_rom": 32.07,
      "funciones": 8,
-     "compilacion_s": 31.6,
+     "compilacion_s": 38.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 6.2,
+       "segundos": 2.4,
        "recompilado_pct": 96.013,
        "interpretadas": 28
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 6.7,
+       "segundos": 2.8,
        "recompilado_pct": 97.864,
        "interpretadas": 30
       }
@@ -4097,19 +4097,19 @@
      "instrucciones": 5118,
      "pct_rom": 32.35,
      "funciones": 8,
-     "compilacion_s": 23.4,
+     "compilacion_s": 21.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 5.9,
+       "segundos": 2.1,
        "recompilado_pct": 96.013,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 6.2,
+       "segundos": 2.2,
        "recompilado_pct": 97.864,
        "interpretadas": 0
       }
@@ -4118,9 +4118,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 80.2,
-   "velocidad_x": 22,
-   "velocidad_interp_x": 21
+   "total_s": 68.9,
+   "velocidad_x": 63,
+   "velocidad_interp_x": 60
   }
  },
  {
@@ -4768,19 +4768,19 @@
      "instrucciones": 5695,
      "pct_rom": 1.88,
      "funciones": 16,
-     "compilacion_s": 33.9,
+     "compilacion_s": 37.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 11.2,
+       "segundos": 3.6,
        "recompilado_pct": 95.94,
        "interpretadas": 2111
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 3.9,
        "recompilado_pct": 91.067,
        "interpretadas": 2174
       }
@@ -4793,19 +4793,19 @@
      "instrucciones": 8248,
      "pct_rom": 2.65,
      "funciones": 26,
-     "compilacion_s": 42.0,
+     "compilacion_s": 43.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 10.8,
+       "segundos": 3.0,
        "recompilado_pct": 99.149,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.8,
+       "segundos": 6.1,
        "recompilado_pct": 98.861,
        "interpretadas": 0
       }
@@ -4814,9 +4814,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 125.6,
-   "velocidad_x": 16,
-   "velocidad_interp_x": 16
+   "total_s": 97.7,
+   "velocidad_x": 70,
+   "velocidad_interp_x": 50
   }
  },
  {
@@ -7204,19 +7204,19 @@
      "instrucciones": 4828,
      "pct_rom": 3.41,
      "funciones": 23,
-     "compilacion_s": 16.4,
+     "compilacion_s": 18.3,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 9.4,
+       "segundos": 3.2,
        "recompilado_pct": 90.874,
        "interpretadas": 3392
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 9.2,
+       "segundos": 4.0,
        "recompilado_pct": 89.383,
        "interpretadas": 3610
       }
@@ -7225,23 +7225,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.1,
+     "gbrecomp_s": 0.3,
      "instrucciones": 11117,
      "pct_rom": 8.36,
      "funciones": 30,
-     "compilacion_s": 63.9,
+     "compilacion_s": 54.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 11.0,
+       "segundos": 3.5,
        "recompilado_pct": 99.507,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 11.1,
+       "segundos": 3.2,
        "recompilado_pct": 99.48,
        "interpretadas": 0
       }
@@ -7250,9 +7250,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 121.3,
-   "velocidad_x": 19,
-   "velocidad_interp_x": 18
+   "total_s": 87.4,
+   "velocidad_x": 67,
+   "velocidad_interp_x": 62
   }
  },
  {
@@ -7726,19 +7726,19 @@
      "instrucciones": 914,
      "pct_rom": 0.15,
      "funciones": 25,
-     "compilacion_s": 11.4,
+     "compilacion_s": 11.3,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.6,
+       "segundos": 3.2,
        "recompilado_pct": 36.653,
        "interpretadas": 5828
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.1,
+       "segundos": 3.0,
        "recompilado_pct": 38.651,
        "interpretadas": 6231
       }
@@ -7751,19 +7751,19 @@
      "instrucciones": 8557,
      "pct_rom": 1.54,
      "funciones": 84,
-     "compilacion_s": 37.3,
+     "compilacion_s": 37.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 10.0,
+       "segundos": 2.9,
        "recompilado_pct": 97.073,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 9.2,
+       "segundos": 3.7,
        "recompilado_pct": 96.978,
        "interpretadas": 0
       }
@@ -7772,9 +7772,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 94.1,
-   "velocidad_x": 24,
-   "velocidad_interp_x": 23
+   "total_s": 62.2,
+   "velocidad_x": 75,
+   "velocidad_interp_x": 75
   }
  },
  {
@@ -8190,19 +8190,19 @@
      "instrucciones": 1997,
      "pct_rom": 2.87,
      "funciones": 17,
-     "compilacion_s": 16.8,
+     "compilacion_s": 8.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.6,
+       "segundos": 3.0,
        "recompilado_pct": 85.167,
        "interpretadas": 4751
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 9.5,
+       "segundos": 2.9,
        "recompilado_pct": 78.56,
        "interpretadas": 5263
       }
@@ -8215,19 +8215,19 @@
      "instrucciones": 11607,
      "pct_rom": 17.13,
      "funciones": 33,
-     "compilacion_s": 33.8,
+     "compilacion_s": 44.3,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.1,
+       "segundos": 5.1,
        "recompilado_pct": 98.63,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 15.2,
+       "segundos": 4.9,
        "recompilado_pct": 98.668,
        "interpretadas": 0
       }
@@ -8236,9 +8236,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 101.1,
-   "velocidad_x": 21,
-   "velocidad_interp_x": 21
+   "total_s": 68.5,
+   "velocidad_x": 64,
+   "velocidad_interp_x": 59
   }
  },
  {
@@ -8683,19 +8683,19 @@
      "instrucciones": 3607,
      "pct_rom": 2.36,
      "funciones": 51,
-     "compilacion_s": 16.2,
+     "compilacion_s": 18.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 9.1,
+       "segundos": 3.5,
        "recompilado_pct": 47.688,
        "interpretadas": 7229
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.8,
+       "segundos": 4.7,
        "recompilado_pct": 40.786,
        "interpretadas": 2987
       }
@@ -8704,23 +8704,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.3,
      "instrucciones": 16181,
      "pct_rom": 10.74,
      "funciones": 83,
-     "compilacion_s": 73.6,
+     "compilacion_s": 59.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 7.9,
+       "segundos": 2.9,
        "recompilado_pct": 96.693,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 7.6,
+       "segundos": 2.7,
        "recompilado_pct": 96.118,
        "interpretadas": 0
       }
@@ -8729,9 +8729,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 125.4,
-   "velocidad_x": 22,
-   "velocidad_interp_x": 21
+   "total_s": 92.1,
+   "velocidad_x": 59,
+   "velocidad_interp_x": 62
   }
  },
  {
@@ -8766,23 +8766,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.5,
+     "gbrecomp_s": 0.1,
      "instrucciones": 16659,
      "pct_rom": 10.32,
      "funciones": 32,
-     "compilacion_s": 103.3,
+     "compilacion_s": 51.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.4,
+       "segundos": 4.9,
        "recompilado_pct": 96.756,
        "interpretadas": 613
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 18.0,
+       "segundos": 4.3,
        "recompilado_pct": 98.086,
        "interpretadas": 265
       }
@@ -8791,23 +8791,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.7,
+     "gbrecomp_s": 0.1,
      "instrucciones": 17437,
      "pct_rom": 10.81,
      "funciones": 31,
-     "compilacion_s": 106.9,
+     "compilacion_s": 58.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 18.1,
+       "segundos": 4.5,
        "recompilado_pct": 99.518,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 18.8,
+       "segundos": 4.1,
        "recompilado_pct": 99.675,
        "interpretadas": 0
       }
@@ -8816,9 +8816,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 280.7,
-   "velocidad_x": 19,
-   "velocidad_interp_x": 18
+   "total_s": 128.6,
+   "velocidad_x": 50,
+   "velocidad_interp_x": 47
   }
  },
  {
@@ -9375,23 +9375,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.1,
      "instrucciones": 2808,
      "pct_rom": 1.82,
      "funciones": 23,
-     "compilacion_s": 25.5,
+     "compilacion_s": 12.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 16.2,
+       "segundos": 2.7,
        "recompilado_pct": 83.56,
        "interpretadas": 3575
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 22.4,
+       "segundos": 2.4,
        "recompilado_pct": 89.164,
        "interpretadas": 3916
       }
@@ -9400,23 +9400,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.1,
      "instrucciones": 11029,
      "pct_rom": 7.9,
      "funciones": 50,
-     "compilacion_s": 48.0,
+     "compilacion_s": 31.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 3.9,
        "recompilado_pct": 98.666,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.7,
+       "segundos": 3.6,
        "recompilado_pct": 98.881,
        "interpretadas": 0
       }
@@ -9425,9 +9425,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 142.0,
-   "velocidad_x": 20,
-   "velocidad_interp_x": 20
+   "total_s": 56.7,
+   "velocidad_x": 70,
+   "velocidad_interp_x": 67
   }
  },
  {
@@ -10481,19 +10481,19 @@
      "instrucciones": 3062,
      "pct_rom": 0.52,
      "funciones": 28,
-     "compilacion_s": 16.5,
+     "compilacion_s": 15.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 9.4,
+       "segundos": 3.0,
        "recompilado_pct": 91.777,
        "interpretadas": 1458
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 13.6,
+       "segundos": 3.3,
        "recompilado_pct": 93.304,
        "interpretadas": 1605
       }
@@ -10502,23 +10502,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.1,
      "instrucciones": 5531,
      "pct_rom": 0.89,
      "funciones": 43,
-     "compilacion_s": 33.4,
+     "compilacion_s": 27.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.7,
+       "segundos": 4.8,
        "recompilado_pct": 99.012,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 8.2,
+       "segundos": 5.2,
        "recompilado_pct": 98.958,
        "interpretadas": 0
       }
@@ -10527,9 +10527,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 94.3,
-   "velocidad_x": 22,
-   "velocidad_interp_x": 21
+   "total_s": 60.0,
+   "velocidad_x": 74,
+   "velocidad_interp_x": 66
   }
  },
  {
@@ -13091,19 +13091,19 @@
      "instrucciones": 1847,
      "pct_rom": 4.45,
      "funciones": 14,
-     "compilacion_s": 18.1,
+     "compilacion_s": 11.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 17.2,
+       "segundos": 3.0,
        "recompilado_pct": 62.09,
        "interpretadas": 2510
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.5,
+       "segundos": 3.7,
        "recompilado_pct": 57.429,
        "interpretadas": 1156
       }
@@ -13116,19 +13116,19 @@
      "instrucciones": 5120,
      "pct_rom": 14.52,
      "funciones": 23,
-     "compilacion_s": 32.9,
+     "compilacion_s": 30.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 7.7,
+       "segundos": 2.7,
        "recompilado_pct": 95.013,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 8.8,
+       "segundos": 3.5,
        "recompilado_pct": 93.027,
        "interpretadas": 0
       }
@@ -13137,9 +13137,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 97.4,
-   "velocidad_x": 23,
-   "velocidad_interp_x": 23
+   "total_s": 55.3,
+   "velocidad_x": 67,
+   "velocidad_interp_x": 65
   }
  },
  {
@@ -17847,19 +17847,19 @@
      "instrucciones": 70280,
      "pct_rom": 28.31,
      "funciones": 102,
-     "compilacion_s": 82.9,
+     "compilacion_s": 69.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 10.7,
+       "segundos": 3.3,
        "recompilado_pct": 87.804,
        "interpretadas": 2543
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.0,
+       "segundos": 4.6,
        "recompilado_pct": 87.619,
        "interpretadas": 2685
       }
@@ -17868,23 +17868,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.2,
      "instrucciones": 74010,
      "pct_rom": 31.18,
      "funciones": 122,
-     "compilacion_s": 87.0,
+     "compilacion_s": 83.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.1,
+       "segundos": 6.0,
        "recompilado_pct": 99.405,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.3,
+       "segundos": 4.9,
        "recompilado_pct": 99.412,
        "interpretadas": 0
       }
@@ -17893,9 +17893,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 217.7,
-   "velocidad_x": 16,
-   "velocidad_interp_x": 15
+   "total_s": 172.4,
+   "velocidad_x": 61,
+   "velocidad_interp_x": 51
   }
  },
  {
@@ -17988,23 +17988,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.4,
+     "gbrecomp_s": 0.1,
      "instrucciones": 13525,
      "pct_rom": 19.43,
      "funciones": 50,
-     "compilacion_s": 84.8,
+     "compilacion_s": 47.2,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 20.2,
+       "segundos": 2.6,
        "recompilado_pct": 99.925,
        "interpretadas": 40
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 24.5,
+       "segundos": 3.9,
        "recompilado_pct": 99.999,
        "interpretadas": 11
       }
@@ -18013,23 +18013,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.6,
+     "gbrecomp_s": 0.2,
      "instrucciones": 13577,
      "pct_rom": 19.5,
      "funciones": 54,
-     "compilacion_s": 101.7,
+     "compilacion_s": 52.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 19.5,
+       "segundos": 2.6,
        "recompilado_pct": 99.999,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 19.7,
+       "segundos": 2.7,
        "recompilado_pct": 99.999,
        "interpretadas": 0
       }
@@ -18038,9 +18038,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 271.4,
-   "velocidad_x": 21,
-   "velocidad_interp_x": 20
+   "total_s": 112.2,
+   "velocidad_x": 63,
+   "velocidad_interp_x": 56
   }
  },
  {
@@ -18945,23 +18945,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.4,
      "instrucciones": 26153,
      "pct_rom": 4.94,
      "funciones": 139,
-     "compilacion_s": 90.9,
+     "compilacion_s": 99.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.0,
+       "segundos": 4.2,
        "recompilado_pct": 81.741,
        "interpretadas": 1864
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.1,
+       "segundos": 3.6,
        "recompilado_pct": 76.168,
        "interpretadas": 1904
       }
@@ -18970,23 +18970,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.2,
      "instrucciones": 29000,
      "pct_rom": 5.45,
      "funciones": 144,
-     "compilacion_s": 95.3,
+     "compilacion_s": 89.1,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 13.3,
+       "segundos": 4.5,
        "recompilado_pct": 98.05,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.2,
+       "segundos": 2.9,
        "recompilado_pct": 97.693,
        "interpretadas": 0
       }
@@ -18995,9 +18995,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 236.4,
-   "velocidad_x": 17,
-   "velocidad_interp_x": 17
+   "total_s": 204.0,
+   "velocidad_x": 55,
+   "velocidad_interp_x": 52
   }
  },
  {
@@ -19090,23 +19090,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.6,
      "instrucciones": 26153,
      "pct_rom": 4.94,
      "funciones": 139,
-     "compilacion_s": 81.7,
+     "compilacion_s": 90.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 14.1,
+       "segundos": 5.2,
        "recompilado_pct": 81.726,
        "interpretadas": 1860
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 5.0,
        "recompilado_pct": 76.116,
        "interpretadas": 1900
       }
@@ -19115,23 +19115,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.2,
+     "gbrecomp_s": 0.3,
      "instrucciones": 29000,
      "pct_rom": 5.45,
      "funciones": 144,
-     "compilacion_s": 74.1,
+     "compilacion_s": 81.8,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 11.8,
+       "segundos": 4.0,
        "recompilado_pct": 98.048,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 12.3,
+       "segundos": 3.7,
        "recompilado_pct": 97.689,
        "interpretadas": 0
       }
@@ -19140,9 +19140,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 209.1,
-   "velocidad_x": 17,
-   "velocidad_interp_x": 18
+   "total_s": 191.1,
+   "velocidad_x": 56,
+   "velocidad_interp_x": 54
   }
  },
  {
@@ -25297,23 +25297,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.5,
+     "gbrecomp_s": 0.2,
      "instrucciones": 19372,
      "pct_rom": 7.21,
      "funciones": 44,
-     "compilacion_s": 105.8,
+     "compilacion_s": 54.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 17.4,
+       "segundos": 2.9,
        "recompilado_pct": 57.993,
        "interpretadas": 1946
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.8,
+       "segundos": 2.4,
        "recompilado_pct": 53.374,
        "interpretadas": 1946
       }
@@ -25322,23 +25322,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.7,
+     "gbrecomp_s": 0.1,
      "instrucciones": 21546,
      "pct_rom": 7.92,
      "funciones": 50,
-     "compilacion_s": 93.6,
+     "compilacion_s": 50.4,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 20.9,
+       "segundos": 2.5,
        "recompilado_pct": 96.756,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 14.6,
+       "segundos": 2.3,
        "recompilado_pct": 96.735,
        "interpretadas": 0
       }
@@ -25347,9 +25347,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 268.4,
-   "velocidad_x": 21,
-   "velocidad_interp_x": 21
+   "total_s": 115.7,
+   "velocidad_x": 67,
+   "velocidad_interp_x": 65
   }
  },
  {
@@ -26577,19 +26577,19 @@
      "instrucciones": 116418,
      "pct_rom": 25.94,
      "funciones": 156,
-     "compilacion_s": 118.8,
+     "compilacion_s": 115.0,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 15.9,
+       "segundos": 5.7,
        "recompilado_pct": 82.012,
        "interpretadas": 1713
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 11.9,
+       "segundos": 4.3,
        "recompilado_pct": 74.256,
        "interpretadas": 1694
       }
@@ -26602,19 +26602,19 @@
      "instrucciones": 118519,
      "pct_rom": 26.58,
      "funciones": 161,
-     "compilacion_s": 143.0,
+     "compilacion_s": 109.0,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 11.9,
+       "segundos": 3.9,
        "recompilado_pct": 96.919,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.3,
+       "segundos": 3.9,
        "recompilado_pct": 95.329,
        "interpretadas": 0
       }
@@ -26623,9 +26623,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 312.6,
-   "velocidad_x": 15,
-   "velocidad_interp_x": 15
+   "total_s": 242.7,
+   "velocidad_x": 54,
+   "velocidad_interp_x": 53
   }
  },
  {
@@ -27883,19 +27883,19 @@
      "instrucciones": 59174,
      "pct_rom": 11.55,
      "funciones": 213,
-     "compilacion_s": 136.2,
+     "compilacion_s": 130.9,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 10.8,
+       "segundos": 3.4,
        "recompilado_pct": 67.321,
        "interpretadas": 1871
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 8.6,
+       "segundos": 2.8,
        "recompilado_pct": 67.468,
        "interpretadas": 1871
       }
@@ -27908,19 +27908,19 @@
      "instrucciones": 61363,
      "pct_rom": 11.91,
      "funciones": 218,
-     "compilacion_s": 130.6,
+     "compilacion_s": 118.3,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 12.1,
+       "segundos": 3.8,
        "recompilado_pct": 94.963,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 10.9,
+       "segundos": 4.4,
        "recompilado_pct": 94.962,
        "interpretadas": 0
       }
@@ -27929,9 +27929,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 309.8,
-   "velocidad_x": 18,
-   "velocidad_interp_x": 17
+   "total_s": 264.2,
+   "velocidad_x": 63,
+   "velocidad_interp_x": 60
   }
  },
  {
@@ -28256,23 +28256,23 @@
    "fases": [
     {
      "ronda": 1,
-     "gbrecomp_s": 0.3,
+     "gbrecomp_s": 0.2,
      "instrucciones": 6073,
      "pct_rom": 16.53,
      "funciones": 26,
-     "compilacion_s": 61.8,
+     "compilacion_s": 40.5,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 34.1,
+       "segundos": 3.9,
        "recompilado_pct": 99.966,
        "interpretadas": 204
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 15.5,
+       "segundos": 3.4,
        "recompilado_pct": 99.975,
        "interpretadas": 202
       }
@@ -28281,23 +28281,23 @@
     },
     {
      "ronda": 2,
-     "gbrecomp_s": 0.5,
+     "gbrecomp_s": 0.1,
      "instrucciones": 6303,
      "pct_rom": 17.2,
      "funciones": 28,
-     "compilacion_s": 72.9,
+     "compilacion_s": 41.7,
      "semillas": [
       {
        "semilla": 1,
        "ok": true,
-       "segundos": 23.3,
+       "segundos": 4.0,
        "recompilado_pct": 100.0,
        "interpretadas": 0
       },
       {
        "semilla": 2,
        "ok": true,
-       "segundos": 19.4,
+       "segundos": 3.1,
        "recompilado_pct": 100.0,
        "interpretadas": 0
       }
@@ -28306,9 +28306,9 @@
     }
    ],
    "resultado": "ok",
-   "total_s": 227.8,
-   "velocidad_x": 17,
-   "velocidad_interp_x": 17
+   "total_s": 96.8,
+   "velocidad_x": 64,
+   "velocidad_interp_x": 56
   }
  },
  {

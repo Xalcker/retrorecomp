@@ -808,11 +808,25 @@ Optimizaciones hechas con esta línea base (golden igual en todas):
 |---|---|
 | Borde del SGB en caché | Pokémon Rojo, DKL2 y Wario Land II en SGB: +15 % a +20 %; GBC sin cambio |
 | APU perezoso (`apu_flush`) | Tetris y SML +12 % a +25 %; Tetris DX +25 %; SMB Deluxe (doble velocidad) +50 % |
+| Sincronización en lote (`timer_skip`) | +23 % a +40 % en todos (Tetris 20x→27x, SML 23x→30x, SMB Deluxe 19x→26.5x, Harry Potter 15x→21x) |
 
-**APU perezoso.** `apu_mcycle` ya no procesa cada M-ciclo: solo los cuenta.
+**Sincronización en lote.** `sync_hardware` avanzaba el timer, la PPU y el
+APU de a un M-ciclo. Sin DMA de OAM ni transferencia serial, ahora pregunta a
+`timer_skip` cuántos M-ciclos faltan para que el timer haga algo más que
+contar (el flanco del bit que elige TAC, el de DIV que marca el secuenciador
+del APU, o un desborde en curso; el contador avanza de 4 en 4, así que los
+flancos caen en múltiplos exactos) y los hace de una vez: suma al contador,
+los acumula en el APU y pone la PPU al día al final del lote. Es equivalente
+porque la PPU no lee el timer ni los relojes globales, y lo único que
+comparten es IF, donde cada uno solo prende bits. Además, la PPU recibe
+tramos largos y salta de golpe los puntos ociosos (`idle_dots`) en vez de que
+se le pregunte en cada M-ciclo, que es de donde sale la mayor parte de la
+ganancia.
+
+**APU perezoso.** `apu_mcycles` ya no procesa los M-ciclos: solo los cuenta.
 `apu_flush` los procesa cuando alguien va a mirar o cambiar el APU: al leer o
 escribir sus registros, en cada paso del secuenciador (lo llama el timer antes
-del `apu_mcycle` del mismo M-ciclo, como antes), al sacar audio y al terminar
+del `apu_mcycles` del mismo M-ciclo, como antes), al sacar audio y al terminar
 `gb_run`. Dentro de un tramo pendiente busca el próximo M-ciclo en que algo
 puede cambiar (vence el temporizador de un canal audible o sale una muestra) y
 hace los anteriores de una vez: la salida de cada canal no cambia en ellos y

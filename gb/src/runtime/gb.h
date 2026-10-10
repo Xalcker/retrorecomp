@@ -474,6 +474,7 @@ void timer_mcycle(GB *g);
 u8   timer_read(GB *g, u8 reg);
 void timer_write(GB *g, u8 reg, u8 value);
 u64  timer_next_event(GB *g);
+u32  timer_skip(GB *g, u32 n);      /* adelanta M-ciclos en que el timer solo cuenta */
 
 void ppu_reset(GB *g);
 void ppu_advance(GB *g, u64 until);   /* avanza la PPU hasta el ciclo `until` */
@@ -487,7 +488,7 @@ int  ppu_vram_blocked(GB *g, int write);
 int  ppu_oam_blocked(GB *g, int write);
 
 void apu_reset(GB *g);
-void apu_mcycle(GB *g, u32 dots);   /* avanza `dots` puntos de tiempo real */
+void apu_mcycles(GB *g, u32 dots, u32 n);   /* pasan n M-ciclos de `dots` puntos de tiempo real */
 void apu_flush(GB *g);              /* procesa los M-ciclos pendientes */
 void apu_div_event(GB *g);
 u8   apu_read(GB *g, u16 addr);

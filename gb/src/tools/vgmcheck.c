@@ -64,7 +64,7 @@ static void advance(GB *g, u64 dots, u64 *clock)
         u64 n = dots < to_tick ? dots : to_tick;
         while (n) {
             u32 step = n > 4 ? 4 : (u32)n;     /* el APU avanza por M-ciclos */
-            apu_mcycle(g, step);
+            apu_mcycles(g, step, 1);
             n -= step;
             dots -= step;
             *clock += step;

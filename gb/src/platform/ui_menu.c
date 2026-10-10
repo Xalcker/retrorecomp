@@ -94,7 +94,12 @@ static SDL_Rect dropdown_rect(const MenuBar *mb, int scale)
     int h = 2 * scale;
     for (int i = 0; i < m->count; i++)
         h += item_height(&m->items[i], scale);
-    return (SDL_Rect){ t.x, t.y + t.h, dropdown_width(m, scale), h };
+    /* Bajo su título, pero corrido a la izquierda si no cabe (los últimos
+     * menús, como Ayuda, se salían por la derecha) */
+    int w = dropdown_width(m, scale), x = t.x;
+    if (mb->width > 0 && x + w > mb->width) x = mb->width - w;
+    if (x < 0) x = 0;
+    return (SDL_Rect){ x, t.y + t.h, w, h };
 }
 
 static SDL_Rect item_rect(const MenuBar *mb, int index, int scale)
@@ -117,6 +122,7 @@ static int item_enabled(const MenuBar *mb, const MenuItem *it, int *checked)
 
 void menubar_draw(MenuBar *mb, SDL_Renderer *ren, int width, int scale)
 {
+    mb->width = width;      /* menubar_event usa el mismo acomodo */
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     int h = menubar_height(scale);
     fill(ren, (SDL_Rect){ 0, 0, width, h }, c_bar);

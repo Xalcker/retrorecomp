@@ -1509,7 +1509,7 @@ int main(int argc, char *argv[])
         if (!app->forced_palette && app->script.palette[0]) app->forced_palette = app->script.palette;
     }
 
-    app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0 };
+    app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0, 0 };
     power_on(app);
     /* Con --play, la grabación maneja al jugador 1 (para pruebas); grabar
      * solo guarda al jugador 1, así que no se combina con el cable */

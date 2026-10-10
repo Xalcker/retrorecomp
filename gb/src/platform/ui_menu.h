@@ -36,6 +36,7 @@ typedef struct {
     int open;       /* menú abierto, o -1 */
     int hover;      /* opción resaltada del menú abierto, o -1 */
     int armed;      /* Alt presionado solo: al soltarlo se abre la barra */
+    int width;      /* ancho de la ventana en el último dibujo (0: aún no se dibujó) */
 } MenuBar;
 
 int  menubar_height(int scale);

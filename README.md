@@ -45,9 +45,14 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo]` |
 | `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz`, `--events`, `--why`, `--coverage` |
 
-Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas; el CI de GBRecomp
-la corre en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
+Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
+en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
 token.) Cuando la tabla de arriba cambie, actualiza las listas de `tests/contract.sh` en los dos y la de este repo.
+
+Los dos se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo bloque común al principio del
+`Makefile` y los mismos objetivos, `make`, `make testroms` (ROMs de prueba libres), `make test` y `make dist`. El
+`.github/workflows/ci.yml` también es el mismo en los dos y corre esos pasos en Linux, macOS y Windows. Lo que cambia
+entre consolas queda dentro de esos objetivos.
 
 `python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los dos mencionan esas opciones, mirando los dos repositorios a la vez.
 Si cambias una opción en un recompilador, cámbiala también en el otro y aquí.

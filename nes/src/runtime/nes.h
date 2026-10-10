@@ -36,11 +36,11 @@ enum { MIRROR_HORIZONTAL, MIRROR_VERTICAL, MIRROR_SINGLE0, MIRROR_SINGLE1, MIRRO
  * compilador elimina todo el código de los demás mappers. Sin esa definición (el intérprete `nes`) se decide al cargar. */
 #ifdef NES_MAPPER
 #define MAPPER(c)          NES_MAPPER
-#define MAPPER_IS_MMC3(m)  ((m) == 4 || (m) == 118 || (m) == 119)
+#define MAPPER_IS_MMC3(m)  ((m) == 4 || (m) == 118 || (m) == 119 || (m) == 115)
 #define CART_MMC3(c)       MAPPER_IS_MMC3(NES_MAPPER)
 #define CART_MMC5(c)       (NES_MAPPER == 5)
 #define CART_CHRHOOK(c)    (NES_MAPPER == 9 || NES_MAPPER == 10)
-#define CART_LOWREGS(c)    (NES_MAPPER == 34 || NES_MAPPER == 79 || NES_MAPPER == 87 || NES_MAPPER == 140 || NES_MAPPER == 5)
+#define CART_LOWREGS(c)    (NES_MAPPER == 34 || NES_MAPPER == 79 || NES_MAPPER == 87 || NES_MAPPER == 140 || NES_MAPPER == 5 || NES_MAPPER == 19 || NES_MAPPER == 184 || NES_MAPPER == 115)
 #define CART_EXGFX(c)      (NES_MAPPER == 5 ? (c)->exgfx : 0)
 #else
 #define MAPPER(c)          ((c)->mapper)

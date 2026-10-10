@@ -17,7 +17,7 @@ static void make(int mapper, int prg_kb, int chr_kb, int mirroring)
     c->mapper = mapper; c->mirroring = mirroring;
     c->prg_size = (size_t)prg_kb * 1024; c->prg = malloc(c->prg_size);
     for (size_t i = 0; i < c->prg_size; i++) c->prg[i] = (u8)(i >> 13);         /* número de banco de 8 KB */
-    if (!chr_kb) { c->chr_is_ram = 1; chr_kb = 8; }                              /* sin CHR: 8 KB de RAM */
+    if (!chr_kb) { c->chr_is_ram = 1; chr_kb = mapper == 13 ? 16 : 8; }          /* sin CHR: 8 KB de RAM (16 en CPROM) */
     c->chr_size = (size_t)chr_kb * 1024; c->chr = malloc(c->chr_size);
     for (size_t i = 0; i < c->chr_size; i++) c->chr[i] = (u8)(i >> 10);         /* número de banco de 1 KB */
     mapper_reset(&n);
@@ -147,6 +147,73 @@ int main(void)
     if (n.apu.m5_pcm != n.cart.prg[2 * 0x2000]) { puts("FALLA mapper 5: PCM en modo lectura"); fails++; }
     W(0x5104, 1); if (!n.cart.exgfx) { puts("FALLA mapper 5: ExGrafix"); fails++; }
     W(0x5104, 0); if (n.cart.exgfx) { puts("FALLA mapper 5: ExGrafix se queda"); fails++; }
+
+
+    /* 13 CPROM: 4 KB de CHR RAM fijos en $0000 y uno de 4 elegible en $1000 */
+    make(13, 32, 0, MIRROR_VERTICAL);
+    W(0x8000, 2); EXPECT_CHR(0x0000, 0); EXPECT_CHR(0x1000, 8); EXPECT_PRG(0x8000, 0); EXPECT_PRG(0xE000, 3);
+
+    /* 75 VRC1: tres bancos de PRG de 8 KB, último fijo; CHR de 4 KB con el bit 4 en $9000 */
+    make(75, 128, 128, MIRROR_VERTICAL);
+    W(0x8000, 3); W(0xA000, 5); W(0xC000, 7);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 7); EXPECT_PRG(0xE000, 15);
+    W(0xE000, 2); W(0xF000, 3); EXPECT_CHR(0x0000, 8); EXPECT_CHR(0x1000, 12);
+    W(0x9000, 0x03); EXPECT_CHR(0x0000, 72);                       /* CHR 0 con el bit 4: banco 18 */
+    if (n.cart.mirroring != MIRROR_HORIZONTAL) { puts("FALLA mapper 75: espejado"); fails++; }
+
+    /* 184 Sunsoft 1: $6000 elige los bancos de CHR de 4 KB */
+    make(184, 32, 32, MIRROR_VERTICAL);
+    W(0x6000, 0x31); EXPECT_CHR(0x0000, 4); EXPECT_CHR(0x1000, 28); EXPECT_PRG(0x8000, 0);
+
+    /* 95 Namcot 3425: como DxROM, y el bit 5 de R0/R1 elige la página de CIRAM */
+    make(95, 128, 32, MIRROR_HORIZONTAL);
+    W(0x8000, 0); W(0x8001, 0x22); W(0x8000, 1); W(0x8001, 0x04);
+    EXPECT_CHR(0x0000, 2); EXPECT_CHR(0x0800, 4);
+    if (n.cart.nt_map[0] != 1 || n.cart.nt_map[1] != 1 || n.cart.nt_map[2] != 0 || n.cart.nt_map[3] != 0) { puts("FALLA mapper 95: nametables"); fails++; }
+
+    /* 210 Namco 175/340 */
+    make(210, 128, 128, MIRROR_VERTICAL);
+    W(0xE000, 0x43); W(0xE800, 5); W(0xF000, 6);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 6); EXPECT_PRG(0xE000, 15);
+    W(0x8000, 9); W(0xB800, 20); EXPECT_CHR(0x0000, 9); EXPECT_CHR(0x1C00, 20);
+    if (n.cart.mirroring != MIRROR_VERTICAL) { puts("FALLA mapper 210: espejado"); fails++; }
+
+    /* 18 Jaleco SS88006: registros por nibbles; IRQ que baja por ciclo */
+    make(18, 256, 128, MIRROR_VERTICAL);
+    W(0x8000, 0xA); W(0x8001, 1); W(0x8002, 3); W(0x8003, 0); W(0x9000, 4); W(0x9001, 0);
+    EXPECT_PRG(0x8000, 26); EXPECT_PRG(0xA000, 3); EXPECT_PRG(0xC000, 4); EXPECT_PRG(0xE000, 31);
+    W(0xA000, 7); W(0xA001, 2); W(0xD002, 0); W(0xD003, 1);
+    EXPECT_CHR(0x0000, 39); EXPECT_CHR(0x1C00, 16);
+    W(0xF002, 1); if (n.cart.mirroring != MIRROR_VERTICAL) { puts("FALLA mapper 18: espejado"); fails++; }
+    n.cyc = 100;
+    W(0xE000, 2); W(0xE001, 1); W(0xF000, 0); W(0xF001, 5);        /* recarga $12, 8 bits, habilitado */
+    if (n.cart.irq_cycle != 100 + 0x12 + 1) { printf("FALLA mapper 18: IRQ en el ciclo %llu\n", (unsigned long long)n.cart.irq_cycle); fails++; }
+
+    /* 23 VRC2/VRC4: bit 1 de $9002 intercambia $8000 y $C000; CHR de 9 bits en dos nibbles */
+    make(23, 128, 128, MIRROR_VERTICAL);
+    W(0x8000, 3); W(0xA000, 5);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 14); EXPECT_PRG(0xE000, 15);
+    W(0x9002, 2); EXPECT_PRG(0x8000, 14); EXPECT_PRG(0xC000, 3);
+    W(0xB000, 7); W(0xB001, 1); W(0xB008, 1); EXPECT_CHR(0x0000, 23); EXPECT_CHR(0x0400, 1);   /* $B008: A2/A3 en vez de A0/A1 */
+    W(0x9000, 1); if (n.cart.mirroring != MIRROR_HORIZONTAL) { puts("FALLA mapper 23: espejado"); fails++; }
+
+    /* 19 Namco 163: PRG/CHR, nametables en CIRAM y contador de IRQ de 15 bits */
+    make(19, 128, 128, MIRROR_VERTICAL);
+    W(0xE000, 3); W(0xE800, 4); W(0xF000, 5);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xA000, 4); EXPECT_PRG(0xC000, 5); EXPECT_PRG(0xE000, 15);
+    W(0x8000, 9); W(0xB800, 33); EXPECT_CHR(0x0000, 9); EXPECT_CHR(0x1C00, 33);
+    W(0xC000, 0xE1); W(0xC800, 0xE0);
+    if (n.cart.nt_map[0] != 1 || n.cart.nt_map[1] != 0) { puts("FALLA mapper 19: nametables"); fails++; }
+    n.cyc = 100;
+    W(0x5000, 0xFE); W(0x5800, 0xFF);
+    if (n.cart.irq_cycle != 101) { printf("FALLA mapper 19: IRQ en el ciclo %llu\n", (unsigned long long)n.cart.irq_cycle); fails++; }
+    if (mapper_cpu_read(&n, 0x5000) != 0xFE || mapper_cpu_read(&n, 0x5800) != 0xFF) { puts("FALLA mapper 19: lectura del contador"); fails++; }
+
+    /* 115 Kasheng: MMC3 con $6000 (modo NROM de 16 o 32 KB) */
+    make(115, 128, 128, MIRROR_VERTICAL);
+    EXPECT_PRG(0xE000, 15);
+    W(0x6000, 0x82); EXPECT_PRG(0x8000, 4); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 4); EXPECT_PRG(0xE000, 5);
+    W(0x6000, 0xC4); EXPECT_PRG(0x8000, 8); EXPECT_PRG(0xE000, 11);
 
     if (!fails) puts("mappertest: bien");
     return fails != 0;

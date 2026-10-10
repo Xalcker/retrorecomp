@@ -13,6 +13,13 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
     int f6 = d[6], f7 = d[7];
     c->nes2 = (f7 & 0x0C) == 8;
     c->mapper = (f6 >> 4) | (f7 & 0xF0);
+    if (c->nes2) {
+        /* NES 2.0: bits altos del mapper y tamaños con MSB (o, si el nibble es $F, en notación exponente-multiplicador) */
+        c->mapper |= (d[8] & 0x0F) << 8;
+        int pm = d[9] & 0x0F, cm = d[9] >> 4;
+        prg = pm == 0x0F ? ((size_t)1 << (d[4] >> 2)) * ((d[4] & 3) * 2 + 1) : ((size_t)pm << 8 | d[4]) * 0x4000;
+        chr = cm == 0x0F ? ((size_t)1 << (d[5] >> 2)) * ((d[5] & 3) * 2 + 1) : ((size_t)cm << 8 | d[5]) * 0x2000;
+    }
     c->battery = (f6 & 2) != 0;
     c->mirroring = (f6 & 8) ? MIRROR_FOUR : (f6 & 1) ? MIRROR_VERTICAL : MIRROR_HORIZONTAL;
     size_t off = 16 + ((f6 & 4) ? 512 : 0);
@@ -22,11 +29,12 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
 #ifdef NES_MAPPER
     if (c->mapper != NES_MAPPER) { if (err) *err = "esta ROM tiene otro mapper que el recompilado"; return -1; }
 #endif
-    c->prg = malloc(prg); c->prg_size = prg;
-    memcpy(c->prg, d + off, prg);
+    size_t pad = prg < 0x4000 ? 0x4000 : prg;            /* PRG de 8 KB (NES 2.0): se repite hasta 16 KB */
+    c->prg = malloc(pad); c->prg_size = pad;
+    for (size_t o = 0; o < pad; o += prg) memcpy(c->prg + o, d + off, prg);
     if (f6 & 4) memcpy(c->prg_ram + 0x1000, d + 16, 512);          /* el 'trainer' va a $7000-$71FF */
     if (chr) { c->chr = malloc(chr); c->chr_size = chr; memcpy(c->chr, d + off + prg, chr); }
-    else     { c->chr = calloc(1, 0x2000); c->chr_size = 0x2000; c->chr_is_ram = 1; }
+    else     { size_t rs = c->mapper == 13 ? 0x4000 : 0x2000; c->chr = calloc(1, rs); c->chr_size = rs; c->chr_is_ram = 1; }   /* CPROM: 16 KB */
     nes_reset(n);
     return 0;
 }

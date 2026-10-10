@@ -33,6 +33,10 @@ cd juego && make
 | Admite Super Game Boy | Super Game Boy: borde y colores de la SNES (256×224) |
 | Ninguno de los dos | Game Boy Color en modo de compatibilidad, coloreado con la paleta que le asigna la boot ROM según el título |
 
+Es lo que hace el ejecutable del juego. Las herramientas sin ventana
+(`gbtest`, `gbbench`, `difftest`) usan el automático del runtime, que a un
+juego sin color ni SGB lo corre como Game Boy (DMG).
+
 `--model dmg|cgb|sgb` fuerza otro modelo. En el modo de compatibilidad,
 `--palette` elige una de las 12 combinaciones de botones del GBC (`up`,
 `up+a`, `left+b`, …).
@@ -48,7 +52,7 @@ Se necesita un compilador C99, `make` y, para los juegos generados, SDL2.
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-make            # gbrecomp, gbtest, gbbench, linktest y el runtime
+make            # gbrecomp, gbtest, gbbench, linktest, vgmcheck y el runtime
 make dist       # dist/gbrecomp-<versión>.tar.gz
 ```
 
@@ -191,6 +195,9 @@ gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo] [--viz] [--events
          [--coverage archivo] [--why BB:AAAA]
 ```
 
+`gbrecomp --help` lista todas, también `--codemap`, `--dis BB:AAAA:N` y
+`--verbose`.
+
 El descubrimiento estático encuentra casi todo el código. Para lo que quede
 (saltos por tablas que no se pudieron resolver), se hace un ciclo con trazas:
 
@@ -297,22 +304,27 @@ juego, junto con la partida y los estados.
 
 Solo se exporta lo que el juego llega a cargar mientras juegas.
 
-Controles: flechas, Z = B, X = A, Enter = Start, Retroceso = Select, o un
-control (A y B en la posición de Nintendo).
+Controles: flechas, Z = B, X = A, Enter = Start, Retroceso o Shift derecho =
+Select, o un control (A y B en la posición de Nintendo).
 
 Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 `--record archivo` / `--play archivo` (entradas grabadas, reproducibles en
-`difftest --input`), `--interp` (todo con el intérprete) y `--forget-rom`.
+`difftest --input`), `--link` (cable link), `--uncovered archivo` (lo que
+ejecutó el intérprete, para `gbrecomp --trace`), `--interp` (todo con el
+intérprete), `--force` (acepta una ROM con otro SHA1; solo con el intérprete)
+y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
+`--ui-frames N`, `--ui-menu N`, `--ui-action N` y `--ui-export`.
 
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba en `testroms/`):
-130 de 130.
+131 de 131.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
 - `mbc3-tester` y `rtc3test`.
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
+- `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.
@@ -326,6 +338,14 @@ el mismo APU. Tarda unos 30 s. Tras un cambio que sí debe cambiar la salida, se
 revisa a ojo y se regenera con `sh tests/golden.sh --update`. La velocidad se
 mide con `gbbench rom.gb [--frames N] [--repeat N] [--input archivo]`
 (intérprete sin ventana, con audio; reporta la más rápida de N corridas).
+
+**Velocidad** (`gbbench`, intérprete con audio, sin ventana): Tetris ~48x,
+Super Mario Land ~55x, Pokémon Rojo ~43x, Tetris DX ~44x, Super Mario Bros.
+Deluxe ~50x y Harry Potter ~31x el tiempo real. El hardware (PPU ~69 %, APU
+~17 %) se lleva casi todo el tiempo y el CPU ~8 %, así que el código
+recompilado corre a una velocidad parecida a la del intérprete. El perfil y
+cada optimización (todas sin cambiar ni un byte de imagen o audio) están en
+`docs/ARQUITECTURA.md`.
 
 **Juegos probados**, sin diferencias en `difftest`, con el porcentaje de
 instrucciones que corrió como código recompilado:
@@ -354,13 +374,17 @@ ciclo de trazas, los juegos revisados quedaron entre 97 % y 99.9 %.
 las 948 ROMs de las colecciones No-Intro de Game Boy y Game Boy Color, cada
 una con su captura, estado, MBC, consola y, para una selección por MBC y
 consola, el resultado del ciclo completo del recompilador y su velocidad.
+934 corren en el intérprete. De las 14 que no, casi todas son de GBC con MBC5
+y se quedan en blanco o ejecutan un opcode ilegal; una usa HuC3, que no está
+soportado (issue #55). Las 31 que pasan por el recompilador quedan sin
+diferencias.
 Se genera con tres scripts de Python que se corren con
 [uv](https://docs.astral.sh/uv/) (instala Python y Pillow solo), desde la
 raíz del repo y con todo compilado con `make`:
 
 ```
 uv run tools/compat/scan.py "DIR/Nintendo - Game Boy" "DIR/Nintendo - Game Boy Color"
-uv run tools/compat/run.py        # etapa 1 (todas) y etapa 2 (selección); ~15 min + ~1 h
+uv run tools/compat/run.py        # etapa 1 (todas) y etapa 2 (selección); ~15 min + ~35 min
 uv run tools/compat/report.py     # escribe docs/compat/index.html
 ```
 

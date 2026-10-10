@@ -1,7 +1,7 @@
 # Arquitectura de GBRecomp
 
-GBRecomp toma una ROM de Game Boy (DMG) y genera un proyecto C99 que se compila
-en un ejecutable nativo. El ejecutable carga la ROM del usuario en tiempo de
+GBRecomp toma una ROM de Game Boy (DMG, Game Boy Color o con Super Game Boy) y
+genera un proyecto C99 que se compila en un ejecutable nativo. El ejecutable carga la ROM del usuario en tiempo de
 ejecución (validando su SHA1): nunca se distribuyen datos de la ROM.
 
 ## Piezas
@@ -20,11 +20,12 @@ emite C99 + Makefile                  platform/        SDL2
 |---|---|
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
-| `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto. |
-| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio) y `difftest.c` (prueba diferencial). |
-| `src/tools/` | `gen_interp` (genera el intérprete), `gbtest` (corre ROMs de prueba sin ventana), `png.c`. |
-| `tests/` | `run_tests.sh`: Blargg, Mooneye y dmg-acid2. `inputs/`: guiones de entradas. |
-| `tools/` | `truth/`: mapa de código y datos desde un desensamblado y comparación; `gen_inputs.pl`: jugadas reproducibles. |
+| `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
+| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.c`, `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
+| `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana; `--hash` para golden), `gbbench` (velocidad), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
+| `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
+| `tools/` | `compat/` (lista de compatibilidad: `scan.py`, `run.py`, `report.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
+| `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
 
 ## Una sola fuente de verdad para el CPU
@@ -176,7 +177,10 @@ cada sistema). No contiene datos de la ROM.
 (`ui_menu.c`, `ui_font.c`: fuente de mapa de bits propia, sin depender de las
 del sistema), con textos en `i18n.c` (español e inglés) y preferencias en
 `settings.c`. Los menús se arman según la consola encendida: la paleta solo
-aparece en DMG y en compatibilidad GBC, y el borde solo en SGB. Con un menú o
+aparece en DMG y en compatibilidad GBC, y el borde solo en SGB. Un
+desplegable que no cabe a la derecha de la ventana se corre a la izquierda
+(`MenuBar.width`); con el tamaño ×1 los últimos títulos todavía no caben en la
+barra (issue #54). Con un menú o
 un diálogo abierto el juego se pausa, y al cerrarlo los botones se ignoran
 hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Start).
 
@@ -231,8 +235,8 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     `difftest`.
   - Publica el paquete como artefacto.
 
-Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería da 130
-de 130 en ambos, y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
+de 130 en ambos (hoy son 131, con `sgb_controles`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -270,7 +274,8 @@ capturas y `--bench` mide la velocidad de cada máquina.
   reportó la instrucción y el registro exactos.
 - Velocidad (sin audio): recompilado 47x tiempo real, intérprete 44x. Casi
   todo el tiempo se va en el hardware, que se simula punto por punto. Optimizar
-  `gb_sync` es lo que más rendiría.
+  `gb_sync` es lo que más rendiría (se hizo después; ver "Línea base para
+  optimizar el runtime").
 
 ## Descubrimiento de código (fase 3)
 
@@ -589,7 +594,8 @@ Otros detalles del DMG que se reproducen:
   ROM (algunos juegos y pruebas usan esos mosaicos).
 
 Velocidad: con la PPU por punto, Tetris corre a unas 27 veces el tiempo real
-(antes 47). Sobra, pero hay margen de optimización si hiciera falta.
+(antes 47). Las optimizaciones posteriores, sin cambiar la salida, están en
+"Línea base para optimizar el runtime".
 
 ## Game Boy Color
 
@@ -753,7 +759,8 @@ Validación:
 
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **130 de 130** (DMG, más las de CGB, compatibilidad y SGB que ya pasan).
+`sh tests/run_tests.sh`: **131 de 131** (DMG, más las de CGB, compatibilidad y SGB que ya pasan, y
+`sgb_controles`, que lee los controles 2 a 4 del SGB como un juego).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`.
@@ -801,6 +808,13 @@ entre 64 % y 79 % (`ppu_advance` y `fetcher_step`, punto a punto en el modo
 timer, cerca de 10 %; y en el SGB, `sgb_frame` 16 % (el borde se decodificaba
 en cada cuadro). Por eso el recompilado corre casi a la misma velocidad que el
 intérprete: lo que conviene optimizar es el hardware, no el CPU.
+
+Después de las optimizaciones de abajo, el mismo perfil (SMB Deluxe
+recompilado, con audio) queda así: PPU ~69 %, APU ~17 %, CPU ~8 % (código
+recompilado ~3 %, el resto en el despacho, el intérprete para el código en
+RAM y la sincronización). Lo que queda de la PPU son los casos que no pasan
+por los caminos rápidos: líneas con sprites o ventana, el inicio de línea y
+la búsqueda en OAM (issue #52).
 
 Optimizaciones hechas con esta línea base (golden igual en todas):
 

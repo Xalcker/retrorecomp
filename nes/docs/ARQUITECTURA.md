@@ -140,8 +140,9 @@ L_8000: /* lda #$10 */
 `make` produce `nombre` (el juego), `difftest` y `bench`.
 
 - `./nombre [rom.nes]`: sin argumentos busca en la carpeta un `.nes` con el SHA1 esperado.
-- `./difftest rom.nes [cuadros] [boton:desde-hasta ...]`: corre el código recompilado y el
-  intérprete lado a lado; tras cada función, el intérprete avanza hasta el mismo ciclo y se
+- `./difftest rom.nes [cuadros] [boton:desde-hasta ...] [--seed S] [--uncovered f]`: corre el
+  código recompilado y el intérprete lado a lado (`--seed` suma un mando aleatorio; `--uncovered`
+  guarda las instrucciones de PRG que tuvo que interpretar, como traza para `nesrecomp --trace`); tras cada función, el intérprete avanza hasta el mismo ciclo y se
   comparan CPU, RAM, PPU, APU, mapper y, al final de cada cuadro, imagen y audio.
 - `./bench rom.nes [cuadros]`: velocidad sin ventana.
 

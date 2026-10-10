@@ -2,7 +2,12 @@
  * Prueba diferencial: corre el código recompilado y el intérprete lado a lado y
  * se detiene en la primera diferencia (registros, RAM, PPU, APU, mapper...).
  *
- *   difftest rom.nes [cuadros] [boton:desde-hasta ...]
+ *   difftest rom.nes [cuadros] [boton:desde-hasta ...] [--seed S] [--uncovered archivo]
+ *
+ * --seed S       suma a las entradas dadas un mando aleatorio (reproducible con la semilla).
+ * --uncovered f  escribe, en formato de traza de nesrecomp ("OFFSET:DIRECCION"), las
+ *                instrucciones de PRG que la máquina B tuvo que interpretar: sirven como
+ *                --trace para recompilar y cubrirlas.
  *
  * La máquina B corre función por función (recompilada, o el intérprete donde no
  * hay código). Tras cada función, la máquina A (solo intérprete) avanza hasta el
@@ -17,6 +22,35 @@
 #include "sha1.h"
 
 static NES A, B;
+
+/* Mando aleatorio: mantiene una combinación entre 4 y 43 cuadros. Start es poco frecuente
+ * (en muchos juegos pausa la partida); A, B y la derecha pesan más para avanzar en el juego. */
+static unsigned rng_state = 1;
+static unsigned rng(void)
+{
+    rng_state ^= rng_state << 13; rng_state ^= rng_state >> 17; rng_state ^= rng_state << 5;
+    return rng_state;
+}
+
+static u8 random_pad(int frame)
+{
+    static u8 now; static int until;
+    if (frame == 0) { now = 0; until = 0; }
+    if (frame >= until) {
+        unsigned r = rng();
+        until = frame + 4 + (int)(r % 40);
+        if ((r >> 24) % 24 == 0) now = 0x08;                        /* start */
+        else switch ((r >> 8) % 6) {
+            case 0: now = 0; break;
+            case 1: now = 0x80; break;                              /* derecha */
+            case 2: now = 0x01; break;                              /* A */
+            case 3: now = 0x80 | 0x01; break;
+            case 4: now = 0x40 | ((r >> 16) & 1 ? 0x01 : 0x02); break;   /* izquierda + A o B */
+            default: now = (u8)(1u << ((r >> 16) % 8)) & (u8)~0x04; break;   /* sin select */
+        }
+    }
+    return now;
+}
 
 static u8 *slurp(const char *path, size_t *len)
 {
@@ -60,9 +94,21 @@ static int compare(int full)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2) { fprintf(stderr, "uso: difftest rom.nes [cuadros] [boton:desde-hasta ...]\n"); return 2; }
-    size_t len; u8 *rom = slurp(argv[1], &len);
-    if (!rom) { fprintf(stderr, "no pude leer %s\n", argv[1]); return 2; }
+    const char *uncovered = NULL, *pos[64]; int npos = 0, use_seed = 0;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--seed") && i + 1 < argc) {
+            rng_state = (unsigned)strtoul(argv[++i], NULL, 0); use_seed = 1;
+            if (!rng_state) rng_state = 1;
+        }
+        else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered = argv[++i];
+        else if (npos < 64) pos[npos++] = argv[i];
+    }
+    if (npos < 1) {
+        fprintf(stderr, "uso: difftest rom.nes [cuadros] [boton:desde-hasta ...] [--seed S] [--uncovered archivo]\n");
+        return 2;
+    }
+    size_t len; u8 *rom = slurp(pos[0], &len);
+    if (!rom) { fprintf(stderr, "no pude leer %s\n", pos[0]); return 2; }
     char sha[41]; sha1_hex(rom, len, sha);
     if (strcmp(sha, recomp_rom_sha1)) {
         fprintf(stderr, "esta ROM no es la que se recompiló (SHA1 %s, esperaba %s)\n", sha, recomp_rom_sha1);
@@ -70,13 +116,14 @@ int main(int argc, char **argv)
     }
     const char *err = NULL;
     if (nes_load(&A, rom, len, &err) || nes_load(&B, rom, len, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
-    int frames = argc > 2 ? atoi(argv[2]) : 300;
+    int frames = npos > 1 ? atoi(pos[1]) : 300;
+    if (uncovered) nes_trace_start(&B);     /* solo en B: lo que A (intérprete) ejecuta no cuenta */
 
     static const char *nm[] = { "a", "b", "select", "start", "up", "down", "left", "right" };
     struct { int b, f, t; } h[64]; int nh = 0;
-    for (int i = 3; i < argc && nh < 64; i++) {
+    for (int i = 2; i < npos && nh < 64; i++) {
         char name[16]; int a, b;
-        if (sscanf(argv[i], "%15[a-z]:%d-%d", name, &a, &b) == 3)
+        if (sscanf(pos[i], "%15[a-z]:%d-%d", name, &a, &b) == 3)
             for (int k = 0; k < 8; k++) if (!strcmp(name, nm[k])) { h[nh].b = 1 << k; h[nh].f = a; h[nh].t = b; nh++; }
     }
 
@@ -85,6 +132,7 @@ int main(int argc, char **argv)
     for (int f = 0; f < frames; f++) {
         u8 pad = 0;
         for (int i = 0; i < nh; i++) if (f >= h[i].f && f <= h[i].t) pad |= h[i].b;
+        if (use_seed) pad |= random_pad(f);
         A.pad[0] = B.pad[0] = pad;
         A.ppu.frame_done = B.ppu.frame_done = 0;
         while (!B.ppu.frame_done) {
@@ -109,5 +157,11 @@ int main(int argc, char **argv)
     }
     printf("difftest: %d cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * recomp_cycles / B.cyc : 0.0);
+    if (uncovered) {
+        size_t cnt = 0;
+        for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;
+        if (!nes_trace_write(&B, uncovered)) { fprintf(stderr, "no pude escribir %s\n", uncovered); return 2; }
+        printf("Instrucciones de PRG interpretadas: %zu\n", cnt);
+    }
     return 0;
 }

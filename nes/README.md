@@ -10,6 +10,33 @@ generado (valida su SHA1) y con `difftest` para comprobar el código recompilado
 Se necesita un compilador C99, `make`, `pkg-config` y SDL2 (macOS: `brew install sdl2 pkg-config`; Debian:
 `apt install build-essential pkg-config libsdl2-dev`). La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
 
+<details>
+<summary><b>Windows 11 (MSYS2)</b></summary>
+
+Con [MSYS2](https://www.msys2.org) instalado en `C:\msys64`, abre la terminal **MSYS2 UCRT64** (menú Inicio; no la
+"MSYS2 MSYS" ni PowerShell) e instala las herramientas una sola vez:
+
+```
+pacman -S --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2
+```
+
+Después se usan los mismos comandos de abajo, con dos diferencias: hay que pasar `CC=gcc` (en MSYS2 no existe `cc`)
+y los ejecutables salen con `.exe`. En esa terminal tus carpetas de Windows están bajo `/c/Users/<tú>/...`:
+
+```
+cd /c/Users/<tú>/Documents/NESRecomp
+make -j8 CC=gcc
+./nes.exe "roms/Super Mario Bros. (Japan, USA).nes"
+./nesrecomp.exe "roms/Super Mario Bros. (Japan, USA).nes" -o juegos/smb --name smb
+cd juegos/smb && make -j8 CC=gcc && ./smb.exe "../../roms/Super Mario Bros. (Japan, USA).nes"
+```
+
+Los `.exe` usan `SDL2.dll` de `C:\msys64\ucrt64\bin`: funcionan desde la terminal UCRT64; para llevarlos a otra
+carpeta o equipo, copia ahí `SDL2.dll` (y las DLL que pida). La carpeta de datos (partida, estados, preferencias)
+es `%APPDATA%\NESRecomp\<juego>\`.
+
+</details>
+
 **1. Compilar el recompilador y sus herramientas**
 
 ```
@@ -74,7 +101,7 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 # o jugando en la ventana:  NES_TRACE=smb.trace ./nes juego.nes   (se puede repetir --trace con varias trazas)
 ```
 
-`tests/recomp_game.sh rom nombre` hace los pasos 3, 4 y 5 de una vez (con `NOTRACE=1` solo con el análisis estático).
+`tests/recomp_game.sh rom nombre` hace los pasos 3, 4 y 5 de una vez (con `NOTRACE=1` solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar; en MSYS2 se usa `CC=gcc sh tests/recomp_game.sh ...`.
 
 **8. Entender qué encontró el recompilador**
 
@@ -146,6 +173,11 @@ ni un byte de imagen o audio.
   intérprete. Es correcto, solo más lento. El descubrimiento especulativo agrega mucho código que nunca
   se ejecuta (SMB3: 69 mil instrucciones, ~13 s de compilación con `make -j8`).
 
+### Compatibilidad
+
+Probado con 732 ROMs de la colección No-Intro: 711 corren en el intérprete y las 51 que se recompilaron como prueba (de 52, por mapper) no tuvieron
+diferencias. Detalle, lista por juego y cómo repetirlo en [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md) y [docs/compat/index.html](docs/compat/index.html).
+
 ## Herramientas
 
 | Comando | Qué hace |
@@ -159,7 +191,7 @@ ni un byte de imagen o audio.
 | `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 
-`tests/recomp_game.sh rom nombre` recompila un juego con una traza y lo compara contra el intérprete.
+`tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
 
 ## Estructura
 

@@ -18,3 +18,4 @@ dist/
 /mappertest
 /ramdump
 /inputtest
+*.exe

@@ -5,6 +5,9 @@
  * del hardware y los filtros (paso alto 90 y 440 Hz, paso bajo 14 kHz).
  */
 #include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846   /* -std=c99 estricto en MinGW no lo define */
+#endif
 #include <string.h>
 #include "nes.h"
 

@@ -236,7 +236,6 @@ compiladas las mencionan; el CI la corre en cada PR (`.github/workflows/ci.yml`,
 | `src/nesrecomp/` | El recompilador. |
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
-| `ref_gb/` | Código de GBRecomp como referencia de diseño. No se compila. |
 | `tools/` | `retrorecomp/`: la GUI común con GBRecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |

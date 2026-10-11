@@ -35,7 +35,7 @@ RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test dist testroms
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -52,6 +52,10 @@ gbbench$(EXE): src/tools/gbbench.c src/platform/inputs.h $(BUILD)/libgbrt.a
 # Herramientas sin ventana con las mismas opciones que las de NESRecomp (--frames, --input, --seed, --model)
 gbtrace$(EXE): src/tools/gbtrace.c src/tools/cli.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtrace.c $(BUILD)/libgbrt.a
+
+# RAM de trabajo tras correr la ROM (el equivalente de ramdump de NESRecomp)
+gbramdump$(EXE): src/tools/gbramdump.c src/tools/cli.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbramdump.c $(BUILD)/libgbrt.a
 
 gbshot$(EXE): src/tools/gbshot.c src/tools/cli.h src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbshot.c src/platform/png.c $(BUILD)/libgbrt.a
@@ -135,4 +139,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+	rm -rf $(BUILD) dist gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

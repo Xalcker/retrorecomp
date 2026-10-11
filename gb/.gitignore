@@ -6,6 +6,7 @@ testroms/
 /gbtrace
 /gbshot
 /gbaudio
+/gbramdump
 /linktest
 *.gb
 *.sav

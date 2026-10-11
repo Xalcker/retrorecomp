@@ -291,6 +291,7 @@ salida no sea una terminal (la GUI lo usa), sin animación.
 gbtrace rom.gb traza.txt --frames 3000 --input tests/inputs/partida1.txt   # direcciones de ROM ejecutadas (formato BB:AAAA)
 gbshot  rom.gb captura.png --frames 900 --input tests/inputs/partida1.txt
 gbaudio rom.gb audio.wav   --frames 600 --seed 3                            # WAV estéreo y nivel por segundo
+gbramdump rom.gb          --frames 600 --input partida.txt                 # WRAM y HRAM (como ramdump de NES)
 ```
 
 `gbtrace` corre el intérprete, así que no necesita el proyecto compilado: la traza se pasa a
@@ -365,7 +366,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-133 de 133.
+134 de 134.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -373,7 +374,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
 - `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
 - Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
-- `gbrecomp --html`, `--viz --color` y `--codemap`.
+- `gbrecomp --html`, `--viz --color` y `--codemap`, y `gbramdump`.
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.

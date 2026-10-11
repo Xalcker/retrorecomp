@@ -25,7 +25,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.c`, `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
-| `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana; `--hash` para golden), `gbbench` (velocidad), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
+| `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana; `--hash` para golden), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `scan.py`, `run.py`, `report.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
@@ -735,7 +735,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 133, con `sgb_controles`, el proyecto generado y `--html`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 134, con `sgb_controles`, el proyecto generado, `--html` y `gbramdump`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -778,12 +778,14 @@ capturas y `--bench` mide la velocidad de cada máquina.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **133 de 133** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **134 de 134** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
-  `mem_timing-2` y `halt_bug`.
+  `mem_timing-2` y `halt_bug`. No hay un equivalente de `nestest` de NESRecomp
+  (comparar instrucción por instrucción contra un log de CPU): ninguna de las
+  ROMs de prueba libres trae ese log, y el CPU ya lo cubren estas y las de Mooneye.
 - Mooneye: todas las de aceptación para DMG (CPU, interrupciones, HALT, timer,
   DMA, arranque, serial, PPU) y las de MBC1/2/5, incluido MBC1 multicart.
 - `mbc3-tester` (incluye MBC30) y las tres partes de `rtc3test`.

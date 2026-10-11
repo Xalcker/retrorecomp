@@ -101,6 +101,20 @@ if [ -x ./gbrecomp ] || [ -x ./gbrecomp.exe ]; then
     fi
 fi
 
+# --- gbramdump: WRAM y HRAM tras correr la ROM (el equivalente de ramdump de NESRecomp) ---
+if [ -z "$FILTRO" ] || case "gbramdump" in *"$FILTRO"*) true ;; *) false ;; esac; then
+    rom="$T/blargg/cpu_instrs/cpu_instrs.gb"
+    r1=$(./gbramdump "$rom" --frames 60 --seed 3 2>/tmp/gbtest.out)
+    r2=$(./gbramdump "$rom" --frames 60 --seed 3 2>>/tmp/gbtest.out)
+    if [ "$(printf '%s\n' "$r1" | wc -l)" -eq 8319 ] && [ "$r1" = "$r2" ]; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  gbramdump: $(tail -3 /tmp/gbtest.out)"
+    fi
+fi
+
 # --- Recompilador: proyecto generado de cpu_instrs, compilado y comparado
 #     contra el intérprete con difftest (como en NESRecomp) ---
 EXE=

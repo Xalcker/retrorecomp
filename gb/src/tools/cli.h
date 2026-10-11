@@ -1,6 +1,6 @@
 /*
- * Opciones comunes de las herramientas sin ventana (gbtrace, gbshot, gbaudio), las mismas
- * que tienen nestrace, nesshot y nesaudio en NESRecomp:
+ * Opciones comunes de las herramientas sin ventana (gbtrace, gbshot, gbaudio, gbramdump), las
+ * mismas que tienen nestrace, nesshot, nesaudio y ramdump en NESRecomp:
  *   --frames N     cuadros a correr (por omisión 600)
  *   --input ARCH   entradas grabadas (src/platform/inputs.h); sin ellas no se pulsa nada
  *   --seed S       en vez de un guion, un mando al azar reproducible con esa semilla
@@ -47,8 +47,9 @@ static u8 cli_random_pad(long frame, unsigned *seed)
     return (u8)((*seed >> 16) & ~PAD_START);
 }
 
-/* Devuelve 0 si todo bien; 2 si hay que salir (ya imprimió el motivo) */
-static int cli_parse(Cli *c, int argc, char **argv, const char *usage)
+/* Devuelve 0 si todo bien; 2 si hay que salir (ya imprimió el motivo). `nreq`: cuántos
+ * argumentos sueltos se exigen (rom y salida; gbramdump solo la rom) */
+static int cli_parse_n(Cli *c, int argc, char **argv, const char *usage, int nreq)
 {
     memset(c, 0, sizeof *c);
     c->frames = 600;
@@ -62,18 +63,23 @@ static int cli_parse(Cli *c, int argc, char **argv, const char *usage)
             c->model = model_from_name(argv[++i]);
             if (c->model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
         }
-        else if (npos < 2) pos[npos++] = argv[i];
+        else if (npos < nreq) pos[npos++] = argv[i];
         else { fprintf(stderr, "argumento de más: %s\n", argv[i]); return 2; }
     }
-    if (npos < 2 || c->frames <= 0) { fprintf(stderr, "%s\n", usage); return 2; }
+    if (npos < nreq || c->frames <= 0) { fprintf(stderr, "%s\n", usage); return 2; }
     c->rom = pos[0];
-    c->out = pos[1];
+    c->out = nreq > 1 ? pos[1] : NULL;
     if (c->input) {
         const char *err = inputs_load(&c->script, c->input);
         if (err) { fprintf(stderr, "%s\n", err); return 2; }
         if (c->model == GB_MODEL_AUTO) c->model = c->script.model;
     }
     return 0;
+}
+
+static int cli_parse(Cli *c, int argc, char **argv, const char *usage)
+{
+    return cli_parse_n(c, argc, argv, usage, 2);
 }
 
 static u8 cli_pad(Cli *c, long frame, unsigned *seed)

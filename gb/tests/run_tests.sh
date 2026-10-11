@@ -82,6 +82,23 @@ fi
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 
+# --- Recompilador: proyecto generado de cpu_instrs, compilado y comparado
+#     contra el intérprete con difftest (como en NESRecomp) ---
+EXE=
+[ -x ./gbrecomp.exe ] && EXE=.exe
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    rom="$T/blargg/cpu_instrs/cpu_instrs.gb"
+    if ./gbrecomp$EXE "$rom" -o out/cpu_instrs --name cpu_instrs > /tmp/gbtest.out 2>&1 \
+        && make -s -C out/cpu_instrs -j4 >> /tmp/gbtest.out 2>&1 \
+        && out/cpu_instrs/difftest$EXE "$rom" --frames 3600 --seed 1 >> /tmp/gbtest.out 2>&1; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp cpu_instrs: $(tail -3 /tmp/gbtest.out)"
+    fi
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

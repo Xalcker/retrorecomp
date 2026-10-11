@@ -43,18 +43,24 @@ juego sin color ni SGB lo corre como Game Boy (DMG).
 
 ## Compilar GBRecomp
 
-Se necesita un compilador C99, `make` y, para los juegos generados, SDL2.
+Se necesita un compilador C99, `make`, `pkg-config` y SDL2 (para los juegos generados); `git` y `unzip` se usan
+para la versión y para `make testroms`. Son los mismos paquetes que en NESRecomp.
 
 | Sistema | Paquetes |
 |---|---|
-| Windows | [MSYS2](https://www.msys2.org/) UCRT64: `pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2 make` |
-| Linux (Debian/Ubuntu) | `sudo apt install build-essential pkg-config libsdl2-dev` |
+| Windows | [MSYS2](https://www.msys2.org/) UCRT64: `pacman -S --needed make git unzip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2` |
+| Linux (Debian/Ubuntu) | `sudo apt install build-essential pkg-config libsdl2-dev curl unzip` |
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-make            # gbrecomp, gbtest, gbbench, linktest, vgmcheck y el runtime
+make            # gbrecomp, las herramientas sin ventana y el runtime
+make testroms   # una sola vez: baja las ROMs de prueba libres (c-sp/game-boy-test-roms v7.0) a testroms/
+make test       # opcional: Blargg, Mooneye, SameSuite, acid2, recompilado contra intérprete...
 make dist       # dist/gbrecomp-<versión>.tar.gz
 ```
+
+Son los mismos objetivos que en NESRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre
+exactamente eso en Linux, macOS y Windows.
 
 `gbrecomp` es un solo ejecutable que lleva el runtime adentro, así que se
 puede copiar a cualquier carpeta. En Windows, el juego generado queda
@@ -345,14 +351,15 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 
 ## Estado
 
-**Pruebas de hardware** (`make test`, con las ROMs de prueba en `testroms/`):
-131 de 131.
+**Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
+132 de 132.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
 - `mbc3-tester` y `rtc3test`.
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
 - `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
+- Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.

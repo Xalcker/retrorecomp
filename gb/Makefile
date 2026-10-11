@@ -1,23 +1,32 @@
 # GBRecomp: runtime, intérprete generado y herramientas.
 # Compila con gcc/clang C99 (Windows: MSYS2 UCRT64).
 
+# --- Bloque común con NESRecomp (el mismo en los dos Makefiles) ---
 CC     ?= cc
+# MSYS2 sin "cc" (por ejemplo MINGW64): se usa gcc
+ifeq ($(origin CC),default)
+CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
+endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
-
-# En Windows, el make de MSYS2 no le pasa TMP a gcc y éste intenta escribir
-# en C:\WINDOWS. Usamos una carpeta temporal dentro de build/.
+# Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
+# a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
+ifeq ($(OS),Windows_NT)
+EXE := .exe
 ifneq ($(shell command -v cygpath 2>/dev/null),)
 TMPDIR_WIN := $(shell mkdir -p $(BUILD)/tmp && cygpath -m $(CURDIR)/$(BUILD)/tmp)
 export TMP  := $(TMPDIR_WIN)
 export TEMP := $(TMPDIR_WIN)
-EXE := .exe
 endif
+endif
+# Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# --- Fin del bloque común ---
 
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
-.PHONY: all clean test dist
+.PHONY: all clean test dist testroms
 all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
@@ -45,9 +54,6 @@ gbaudio$(EXE): src/tools/gbaudio.c src/tools/cli.h src/platform/inputs.h $(BUILD
 # Dos Game Boy conectados por cable link, sin ventana
 linktest$(EXE): src/tools/linktest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
-
-# Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
@@ -82,8 +88,17 @@ dist: gbrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist gbrecomp-$(VERSION)
 	@echo "Listo: $(DIST).tar.gz"
 
-test: gbtest$(EXE) $(BUILD)/sgb_controles$(EXE)
+# Pruebas: necesitan las ROMs de prueba (make testroms)
+test: all
 	sh tests/run_tests.sh
+
+# ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0
+TESTROMS_URL := https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip
+testroms:
+	@if [ -d testroms/blargg ]; then echo "testroms/ ya tiene las ROMs de prueba"; else \
+		mkdir -p testroms $(BUILD) && curl -fsSL -o $(BUILD)/testroms.zip $(TESTROMS_URL) && \
+		unzip -q -o $(BUILD)/testroms.zip -d testroms && rm -f $(BUILD)/testroms.zip && \
+		echo "ROMs de prueba en testroms/"; fi
 
 # Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.sh)
 $(BUILD)/sgb_controles$(EXE): tests/sgb_controles.c $(BUILD)/libgbrt.a

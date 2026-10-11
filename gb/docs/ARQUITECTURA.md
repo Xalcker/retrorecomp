@@ -226,17 +226,16 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
   README y este documento.
 - **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2,
   enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
-- **Integración continua** (`.github/workflows/ci.yml`), en Linux, macOS y
-  Windows:
-  - Compila todo.
-  - Baja las ROMs de prueba libres (c-sp/game-boy-test-roms v7.0) y corre
-    la batería.
-  - Recompila `cpu_instrs` de Blargg, compila el proyecto generado y corre
-    `difftest`.
-  - Publica el paquete como artefacto.
+- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en
+  NESRecomp), en Linux, macOS y Windows:
+  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
+  - `make testroms` (las ROMs de prueba libres, c-sp/game-boy-test-roms v7.0)
+    y `make test`, que también recompila `cpu_instrs` de Blargg, compila el
+    proyecto generado y corre `difftest`.
+  - `make dist` y publica el paquete como artefacto.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 131, con `sgb_controles`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 132, con `sgb_controles` y el proyecto generado), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -759,8 +758,9 @@ Validación:
 
 ## Estado de la validación del runtime
 
-`sh tests/run_tests.sh`: **131 de 131** (DMG, más las de CGB, compatibilidad y SGB que ya pasan, y
-`sgb_controles`, que lee los controles 2 a 4 del SGB como un juego).
+`sh tests/run_tests.sh`: **132 de 132** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`
+comparado contra el intérprete con `difftest`).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`.

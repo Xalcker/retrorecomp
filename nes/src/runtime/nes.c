@@ -114,7 +114,7 @@ static void dma_dummy(NES *n, u16 a, int do_read)
     cycle_end(n, 0);
 }
 
-static void dma_run(NES *n, u16 a)
+__attribute__((noinline, cold)) static void dma_run(NES *n, u16 a)
 {
     int dmc = n->stall & 1, spr = (n->stall & 2) != 0;
     u8 page = n->oam_page;
@@ -161,6 +161,7 @@ static void dma_run(NES *n, u16 a)
         }
     }
     n->ppu_eager = was_eager;
+    n->dma_end = n->cyc;
 }
 
 u8 nes_cpu_read(NES *n, u16 a)

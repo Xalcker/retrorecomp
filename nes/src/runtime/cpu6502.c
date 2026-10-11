@@ -30,16 +30,18 @@ void nes_interrupt(NES *n, int brk)
     n->prev_need_nmi = 0; n->prev_run_irq = 0;
 }
 
-/* AHX, TAS, SHY, SHX: escriben un registro AND (byte alto de la base + 1) */
+/* AHX, TAS, SHY, SHX: escriben un registro AND (byte alto de la base + 1). Se llama justo después de la lectura
+ * falsa que precede a la escritura: si una DMA detuvo esa lectura (terminó un ciclo antes), el byte alto ya no
+ * entra en el AND y se escribe el registro entero; la dirección, si cruzó de página, se corrompe igual. */
 void cpu_unstable_store(NES *n, int op, u16 base, u16 ea, int cross)
 {
     Cpu *c = &n->cpu;
     u8 reg = op == SHY ? c->y : op == SHX ? c->x : (c->a & c->x);
     if (op == TAS) c->sp = c->a & c->x;
-    u8 val = reg & ((base >> 8) + 1);
+    u8 hi = (u8)((base >> 8) + 1);
     u16 dst = ea;
-    if (cross) dst = (u16)((val << 8) | (ea & 0xFF));
-    WR(dst, val);
+    if (cross) dst = (u16)(((reg & hi) << 8) | (ea & 0xFF));
+    WR(dst, n->dma_end + 1 == n->cyc ? reg : (u8)(reg & hi));
 }
 
 int cpu_step(NES *n)

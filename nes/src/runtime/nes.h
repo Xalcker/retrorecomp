@@ -178,6 +178,8 @@ typedef struct NES {
     u8   zap_radius;            /* radio de visión del cañón en pixeles (0 = 4) */
     int  pad_strobe;
     int  ppu_eager;             /* 1: la PPU avanza en cada ciclo (MMC3, DMA de OAM); 0: solo cuando hace falta */
+    u64  dma_end;               /* ciclo en que terminó la última DMA (la lectura del CPU que detuvo empieza ahí). Al final: en
+                                   medio desplaza campos que se usan en cada ciclo y el emulador va más lento */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */

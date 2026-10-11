@@ -324,7 +324,7 @@ La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md
   con `difftest`; `--why`, `--viz`, `--events` y `--html`.
 - Interfaz: cada menú y cada diálogo se dibuja sin fallar (`--ui-shot`).
 
-AccuracyCoin (`tests/accuracycoin.py`, opcional): 114 de 149. Faltan, sobre todo, el comportamiento
+AccuracyCoin (`tests/accuracycoin.py`, opcional): 119 de 149. Faltan, sobre todo, el comportamiento
 por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, activar o desactivar el dibujo
 en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y detalles del bus
 abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferencias con TriCNES (que pasa todas).

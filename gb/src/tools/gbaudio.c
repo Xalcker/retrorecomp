@@ -24,9 +24,8 @@ int main(int argc, char **argv)
     size_t cap = (size_t)c.frames * 1100 + 8192, tot = 0;      /* pares estéreo */
     int16_t *pcm = malloc(cap * 2 * sizeof *pcm);
     static float tmp[4096 * 2];
-    unsigned seed = c.seed;
     for (long f = 0; f < c.frames; f++) {
-        gb_set_pad(&g, cli_pad(&c, f, &seed));
+        gb_set_pad(&g, cli_pad(&c, f));
         gb_run_frame(&g);
         int n;
         while ((n = gb_audio_pull(&g, tmp, 4096)) > 0) {

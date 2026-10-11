@@ -19,9 +19,8 @@ int main(int argc, char **argv)
     static GB g;
     const char *err = gb_init_model(&g, rom, (u32)size, c.model);
     if (err) { fprintf(stderr, "%s: %s\n", c.rom, err); return 2; }
-    unsigned seed = c.seed;
     for (long f = 0; f < c.frames; f++) {
-        gb_set_pad(&g, cli_pad(&c, f, &seed));
+        gb_set_pad(&g, cli_pad(&c, f));
         gb_run_frame(&g);
     }
     for (unsigned a = 0xC000; a < 0xE000; a++) printf("%04X %02X\n", a, gb_peek(&g, (u16)a));

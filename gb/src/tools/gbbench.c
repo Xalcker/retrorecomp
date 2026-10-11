@@ -2,12 +2,13 @@
  * Velocidad del runtime (intérprete, PPU, APU...) sin ventana ni límite de
  * cuadros.
  *
- * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo]
+ * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]
  *   --frames  cuadros por corrida (por omisión 3600, un minuto de juego).
  *   --repeat  corridas; se reporta la más rápida, que es la menos afectada por
  *             otros programas en la máquina (por omisión 3).
- *   --input   entradas grabadas (src/platform/inputs.h); sin ellas, Start de
- *             vez en cuando y el mando al azar con una semilla fija.
+ *   --input   entradas grabadas (src/platform/inputs.h).
+ *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp); sin
+ *             --input, se usa ese mando con semilla 1.
  * El audio se genera y se saca de la cola en cada cuadro, como en la ventana.
  * Para el código recompilado: difftest --bench en el proyecto generado.
  */
@@ -36,23 +37,18 @@ static unsigned char *read_file(const char *path, long *size)
     return buf;
 }
 
-static u8 random_pad(long frame, unsigned *seed)
-{
-    if (frame % 240 < 6) return PAD_START;
-    if (frame % 30 == 0) *seed = *seed * 1103515245u + 12345u;
-    return (u8)((*seed >> 16) & ~PAD_START);
-}
-
 int main(int argc, char **argv)
 {
     console_utf8();
     const char *rom_path = NULL, *input_path = NULL;
     long frames = 3600;
-    int repeat = 3, model = GB_MODEL_AUTO;
+    int repeat = 3, model = GB_MODEL_AUTO, seed_given = 0;
+    unsigned seed = 1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--repeat") && i + 1 < argc) repeat = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
+        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) { seed = (unsigned)strtoul(argv[++i], NULL, 0); seed_given = 1; }
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
             model = model_from_name(argv[++i]);
             if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
@@ -60,7 +56,7 @@ int main(int argc, char **argv)
         else rom_path = argv[i];
     }
     if (!rom_path || frames <= 0 || repeat <= 0) {
-        fprintf(stderr, "uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo]\n");
+        fprintf(stderr, "uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]\n");
         return 2;
     }
     long size;
@@ -81,10 +77,14 @@ int main(int argc, char **argv)
         if (err) { fprintf(stderr, "%s: %s\n", rom_path, err); return 2; }
         g.apu.enabled = 1;          /* como en la ventana: el APU mezcla y genera muestras */
         if (input_path) script.pos = 0;
-        unsigned seed = 1;
+        RandomPad rp;
+        random_pad_init(&rp, seed);
+        int use_random = seed_given || !input_path;
         clock_t t0 = clock();
         for (long f = 0; f < frames; f++) {
-            gb_set_pad(&g, input_path ? inputs_pad(&script, f) : random_pad(f, &seed));
+            u8 pad = input_path ? inputs_pad(&script, f) : 0;
+            if (use_random) pad |= inputs_random_pad(&rp, f);
+            gb_set_pad(&g, pad);
             gb_run_frame(&g);
             while (gb_audio_pull(&g, aud, 4096) > 0) {}
         }

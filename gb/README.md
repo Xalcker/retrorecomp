@@ -306,7 +306,9 @@ gbramdump rom.gb          --frames 600 --input partida.txt                 # WRA
 
 `gbtrace` corre el intérprete, así que no necesita el proyecto compilado: la traza se pasa a
 `gbrecomp --trace` o a `--coverage` igual que la de `--uncovered`. Sin `--input` ni `--seed` no se
-pulsa ningún botón; con `--seed` el mando es el mismo al azar de `difftest --seed`.
+pulsa ningún botón; `--seed S` suma al guion un mando al azar reproducible
+(`src/platform/random_pad.h`), el mismo en todas las herramientas, en `difftest` y en
+NESRecomp: con la misma semilla, la misma secuencia de botones en las dos consolas.
 
 **GUI local.** `python3 tools/retrorecomp/retrorecomp_gui.py` abre en el navegador (solo Python
 estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior, común con

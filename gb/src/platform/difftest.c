@@ -5,10 +5,12 @@
  * cada cuadro. Si algo difiere, regresa al inicio del cuadro y avanza
  * instrucción por instrucción para reportar la primera diferencia exacta.
  *
- * Uso: difftest rom.gb [--frames N] [--seed S | --input archivo] [--save archivo.sav]
+ * Uso: difftest rom.gb [--frames N] [--input archivo] [--seed S] [--save archivo.sav]
  *                     [--uncovered archivo]
  *                     [--screens carpeta [--every N]] [--bench] [--executed archivo]
- *   --input reproduce entradas grabadas (ver inputs.h) en lugar de aleatorias.
+ *   --input reproduce entradas grabadas (ver inputs.h). --seed suma el mando
+ *   aleatorio de random_pad.h (el mismo que en NESRecomp); sin --input, se usa
+ *   ese mando con semilla 1.
  *   --save carga un .sav en ambas máquinas antes de empezar (para partidas
  *   grabadas que empezaron desde una partida guardada).
  *   --save-out escribe la RAM del cartucho (de la máquina recompilada) al terminar.
@@ -248,59 +250,24 @@ static void save_screen(GB *g, const char *path)
     fclose(f);
 }
 
-/* --- Entradas pseudoaleatorias reproducibles --- */
+/* --- Entradas: guion (--input) y mando aleatorio (random_pad.h, el mismo que en NESRecomp) --- */
 
-static u32 rng_state;
-
-static u32 rng(void)
-{
-    rng_state ^= rng_state << 13;
-    rng_state ^= rng_state >> 17;
-    rng_state ^= rng_state << 5;
-    return rng_state;
-}
-
-static InputScript script;   /* --input: entradas grabadas en lugar de aleatorias */
-static int use_script;
-static u8 pad_now;
-static long pad_until;
+static InputScript script;   /* --input: entradas grabadas */
+static int use_script, use_random;
+static RandomPad rpad;
 
 static void reset_pad(u32 seed)
 {
-    rng_state = seed ? seed : 1;
-    pad_now = 0;
-    pad_until = 0;
+    random_pad_init(&rpad, seed);
     script.pos = 0;
 }
 
-static u8 next_pad(long frame)
-{
-    u8 pad = pad_now;
-    long until = pad_until;
-    if (frame >= until) {
-        u32 r = rng();
-        until = frame + 4 + (long)(r % 40);
-        /* Start poco frecuente: en muchos juegos pausa la partida */
-        if ((r >> 24) % 24 == 0) {
-            pad_now = PAD_START;
-            pad_until = until;
-            return PAD_START;
-        }
-        switch ((r >> 8) % 6) {
-        case 0: pad = 0; break;
-        case 1: pad = PAD_B; break;
-        case 2: pad = PAD_A; break;
-        default: pad = (u8)(1u << (4 + ((r >> 12) & 3))) | ((r >> 16) & 1 ? PAD_A : 0); break;
-        }
-    }
-    pad_now = pad;
-    pad_until = until;
-    return pad;
-}
-
+/* El guion, más el mando aleatorio si se pidió --seed o si no hay guion */
 static u8 pad_for(long frame)
 {
-    return use_script ? inputs_pad(&script, frame) : next_pad(frame);
+    u8 pad = use_script ? inputs_pad(&script, frame) : 0;
+    if (use_random) pad |= inputs_random_pad(&rpad, frame);
+    return pad;
 }
 
 /* --- Ubicar la primera diferencia --- */
@@ -351,13 +318,14 @@ int main(int argc, char **argv)
     int bench = 0, model = GB_MODEL_AUTO;
     const char *palette = NULL;
     u32 seed = 1;
+    int seed_given = 0;
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) { frames = atol(argv[++i]); frames_given = 1; }
         else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc) save_path = argv[++i];
         else if (!strcmp(argv[i], "--save-out") && i + 1 < argc) save_out = argv[++i];
-        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = (u32)strtoul(argv[++i], NULL, 0);
+        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) { seed = (u32)strtoul(argv[++i], NULL, 0); seed_given = 1; }
         else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered = argv[++i];
         else if (!strcmp(argv[i], "--executed") && i + 1 < argc) executed_path = argv[++i];
         else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
@@ -417,6 +385,7 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+    use_random = seed_given || !use_script;     /* sin guion, el mando aleatorio (semilla 1) */
     reset_pad(seed);
 
     printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, seed);

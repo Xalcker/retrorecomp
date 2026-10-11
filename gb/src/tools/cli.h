@@ -3,7 +3,8 @@
  * mismas que tienen nestrace, nesshot, nesaudio y ramdump en NESRecomp:
  *   --frames N     cuadros a correr (por omisión 600)
  *   --input ARCH   entradas grabadas (src/platform/inputs.h); sin ellas no se pulsa nada
- *   --seed S       en vez de un guion, un mando al azar reproducible con esa semilla
+ *   --seed S       suma al guion un mando al azar reproducible con esa semilla (random_pad.h,
+ *                  el mismo que en NESRecomp)
  *   --model M      dmg | cgb | sgb (por omisión, el del archivo de entradas o el de la ROM)
  */
 #ifndef CLI_H
@@ -24,6 +25,7 @@ typedef struct {
     int model, use_seed;
     unsigned seed;
     InputScript script;
+    RandomPad rp;
 } Cli;
 
 static unsigned char *cli_read_file(const char *path, long *size)
@@ -37,14 +39,6 @@ static unsigned char *cli_read_file(const char *path, long *size)
     if (buf && fread(buf, 1, (size_t)*size, f) != (size_t)*size) { free(buf); buf = NULL; }
     fclose(f);
     return buf;
-}
-
-/* Mismo mando al azar que difftest --seed */
-static u8 cli_random_pad(long frame, unsigned *seed)
-{
-    if (frame % 240 < 6) return PAD_START;
-    if (frame % 30 == 0) *seed = *seed * 1103515245u + 12345u;
-    return (u8)((*seed >> 16) & ~PAD_START);
 }
 
 /* Devuelve 0 si todo bien; 2 si hay que salir (ya imprimió el motivo). `nreq`: cuántos
@@ -74,6 +68,7 @@ static int cli_parse_n(Cli *c, int argc, char **argv, const char *usage, int nre
         if (err) { fprintf(stderr, "%s\n", err); return 2; }
         if (c->model == GB_MODEL_AUTO) c->model = c->script.model;
     }
+    random_pad_init(&c->rp, c->seed);
     return 0;
 }
 
@@ -82,11 +77,13 @@ static inline int cli_parse(Cli *c, int argc, char **argv, const char *usage)
     return cli_parse_n(c, argc, argv, usage, 2);
 }
 
-static u8 cli_pad(Cli *c, long frame, unsigned *seed)
+/* Botones del cuadro `frame` (en orden desde 0): el guion de --input más, con --seed, el mando
+ * aleatorio de random_pad.h, el mismo que en NESRecomp */
+static inline u8 cli_pad(Cli *c, long frame)
 {
-    if (c->input) return inputs_pad(&c->script, frame);
-    if (c->use_seed) return cli_random_pad(frame, seed);
-    return 0;
+    u8 pad = c->input ? inputs_pad(&c->script, frame) : 0;
+    if (c->use_seed) pad |= inputs_random_pad(&c->rp, frame);
+    return pad;
 }
 
 #endif

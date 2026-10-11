@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "gb.h"
+#include "random_pad.h"
 
 typedef struct {
     long *frame;
@@ -169,6 +170,19 @@ static inline void inputs_record(FILE *f, long frame, u8 pad, int *last)
     }
     fputc('\n', f);
     fflush(f);
+}
+
+/* Mando aleatorio de --seed (random_pad.h, el mismo que en NESRecomp) con los bits del Game Boy:
+ * los cuatro primeros botones coinciden con los de la NES; la cruz va en otro orden */
+static inline u8 inputs_random_pad(RandomPad *p, long frame)
+{
+    unsigned char rp = random_pad(p, frame);
+    u8 pad = rp & (RP_A | RP_B | RP_SELECT | RP_START);
+    if (rp & RP_UP) pad |= PAD_UP;
+    if (rp & RP_DOWN) pad |= PAD_DOWN;
+    if (rp & RP_LEFT) pad |= PAD_LEFT;
+    if (rp & RP_RIGHT) pad |= PAD_RIGHT;
+    return pad;
 }
 
 #endif

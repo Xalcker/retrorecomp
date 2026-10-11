@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifdef _WIN32
 #include <direct.h>
@@ -42,6 +43,7 @@
 #include "m68k_ops.h"
 #include "console.h"
 #include "embedded.h"
+#include "dis68k.h"
 
 #ifndef GENRECOMP_VERSION
 #define GENRECOMP_VERSION "dev"
@@ -56,9 +58,24 @@ static const char usage_text[] =
     "  --name nombre      nombre del ejecutable (por omisión, el de la ROM)\n"
     "  --trace archivo    instrucciones que ejecutó el juego (las escriben gentrace, la ventana con\n"
     "                     --trace y difftest --uncovered); se agregan como entradas (se puede repetir)\n"
-    "  --coverage archivo compara lo descubierto con las instrucciones que ejecutó el juego (una\n"
-    "                     traza): cuántas se encontraron sin ayuda\n"
-    "  --info             formato, SHA1, cabecera y vectores de la ROM (lo que hace sin -o)\n"
+    "  --coverage archivo compara lo descubierto sin traza con las instrucciones que ejecutó el juego\n"
+    "                     (una traza): cuántas se encontraron y cuáles faltan\n"
+    "  --why OFFSET       explica por qué esa instrucción (desplazamiento hexadecimal en la ROM) se tomó\n"
+    "                     como código: la cadena de saltos y tablas desde un punto de entrada (se puede\n"
+    "                     repetir; sin -o no genera el proyecto)\n"
+    "  --viz              mapa de la ROM en la terminal, coloreado por cómo se descubrió (con\n"
+    "                     --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
+    "  --color            con --viz, colorea aunque la salida no sea una terminal (lo usa la GUI)\n"
+    "  --html archivo     el descubrimiento como una página HTML sola: mapa, instrucciones por celda y\n"
+    "                     la cadena de \"por qué\" al hacer clic (con --coverage marca lo que falta)\n"
+    "  --events archivo   cada instrucción descubierta con su origen (texto: desplazamiento, dirección,\n"
+    "                     cómo se llegó, de dónde, origen, desensamblado)\n"
+    "  --codemap archivo  qué bytes de la ROM se tomaron como código: una letra por byte (C = código),\n"
+    "                     64 por línea; el mismo formato que difftest --executed\n"
+    "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
+    "  --no-spec          sin los punteros sueltos: inmediatos y tablas que ningún código delata\n"
+    "  --dis OFF:DIR:N    desensambla N instrucciones desde ese desplazamiento de la ROM, con esa dirección\n"
+    "  --info             formato, SHA1, cabecera y vectores de la ROM (lo que hace sin otras opciones)\n"
     "  --verbose          detalles del descubrimiento\n"
     "  --version, --help\n";
 
@@ -132,7 +149,7 @@ static void print_info(const char *path, const Gen *g)
 }
 
 /* ------------------------------------------------------------------ */
-/* Descubrimiento                                                      */
+/* Estado                                                              */
 /* ------------------------------------------------------------------ */
 
 #define BANK_SIZE 0x80000u          /* 512 KB: ventana del mapper de SSF2 (y de la SRAM en $200000) */
@@ -141,26 +158,60 @@ static Gen *gen;                    /* la ROM cargada (normalizada) y su mapeo i
 static const u8 *rom;
 static size_t rom_size;
 static int verbose;
+static int use_tables = 1;          /* --no-tables: sin las heurísticas de tablas de saltos */
+static int use_spec = 1;            /* --no-spec: sin los punteros sueltos (inmediatos y tablas sin código que las use) */
 
-/* Por palabra de ROM: ¿empieza una instrucción ahí? y con qué dirección del CPU se descubrió */
-static u8  *is_ins;
-static u32 *ins_addr;
-static unsigned stat_insns, stat_seeds, stat_trace;
+/* Cómo se llegó a una instrucción (para --why, --viz, --events y --html) */
+enum { HOW_VECTOR, HOW_TRACE, HOW_LINEAR, HOW_JMP, HOW_JSR, HOW_BRANCH, HOW_TABLE, HOW_RUN, HOW_IMM, HOW_AFTER, HOW_COUNT };
+static const char *const how_name[HOW_COUNT] = { "vector", "traza", "sigue", "salto", "llamada", "bifurcación", "tabla",
+                                                 "tabla suelta", "puntero inmediato", "tras un final" };
+enum { ORG_FLOW, ORG_TRACE, ORG_TABLE, ORG_SPEC, ORG_COUNT };
+static const char *const org_name[ORG_COUNT] = { "flujo desde los vectores", "traza", "tabla de saltos",
+                                                 "especulativo (punteros sueltos)" };
+#define NO_PARENT 0xFFFFFFFFu
 
-typedef struct { u32 off, addr; } Work;
-static Work *work;
-static size_t nwork, capwork;
+/* Por palabra de ROM (desplazamiento / 2) */
+static u8  *is_ins;                 /* empieza una instrucción ahí */
+static u32 *ins_addr;               /* con qué dirección del CPU se descubrió */
+static u32 *parent;                 /* de qué instrucción se llegó (desplazamiento) o NO_PARENT */
+static u8  *how_at, *origin;
+static u8  *missing_mark;           /* --coverage: ejecutadas y no descubiertas */
+
+static unsigned stat_insns, stat_bytes, stat_seeds, stat_trace, stat_ind, stat_unresolved;
+static unsigned stat_tables, stat_table_entries, stat_runs, stat_run_entries, stat_imm;
+
+typedef struct { u32 off, addr, from; u8 how; } Work;
+typedef struct { Work *w; size_t n, cap; } Queue;
+static Queue sure, spec;            /* lo especulativo se recorre cuando ya no queda nada seguro */
+static u32 cur_from = NO_PARENT;    /* instrucción que está haciendo el descubrimiento */
+static int cur_how = HOW_JMP;
 
 static u16 romw(size_t off) { return off + 1 < rom_size ? (u16)(rom[off] << 8 | rom[off + 1]) : 0xFFFF; }
+static u32 roml(size_t off) { return (u32)romw(off) << 16 | romw(off + 2); }
+static int ins_len(size_t off) { return 2 + 2 * m68k_ext_words(romw(off)); }
+
+/* Texto de la instrucción en off (con la dirección dada) */
+static void disasm_at(size_t off, u32 addr, char *out, size_t size)
+{
+    u16 w[5];
+    for (int i = 0; i < 5; i++) w[i] = romw(off + 2 * (size_t)i);
+    dis68k(w, addr, out, size);
+}
+
+/* ------------------------------------------------------------------ */
+/* Descubrimiento                                                      */
+/* ------------------------------------------------------------------ */
 
 static void push_work(u32 off, u32 addr)
 {
-    if (nwork == capwork) {
-        capwork = capwork ? capwork * 2 : 1024;
-        work = realloc(work, capwork * sizeof *work);
-        if (!work) die("sin memoria");
+    if ((off & 1) || off >= rom_size || is_ins[off >> 1]) return;
+    Queue *q = cur_how == HOW_AFTER || cur_how == HOW_IMM || cur_how == HOW_RUN ? &spec : &sure;
+    if (q->n == q->cap) {
+        q->cap = q->cap ? q->cap * 2 : 1024;
+        q->w = realloc(q->w, q->cap * sizeof *q->w);
+        if (!q->w) die("sin memoria");
     }
-    work[nwork++] = (Work){ off, addr };
+    q->w[q->n++] = (Work){ off, addr & 0xFFFFFF, cur_from, (u8)cur_how };
 }
 
 /* Desplazamiento en la ROM de un destino `target` visto desde la instrucción (off, addr): en el mismo
@@ -180,11 +231,12 @@ static long target_offset(u32 off, u32 addr, u32 target)
 static void follow(u32 off, u32 addr, u32 target)
 {
     long t = target_offset(off, addr, target);
-    if (t >= 0) push_work((u32)t, target & 0xFFFFFF);
-    else if (verbose) printf("  $%06X: destino $%06X fuera de la ROM\n", addr, target & 0xFFFFFF);
+    if (t >= 0) push_work((u32)t, target);
+    else {
+        stat_unresolved++;
+        if (verbose) printf("  $%06X: destino $%06X fuera de la ROM\n", addr, target & 0xFFFFFF);
+    }
 }
-
-static int ins_len(size_t off) { return 2 + 2 * m68k_ext_words(romw(off)); }
 
 /* Destino constante de JMP/JSR (absoluto corto o largo, o relativo al PC); -1 si es indirecto */
 static long jump_target(size_t off, u32 addr, u16 op)
@@ -192,15 +244,366 @@ static long jump_target(size_t off, u32 addr, u16 op)
     int mode = op >> 3 & 7, reg = op & 7;
     if (mode != 7) return -1;
     if (reg == 0) return (long)(sx16(romw(off + 2)) & 0xFFFFFF);
-    if (reg == 1) return (long)(((u32)romw(off + 2) << 16 | romw(off + 4)) & 0xFFFFFF);
+    if (reg == 1) return (long)(roml(off + 2) & 0xFFFFFF);
     if (reg == 2) return (long)((addr + 2 + sx16(romw(off + 2))) & 0xFFFFFF);
     return -1;
 }
 
-/* Sigue una cadena de instrucciones desde (off, addr) hasta un salto sin vuelta */
-static void walk(Work w)
+/* ¿Una dirección absoluta que un programa del Genesis usaría? (cartucho, Z80, E/S, VDP, RAM) */
+static int sane_abs(u32 a, int is_long)
 {
-    u32 off = w.off, addr = w.addr;
+    if (is_long && (a >> 24) != 0x00 && (a >> 24) != 0xFF) return 0;
+    a &= 0xFFFFFF;
+    return a < 0x400000 || (a >= 0xA00000 && a < 0xA20000) || (a >= 0xA11000 && a < 0xA15000) ||
+           (a >= 0xC00000 && a < 0xC00020) || a >= 0xE00000;
+}
+
+/* Las palabras de extensión de un operando con dirección absoluta: ¿son razonables? i = índice de
+ * la palabra del operando dentro de la instrucción (1 = la primera de extensión) */
+static int sane_ea(size_t off, int mode, int reg, int sz, int *i)
+{
+    int ok = 1;
+    if (mode == 5 || mode == 6) (*i)++;
+    else if (mode == 7) {
+        switch (reg) {
+        case 0: ok = sane_abs(sx16(romw(off + 2 * (size_t)*i)), 0); (*i)++; break;
+        case 1: ok = sane_abs(roml(off + 2 * (size_t)*i), 1); *i += 2; break;
+        case 2: case 3: (*i)++; break;
+        case 4: *i += sz == 2 ? 2 : 1; break;
+        }
+    }
+    return ok;
+}
+
+/* Las direcciones absolutas de los operandos de una instrucción son razonables (solo MOVE y las
+ * operaciones de un operando; lo demás se acepta) */
+static int sane_operands(size_t off, u16 op, int kind)
+{
+    int i = 1;
+    switch (kind) {
+    case K_MOVE: case K_MOVEA: {
+        int s = (op >> 12 & 3) == 1 ? 0 : (op >> 12 & 3) == 3 ? 1 : 2;
+        if (!sane_ea(off, op >> 3 & 7, op & 7, s, &i)) return 0;
+        return sane_ea(off, op >> 6 & 7, op >> 9 & 7, s, &i); }
+    case K_TST: case K_UNARY: case K_ALU: case K_QUICK:
+        return sane_ea(off, op >> 3 & 7, op & 7, op >> 6 & 3, &i);
+    case K_JMP: case K_JSR: case K_LEA: case K_PEA: {
+        int mode = op >> 3 & 7, reg = op & 7;
+        if (mode == 7 && reg == 1) return sane_abs(roml(off + 2), 1);
+        return 1; }
+    default: return 1;
+    }
+}
+
+/*
+ * ¿Lo que hay en (off, addr) parece el comienzo de una rutina? Se decodifica en línea recta, sin
+ * guardar nada: opcodes válidos (ni ILLEGAL, ni línea A/F, ni ori.b #0,d0: ceros), direcciones absolutas
+ * razonables y destinos de saltos dentro de la ROM, hasta un RTS/RTE/RTR/BRA/JMP. Con `strict`
+ * (punteros sueltos, sin un código que los use como tabla) ese final tiene que llegar en menos de 64
+ * instrucciones; si no, también valen 64 instrucciones válidas seguidas (las rutinas de
+ * inicialización son largas). Los datos al azar casi nunca pasan.
+ */
+static int plausible(u32 off, u32 addr, int strict)
+{
+    if ((off & 1) || (addr & 1) || addr < 0x200) return 0;
+    for (int n = 0; n < 64; n++) {
+        if (off + 2 > rom_size) return 0;
+        if (is_ins[off >> 1]) return 1;                 /* se une a código ya descubierto */
+        u16 op = romw(off);
+        int kind = m68k_decode(op), len = ins_len(off);
+        if ((op == 0x0000 && romw(off + 2) == 0x0000) || kind == K_ILLEGAL || kind == K_LINEA || kind == K_LINEF) return 0;
+        if (off + (u32)len > rom_size || !sane_operands(off, op, kind)) return 0;
+        switch (kind) {
+        case K_BCC: {
+            u32 d8 = op & 0xFF;
+            u32 to = addr + 2 + (d8 ? sx8(d8) : sx16(romw(off + 2)));
+            if (target_offset(off, addr, to) < 0) return 0;
+            if ((op >> 8 & 15) == 0) return 1;          /* BRA */
+            break; }
+        case K_DBCC:
+            if (target_offset(off, addr, addr + 2 + sx16(romw(off + 2))) < 0) return 0;
+            break;
+        case K_JMP: case K_JSR: {
+            long t = jump_target(off, addr, op);
+            if (t >= 0 && t < 0x400000 && target_offset(off, addr, (u32)t) < 0) return 0;
+            if (kind == K_JMP) return 1;
+            break; }
+        case K_RTS: case K_RTE: case K_RTR: return 1;
+        default: break;
+        }
+        off += (u32)len;
+        addr += (u32)len;
+        if ((off ^ (off - (u32)len)) & ~(BANK_SIZE - 1)) return 0;     /* cruzó de banco */
+    }
+    return !strict;
+}
+
+/* --- Tablas de saltos --- */
+
+/* Las últimas instrucciones del recorrido actual: sirven para reconocer cómo se arma un salto
+ * indirecto (la tabla y el registro con el que se indexa) */
+static u32 hist[16];
+static int nhist;
+
+static void hist_push(u32 off)
+{
+    if (nhist == 16) { memmove(hist, hist + 1, 15 * sizeof *hist); nhist = 15; }
+    hist[nhist++] = off;
+}
+
+/* ¿La instrucción en off cambia el registro de direcciones An? */
+static int writes_areg(u32 off, int an)
+{
+    u16 op = romw(off);
+    switch (m68k_decode(op)) {
+    case K_MOVEA: case K_LEA: return (op >> 9 & 7) == an;
+    case K_ALUA: return (op >> 12) != 0xB && (op >> 9 & 7) == an;
+    case K_QUICK: return (op >> 3 & 7) == 1 && (op & 7) == an;
+    case K_EXG: { int om = op >> 3 & 0x1F; return (om == 0x09 && ((op >> 9 & 7) == an || (op & 7) == an)) || (om == 0x11 && (op & 7) == an); }
+    case K_MOVEMR: return (romw(off + 2) >> (8 + an)) & 1;
+    case K_UNLK: case K_MUSP: return (op & 7) == an;
+    default: return 0;
+    }
+}
+
+/* Valor constante de An antes de la instrucción hist[h], si lo carga un LEA o un MOVEA.L #imm
+ * reciente sin que nada lo cambie después; 0 si no se sabe */
+static int known_areg(int h, int an, u32 *val)
+{
+    for (int i = h - 1; i >= 0 && i >= h - 10; i--) {
+        u32 o = hist[i];
+        if (!writes_areg(o, an)) continue;
+        u16 op = romw(o);
+        u32 addr = ins_addr[o >> 1];
+        if (m68k_decode(op) == K_LEA) {
+            int mode = op >> 3 & 7, reg = op & 7;
+            if (mode == 7 && reg == 2) { *val = (addr + 2 + sx16(romw(o + 2))) & 0xFFFFFF; return 1; }
+            if (mode == 7 && reg == 1) { *val = roml(o + 2) & 0xFFFFFF; return 1; }
+            if (mode == 7 && reg == 0) { *val = sx16(romw(o + 2)) & 0xFFFFFF; return 1; }
+            return 0;
+        }
+        if (op == (0x207C | an << 9)) { *val = roml(o + 2) & 0xFFFFFF; return 1; }    /* MOVEA.L #imm,An */
+        return 0;
+    }
+    return 0;
+}
+
+/* Base de una lectura indexada (d8,PC,Xn) o (d8,An,Xn) con An conocido, en la instrucción hist[h]
+ * con el operando fuente en (mode, reg) y su palabra de extensión `x` en dirección `xaddr` */
+static int indexed_base(int h, int mode, int reg, u16 x, u32 xaddr, u32 *base)
+{
+    if (mode == 7 && reg == 3) { *base = (xaddr + sx8(x & 0xFF)) & 0xFFFFFF; return 1; }
+    if (mode == 6) {
+        u32 a;
+        if (!known_areg(h, reg, &a)) return 0;
+        *base = (a + sx8(x & 0xFF)) & 0xFFFFFF;
+        return 1;
+    }
+    return 0;
+}
+
+/* El registro índice: ¿lo cargó un MOVE desde una tabla indexada? Busca hacia atrás desde hist[h]
+ * el último MOVE (o MOVEA) que lo tenga de destino. Devuelve el tamaño (1 = palabra, 2 = largo) y
+ * la base de esa tabla, o 0. */
+static int loaded_from_table(int h, int is_a, int r, u32 *base)
+{
+    for (int i = h - 1; i >= 0 && i >= h - 8; i--) {
+        u32 o = hist[i];
+        u16 op = romw(o);
+        int kind = m68k_decode(op);
+        if (kind != K_MOVE && kind != K_MOVEA) continue;
+        int dmode = op >> 6 & 7, dreg = op >> 9 & 7;
+        if (dmode != (is_a ? 1 : 0) || dreg != r) continue;
+        int sz = (op >> 12 & 3) == 3 ? 1 : (op >> 12 & 3) == 2 ? 2 : 0;
+        int smode = op >> 3 & 7, sreg = op & 7;
+        if (sz == 0 || !((smode == 7 && sreg == 3) || smode == 6)) return 0;
+        u32 addr = ins_addr[o >> 1];
+        if (!indexed_base(i, smode, sreg, romw(o + 2), addr + 2, base)) return 0;
+        return sz;
+    }
+    return 0;
+}
+
+/* Tabla de desplazamientos de 16 bits relativos a la base (Sonic: move.w tbl(pc,d0.w),d1 /
+ * jmp tbl(pc,d1.w)). Termina donde empieza la primera rutina o en la primera entrada que no apunta
+ * a algo con pinta de código. */
+static void scan_offset_table(u32 src_off, u32 src_addr, u32 base)
+{
+    long tb = target_offset(src_off, src_addr, base);
+    if (tb < 0) return;
+    int saved = cur_how;
+    cur_how = HOW_TABLE;
+    long end = (long)rom_size;
+    int good = 0;
+    for (int i = 0; i < 512; i++) {
+        long p = tb + 2 * i;
+        if (p + 2 > end || (i && is_ins[p >> 1])) break;
+        u32 t = (base + sx16(romw((size_t)p))) & 0xFFFFFF;
+        long to = target_offset(src_off, src_addr, t);
+        if (to < 0 || !(is_ins[to >> 1] || plausible((u32)to, t, 0))) break;
+        if (to > tb && to < end) end = to;              /* la tabla termina antes de la primera rutina */
+        push_work((u32)to, t);
+        good++;
+    }
+    if (good) { stat_tables++; stat_table_entries += (unsigned)good; }
+    cur_how = saved;
+}
+
+/* Tabla de saltos hecha de instrucciones (jmp tbl(pc,d0.w) con tbl: bra.w a / bra.w b / ...): cada
+ * entrada es código. Se aceptan BRA.W, BRA.S, JMP (xxx).w y JMP (xxx).l, todas del mismo largo. */
+static void scan_branch_table(u32 src_off, u32 src_addr, u32 base)
+{
+    long tb = target_offset(src_off, src_addr, base);
+    if (tb < 0) return;
+    int saved = cur_how;
+    cur_how = HOW_TABLE;
+    int size = 0, good = 0;
+    for (int i = 0; i < 256; i++) {
+        long p = tb + (long)i * size;
+        if (p + 2 > (long)rom_size) break;
+        u16 w = romw((size_t)p);
+        int s = w == 0x6000 ? 4 : w == 0x4EF9 ? 6 : w == 0x4EF8 ? 4 : ((w & 0xFF00) == 0x6000 && !(w & 1)) ? 2 : 0;
+        if (!s) break;
+        if (!size) size = s;
+        if (s != size) break;
+        u32 a = (base + (u32)(i * size)) & 0xFFFFFF;
+        /* el destino de la entrada tiene que ser razonable */
+        u32 t = s == 6 ? roml((size_t)p + 2) : s == 4 && w == 0x4EF8 ? sx16(romw((size_t)p + 2)) :
+                a + 2 + (s == 4 ? sx16(romw((size_t)p + 2)) : sx8(w & 0xFF));
+        long to = target_offset((u32)p, a, t);
+        if (to < 0 || !(is_ins[to >> 1] || plausible((u32)to, t & 0xFFFFFF, 0))) break;
+        push_work((u32)p, a);
+        good++;
+    }
+    if (verbose) printf("  $%06X: tabla de saltos en $%06X, %d entradas\n", src_addr, base, good);
+    if (good) { stat_tables++; stat_table_entries += (unsigned)good; }
+    cur_how = saved;
+}
+
+/* Tabla de punteros de 32 bits (movea.l tbl(pc,d0.w),a0 / jmp (a0)) */
+static void scan_ptr_table(u32 src_off, u32 src_addr, u32 base)
+{
+    long tb = target_offset(src_off, src_addr, base);
+    if (tb < 0) return;
+    int saved = cur_how;
+    cur_how = HOW_TABLE;
+    int good = 0;
+    for (int i = 0; i < 256; i++) {
+        long p = tb + 4 * i;
+        if (p + 4 > (long)rom_size || (i && is_ins[p >> 1])) break;
+        u32 t = roml((size_t)p);
+        if (t >> 24 || t >= 0x400000) break;
+        long to = gen_code_offset(gen, t);
+        if (to < 0 || !(is_ins[to >> 1] || plausible((u32)to, t, 0))) break;
+        push_work((u32)to, t);
+        good++;
+    }
+    if (good) { stat_tables++; stat_table_entries += (unsigned)good; }
+    cur_how = saved;
+}
+
+/* JMP/JSR con un operando que no es constante: ¿de qué tabla sale el destino? */
+static void analyze_indirect(u32 off, u32 addr, u16 op)
+{
+    int mode = op >> 3 & 7, reg = op & 7, h = nhist - 1;      /* hist[h] es este JMP/JSR */
+    u16 x = romw(off + 2);
+    stat_ind++;
+    if ((mode == 7 && reg == 3) || mode == 6) {
+        u32 base, tbase;
+        if (!indexed_base(h, mode, reg, x, addr + 2, &base)) return;
+        int sz = loaded_from_table(h, (x & 0x8000) != 0, x >> 12 & 7, &tbase);
+        if (sz == 1 && tbase == base) scan_offset_table(off, addr, base);
+        else scan_branch_table(off, addr, base);
+        return;
+    }
+    if (mode == 2 || mode == 5) {
+        u32 d = mode == 5 ? sx16(x) : 0, base, k;
+        int sz = loaded_from_table(h, 1, reg, &base);
+        if (sz == 2) { scan_ptr_table(off, addr, base); return; }
+        if (!sz && known_areg(h, reg, &k)) {                       /* lea rutina,a0 / jmp (a0) */
+            int saved = cur_how;
+            cur_how = HOW_TABLE;
+            follow(off, addr, k + d);
+            cur_how = saved;
+        }
+    }
+}
+
+/* MOVE.L #rutina,... / MOVEA.L #rutina,An / PEA rutina / LEA rutina,An: un puntero a código que se
+ * guarda para llamarlo después (objetos de Sonic 2/3, tareas de Comix Zone, trampolines JMP en la RAM) */
+static void immediate_pointer(u32 off, u32 addr, u16 op)
+{
+    u32 t;
+    if ((op >> 12) == 2 && (op & 0x3F) == 0x3C && (op >> 6 & 7) != 0) t = roml(off + 2);     /* no a un Dn */
+    else if (op == 0x4879) t = roml(off + 2);
+    else if (op == 0x487A) t = addr + 2 + sx16(romw(off + 2));
+    else if ((op & 0xF1FF) == 0x41FA) t = addr + 2 + sx16(romw(off + 2));     /* LEA d16(PC),An */
+    else if ((op & 0xF1FF) == 0x41F9) t = roml(off + 2);                     /* LEA (xxx).l,An */
+    else return;
+    if (t >> 24 || t >= 0x400000 || t < 0x200 || (t & 1)) return;
+    long to = gen_code_offset(gen, t);
+    if (to < 0 || is_ins[to >> 1] || !plausible((u32)to, t, 1)) return;
+    int saved = cur_how;
+    cur_how = HOW_IMM;
+    push_work((u32)to, t);
+    stat_imm++;
+    cur_how = saved;
+}
+
+/* Tablas de punteros que ningún patrón de código delata: cuatro o más largos seguidos que apuntan,
+ * todos, a algo con pinta de rutina (tablas de objetos, de estados) */
+static void scan_pointer_runs(void)
+{
+    cur_how = HOW_RUN;
+    cur_from = NO_PARENT;
+    size_t lim = rom_size < ROM_LINEAR ? rom_size : ROM_LINEAR;
+    int run = 0;
+    for (size_t o = 0x200; o + 4 <= lim; o += 2) {
+        u32 v = roml(o);
+        long to = -1;
+        if (!(v >> 24) && v >= 0x200 && v < lim && !(v & 1)) to = gen_code_offset(gen, v);
+        if (to >= 0 && (is_ins[to >> 1] || plausible((u32)to, v, 1))) {
+            /* un largo cada 4 bytes: las entradas de la misma tabla van seguidas */
+            run = run ? run + 1 : 1;
+            if (run == 4) {
+                stat_runs++;
+                for (int k = 0; k < 4; k++) {
+                    u32 kv = roml(o - 12 + 4 * (size_t)k);
+                    push_work((u32)gen_code_offset(gen, kv), kv);
+                    stat_run_entries++;
+                }
+            } else if (run > 4) {
+                push_work((u32)to, v);
+                stat_run_entries++;
+            }
+            o += 2;                                     /* la siguiente entrada, 4 bytes después */
+        } else run = 0;
+    }
+}
+
+/* Después de un final de rutina (RTS, JMP, BRA...) suele empezar otra: las rutinas van una detrás
+ * de otra aunque solo se llegue a ellas por saltos calculados (los trozos desenrollados de Mortal
+ * Kombat 3 que terminan en jmp (a0)). Si lo que sigue parece código, se toma. */
+static unsigned stat_after;
+
+static void after_end(u32 off, u32 addr, int len)
+{
+    if (!use_spec) return;
+    u32 n = off + (u32)len, a = addr + (u32)len;
+    if (n + 2 > rom_size || (n ^ off) & ~(BANK_SIZE - 1) || is_ins[n >> 1]) return;
+    if (!plausible(n, a, 1)) return;
+    int saved = cur_how;
+    cur_how = HOW_AFTER;
+    push_work(n, a);
+    stat_after++;
+    cur_how = saved;
+}
+
+/* Sigue una cadena de instrucciones desde (off, addr) hasta un salto sin vuelta */
+static void walk(Work wk)
+{
+    u32 off = wk.off, addr = wk.addr, prev = NO_PARENT;
+    nhist = 0;
     for (;;) {
         if ((off & 1) || off + 2 > rom_size || (addr & 1)) return;
         if (is_ins[off >> 1]) return;
@@ -208,28 +611,55 @@ static void walk(Work w)
         int kind = m68k_decode(op);
         int len = ins_len(off);
         if (off + (u32)len > rom_size) return;
+        /* un opcode inválido seguido del flujo: son datos (salvo ILLEGAL a propósito o si lo dice la traza) */
+        if (kind == K_ILLEGAL && op != 0x4AFC && wk.how != HOW_TRACE) return;
         is_ins[off >> 1] = 1;
         ins_addr[off >> 1] = addr;
         stat_insns++;
+        stat_bytes += (unsigned)len;
+        if (prev == NO_PARENT) {
+            parent[off >> 1] = wk.from;
+            how_at[off >> 1] = wk.how;
+            origin[off >> 1] = wk.how == HOW_TRACE ? ORG_TRACE : wk.how == HOW_TABLE ? ORG_TABLE :
+                               wk.how == HOW_RUN || wk.how == HOW_IMM || wk.how == HOW_AFTER ? ORG_SPEC :
+                               wk.from != NO_PARENT ? origin[wk.from >> 1] : ORG_FLOW;
+        } else {
+            parent[off >> 1] = prev;
+            how_at[off >> 1] = HOW_LINEAR;
+            origin[off >> 1] = origin[prev >> 1];
+        }
+        prev = off;
+        cur_from = off;
+        hist_push(off);
         u32 next = addr + (u32)len;
         switch (kind) {
         case K_BCC: {
             u32 d8 = op & 0xFF;
             u32 to = addr + 2 + (d8 ? sx8(d8) : sx16(romw(off + 2)));
             int cc = op >> 8 & 15;
+            cur_how = cc == 0 ? HOW_JMP : cc == 1 ? HOW_JSR : HOW_BRANCH;
             follow(off, addr, to);
-            if (cc == 0) return;                    /* BRA */
+            if (cc == 0) { after_end(off, addr, len); return; }     /* BRA */
             break; }
         case K_DBCC:
+            cur_how = HOW_BRANCH;
             follow(off, addr, addr + 2 + sx16(romw(off + 2)));
             break;
         case K_JMP: case K_JSR: {
             long t = jump_target(off, addr, op);
+            cur_how = kind == K_JMP ? HOW_JMP : HOW_JSR;
             if (t >= 0) follow(off, addr, (u32)t);
-            if (kind == K_JMP) return;
+            else if (use_tables) analyze_indirect(off, addr, op);
+            if (kind == K_JMP) { after_end(off, addr, len); return; }
             break; }
-        case K_RTS: case K_RTE: case K_RTR: case K_ILLEGAL: case K_LINEA: case K_LINEF:
+        case K_RTS: case K_RTE: case K_RTR:
+            after_end(off, addr, len);
             return;
+        case K_ILLEGAL: case K_LINEA: case K_LINEF:
+            return;
+        case K_MOVE: case K_MOVEA: case K_PEA: case K_LEA:
+            if (use_spec) immediate_pointer(off, addr, op);
+            break;
         default:
             break;
         }
@@ -243,13 +673,32 @@ static void walk(Work w)
 
 static void drain(void)
 {
-    while (nwork) walk(work[--nwork]);
+    while (sure.n || spec.n) {
+        if (sure.n) walk(sure.w[--sure.n]);
+        else walk(spec.w[--spec.n]);
+    }
 }
 
-static void seed(u32 off, u32 addr)
+/* Recorre todo lo pendiente; las tablas sueltas pueden agregar más y se repite */
+static void discover(void)
 {
+    int runs_done = 0;
+    for (;;) {
+        drain();
+        unsigned before = stat_insns;
+        if (use_spec && use_tables && !runs_done) { runs_done = 1; scan_pointer_runs(); }
+        drain();
+        if (stat_insns == before) break;
+    }
+    cur_from = NO_PARENT;
+}
+
+static void seed(u32 off, u32 addr, int how)
+{
+    cur_from = NO_PARENT;
+    cur_how = how;
+    stat_seeds++;
     push_work(off, addr);
-    drain();
 }
 
 static void seed_vectors(void)
@@ -259,8 +708,8 @@ static void seed_vectors(void)
         /* los vectores sin usar suelen valer 0: debajo de $200 están los vectores y la cabecera */
         long off = (a & 1) || a < 0x200 ? -1 : gen_code_offset(gen, a);
         if (off < 0) continue;
-        stat_seeds++;
-        seed((u32)off, a);
+        if (verbose) printf("vector %2d = $%06X\n", v, a);
+        seed((u32)off, a, HOW_VECTOR);
     }
 }
 
@@ -274,27 +723,219 @@ static void load_trace(const char *path)
     while (fgets(line, sizeof line, f))
         if (sscanf(line, "%lx:%lx", &off, &addr) == 2 && off < rom_size && !(off & 1)) {
             if (!is_ins[off >> 1]) stat_trace++;
-            seed((u32)off, (u32)addr & 0xFFFFFF);
+            seed((u32)off, (u32)addr & 0xFFFFFF, HOW_TRACE);
         }
     fclose(f);
 }
 
-/* --coverage: de las instrucciones de una traza, cuántas se descubrieron */
+/* --coverage: de las instrucciones de una traza, cuántas encontró el análisis sin ayuda */
 static void coverage_report(const char *path)
 {
+    missing_mark = calloc(rom_size / 2 + 1, 1);
     FILE *f = fopen(path, "r");
-    if (!f) die("no se pudo abrir %s", path);
+    if (!f || !missing_mark) die("no se pudo abrir %s", path);
     char line[128];
-    unsigned long off, addr, total = 0, found = 0;
-    while (fgets(line, sizeof line, f))
-        if (sscanf(line, "%lx:%lx", &off, &addr) == 2 && off < rom_size) {
-            total++;
-            if (!(off & 1) && is_ins[off >> 1]) found++;
-            else if (verbose) printf("  falta $%06lX (dirección $%06lX)\n", off, addr);
+    unsigned long off, addr;
+    unsigned total = 0, found = 0, shown = 0;
+    while (fgets(line, sizeof line, f)) {
+        if (sscanf(line, "%lx:%lx", &off, &addr) != 2 || off >= rom_size || (off & 1)) continue;
+        total++;
+        if (is_ins[off >> 1]) { found++; continue; }
+        missing_mark[off >> 1] = 1;
+        if (shown < 12 || verbose) {
+            char d[96];
+            disasm_at(off, (u32)addr, d, sizeof d);
+            printf("  falta: ROM $%06lX = $%06lX  %s\n", off, addr, d);
+            shown++;
         }
+    }
     fclose(f);
-    printf("cobertura: %lu de %lu instrucciones ejecutadas se descubrieron (%.1f%%)\n",
-           found, total, total ? 100.0 * found / total : 100.0);
+    printf("cobertura: %u de %u instrucciones ejecutadas descubiertas sin traza (%.1f%%); descubiertas en total %u\n",
+           found, total, total ? 100.0 * found / total : 100.0, stat_insns);
+}
+
+/* ------------------------------------------------------------------ */
+/* --why, --viz, --events, --codemap, --html                           */
+/* ------------------------------------------------------------------ */
+
+static void explain(u32 off)
+{
+    if (off >= rom_size || (off & 1) || !is_ins[off >> 1]) {
+        printf("ROM $%06X: no se descubrió como código\n", off);
+        return;
+    }
+    printf("ROM $%06X ($%06X) se tomó como código así:\n", off, ins_addr[off >> 1]);
+    char d[96], d0[96];
+    u32 cur = off;
+    int steps = 0;
+    while (cur != NO_PARENT && steps++ < 4000) {
+        disasm_at(cur, ins_addr[cur >> 1], d, sizeof d);
+        u32 par = parent[cur >> 1], first = cur;
+        int how = how_at[cur >> 1], run = 0;
+        /* las instrucciones seguidas se agrupan: solo se cuenta cuántas hubo */
+        while (how == HOW_LINEAR && par != NO_PARENT) { cur = par; par = parent[cur >> 1]; how = how_at[cur >> 1]; run++; }
+        if (run) {
+            disasm_at(cur, ins_addr[cur >> 1], d0, sizeof d0);
+            printf("  $%06X $%06X  %-30s  ...%d instrucciones seguidas hasta  $%06X $%06X  %s\n", first, ins_addr[first >> 1], d,
+                   run, cur, ins_addr[cur >> 1], d0);
+        } else {
+            printf("  $%06X $%06X  %s\n", cur, ins_addr[cur >> 1], d);
+        }
+        if (par == NO_PARENT) {
+            printf("  └ punto de entrada: %s\n", how_name[how]);
+            return;
+        }
+        printf("  └ %s desde\n", how_name[how]);
+        cur = par;
+    }
+}
+
+static void write_events(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    fprintf(f, "# desplazamiento dirección cómo-se-llegó desde origen desensamblado\n");
+    for (size_t i = 0; i < rom_size; i += 2) {
+        if (!is_ins[i >> 1]) continue;
+        char d[96];
+        disasm_at(i, ins_addr[i >> 1], d, sizeof d);
+        if (parent[i >> 1] == NO_PARENT)
+            fprintf(f, "%06zX %06X %s - %s %s\n", i, ins_addr[i >> 1], how_name[how_at[i >> 1]], org_name[origin[i >> 1]], d);
+        else
+            fprintf(f, "%06zX %06X %s %06X %s %s\n", i, ins_addr[i >> 1], how_name[how_at[i >> 1]], parent[i >> 1],
+                    org_name[origin[i >> 1]], d);
+    }
+    fclose(f);
+}
+
+/* Bytes por celda del mapa: 256 hasta 1 MB; más, para que queden unas 64 filas de 64 celdas */
+static size_t viz_cell(void)
+{
+    size_t c = 256;
+    while (rom_size / c > 4096) c *= 2;
+    return c;
+}
+
+static void viz_map(int color)
+{
+    static const int org_color[ORG_COUNT] = { 46, 51, 226, 201 };        /* verde, cian, amarillo, magenta */
+    size_t cell = viz_cell(), row_size = cell * 64;
+    printf("\nMapa de la ROM (una celda = %zu bytes; filas de %zu KB):\n", cell, row_size / 1024);
+    for (int o = 0; o < ORG_COUNT; o++) {
+        if (color) printf("  \033[38;5;%dm#\033[0m %s\n", org_color[o], org_name[o]);
+        else printf("  %c %s\n", "#=%@"[o], org_name[o]);
+    }
+    if (missing_mark) printf("  %sX%s ejecutado por el juego y no descubierto\n", color ? "\033[41;97m" : "", color ? "\033[0m" : "");
+    printf("  . sin código   : menos de la mitad   # la mitad o más\n\n");
+    unsigned cells = 0, code_cells = 0;
+    for (size_t row = 0; row < rom_size; row += row_size) {
+        printf("%06zX ", row);
+        for (size_t c0 = row; c0 < row + row_size && c0 < rom_size; c0 += cell) {
+            unsigned bytes = 0, cnt[ORG_COUNT] = { 0 };
+            int miss = 0;
+            for (size_t i = c0; i < c0 + cell && i < rom_size; i += 2) {
+                if (is_ins[i >> 1]) { unsigned l = (unsigned)ins_len(i); bytes += l; cnt[origin[i >> 1]] += l; }
+                if (missing_mark && missing_mark[i >> 1]) miss = 1;
+            }
+            cells++;
+            if (bytes) code_cells++;
+            if (miss) { printf("%sX%s", color ? "\033[41;97m" : "", color ? "\033[0m" : ""); continue; }
+            if (!bytes) { putchar('.'); continue; }
+            int best = 0;
+            for (int o = 1; o < ORG_COUNT; o++) if (cnt[o] > cnt[best]) best = o;
+            char ch = bytes >= cell / 2 ? '#' : ':';
+            if (color) printf("\033[38;5;%dm%c\033[0m", org_color[best], ch);
+            else putchar(ch == '#' ? "#=%@"[best] : ':');
+        }
+        putchar('\n');
+    }
+    printf("\n%u de %u celdas con código (%.1f%% de la ROM en bytes)\n", code_cells, cells, 100.0 * stat_bytes / (double)rom_size);
+}
+
+/* --codemap: qué bytes de la ROM se tomaron como código (C) y cuáles no (.), 64 por línea. El mismo
+ * formato que difftest --executed, nesrecomp --codemap y gbrecomp --codemap */
+static void write_codemap(const char *path)
+{
+    u8 *code = calloc(rom_size ? rom_size : 1, 1);
+    FILE *f = fopen(path, "w");
+    if (!code || !f) die("no se pudo crear %s", path);
+    for (size_t i = 0; i < rom_size; i += 2) {
+        if (!is_ins[i >> 1]) continue;
+        int len = ins_len(i);
+        for (int k = 0; k < len && i + (size_t)k < rom_size; k++) code[i + (size_t)k] = 1;
+    }
+    for (size_t i = 0; i < rom_size; i++) {
+        fputc(code[i] ? 'C' : '.', f);
+        if (i % 64 == 63) fputc('\n', f);
+    }
+    free(code);
+    if (fclose(f)) die("no se pudo escribir %s", path);
+}
+
+static void json_str(FILE *f, const char *t)
+{
+    fputc('"', f);
+    for (; *t; t++) {
+        if (*t == '"' || *t == '\\') fputc('\\', f);
+        if (*t == '<') { fputs("\\u003c", f); continue; }
+        fputc(*t, f);
+    }
+    fputc('"', f);
+}
+
+#include "visor_html.h"
+
+static void write_html(const char *path, const char *rom_name)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    fputs(html_head, f);
+    fputs("{\"name\":", f);
+    json_str(f, rom_name);
+    fprintf(f, ",\"rom\":%zu,\"cell\":%zu,\"bytes\":%u,\"orgs\":[", rom_size, viz_cell(), stat_bytes);
+    for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
+    fputs("],\"hows\":[", f);
+    for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    fputs("],\"missing\":[", f);
+    int first = 1;
+    if (missing_mark)
+        for (size_t i = 0; i < rom_size; i += 2)
+            if (missing_mark[i >> 1]) { fprintf(f, first ? "%zu" : ",%zu", i); first = 0; }
+    fputs("],\"ins\":[\n", f);
+    first = 1;
+    for (size_t i = 0; i < rom_size; i += 2) {
+        if (!is_ins[i >> 1]) continue;
+        char d[96];
+        disasm_at(i, ins_addr[i >> 1], d, sizeof d);
+        fprintf(f, "%s[%zu,%u,%d,%ld,%d,", first ? "" : ",\n", i, ins_addr[i >> 1], how_at[i >> 1],
+                parent[i >> 1] == NO_PARENT ? -1L : (long)parent[i >> 1], origin[i >> 1]);
+        json_str(f, d);
+        fprintf(f, ",%d]", ins_len(i));
+        first = 0;
+    }
+    fputs("\n]}", f);
+    fputs(html_tail, f);
+    fclose(f);
+}
+
+/* --dis OFFSET:DIR:N */
+static void dis_range(const char *arg)
+{
+    unsigned long off, addr, n;
+    if (sscanf(arg, "%lx:%lx:%lu", &off, &addr, &n) != 3) die("--dis espera OFFSET:DIRECCION:N (hexadecimal, hexadecimal, decimal)");
+    for (unsigned long k = 0; k < n && off + 2 <= rom_size; k++) {
+        char d[96];
+        disasm_at(off, (u32)addr, d, sizeof d);
+        int len = ins_len(off);
+        printf("%06lX  $%06lX  ", off, addr);
+        for (int i = 0; i < 5; i++) {
+            if (i < len / 2) printf("%04X ", romw(off + 2 * (size_t)i));
+            else printf("     ");
+        }
+        printf(" %s%s\n", d, is_ins[off >> 1] ? "" : "   ; (no descubierta)");
+        off += (unsigned long)len;
+        addr += (unsigned long)len;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -399,9 +1040,9 @@ static void emit_ins(FILE *f, u32 off)
     int kind = m68k_decode(op), n = m68k_ext_words(op);
     u32 next = (addr + 2 + 2 * (u32)n) & 0xFFFFFF;
 
-    fprintf(f, "L_%06X: /* $%06X: %04X", off, addr, op);
-    for (int i = 0; i < n; i++) fprintf(f, " %04X", romw(off + 2 + 2 * (u32)i));
-    fprintf(f, " */\n");
+    char dis[96];
+    disasm_at(off, addr, dis, sizeof dis);
+    fprintf(f, "L_%06X: /* $%06X  %s */\n", off, addr, dis);
     if (n) {
         fprintf(f, "    { static const u16 e[%d] = {", n);
         for (int i = 0; i < n; i++) fprintf(f, "%s0x%04X", i ? ", " : " ", romw(off + 2 + 2 * (u32)i));
@@ -629,6 +1270,16 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
     fclose(f);
 }
 
+/* El código de una corrida anterior (gen/code_*.c) se borra: puede haber menos archivos ahora */
+static void remove_old_code(const char *gdir)
+{
+    for (unsigned part = 0; part < 100000; part++) {
+        char p[1200];
+        snprintf(p, sizeof p, "%s/code_%03u.c", gdir, part);
+        if (remove(p) != 0) break;
+    }
+}
+
 /* Nombre del ejecutable: letras, números, - y _ */
 static void sanitize(char *s)
 {
@@ -639,19 +1290,34 @@ static void sanitize(char *s)
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *rom_path = NULL, *out = NULL, *name_arg = NULL, *coverage = NULL;
+    const char *rom_path = NULL, *out = NULL, *name_arg = NULL, *coverage = NULL, *dis_arg = NULL;
+    const char *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
     const char *traces[64];
-    int ntraces = 0, info = 0;
+    u32 why_list[32];
+    int ntraces = 0, nwhy = 0, info = 0, viz = 0, force_color = 0;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (!strcmp(a, "--version")) { printf("genrecomp %s\n", GENRECOMP_VERSION); return 0; }
         if (!strcmp(a, "--help") || !strcmp(a, "-h")) { fputs(usage_text, stdout); return 0; }
         if (!strcmp(a, "--info")) { info = 1; continue; }
         if (!strcmp(a, "--verbose")) { verbose = 1; continue; }
+        if (!strcmp(a, "--viz")) { viz = 1; continue; }
+        if (!strcmp(a, "--color")) { force_color = 1; continue; }
+        if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
+        if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
             if (!strcmp(a, "--coverage")) { coverage = argv[++i]; continue; }
+            if (!strcmp(a, "--dis")) { dis_arg = argv[++i]; continue; }
+            if (!strcmp(a, "--events")) { events_path = argv[++i]; continue; }
+            if (!strcmp(a, "--html")) { html_path = argv[++i]; continue; }
+            if (!strcmp(a, "--codemap")) { codemap_path = argv[++i]; continue; }
+            if (!strcmp(a, "--why")) {
+                if (nwhy == 32) die("demasiados --why");
+                why_list[nwhy++] = (u32)strtoul(argv[++i], NULL, 16);
+                continue;
+            }
             if (!strcmp(a, "--trace")) {
                 if (ntraces == 64) die("demasiadas trazas");
                 traces[ntraces++] = argv[++i];
@@ -663,6 +1329,7 @@ int main(int argc, char **argv)
         rom_path = a;
     }
     if (!rom_path) { fputs(usage_text, stderr); return 2; }
+    int analysis = coverage || dis_arg || nwhy || viz || events_path || html_path || codemap_path;
 
     size_t len;
     u8 *data = read_file(rom_path, &len);
@@ -674,7 +1341,7 @@ int main(int argc, char **argv)
         return 1;
     }
     free(data);
-    if (info || (!out && !coverage)) {
+    if (info || (!out && !analysis)) {
         print_info(rom_path, gen);
         return 0;
     }
@@ -683,18 +1350,51 @@ int main(int argc, char **argv)
     rom_size = gen->cart.rom_size;
     const Cart *cart = &gen->cart;
     can_remap = cart->mapper != MAPPER_NONE || (cart->sram_data && (cart->sram_start & ~1u) < rom_size);
-    is_ins = calloc(rom_size / 2 + 1, 1);
-    ins_addr = calloc(rom_size / 2 + 1, sizeof *ins_addr);
-    if (!is_ins || !ins_addr) die("sin memoria");
+    size_t words = rom_size / 2 + 1;
+    is_ins = calloc(words, 1);
+    ins_addr = calloc(words, sizeof *ins_addr);
+    parent = malloc(words * sizeof *parent);
+    how_at = calloc(words, 1);
+    origin = calloc(words, 1);
+    if (!is_ins || !ins_addr || !parent || !how_at || !origin) die("sin memoria");
+    for (size_t i = 0; i < words; i++) parent[i] = NO_PARENT;
+    printf("%s: ROM %zu KB%s, SHA1 %s\n", rom_path, rom_size / 1024, cart->mapper != MAPPER_NONE ? " (mapper de SSF2)" : "",
+           cart->sha1);
 
+    /* Primero sin traza (lo que mide --coverage) y después con las trazas */
     seed_vectors();
-    unsigned from_vectors = stat_insns;
-    for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
-    printf("%s: %zu KB, SHA1 %s\n", rom_path, rom_size / 1024, cart->sha1);
-    printf("descubrimiento: %u instrucciones (%u desde %u vectores", stat_insns, from_vectors, stat_seeds);
-    if (ntraces) printf(", %u más con %u entradas nuevas de la traza", stat_insns - from_vectors, stat_trace);
-    printf(")\n");
+    discover();
     if (coverage) coverage_report(coverage);
+    unsigned base_insns = stat_insns;
+    for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
+    discover();
+    printf("código: %u instrucciones (%u bytes, %.2f%% de la ROM)", stat_insns, stat_bytes, 100.0 * stat_bytes / (double)rom_size);
+    if (ntraces) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    printf("\n");
+    if (verbose) {
+        unsigned overlap = 0;
+        for (size_t i = 0; i < rom_size; i += 2)
+            if (is_ins[i >> 1])
+                for (int k = 2; k < ins_len(i); k += 2)
+                    if (i + (size_t)k < rom_size && is_ins[(i + (size_t)k) >> 1]) { overlap++; break; }
+        printf("instrucciones que pisan a otra: %u\n", overlap);
+    }
+    if (verbose)
+        printf("saltos indirectos: %u, destinos fuera de la ROM: %u; tablas: %u (%u entradas), tablas sueltas: %u (%u entradas), "
+               "punteros inmediatos: %u, tras un final: %u\n", stat_ind, stat_unresolved, stat_tables, stat_table_entries, stat_runs,
+               stat_run_entries, stat_imm, stat_after);
+
+    if (events_path) write_events(events_path);
+    if (codemap_path) write_codemap(codemap_path);
+    if (html_path) {
+        const char *b = rom_path;
+        for (const char *p = rom_path; *p; p++) if (*p == '/' || *p == '\\') b = p + 1;
+        write_html(html_path, b);
+        printf("visor escrito en %s\n", html_path);
+    }
+    if (viz) viz_map(force_color || isatty(1));
+    for (int i = 0; i < nwhy; i++) explain(why_list[i]);
+    if (dis_arg) dis_range(dis_arg);
     if (!out) return 0;
 
     partition();
@@ -715,6 +1415,7 @@ int main(int argc, char **argv)
     char gdir[1100];
     snprintf(gdir, sizeof gdir, "%s/gen", out);
     make_dir(gdir);
+    remove_old_code(gdir);
     write_embedded(out);
     emit_code(out);
     emit_dispatch(out);

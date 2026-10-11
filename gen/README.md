@@ -10,8 +10,8 @@ intérprete.
 Por ahora solo NTSC (el Genesis de EE. UU., 60 Hz): los juegos y demos que exigen PAL esperan a
 que esté hecho.
 
-**Estado: fase 6 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas y
-el recompilador). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 7 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas,
+el recompilador y la cobertura sin traza). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -24,10 +24,11 @@ el recompilador). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 - **Z80 y sonido:** el Z80 pasa las 1 604 000 SingleStepTests; PSG y YM2612 propios, mezclados a
   44 100 Hz. Se oyen la voz "SEGA" de Sonic 1 y la música de los juegos de `roms/`.
 - **Recompilador:** `genrecomp -o` genera el proyecto; cada instrucción usa la misma semántica que el
-  intérprete. Con una traza del juego, los 23 juegos de `roms/` dan 1800 cuadros idénticos al
-  intérprete en `difftest` (con otras entradas que las de la traza); Sonic 1 corre el 100 % de los
-  ciclos en código recompilado. Sin traza todavía se encuentra poco (Sonic 1: 2081 instrucciones; las
-  tablas de saltos son la fase 7) y aún no es mucho más rápido que el intérprete (fase 8).
+  intérprete. Los 23 juegos de `roms/` dan 1800 cuadros idénticos al intérprete en `difftest`.
+- **Cobertura:** sin traza, el análisis encuentra las tablas de saltos y los punteros a código: entre
+  el 93 y el 100 % de lo que ejecutan los juegos de `roms/` (Sonic 1: 100 %). `--why`, `--viz`,
+  `--html` y `--coverage` muestran qué se encontró y por qué. Aún no es mucho más rápido que el
+  intérprete (fase 8).
 
 ## Compilar
 
@@ -60,15 +61,15 @@ botones), captura (F12) e idioma. `--record`/`--play archivo` graban y reproduce
 flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```
-./gentrace "roms/juego.bin" traza.txt --frames 3600 --seed 1 start:120-125
-./genrecomp "roms/juego.bin" -o juego/ --trace traza.txt
+./genrecomp "roms/juego.bin" -o juego/
 make -C juego -j
 ./juego/juego "roms/juego.bin"
 ./juego/difftest "roms/juego.bin" 3600 --seed 2 --uncovered faltante.txt
+./genrecomp "roms/juego.bin" -o juego/ --trace faltante.txt      # si faltó algo
 ```
 
-El recompilador: descubre el código desde los vectores (y la traza, para lo que solo se alcanza por
-saltos indirectos) y escribe un proyecto con el código recompilado, el runtime, la ventana, `difftest`
+El recompilador: descubre el código desde los vectores, sigue las tablas de saltos y los punteros a
+código (y una traza, para lo que se le escape) y escribe un proyecto con el código recompilado, el runtime, la ventana, `difftest`
 y `bench`. El ejecutable no lleva la ROM: la busca o la pide una vez y comprueba su SHA1. `difftest`
 corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
@@ -99,7 +100,8 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | Comando | Qué hace |
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
-| `genrecomp juego.bin -o carpeta [--name n] [--trace traza] [--coverage traza]` | El recompilador (sin `-o`, `--info`). |
+| `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
+| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why OFFSET] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `sh tests/coverage.sh` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `OFFSET:DIRECCION`). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |

@@ -109,9 +109,64 @@ Las semillas son los vectores de `$000000` (`cart_vector`) que apuntan a la ROM,
 que valen 0 son de los que no se usan). Desde cada una se siguen las instrucciones hasta un salto sin
 vuelta (`BRA`, `JMP`, `RTS`, `RTE`, `RTR`, `ILLEGAL`, línea A/F), con los destinos constantes de
 `Bcc`, `BRA`, `BSR`, `DBcc` y `JMP`/`JSR` absolutos o relativos al PC. Dentro de un banco de 512 KB el
-destino está en el mismo banco; fuera, se usa el mapeo del arranque. Las instrucciones de las trazas
-se agregan como semillas: así llegan los saltos indirectos (tablas de saltos, punteros en RAM) y los
-bancos de SSF2. Las heurísticas para encontrarlos sin traza son la fase 7.
+destino está en el mismo banco; fuera, se usa el mapeo del arranque. Un opcode inválido al que se
+llega siguiendo el flujo corta el recorrido (son datos), salvo `ILLEGAL` (`$4AFC`) o en una traza.
+
+Los saltos indirectos se resuelven con heurísticas (`--no-tables` las apaga), mirando las últimas
+16 instrucciones del recorrido:
+
+- **Tabla de desplazamientos de 16 bits:** `move.w tbl(pc,d0.w),d1` / `jmp tbl(pc,d1.w)` (también con
+  `lea tbl,a0` y `(a0,d0.w)`): cada entrada es un desplazamiento desde la base; la tabla termina donde
+  empieza la primera rutina o en la primera entrada que no apunta a algo con pinta de código. Es la de
+  los objetos de Sonic.
+- **Tabla de instrucciones:** `jmp tbl(pc,d0.w)` sin una carga desde tabla: cada entrada es un
+  `bra.w`, `bra.s` o `jmp` del mismo largo (los modos de juego de Sonic 1).
+- **Tabla de punteros de 32 bits:** `movea.l tbl(pc,d0.w),a0` / `jmp (a0)` (Sonic 3).
+- **Base constante:** `lea rutina,a0` / `jmp (a0)`.
+
+Y otras especulativas (`--no-spec` las apaga), que se recorren solo cuando ya no queda nada seguro:
+
+- **Punteros inmediatos:** `move.l #rutina,...` (no a un `Dn`), `movea.l #rutina,An`, `pea rutina` y
+  `lea rutina,An`: punteros que se guardan para llamarlos después (los objetos de Sonic 2 y 3, las
+  tareas de Comix Zone, los trampolines `JMP` en la RAM).
+- **Tablas sueltas:** cuatro o más largos seguidos que apuntan, todos, a algo con pinta de rutina.
+- **Tras un final:** después de un `RTS`, `RTE`, `RTR`, `BRA` o `JMP` suele empezar otra rutina, aunque
+  solo se llegue a ella por un salto calculado (los trozos desenrollados de Mortal Kombat 3 que
+  terminan en `jmp (a0)`).
+
+"Con pinta de código" (`plausible`) es decodificar en línea recta sin guardar nada: opcodes válidos
+(ni `ILLEGAL`, ni línea A/F, ni `ori.b #0,d0`, que son ceros), direcciones absolutas razonables
+(cartucho, Z80, E/S, VDP, RAM) y destinos de saltos dentro de la ROM, hasta un final de rutina. Para lo
+especulativo ese final tiene que llegar en menos de 64 instrucciones; para las tablas que el código
+delata también valen 64 instrucciones válidas seguidas (las rutinas de inicialización son largas).
+
+Descubrir de más no rompe nada: lo que se recompila es lo que hay en esa dirección, y si el juego
+nunca llega ahí, nunca se ejecuta. Solo cuesta tiempo de compilación. Las instrucciones de las trazas
+(`--trace`) se agregan como semillas para lo que las heurísticas no encuentran.
+
+**Cobertura sin traza** (`sh tests/coverage.sh`: de lo que el juego ejecuta en 1800 cuadros con un
+mando aleatorio, cuánto encuentra el análisis solo): 97,6 % en total con los 23 juegos de `roms/`;
+100 % en Sonic 1 y 2, Comix Zone, Contra Hard Corps, Phantasy Star IV, MK1, Road Rash II, SF2CE y
+SSF2; entre 93 y 99,7 % en el resto (lo más bajo: Wonder Boy in Monster World, 92,8 %, y Wily Wars,
+93,6 %). Sin las heurísticas (`--no-tables`), Sonic 1 se queda en 25 %.
+
+### Herramientas de análisis
+
+Las mismas que `nesrecomp`, con los mismos formatos:
+
+- `--coverage traza`: cuántas instrucciones de la traza encontró el análisis sin ella, y las que
+  faltan (las primeras 12; todas con `--verbose`).
+- `--why OFFSET`: la cadena desde un punto de entrada (vector, traza, tabla...) hasta esa instrucción.
+- `--viz [--color]`: mapa de la ROM en la terminal, coloreado por origen (flujo, traza, tabla,
+  especulativo; en rojo, con `--coverage`, lo ejecutado y no descubierto).
+- `--html archivo`: el mismo mapa en una página sola, con las instrucciones de cada celda y el "por
+  qué" al hacer clic.
+- `--events archivo`: cada instrucción con su desplazamiento, dirección, cómo se llegó, desde dónde,
+  origen y desensamblado.
+- `--codemap archivo`: una letra por byte de la ROM (`C` = código), 64 por línea, como `difftest
+  --executed`.
+- `--dis OFFSET:DIR:N`: desensambla N instrucciones (`dis68k.c`, que también pone el desensamblado en
+  los comentarios del código generado).
 
 ### Funciones y emisión
 
@@ -379,8 +434,10 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   los tres DMA, estado, contador V, planos, ventana, sprites con su límite, máscara y desborde,
   sombra y resalte) y que `gen` dibuje cada menú y cada diálogo sin ventana (`--ui-shot`). Y el
 recompilador: generar, compilar (`make difftest`) y pasar `difftest` con una ROM mínima hecha en la
-prueba, con la demo Overdrive (600 cuadros) y con Sonic 1 si está (1200 cuadros, recompilado con una
-traza de `gentrace` y comparado con otras entradas: 100 % de los ciclos en código recompilado).
+prueba, con la demo Overdrive (600 cuadros) y con Sonic 1 si está (1200 cuadros, recompilado sin
+traza: 100 % de los ciclos en código recompilado, y la cobertura sin traza de lo que ejecuta debe ser
+de 99 % o más). Y las herramientas de análisis de `genrecomp` con la ROM mínima (`--why`, `--viz`,
+`--codemap`, `--events`, `--html`, `--dis`).
 
 ### Resultados con juegos
 
@@ -393,6 +450,14 @@ Wonder Boy in Monster World). La parte de los ciclos que corre en código recomp
 100 %, salvo Road Rash II (75 %: corre código desde la RAM). Sonic 1 con una traza de 3600 cuadros:
 100 % y 14.9 veces el tiempo real contra 11.7 del intérprete (el costo está en poner al día el VDP y
 el Z80 tras cada instrucción y en volver al despachador en cada `RTS`: fase 8).
+
+**Sin traza (fase 7).** Recompilados solo con el análisis, los 23 juegos dan 1800 cuadros idénticos
+al intérprete (mando aleatorio con semilla 2) y compilan en 10-54 s con 8 núcleos (Sonic & Knuckles,
+el más grande: 130 000 instrucciones). La parte de los ciclos en código recompilado: 100 % en
+Sonic 1, 2 y 3, MK1, PSIV, SF2CE, SSF2, Streets of Rage 2 y Wonder Boy; 99-99,9 % en Earthworm Jim,
+Ecco, Wily Wars, MK3, NBA Jam y TE, Ristar, Road Rash II y Sonic & Knuckles; 98,8 % Mickey Mania,
+97,2 % Comix Zone, 96,1 % Vectorman, 95,6 % Contra Hard Corps y 92,9 % Gunstar Heroes (lo que falta
+es sobre todo código que corre desde la RAM).
 
 Con el intérprete, el bus y el VDP: Sonic 1 se ve bien en la pantalla de SEGA, "SONIC TEAM
 PRESENTS", el título (con el emblema y Sonic) y Green Hill (HUD, scroll por capas, agua, enemigos);

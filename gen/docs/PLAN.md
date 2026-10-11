@@ -69,9 +69,14 @@ mismo contrato de línea de comandos.
   intérprete (con traza de otras entradas) y Sonic 1 corre el 100 % de los ciclos en código
   recompilado. Pendiente: encontrar sin traza lo que se alcanza por saltos indirectos (fase 7) y la
   velocidad (fase 8: Sonic 1, 14.9x contra 11.7x del intérprete).
-- [ ] **7. Heurísticas de cobertura.** Tablas `move.w tbl(pc,d0.w)` + `jmp tbl(pc,d1.w)`, tablas de
-  `bra.w`, tablas de punteros de 32 bits, trampolines `jmp` en RAM; plausibilidad por opcodes
-  ilegales; `--trace`, `--coverage`, `--why`, `--viz`, `--html`, `--codemap`, `coverage.sh`.
+- [x] **7. Heurísticas de cobertura.** Tablas de desplazamientos (`move.w tbl(pc,d0.w)` + `jmp
+  tbl(pc,d1.w)`), de instrucciones (`bra.w`/`jmp`), de punteros de 32 bits y bases constantes;
+  especulativas: punteros inmediatos (`move.l/pea/lea rutina`), tablas sueltas y lo que sigue a un
+  final de rutina; plausibilidad (opcodes válidos, direcciones razonables, final de rutina).
+  Desensamblador (`dis68k.c`); `--coverage`, `--why`, `--viz`, `--html`, `--events`, `--codemap`,
+  `--dis`, `--no-tables`, `--no-spec`; `tests/coverage.sh`. Sin traza, 93-100 % de lo que ejecutan
+  los 23 juegos de `roms/` (Sonic 1: de 25 a 100 %). Pendiente: compilar menos código de más (Sonic &
+  Knuckles descubre 130 000 instrucciones y tarda ~1 minuto con 8 núcleos).
 - [ ] **8. Rendimiento.** Vida de los flags del CCR, `-DGEN_MAPPER`, VDP y audio perezosos, `golden.sh`.
 - [ ] **9. Compatibilidad y documentación.** `tools/compat` con el set No-Intro, `COMPATIBILIDAD.md`,
   oráculos (BlastEm y/o Genesis Plus GX) en `tools/oracles/`.

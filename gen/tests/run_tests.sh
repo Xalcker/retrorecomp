@@ -67,8 +67,8 @@ if "$(exe genrecomp)" 2>&1 | grep -q "uso:"; then echo "ok    genrecomp sin argu
 else echo "FALLA genrecomp sin argumentos"; fallas=$((fallas + 1)); fi
 
 # Recompilar: proyecto generado, compilado (difftest, sin SDL2) y comparado contra el intérprete.
-# Con la ROM mínima siempre; con la demo Overdrive (make testroms) y con Sonic 1 (roms/, con una
-# traza de gentrace para llegar a lo que solo se alcanza por saltos indirectos) si están.
+# Con la ROM mínima siempre; con la demo Overdrive (make testroms) y con Sonic 1 (roms/, sin traza:
+# las tablas de saltos las encuentra el análisis) si están.
 recompila() {   # nombre rom cuadros [traza]
     n=$1; rom=$2; nf=$3; tr=$4
     d=build/tests/proy_$n
@@ -77,12 +77,30 @@ recompila() {   # nombre rom cuadros [traza]
     if ! "$(exe genrecomp)" "$rom" -o "$d" --name "$n" "$@" >/dev/null 2>&1; then echo "FALLA genrecomp -o con $n"; fallas=$((fallas + 1)); return; fi
     if ! make -C "$d" -j4 -s difftest >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
     dt="$d/difftest"; [ -x "$dt.exe" ] && dt="$dt.exe"
-    r=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | tail -1)
-    case "$r" in *"cuadros iguales"*) echo "ok    recompilado $n: $r";; *) echo "FALLA recompilado $n: $r"; fallas=$((fallas + 1));; esac
+    res=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | tail -1)
+    case "$res" in *"cuadros iguales"*) echo "ok    recompilado $n: $res";; *) echo "FALLA recompilado $n: $res"; fallas=$((fallas + 1));; esac
 }
 recompila minima "$R" 60
 [ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
-for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do [ -f "$r" ] && recompila sonic1 "$r" 1200 build/tests/sonic1_traza.txt; done
+for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do
+    [ -f "$r" ] || continue
+    recompila sonic1 "$r" 1200
+    # Cobertura sin traza: de lo que ejecuta en 1200 cuadros, el análisis debe encontrar el 99 % o más
+    "$(exe gentrace)" "$r" build/tests/sonic1_traza.txt --frames 1200 --seed 1 start:120-125 start:300-305 >/dev/null 2>&1
+    c=$("$(exe genrecomp)" "$r" --coverage build/tests/sonic1_traza.txt | grep "^cobertura")
+    case "$c" in *"(99."*|*"(100."*) echo "ok    Sonic 1, $c";; *) echo "FALLA Sonic 1, $c"; fallas=$((fallas + 1));; esac
+done
+
+# Herramientas de análisis de genrecomp con la ROM mínima: --why, --viz, --codemap, --events, --html, --dis
+G="$(exe genrecomp)"
+an=0
+"$G" "$R" --why 200 | grep -q "punto de entrada: vector" || { echo "FALLA genrecomp --why"; an=1; }
+"$G" "$R" --viz | grep -q "celdas con código" || { echo "FALLA genrecomp --viz"; an=1; }
+"$G" "$R" --codemap build/tests/minima.codemap >/dev/null && [ "$(sed -n 9p build/tests/minima.codemap | cut -c1-3)" = "CC." ] || { echo "FALLA genrecomp --codemap"; an=1; }
+"$G" "$R" --events build/tests/minima.events >/dev/null && grep -q "^000200 000200 vector - flujo desde los vectores bra.s \$200" build/tests/minima.events || { echo "FALLA genrecomp --events"; an=1; }
+"$G" "$R" --html build/tests/minima.html >/dev/null && grep -q '"ins":\[' build/tests/minima.html || { echo "FALLA genrecomp --html"; an=1; }
+"$G" "$R" --dis 200:200:1 | grep -q "bra.s \$200" || { echo "FALLA genrecomp --dis"; an=1; }
+if [ $an -eq 0 ]; then echo "ok    genrecomp --why, --viz, --codemap, --events, --html y --dis"; else fallas=$((fallas + 1)); fi
 
 # Las ROMs de roms/ (tuyas, no se versionan): genrecomp --info no debe fallar con ninguna
 for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do

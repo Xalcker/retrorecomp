@@ -133,9 +133,10 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-genrecomp$(EXE): src/genrecomp/genrecomp.c src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
+genrecomp$(EXE): src/genrecomp/genrecomp.c src/genrecomp/dis68k.c src/genrecomp/dis68k.h src/genrecomp/visor_html.h \
+                 src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -o $@ \
-		src/genrecomp/genrecomp.c $(BUILD)/gen/embedded.c $(RT)
+		src/genrecomp/genrecomp.c src/genrecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT)
 
 # Paquete para distribuir: genrecomp, la documentación y la licencia
 DIST := dist/genrecomp-$(VERSION)-$(PLATFORM)

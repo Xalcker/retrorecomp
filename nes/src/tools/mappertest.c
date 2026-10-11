@@ -224,6 +224,17 @@ int main(void)
     W(0xB000, 6); EXPECT_CHR(0x0000, 3);                           /* VRC2a: el bit 0 del banco de CHR no se conecta */
     n.cyc = 50; W(0xF002, 6); EXPECT_IRQ(22, ~0ull);              /* sin IRQ */
 
+    /* 24 y 26 VRC6: 16 KB en $8000, 8 KB en $C000, CHR de 1 KB, espejado en $B003 e IRQ con el latch entero en $F000 */
+    make(24, 128, 128, MIRROR_VERTICAL);
+    W(0x8000, 2); W(0xC000, 9);
+    EXPECT_PRG(0x8000, 4); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 9); EXPECT_PRG(0xE000, 15);
+    W(0xD000, 11); W(0xE003, 77); EXPECT_CHR(0x0000, 11); EXPECT_CHR(0x1C00, 77);
+    W(0xB003, 0x24); if (n.cart.mirroring != MIRROR_HORIZONTAL) { puts("FALLA mapper 24: espejado"); fails++; }
+    n.cyc = 50; W(0xF000, 0xF0); W(0xF001, 6); EXPECT_IRQ(24, 51 + 16);
+    make(26, 128, 128, MIRROR_VERTICAL);
+    W(0xD001, 5); W(0xD002, 6); EXPECT_CHR(0x0800, 5); EXPECT_CHR(0x0400, 6);   /* el 26 cruza A0 y A1 */
+    n.cyc = 50; W(0xF000, 0xF0); W(0xF002, 6); EXPECT_IRQ(26, 51 + 16);        /* $F002 es el control */
+
     /* 19 Namco 163: PRG/CHR, nametables en CIRAM y contador de IRQ de 15 bits */
     make(19, 128, 128, MIRROR_VERTICAL);
     W(0xE000, 3); W(0xE800, 4); W(0xF000, 5);

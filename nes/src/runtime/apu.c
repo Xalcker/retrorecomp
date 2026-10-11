@@ -23,6 +23,8 @@ static const u8 tri_tab[32] = { 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
                                 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
 
 static float pulse_mix[31], tnd_mix[203];
+/* Un paso de volumen del VRC6: un pulso a 15 suena como un pulso del 2A03 a 15 (el diente de sierra llega a 31) */
+#define VRC6_UNIT (pulse_mix[15] / 15.0f)
 static int tabs_ready;
 
 static void init_tabs(void)
@@ -41,6 +43,9 @@ void apu_reset(NES *n)
     a->mute = keep_mute;
     a->nz.shift = 1;
     a->m5 = CART_MMC5(&n->cart);
+    a->vrc6 = CART_VRC6(&n->cart);
+    memset(&n->vrc6, 0, sizeof n->vrc6);
+    n->vrc6.step[0] = n->vrc6.step[1] = 15;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
     a->cps = CPU_HZ / APU_RATE;
     a->rate_mul = 1.0;
@@ -94,6 +99,67 @@ static void half(Apu *a)
     }
     if (!a->t.lhalt && a->t.len) a->t.len--;
     if (!a->nz.lhalt && a->nz.len) a->nz.len--;
+}
+
+/* ---- VRC6 ---- */
+
+/* Cada canal tiene un divisor de 12 bits (más corto con $9003: x16 o x256) que avanza un paso al vencer. Los pulsos
+ * dan su volumen mientras el paso (de 15 a 0) no pasa del ancho de pulso, o siempre en modo constante; el diente de
+ * sierra suma 'rate' cada dos pasos y vuelve a 0 a los 14. */
+static u32 vrc6_period(const Vrc6 *v, int i)
+{
+    return v->period[i] >> ((v->ctrl & 4) ? 8 : (v->ctrl & 2) ? 4 : 0);
+}
+
+static int vrc6_out(const Vrc6 *v)
+{
+    int o = 0;
+    for (int i = 0; i < 2; i++)
+        if (v->en[i] && (v->mode[i] || v->step[i] <= v->duty[i])) o += v->vol[i];
+    if (v->en[2]) o += v->acc >> 3;
+    return o;
+}
+
+static void vrc6_clock(Vrc6 *v)
+{
+    if (v->ctrl & 1) return;
+    for (int i = 0; i < 3; i++) {
+        if (!v->en[i]) continue;
+        if (v->timer[i]) { v->timer[i]--; continue; }
+        v->timer[i] = (u16)vrc6_period(v, i);
+        if (i < 2) v->step[i] = (v->step[i] - 1) & 15;
+        else if (++v->sstep == 14) { v->sstep = 0; v->acc = 0; }
+        else if (!(v->sstep & 1)) v->acc = (u8)(v->acc + v->rate);
+    }
+}
+
+static u64 vrc6_skip(const NES *n)                 /* ciclos que se pueden saltar sin que venza un divisor */
+{
+    const Vrc6 *v = &n->vrc6;
+    u64 k = ~0ull;
+    if (v->ctrl & 1) return k;
+    for (int i = 0; i < 3; i++) if (v->en[i] && v->timer[i] < k) k = v->timer[i];
+    return k;
+}
+
+void apu_vrc6_write(NES *n, u16 reg, u8 x)
+{
+    apu_sync(n);
+    Vrc6 *v = &n->vrc6;
+    int i = ((reg >> 12) & 0xF) - 9;                   /* 0, 1 = pulsos ($9000, $A000), 2 = sierra ($B000) */
+    switch (reg & 3) {
+    case 0:
+        if (i < 2) { v->mode[i] = x >> 7; v->duty[i] = (x >> 4) & 7; v->vol[i] = x & 15; }
+        else v->rate = x & 0x3F;
+        break;
+    case 1: v->period[i] = (u16)((v->period[i] & 0xF00) | x); break;
+    case 2:
+        v->period[i] = (u16)((v->period[i] & 0xFF) | ((x & 15) << 8));
+        v->en[i] = x >> 7;
+        if (!v->en[i]) { if (i < 2) v->step[i] = 15; else { v->acc = 0; v->sstep = 0; } }
+        break;
+    case 3: if (i == 0) v->ctrl = x & 7; break;
+    }
 }
 
 /* ---- DMC ---- */
@@ -248,6 +314,7 @@ static void apu_cycle(NES *n)
 
     dmc_clock(n);
     if (__builtin_expect(a->d.load_delay | a->dmc_delay, 0)) dmc_pending(n);
+    if (a->vrc6) vrc6_clock(&n->vrc6);
 
     /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
@@ -267,6 +334,7 @@ static void apu_cycle(NES *n)
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
     if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
+    if (a->vrc6) mix += vrc6_out(&n->vrc6) * VRC6_UNIT;
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -403,6 +471,11 @@ static void bulk(NES *n, u64 k)
     int dm = (a->mute & 16) ? 0 : a->d.out;
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
     if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
+    if (a->vrc6) {                                  /* (advance no deja pasar un vencimiento del VRC6) */
+        Vrc6 *v = &n->vrc6;
+        if (!(v->ctrl & 1)) for (int i = 0; i < 3; i++) if (v->en[i]) v->timer[i] = (u16)(v->timer[i] - k);
+        mix += vrc6_out(v) * VRC6_UNIT;
+    }
     /* k sumas de 'mix' (un float) en un double: exactas en ambos casos (menos de 50 bits), así que
      * una multiplicación da el mismo resultado que sumar ciclo a ciclo */
     a->acc += (double)mix * (double)k;
@@ -436,6 +509,7 @@ static void advance(NES *n, u64 target)
     while (a->cycle < target) {
         u64 left = target - a->cycle;
         u64 k = safe_skip(a);
+        if (a->vrc6) { u64 kv = vrc6_skip(n); if (kv < k) k = kv; }
         if (k > left) k = left;
         if (k) bulk(n, k);
         if (a->cycle < target) apu_cycle(n);

@@ -201,7 +201,7 @@ El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
-13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 21, 22, 23 y 25 VRC2/VRC4, 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
+13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 21, 22, 23 y 25 VRC2/VRC4, 24 y 26 VRC6 (con su audio), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
 
 Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
 si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
@@ -212,6 +212,11 @@ submapper de NES 2.0 se decodifica la variante exacta y sin él se juntan las do
 VRC4 (`vrc_sync`/`vrc_arm`, con `irq_cycle` como el FME-7) cuenta por ciclos o por líneas (prescaler de 341/3) y
 empieza en el ciclo siguiente a la escritura de `$F002`. Coincide ciclo a ciclo con Mesen2 en una ROM sintética
 con las seis variantes de cableado, y Gradius II, TMNT y Parodius Da! (Japan) dan la misma imagen que Mesen2.
+
+**VRC6** (24, 26; el 26 cruza A0 y A1): 16 KB de PRG en `$8000`, 8 KB en `$C000`, CHR de 1 KB (solo el modo de
+bancos 0, el habitual), espejado en `$B003` y el mismo IRQ del VRC4 con el latch entero en `$F000`. Su audio (dos
+pulsos de 8 anchos y un diente de sierra, `apu.c`) va en `NES.vrc6` y se suma a la mezcla: un pulso a volumen 15
+suena como un pulso del 2A03 a 15. `advance` no deja que un salto en bloque pase un vencimiento de sus divisores.
 
 ### Cartucho
 

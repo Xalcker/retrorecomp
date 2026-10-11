@@ -3,7 +3,7 @@
  * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés), 206 (DxROM), 9 (MMC2), 10 (MMC4),
  * 69 (FME-7, sin el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
  * 13 (CPROM), 75 (VRC1), 95 (Namcot 3425), 115 (Kasheng), 184 (Sunsoft 1), 210 (Namco 175/340), 18 (Jaleco SS88006),
- * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
+ * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4), 24 y 26 (VRC6, con su audio) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
@@ -17,7 +17,7 @@ int mapper_supported(int id)
     case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79:
     case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: case 119: case 5:
     case 13: case 75: case 95: case 115: case 184: case 210: case 18: case 23: case 19:
-    case 21: case 22: case 25: return 1;
+    case 21: case 22: case 25: case 24: case 26: return 1;
     }
     return 0;
 }
@@ -62,6 +62,7 @@ void mapper_reset(NES *n)
     if (MAPPER(c) == 75 || MAPPER(c) == 18 || MAPPER(c) == 19) { c->reg[1] = 1; c->reg[2] = 2; }
     if (MAPPER(c) == 210) { c->reg[9] = 1; c->reg[10] = 2; }
     if (CART_VRC(c)) { c->reg[1] = 1; c->reg[14] = 341; }
+    if (CART_VRC6(c)) c->reg[14] = 341;
     if (MAPPER(c) == 4 || MAPPER(c) == 206 || MAPPER(c) == 118 || MAPPER(c) == 119 || MAPPER(c) == 95 || MAPPER(c) == 115) {
         /* reg[0]=selección, [1..8]=R0..R7, [9]=latch IRQ, [10]=contador, [11]=recarga,
          * [12]=IRQ activo, [13]=nivel de A12, [14]=protección de RAM */
@@ -254,6 +255,14 @@ static void vrc_irq_write(NES *n, int sel, u8 v)
     vrc_arm(c, t);
 }
 
+/* VRC6: el mismo IRQ, pero el latch se escribe entero en $F000, el control en $F001 y el reconocimiento en $F002 */
+static void vrc6_irq_write(NES *n, int sel, u8 v)
+{
+    Cart *c = &n->cart;
+    if (sel == 0) { vrc_sync(c, n->cyc + 1); c->reg[11] = v; vrc_arm(c, n->cyc + 1); }
+    else if (sel < 3) vrc_irq_write(n, sel + 1, v);
+}
+
 /* ---- MMC5 ---- */
 
 static u8 *mmc5_ram(Cart *c, unsigned bank)
@@ -439,6 +448,11 @@ static long prg_offset_slow(const Cart *c, u16 a)
                     : MAPPER(c) == 75 ? c->reg[slot] & 0x1F
                     : MAPPER(c) == 210 ? c->reg[8 + slot] & 0x3F
                     : MAPPER(c) == 18 ? c->reg[slot] : c->reg[slot] & 0x3F;
+        return (long)prg8(c, bank, a);
+    }
+    case 24: case 26: {                          /* VRC6: 16 KB en $8000, 8 KB en $C000 y el último fijo */
+        int slot = (a >> 13) & 3;
+        size_t bank = slot == 3 ? banks8(c) - 1 : slot == 2 ? c->reg[1] : c->reg[0] * 2 + slot;
         return (long)prg8(c, bank, a);
     }
     case 21: case 22: case 23: case 25: {        /* VRC2/4: el bit 1 de $9002 intercambia $8000 y $C000 */
@@ -775,6 +789,24 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
         case 0xF000: c->reg[2] = v & 0x3F; break;
         }
         break;
+    case 24: case 26: {                          /* VRC6: el 26 cruza A0 y A1 */
+        int sel = MAPPER(c) == 24 ? a & 3 : ((a >> 1) & 1) | ((a & 1) << 1);
+        switch (a & 0xF000) {
+        case 0x8000: c->reg[0] = v; break;
+        case 0x9000: case 0xA000: case 0xB000:
+            if ((a & 0xF000) == 0xB000 && sel == 3) {   /* $B003: espejado (modo de bancos de CHR 0, el habitual) */
+                static const u8 m[4] = { MIRROR_VERTICAL, MIRROR_HORIZONTAL, MIRROR_SINGLE0, MIRROR_SINGLE1 };
+                c->reg[2] = v;
+                if (c->mirroring != MIRROR_FOUR) c->mirroring = m[(v >> 2) & 3];
+            } else apu_vrc6_write(n, (u16)((a & 0xF000) | sel), v);
+            break;
+        case 0xC000: c->reg[1] = v; break;
+        case 0xD000: c->reg[3 + sel] = v; break;
+        case 0xE000: c->reg[7 + sel] = v; break;
+        case 0xF000: vrc6_irq_write(n, sel, v); break;
+        }
+        break;
+    }
     case 9: case 10: mmc2_write(c, a, v); break;
     case 69: fme7_write(n, a, v); break;
     case 1: mmc1_write(n, a, v); break;
@@ -839,7 +871,7 @@ static size_t chr_off(const Cart *c, u16 a)
         u32 b = a < 0x1000 ? c->reg[0] & 7 : ((c->reg[0] >> 4) & 7) | 4;
         size_t x = (size_t)b << 12 | (a & 0xFFF); return WRAP(c, x);
     }
-    case 210: case 18: case 23: case 19: case 21: case 25: {
+    case 210: case 18: case 23: case 19: case 21: case 25: case 24: case 26: {
         int base = MAPPER(c) == 210 ? 0 : 3;
         size_t x = ((size_t)c->reg[base + ((a >> 10) & 7)] << 10) | (a & 0x3FF); return WRAP(c, x);
     }
@@ -915,7 +947,7 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         default: *w = (PrgWin){ 0xE000, 0x2000, ps - 0x2000, 0 }; break;
         }
         return 1;
-    case 69: case 5: case 75: case 210: case 18: case 19:
+    case 69: case 5: case 75: case 210: case 18: case 19: case 24: case 26:
         switch ((addr >> 13) & 3) {
         case 0: *w = (PrgWin){ 0x8000, 0x2000, 0, 0 }; break;
         case 1: *w = (PrgWin){ 0xA000, 0x2000, 0x2000, 0 }; break;
@@ -949,7 +981,7 @@ size_t mapper_prg_granule(const Cart *c)
 {
     switch (MAPPER(c)) {
     case 4: case 206: case 118: case 119: case 9: case 69: case 5:
-    case 95: case 115: case 75: case 210: case 18: case 23: case 19: case 21: case 22: case 25: return 0x2000;
+    case 95: case 115: case 75: case 210: case 18: case 23: case 19: case 21: case 22: case 25: case 24: case 26: return 0x2000;
     case 1: case 2: case 71: case 180: case 10: return 0x4000;
     case 7: case 11: case 34: case 66: case 79: case 140: return 0x8000;
     default: return c->prg_size >= 0x8000 ? 0x8000 : 0x4000;

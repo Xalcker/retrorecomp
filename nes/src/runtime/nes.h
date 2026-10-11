@@ -87,6 +87,7 @@ typedef struct {
     u64  a12_low;               /* MMC3: reloj de la PPU cuando A12 pasó a 0 */
 } Cart;
 #define CART_VRC(c) (MAPPER(c) == 21 || MAPPER(c) == 22 || MAPPER(c) == 23 || MAPPER(c) == 25)
+#define CART_VRC6(c) (MAPPER(c) == 24 || MAPPER(c) == 26)
 
 typedef struct {
     u8  spr_y, spr_tile, spr_attr, spr_x;      /* (sin uso: la OAM se lee cruda) */
@@ -134,6 +135,14 @@ typedef struct { u8 on, halt, cst, vol, env_start, env_div, env_decay, mode, len
 typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence, load_delay;
                  u16 rate, timer, addr, cur, remaining, length; } Dmc;
 
+/* Audio del VRC6 (mappers 24 y 26): dos pulsos con 8 anchos de pulso y un diente de sierra */
+typedef struct {
+    u8  duty[2], vol[2], mode[2], step[2];      /* pulsos: step baja de 15 a 0 */
+    u8  rate, acc, sstep;                       /* diente de sierra: acumulador de 8 bits, paso 0-13 */
+    u8  en[3], ctrl;                            /* habilitado por canal; $9003: bit 0 = detener, bits 1-2 = frecuencia x16/x256 */
+    u16 period[3], timer[3];
+} Vrc6;
+
 #define APU_BUF 16384
 typedef struct {
     Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
@@ -149,6 +158,7 @@ typedef struct {
     u8   mute;                  /* bits 0-4: silencia pulso 1, pulso 2, triángulo, ruido, DMC */
     u8   dmc_delay, dmc_next;   /* el bit del DMC escrito en $4015 (dmc_next) se aplica dmc_delay ciclos después */
     u8   dmc_implicit;          /* $4015 encendió el DMC justo antes de su reloj: en el próximo byte sale una DMA de un ciclo */
+    u8   vrc6;                  /* el cartucho tiene el audio del VRC6 (estado en NES.vrc6) */
     double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
@@ -190,6 +200,7 @@ typedef struct NES {
     u64  dmc_implicit_cyc;      /* ciclo en que una DMA del aborto implícito puede detener al CPU (solo ese) */
     u64  pad_pend;              /* $4016 = 1 escrito en un ciclo put: el control se latchea en el get siguiente (ciclo
                                    guardado aquí) si el strobe sigue en 1; 0 = nada pendiente */
+    Vrc6 vrc6;                  /* audio del VRC6 (al final: en medio desplazaría campos de cada ciclo) */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */
@@ -260,6 +271,7 @@ void apu_reset(NES *n);
 void apu_sync(NES *n);                           /* ejecuta lo pendiente hasta el ciclo actual de la consola */
 void apu_dmc_dma_done(NES *n, u8 v);             /* el DMA del DMC entregó su byte */
 u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a leer */
+void apu_vrc6_write(NES *n, u16 reg, u8 v);      /* $9000-$9003, $A000-$A002, $B000-$B002 (ya decodificados) */
 int  apu_dmc_dma_live(NES *n);                   /* ¿sigue en pie la DMA del DMC? (no la abortó $4015) */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */

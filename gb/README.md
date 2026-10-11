@@ -56,11 +56,15 @@ para la versión y para `make testroms`. Son los mismos paquetes que en NESRecom
 make            # gbrecomp, las herramientas sin ventana y el runtime
 make testroms   # una sola vez: baja las ROMs de prueba libres (c-sp/game-boy-test-roms v7.0) a testroms/
 make test       # opcional: Blargg, Mooneye, SameSuite, acid2, recompilado contra intérprete...
-make dist       # dist/gbrecomp-<versión>.tar.gz
+make dist       # dist/gbrecomp-<versión>-<sistema>.tar.gz (sistema: linux, macos o windows)
 ```
 
 Son los mismos objetivos que en NESRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre
 exactamente eso en Linux, macOS y Windows.
+
+**Versiones.** La versión es la etiqueta de git más cercana (`git describe`: `v0.1.0`, o `v0.1.0-3-gabc1234` con
+commits después de ella). Al subir una etiqueta `vX.Y.Z` de `main` (`git tag v0.2.0 && git push origin v0.2.0`), el CI
+publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual que en el otro recompilador.
 
 `gbrecomp` es un solo ejecutable que lleva el runtime adentro, así que se
 puede copiar a cualquier carpeta. En Windows, el juego generado queda

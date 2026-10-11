@@ -222,8 +222,8 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
   (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
   `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
 - **Versión:** sale de `git describe` (`gbrecomp --version`).
-- **`make dist`:** deja `dist/gbrecomp-<versión>.tar.gz` con `gbrecomp`, el
-  README y este documento.
+- **`make dist`:** deja `dist/gbrecomp-<versión>-<sistema>.tar.gz` con `gbrecomp`, el
+  README, la licencia y este documento. La versión sale de `git describe`.
 - **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2,
   enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en
@@ -232,7 +232,8 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
   - `make testroms` (las ROMs de prueba libres, c-sp/game-boy-test-roms v7.0)
     y `make test`, que también recompila `cpu_instrs` de Blargg, compila el
     proyecto generado y corre `difftest`.
-  - `make dist` y publica el paquete como artefacto.
+  - `make dist` y publica el paquete como artefacto; con una etiqueta `vX.Y.Z`,
+    además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
 de 130 en ambos (hoy son 132, con `sgb_controles` y el proyecto generado), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro

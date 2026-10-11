@@ -21,6 +21,14 @@ endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Sistema para el nombre del paquete de make dist: windows, macos o linux
+ifeq ($(OS),Windows_NT)
+PLATFORM := windows
+else ifeq ($(shell uname -s 2>/dev/null),Darwin)
+PLATFORM := macos
+else
+PLATFORM := linux
+endif
 # --- Fin del bloque común ---
 
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
@@ -79,13 +87,13 @@ gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz
 		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
 
 # Paquete para distribuir: gbrecomp, la documentación y la licencia
-DIST := dist/gbrecomp-$(VERSION)
+DIST := dist/gbrecomp-$(VERSION)-$(PLATFORM)
 dist: gbrecomp$(EXE)
 	rm -rf $(DIST)
 	mkdir -p $(DIST)
 	cp gbrecomp$(EXE) README.md LICENSE $(DIST)/
 	cp docs/ARQUITECTURA.md $(DIST)/
-	tar -czf $(DIST).tar.gz -C dist gbrecomp-$(VERSION)
+	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
 # Pruebas: necesitan las ROMs de prueba (make testroms)

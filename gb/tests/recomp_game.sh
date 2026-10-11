@@ -3,7 +3,7 @@
 # diferencial con varias semillas, junta las direcciones que cayeron al
 # intérprete, recompila con esa traza y vuelve a probar.
 #
-# Uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]
+# Uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]   (los mismos argumentos que en NESRecomp)
 #   Deja el proyecto en out/NOMBRE y la traza acumulada en build/NOMBRE.trace.
 
 cd "$(dirname "$0")/.." || exit 2

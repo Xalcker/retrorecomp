@@ -232,8 +232,9 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
 **Contrato común con NESRecomp.** Las herramientas sin ventana (`gbtrace`, `gbshot`, `gbaudio`, `gbbench`,
 `difftest`) tienen las mismas opciones que las de [NESRecomp](https://github.com/Xalcker/NESRecomp)
 (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común ([retrorecomp](https://github.com/Xalcker/retrorecomp))
-se apoya en eso. `sh tests/contract.sh` comprueba que las herramientas compiladas las mencionan; el CI lo corre
-en cada PR. Si cambias una opción aquí, cámbiala también en NESRecomp y en la tabla de retrorecomp.
+se apoya en eso. `sh tests/contract.sh` (el mismo archivo en los dos repos) comprueba que las
+herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé la misma traza,
+captura y audio (`--seed`, y `--input` con `--seed`); el CI lo corre en cada PR. Si cambias una opción aquí, cámbiala también en NESRecomp y en la tabla de retrorecomp.
 
 Para ver qué encontró el descubrimiento y de dónde salió cada parte:
 

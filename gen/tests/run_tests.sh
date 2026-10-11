@@ -75,8 +75,10 @@ recompila() {   # nombre rom cuadros [traza]
     rm -rf "$d"
     if [ -n "$tr" ]; then "$(exe gentrace)" "$rom" "$tr" --frames "$nf" --seed 1 start:120-125 start:300-305 >/dev/null 2>&1; set -- --trace "$tr"; else set --; fi
     if ! "$(exe genrecomp)" "$rom" -o "$d" --name "$n" "$@" >/dev/null 2>&1; then echo "FALLA genrecomp -o con $n"; fallas=$((fallas + 1)); return; fi
-    if ! make -C "$d" -j4 -s difftest >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
-    dt="$d/difftest"; [ -x "$dt.exe" ] && dt="$dt.exe"
+    # En Windows el objetivo del Makefile generado es difftest.exe (difftest$(EXE))
+    x=; [ -x ./genrecomp.exe ] && x=.exe
+    if ! make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
+    dt="$d/difftest$x"
     res=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | tail -1)
     case "$res" in *"cuadros iguales"*) echo "ok    recompilado $n: $res";; *) echo "FALLA recompilado $n: $res"; fallas=$((fallas + 1));; esac
 }

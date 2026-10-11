@@ -43,7 +43,7 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `nesaudio` / `gbaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
 | `nesbench` / `gbbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
 | `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` |
-| `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz`, `--events`, `--why`, `--coverage` |
+| `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
@@ -65,7 +65,7 @@ Si cambias una opción en un recompilador, cámbiala también en el otro y aquí
 | Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` |
 | Proyecto generado | `build/out/NOMBRE` | `out/NOMBRE` |
 | Jugar y grabar traza | `nes` con `NES_TRACE` | el recompilado con `--uncovered` |
-| Visor | HTML (`--html`) | `tools/visor.html` con los eventos |
+| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` |
 
 ## Licencia

@@ -42,6 +42,7 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `nesshot` / `gbshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
 | `nesaudio` / `gbaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
 | `nesbench` / `gbbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
+| `ramdump` / `gbramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
 | `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` |
 | `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
@@ -64,7 +65,7 @@ Si cambias una opción en un recompilador, cámbiala también en el otro y aquí
 | Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) |
 | Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` |
 | Proyecto generado | `build/out/NOMBRE` | `out/NOMBRE` |
-| Jugar y grabar traza | `nes` con `NES_TRACE` | el recompilado con `--uncovered` |
+| Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` |
 | Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` |
 

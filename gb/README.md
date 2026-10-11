@@ -450,6 +450,10 @@ proyectos generados; en macOS todavía no.
 
 ## Aspectos legales
 
+GBRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp y
+retrorecomp. La licencia cubre el código del recompilador y del runtime, no
+las ROMs ni el código que se genera a partir de ellas.
+
 GBRecomp no incluye ROMs ni datos de ninguna. El código que genera es una
 traducción del programa de la ROM, o sea una obra derivada del juego: sirve
 para jugar tu propia copia, pero no distribuyas el proyecto ni el ejecutable

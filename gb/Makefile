@@ -72,12 +72,12 @@ gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz
 	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -o $@ \
 		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
 
-# Paquete para distribuir: gbrecomp y la documentación
+# Paquete para distribuir: gbrecomp, la documentación y la licencia
 DIST := dist/gbrecomp-$(VERSION)
 dist: gbrecomp$(EXE)
 	rm -rf $(DIST)
 	mkdir -p $(DIST)
-	cp gbrecomp$(EXE) README.md $(DIST)/
+	cp gbrecomp$(EXE) README.md LICENSE $(DIST)/
 	cp docs/ARQUITECTURA.md $(DIST)/
 	tar -czf $(DIST).tar.gz -C dist gbrecomp-$(VERSION)
 	@echo "Listo: $(DIST).tar.gz"

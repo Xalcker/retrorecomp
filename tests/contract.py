@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Prueba de contrato: las herramientas sin ventana de NESRecomp y GBRecomp aceptan las mismas
 opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
-comprueba que su ayuda las menciona. Corre solo con los recompiladores ya compilados (make).
+comprueba que su ayuda las menciona. También comprueba que el código compartido (SHARED, p. ej. el
+mando aleatorio random_pad.h) sea idéntico en los dos. Corre con los recompiladores ya compilados (make).
 
     python3 tests/contract.py [--nes DIR] [--gb DIR]
 """
@@ -16,6 +17,9 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
     "gb": {"gbtrace": ("--frames", "--input", "--seed"), "gbshot": ("--frames", "--input", "--seed"),
            "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat")},
 }
+
+# Código que comparten los dos tal cual (hasta que se mueva aquí): el mando aleatorio de --seed
+SHARED = (os.path.join("src", "platform", "random_pad.h"),)
 
 
 def main():
@@ -46,7 +50,24 @@ def main():
                 fails += 1
             else:
                 print(f"ok    {sid}/{tool}")
-    print(f"{checked} herramientas revisadas, {fails} fallas")
+    # Archivos que deben ser idénticos en los dos repositorios (sin contar el fin de línea)
+    for shared in SHARED:
+        paths = [os.path.join(roots[s], shared) for s in ("nes", "gb") if roots[s]]
+        if len(paths) < 2:
+            continue
+        checked += 1
+        try:
+            texts = [open(p, "rb").read().replace(b"\r\n", b"\n") for p in paths]
+        except OSError as e:
+            print(f"FALLA {shared}: {e}")
+            fails += 1
+            continue
+        if texts[0] == texts[1]:
+            print(f"ok    {shared} (idéntico en los dos)")
+        else:
+            print(f"FALLA {shared}: no es igual en NESRecomp y GBRecomp")
+            fails += 1
+    print(f"{checked} herramientas y archivos revisados, {fails} fallas")
     return 1 if fails else 0
 
 

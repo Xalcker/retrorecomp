@@ -27,6 +27,7 @@ void audio_reset(Gen *g)
 
 void audio_add(Gen *g, u64 t0, u64 t1, float l, float r)
 {
+    if (l == 0.0f && r == 0.0f) return;            /* silencio: sumar 0 no cambia nada */
     Audio *a = &g->audio;
     double x = (double)t0 / PERIOD, end = (double)t1 / PERIOD;
     u64 k = (u64)x;

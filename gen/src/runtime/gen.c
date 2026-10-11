@@ -80,13 +80,12 @@ void gen_reset(Gen *g)
 /* Después de cada instrucción del 68000: el VDP y el Z80 al mismo ciclo */
 void gen_after_step(Gen *g)
 {
-    vdp_sync(g);
-    z80_sync(g);
+    gen_after_step_inline(g);
 }
 
 static int frame_after(Gen *g)
 {
-    gen_after_step(g);
+    gen_after_step_inline(g);
     return g->vdp.frame_done;
 }
 

@@ -44,10 +44,25 @@ void z80_out(struct Gen *g, uint16_t port, uint8_t v) { (void)g; (void)port; (vo
 
 void z80_run_until(Gen *g, u64 target)
 {
+    Z80 *z = &g->z80;
     while (g->z80_mclk < target) {
         if (g->z80_reset || g->z80_busreq) { g->z80_mclk = target; return; }
-        g->z80.irq = g->z80_mclk >= g->z80_irq_from && g->z80_mclk < g->z80_irq_until;
-        g->z80_mclk += (u64)z80_step(g, &g->z80) * MCLK_PER_Z80;
+        z->irq = g->z80_mclk >= g->z80_irq_from && g->z80_mclk < g->z80_irq_until;
+        if (z->halted && !z->ei && !(z->irq && z->iff1)) {
+            /* HALT sin interrupción que atender: cada paso son 4 ciclos T y sube R. Se saltan de una
+             * vez los pasos hasta el destino o hasta el que vea empezar la interrupción. */
+            u64 stop = target;
+            if (z->iff1 && g->z80_irq_from > g->z80_mclk && g->z80_irq_from < stop) stop = g->z80_irq_from;
+            u64 n = (stop - g->z80_mclk + 4 * MCLK_PER_Z80 - 1) / (4 * MCLK_PER_Z80);
+            g->z80_mclk += n * 4 * MCLK_PER_Z80;
+            z->r = (u8)((z->r & 0x80) | ((z->r + n) & 0x7F));
+            z->q = 0;
+            z->p = 0;
+            u64 last = g->z80_mclk - 4 * MCLK_PER_Z80;     /* lo que vio el último paso */
+            z->irq = last >= g->z80_irq_from && last < g->z80_irq_until;
+            continue;
+        }
+        g->z80_mclk += (u64)z80_step(g, z) * MCLK_PER_Z80;
     }
 }
 

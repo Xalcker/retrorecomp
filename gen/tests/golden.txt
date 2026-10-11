@@ -1,0 +1,26 @@
+e8747eefdf61172be9da8787ba5be447ec73180f hash imagen 647c6cae66347698 audio 933148811d431ca9  # Comix Zone (USA).md
+68ea84146105bda91f6056932ff4fb42aa3eb4a7 hash imagen 380cd079508cde29 audio ec40a2382f68c318  # Contra - Hard Corps (USA, Korea).md
+a544211d1ebab1f096f6e72a0d724f74f9ddbce8 hash imagen 1c2c1f2a85a13f84 audio 3e602d9990d62bb5  # Earthworm Jim (USA).md
+2cad130f3118c189d39fd1d46c5c31a5060ce894 hash imagen cbed715ea56bc87a audio 813109c1b2ca086d  # Ecco the Dolphin (USA, Europe, Korea).md
+7721e302555f16e3242ad4a47ed87a1de1882122 hash imagen 6cbd87540fa973cd audio 7c37fae97a3ac956  # Gunstar Heroes (USA).md
+26ad72719991e94dbe477c78e65d68f4a4fe51e6 hash imagen 26987fce69c96206 audio 1c4c31d341b34851  # Mega_Man_The_Wily_Wars_USA_Genesis_Mini.md
+20779867821bab019f63ce42e3067ffafb4fe480 hash imagen e76ab3d594cf4700 audio 417896865a0ede0b  # Mickey Mania - The Timeless Adventures of Mickey Mouse (USA).md
+c098bf38ddd755ab7caa4612d025be2039009eb2 hash imagen 996e14c0acbc77d4 audio 2875ca0ed16aa520  # Mortal Kombat (World).md
+55cdcba77f7fcd9994e748524d40c98089344160 hash imagen 9f0ae3be8594678f audio c140d54299adfbd1  # Mortal Kombat 3 (USA).md
+99c5bc57fdea7f9df0cd8dec54160b162342344d hash imagen a223c3f375229dbc audio 1949d123f8112185  # NBA Jam (USA, Europe).md
+ddbf09c5e6ed5d528ef5ec816129a332c685f103 hash imagen 79a63bbf24b4a731 audio ffecc9701aea6c59  # NBA Jam - Tournament Edition (World).md
+bc7ff6d6a8408f38562bc610f24645cad6c42629 hash imagen c13011b9d072a809 audio 2c26c90a6c665a78  # Phantasy Star IV (USA).md
+1d15ff596dd4f3b2c1212a2e0c6e2b72f62c001e hash imagen 4a8db8a1f9b436bc audio 28e771a61bf7c2ef  # Ristar (USA, Europe).md
+9afea43ed627671b50dd4a2abdd043b235414b91 hash imagen c3cd92c883328c30 audio d1dc72f97f8166a5  # Road Rash II (USA, Europe) (RR206).md
+cfbf98c36c776677290a872547ac47c53d2761d6 hash imagen 4a3d9b35a074bd4c audio 8a5b6441b6002ac1  # Sonic & Knuckles + Sonic The Hedgehog 3 (USA).md
+6ddb7de1e17e7f6cdb88927bd906352030daa194 hash imagen ed50db7224d057b8 audio 9788c39413002d69  # Sonic The Hedgehog (USA, Europe).md
+8bca5dcef1af3e00098666fd892dc1c2a76333f9 hash imagen 3b055b4533c79979 audio 4b7240a360114ed8  # Sonic The Hedgehog 2 (World) (Rev A).md
+75e9c4705259d84112b3e697a6c00a0813d47d71 hash imagen ef6c06a6674ebcc2 audio ae7ba02c6d610e1a  # Sonic The Hedgehog 3 (USA).md
+a5aad1d108046d9388e33247610dafb4c6516e0b hash imagen 22f870f482b12ebc audio ba0d0ac7f3e7d079  # Street_Fighter_II_Special_Champion_Edition_USA.md
+8b656eec9692d88bbbb84787142aa732b44ce0be hash imagen 1a8496522b4057cb audio 8798b925912a257d  # Streets of Rage 2 (USA).md
+9ce6e69db9d28386f7542dacd3e3ead28eacf2a4 hash imagen fb9891bb31b82734 audio 84a82235018098b2  # Super Street Fighter II (USA).md
+57a64d08028b539dc236a693d383f2e1269a5dd4 hash imagen e15af6b388ba6ec9 audio 0cd4ed7940c9d0f0  # Vectorman (USA, Europe).md
+87a968f773c7e807e647c0737132457b06b78276 hash imagen 49be5f9712862192 audio af11128a620db097  # Wonder Boy in Monster World (USA, Europe).md
+4529d3cefd204d6acd9c7f2400f672e32c4eb797 hash imagen 1a0a43cee3adcfc6 audio d5bf498b8277a204  # overdrive.bin
+603db0a214ee50c6c11e15c0d1d3bba919116d07 hash imagen 03634888f2eff87f audio a0f625333a7f05f5  # overdrive2.bin
+bae3afa7bde73dacc134ca454b94baff5ee902ab hash imagen ee41b3b7a3978581 audio a0f625333a7f05f5  # 240pSuite-1.21.bin

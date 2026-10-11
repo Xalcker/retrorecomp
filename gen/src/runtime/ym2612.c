@@ -91,6 +91,7 @@ void ym_reset(Ym2612 *y)
         y->ch[c].pan = 0xC0;
         for (int o = 0; o < 4; o++) { y->ch[c].op[o].env = 0x3FF; y->ch[c].op[o].state = EG_RELEASE; }
     }
+    y->dirty = 1;
 }
 
 /* Código de tecla: bloque y los 4 bits altos de fnum */
@@ -198,9 +199,42 @@ static inline int op_out(u32 phase10, int att)
     return (i & 0x200) ? -v : v;
 }
 
+/* Incremento de fase de un operador: fnum y bloque, desafinación y multiplicador */
+static inline u32 op_inc(const YmOp *op, u16 fnum, u8 block, int kc)
+{
+    u32 inc = ((u32)fnum << block) >> 1;
+    int dt = dt_tab[op->dt & 3][kc];
+    inc = (op->dt & 4) ? inc - (u32)dt : inc + (u32)dt;
+    inc &= 0x1FFFF;
+    return op->mul ? inc * op->mul : inc >> 1;
+}
+
+/* fnum y bloque de un operador (el canal 3 en modo especial tiene uno por operador) */
+static inline void op_freq(const Ym2612 *y, int c, int o, u16 *fnum, u8 *block)
+{
+    *fnum = y->ch[c].fnum;
+    *block = y->ch[c].block;
+    if (c == 2 && (y->timer_ctl & 0xC0) && o < 3) { *fnum = y->fnum3[o]; *block = y->block3[o]; }
+}
+
+/* Tras escribir registros: código de tecla e incremento de cada operador */
+static void refresh(Ym2612 *y)
+{
+    for (int c = 0; c < 6; c++)
+        for (int o = 0; o < 4; o++) {
+            YmOp *op = &y->ch[c].op[o];
+            u16 fnum; u8 block;
+            op_freq(y, c, o, &fnum, &block);
+            op->kc = (u8)keycode(fnum, block);
+            op->inc = op_inc(op, fnum, block, op->kc);
+        }
+    y->dirty = 0;
+}
+
 static void sample(Gen *g)
 {
     Ym2612 *y = &g->ym;
+    if (y->dirty) refresh(y);
     /* Envolventes: cada 3 muestras */
     int eg_now = 0;
     if (++y->eg_sub == 3) { y->eg_sub = 0; y->eg_cnt++; eg_now = 1; }
@@ -225,20 +259,29 @@ static void sample(Gen *g)
     int L = 0, R = 0;
     for (int c = 0; c < 6; c++) {
         YmCh *ch = &y->ch[c];
+        /* Canal callado: las cuatro teclas sueltas, la envolvente al mínimo y la realimentación en 0.
+         * Da 0 y nada cambia (la fase no importa: al apretar la tecla vuelve a 0). */
+        if (!(ch->op[0].key | ch->op[1].key | ch->op[2].key | ch->op[3].key) && !(ch->fb_out[0] | ch->fb_out[1]) &&
+            ch->op[0].env >= 0x3FF && ch->op[1].env >= 0x3FF && ch->op[2].env >= 0x3FF && ch->op[3].env >= 0x3FF) {
+            int acc = c == 5 && y->dac_on ? ((int)y->dac - 128) << 6 : 0;
+            ch->out = acc;
+            if (!acc || (g->audio.mute & (1 << c))) continue;
+            int v = acc >> 5;
+            if (ch->pan & 0x80) L += v;
+            if (ch->pan & 0x40) R += v;
+            continue;
+        }
         int out[4];
         for (int o = 0; o < 4; o++) {
             YmOp *op = &ch->op[o];
-            u16 fnum = ch->fnum;
-            u8 block = ch->block;
-            if (c == 2 && (y->timer_ctl & 0xC0) && o < 3) { fnum = y->fnum3[o]; block = y->block3[o]; }
-            int kc = keycode(fnum, block);
+            int kc = op->kc;
             if (eg_now) { eg_step(op, kc, y->eg_cnt); ssg_update(op, kc); }
-            if (ch->pms && y->lfo_on) fnum = (u16)(fnum * pm_mul[ch->pms][lfo_pm]) & 0x7FF;
-            u32 inc = ((u32)fnum << block) >> 1;
-            int dt = dt_tab[op->dt & 3][kc];
-            inc = (op->dt & 4) ? inc - (u32)dt : inc + (u32)dt;
-            inc &= 0x1FFFF;
-            inc = op->mul ? inc * op->mul : inc >> 1;
+            u32 inc = op->inc;
+            if (ch->pms && y->lfo_on) {             /* LFO de tono: fnum cambia en cada muestra */
+                u16 fnum; u8 block;
+                op_freq(y, c, o, &fnum, &block);
+                inc = op_inc(op, (u16)(fnum * pm_mul[ch->pms][lfo_pm]) & 0x7FF, block, kc);
+            }
             op->phase = (op->phase + inc) & 0xFFFFF;
             int att = (ssg_inverted(op) ? (0x200 - op->env) & 0x3FF : op->env) + (op->tl << 3);
             if (op->am && ch->ams) att += lfo_am >> ams_shift[ch->ams];
@@ -303,6 +346,7 @@ static YmOp *slot(Ym2612 *y, int c, int r) { static const u8 map[4] = { 0, 2, 1,
 static void write_reg(Gen *g, int port, u8 r, u8 v)
 {
     Ym2612 *y = &g->ym;
+    y->dirty = 1;
     if (port == 0 && r < 0x30) {
         switch (r) {
         case 0x22: y->lfo_on = v >> 3 & 1; y->lfo_freq = v & 7; if (!y->lfo_on) { y->lfo_step = 0; y->lfo_cnt = 0; } break;

@@ -31,7 +31,7 @@ typedef int (*RecompFn)(Gen *g);
 
 /* Fin de una instrucción que sigue en npc: VDP y Z80 al día; ¿hay que volver al despachador? */
 #define AFTER(npc_) do {                                                            \
-        gen_after_step(g);                                                          \
+        gen_after_step_inline(g);                                                   \
         if (UNLIKELY(g->vdp.frame_done)) { m68k_leave(g, (npc_)); return 2; }       \
         if (UNLIKELY((c->ipl > c->ipm) | c->nmi_edge | c->t | c->stopped)) LEAVE(npc_); \
     } while (0)

@@ -152,6 +152,8 @@ typedef struct {
     u8   key;
     u8   dt, mul, tl, ks, ar, am, dr, sr, sl, rr, ssg;
     u8   ssg_inv;               /* SSG-EG: la envolvente va invertida en este ciclo (modos que alternan) */
+    u8   kc;                    /* código de tecla (se recalcula tras escribir un registro) */
+    u32  inc;                   /* incremento de fase sin el LFO (ídem) */
 } YmOp;
 
 typedef struct {
@@ -168,6 +170,7 @@ typedef struct {
     u8   addr[2];               /* registro elegido en cada puerto */
     u16  fnum3[3];              /* canal 3 en modo especial: fnum de S1, S2, S3 */
     u8   block3[3], latch3;
+    u8   dirty;                 /* se escribió un registro: recalcular kc e inc de los operadores */
     u8   lfo_on, lfo_freq, lfo_step;
     u16  lfo_cnt;
     u16  ta, ta_cnt;
@@ -241,6 +244,7 @@ void gen_run_frame(Gen *g);             /* corre hasta terminar el cuadro (con G
 extern int gen_force_interp;            /* con GEN_RECOMP: 1 = solo el intérprete */
 long gen_code_offset(const Gen *g, u32 pc);     /* desplazamiento en la ROM del código en pc, o -1 */
 void gen_after_step(Gen *g);            /* VDP y Z80 al ciclo del 68000 (tras cada instrucción) */
+/* Lo mismo, en línea: casi siempre no hay nada que hacer (ver gen_after_step_inline al final) */
 int  gen_sram_load(Gen *g, const char *path);  /* 1 si se cargó; 0 si no aplica o falló */
 int  gen_sram_save(Gen *g, const char *path);
 int  gen_sram_dirty(const Gen *g);
@@ -310,5 +314,14 @@ void cart_parse_header(Cart *c);
 u16  cart_checksum(const u8 *rom, size_t len);
 u32  cart_vector(const Cart *c, int n);         /* vector n de la tabla de $000000 */
 const char *cart_vector_name(int n);            /* "reset", "VINT"...; NULL si no tiene nombre propio */
+
+/* gen_after_step en línea, para el intérprete y el código generado: el VDP solo cuando empieza una
+ * línea nueva y el Z80 solo si quedó atrás */
+static inline void gen_after_step_inline(Gen *g)
+{
+    u64 m = g->cyc * MCLK_PER_M68K;
+    if (m >= g->vdp.next_line) vdp_sync(g);
+    if (g->z80_mclk < m) z80_run_until(g, m);
+}
 
 #endif

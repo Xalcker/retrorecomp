@@ -33,22 +33,42 @@ static inline u8 pattern(const Vdp *v, u32 tile, int px, int py)
     return (px & 1) ? b & 15 : b >> 4;
 }
 
-/* Pixel de una entrada de la tabla de nombres: paleta << 4 | color (0 = transparente) */
-static inline u8 name_pixel(const Vdp *v, u16 e, int px, int py)
-{
-    if (e & 0x1000) py ^= 7;
-    if (e & 0x0800) px ^= 7;
-    u8 c = pattern(v, e, px, py);
-    return c ? (u8)((e >> 9 & 0x30) | c) : 0;
-}
-
 static int cells(int bits) { return bits == 1 ? 64 : bits == 3 ? 128 : 32; }
 
-/* Plano A (0) o B (1) en los pixeles [x0, x1) de la línea y */
+/* Pixeles [x, x + n) de la fila `row` de la entrada de nombres `e`, empezando en la columna `cx0`
+ * del mosaico (n <= 8 - cx0) */
+static inline void tile_row(const Vdp *v, u16 e, int row, int cx0, int n, u8 *col, u8 *pri)
+{
+    if (e & 0x1000) row ^= 7;
+    const u8 *p = &v->vram[((u32)(e & 0x7FF) << 5 | (u32)row << 2) & 0xFFFF];
+    u8 pal = (u8)(e >> 9 & 0x30), pr = (u8)(e >> 15);
+    int hf = (e & 0x0800) ? 7 : 0;
+    if (n == 8) {                                   /* el mosaico entero: la fila de 32 bits de una vez */
+        u32 w = (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
+        memset(pri, pr, 8);
+        if (!w) { memset(col, 0, 8); return; }
+        for (int k = 0; k < 8; k++) {
+            u8 c = (u8)(w >> (hf ? 4 * k : 28 - 4 * k) & 15);
+            col[k] = c ? (u8)(pal | c) : 0;
+        }
+        return;
+    }
+    for (int k = 0; k < n; k++) {
+        int cx = (cx0 + k) ^ hf;
+        u8 b = p[cx >> 1];
+        u8 c = (cx & 1) ? b & 15 : b >> 4;
+        col[k] = c ? (u8)(pal | c) : 0;
+        pri[k] = pr;
+    }
+}
+
+/* Plano A (0) o B (1) en los pixeles [x0, x1) de la línea y, de a un mosaico: la entrada de la tabla
+ * de nombres se lee una vez por mosaico (o por tramo de 16 pixeles con scroll vertical por columna) */
 static void plane(const Vdp *v, int y, int which, int x0, int x1, u8 *col, u8 *pri)
 {
     u32 base = which ? (u32)(v->reg[4] & 7) << 13 : (u32)(v->reg[2] & 0x38) << 10;
     int pw = cells(v->reg[16] & 3), ph = cells(v->reg[16] >> 4 & 3);
+    int wmask = pw * 8 - 1, hmask = ph * 8 - 1;
     u32 hsbase = (u32)(v->reg[13] & 0x3F) << 10;
     int hline;
     switch (v->reg[11] & 3) {
@@ -60,13 +80,21 @@ static void plane(const Vdp *v, int y, int which, int x0, int x1, u8 *col, u8 *p
     int hs = vram16(v, hsbase + (u32)hline * 4 + (u32)which * 2) & 0x3FF;
     int column_vs = v->reg[11] & 4;
     int vs = v->vsram[which] & 0x3FF;
-    for (int x = x0; x < x1; x++) {
-        if (column_vs) { int c = x >> 4; vs = c < 20 ? v->vsram[c * 2 + which] & 0x3FF : 0; }
-        int py = (y + vs) & (ph * 8 - 1);
-        int px = (x - hs) & (pw * 8 - 1);
+    int x = x0;
+    while (x < x1) {
+        int lim = x1;
+        if (column_vs) {
+            int c = x >> 4;
+            vs = c < 20 ? v->vsram[c * 2 + which] & 0x3FF : 0;
+            if ((c + 1) * 16 < lim) lim = (c + 1) * 16;
+        }
+        int py = (y + vs) & hmask;
+        int px = (x - hs) & wmask;
         u16 e = vram16(v, base + (u32)(((py >> 3) * pw + (px >> 3)) * 2));
-        col[x] = name_pixel(v, e, px & 7, py & 7);
-        pri[x] = (u8)(e >> 15);
+        int n = 8 - (px & 7);
+        if (x + n > lim) n = lim - x;
+        tile_row(v, e, py & 7, px & 7, n, col + x, pri + x);
+        x += n;
     }
 }
 
@@ -74,10 +102,13 @@ static void window(const Vdp *v, int y, int x0, int x1, int wide, u8 *col, u8 *p
 {
     u32 base = (u32)(v->reg[3] & (wide ? 0x3C : 0x3E)) << 10;
     int ww = wide ? 64 : 32;
-    for (int x = x0; x < x1; x++) {
+    int x = x0;
+    while (x < x1) {
         u16 e = vram16(v, base + (u32)(((y >> 3) * ww + (x >> 3)) * 2));
-        col[x] = name_pixel(v, e, x & 7, y & 7);
-        pri[x] = (u8)(e >> 15);
+        int n = 8 - (x & 7);
+        if (x + n > x1) n = x1 - x;
+        tile_row(v, e, y & 7, x & 7, n, col + x, pri + x);
+        x += n;
     }
 }
 

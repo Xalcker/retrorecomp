@@ -50,6 +50,18 @@ static inline u8 cart_rd8(Gen *g, u32 a)
     return rom8(c, a);
 }
 
+/* Una palabra del cartucho (a par): de la ROM de una vez si ahí no hay SRAM ni EEPROM */
+static inline u16 cart_rd16(Gen *g, u32 a)
+{
+    const Cart *c = &g->cart;
+    if (!c->has_eeprom && !sram_window(c, a)) {
+        u32 o = cart_rom_offset(c, a);
+        if (c->mapper == MAPPER_NONE) o &= c->rom_mask;
+        if (o + 1 < c->rom_size) return rd16(c->rom + o);
+    }
+    return (u16)(cart_rd8(g, a) << 8 | cart_rd8(g, a + 1));
+}
+
 static inline void cart_wr8(Gen *g, u32 a, u8 v)
 {
     Cart *c = &g->cart;
@@ -111,7 +123,7 @@ static u16 read16(Gen *g, u32 a)
 {
     switch (a >> 20) {
     case 0x0: case 0x1: case 0x2: case 0x3:
-        return (u16)(cart_rd8(g, a) << 8 | cart_rd8(g, a + 1));
+        return cart_rd16(g, a);
     case 0xE: case 0xF:
         return rd16(g->ram + (a & 0xFFFF));
     case 0xC: case 0xD:

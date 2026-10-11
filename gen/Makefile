@@ -70,13 +70,13 @@ endif
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 bustest$(EXE): src/tools/bustest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 vdptest$(EXE): src/tools/vdptest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
@@ -109,10 +109,10 @@ genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan bus.c ni z80bus.c
 m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT) -lm
 
 z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT) -lm
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h recomp.h
@@ -136,7 +136,7 @@ $(BUILD)/gen:
 genrecomp$(EXE): src/genrecomp/genrecomp.c src/genrecomp/dis68k.c src/genrecomp/dis68k.h src/genrecomp/visor_html.h \
                  src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -o $@ \
-		src/genrecomp/genrecomp.c src/genrecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT)
+		src/genrecomp/genrecomp.c src/genrecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, BlastEm) sin ventana; los núcleos los
 # baja tools/oracles/oracle.py a build/oracles/ (no van en el repo)

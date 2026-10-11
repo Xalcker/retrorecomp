@@ -186,6 +186,8 @@ typedef struct NES {
                                    Vuelve a stall cuando el DMC se enciende */
     u64  dmc_get_cyc;           /* ciclo en que la última DMA del DMC leyó su byte (en ese ciclo no sale otra) */
     u64  dmc_implicit_cyc;      /* ciclo en que una DMA del aborto implícito puede detener al CPU (solo ese) */
+    u64  pad_pend;              /* $4016 = 1 escrito en un ciclo put: el control se latchea en el get siguiente (ciclo
+                                   guardado aquí) si el strobe sigue en 1; 0 = nada pendiente */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */

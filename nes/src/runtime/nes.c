@@ -116,6 +116,32 @@ static void dma_dummy(NES *n, u16 a, int do_read)
     cycle_end(n, 0);
 }
 
+/* Lectura de una DMA (dirección da) con el CPU detenido leyendo cpu_a. Los registros del APU solo están activos
+ * si el bus del CPU está en $4000-$401F: si no, una DMA que lee $4000-$401F ve bus abierto (sin efectos). Si
+ * lo está, responden en cualquier dirección y también se lee el de $4000 | (da & $1F) (conflicto de bus):
+ * $4015 borra el IRQ del frame counter y $4016/$4017 avanzan el control. La OAM recibe el estado de $4015 (con
+ * el bit 5 del byte de da); el control solo se ve donde nada más responde ($4020-$5FFF sin dispositivo), con
+ * los bits 5-7 de lo leído. El DMC recibe el byte de da salvo en esas direcciones vacías (lo que le llega en el
+ * conflicto no se puede medir sin hardware modificado, nota de AccuracyCoin). */
+static u8 dma_read(NES *n, u16 da, u16 cpu_a, int dmc)
+{
+    int apu_on = (cpu_a & 0xFFE0) == 0x4000;
+    if ((da & 0xFFE0) == 0x4000 && !apu_on) return n->bus;
+    u8 v = nes_read(n, da);
+    if (da != 0x4015) n->bus = v;
+    if (apu_on && (da & 0xFFE0) != 0x4000) {
+        u8 reg = da & 0x1F;
+        int floating = da >= 0x4020 && da < 0x6000 && !CART_MMC5(&n->cart);
+        if (reg == 0x15) { u8 st = nes_read(n, 0x4015); if (floating || !dmc) v = st; }   /* bit 5: el de da */
+        else if (reg == 0x16 || reg == 0x17) {
+            u8 c = nes_read(n, (u16)(0x4000 | reg));
+            if (floating) v = c;
+            if (dmc || floating) n->bus = c;
+        }
+    }
+    return v;
+}
+
 __attribute__((noinline, cold)) static void dma_run(NES *n, u16 a)
 {
     int dmc = 0, spr = 0, dmc_halt = 0, spr_halt = 0, aligned = 0, spr_i = 0;
@@ -143,31 +169,19 @@ __attribute__((noinline, cold)) static void dma_run(NES *n, u16 a)
         if (who == 2) {                                  /* get: el byte del DMC */
             n->dmc_get_cyc = n->cyc;
             cycle_begin(n, 0);
-            u16 da = apu_dmc_addr(n);
-            u8 v = nes_read(n, da);
-            n->bus = v;
-            if ((a & 0xFFE0) == 0x4000) {
-                /* Conflicto de bus: con el CPU detenido en $4000-$401F los registros del APU están activos en
-                 * cualquier dirección, así que también responde el de $4000 | (da & $1F). Leer $4015 borra el IRQ
-                 * del frame counter (y no toca el bus); $4016/$4017 avanzan el control y dejan en el bus su bit
-                 * con los bits 5-7 de la muestra. El DMC recibe el byte de la muestra: lo que le llega en el
-                 * conflicto no se puede medir sin hardware modificado (nota de AccuracyCoin). */
-                u8 reg = da & 0x1F;
-                if (reg == 0x15) nes_read(n, 0x4015);
-                else if (reg == 0x16 || reg == 0x17) n->bus = nes_read(n, (u16)(0x4000 | reg));
-            }
+            u8 v = dma_read(n, apu_dmc_addr(n), a, 1);
             cycle_end(n, 0);
             apu_dmc_dma_done(n, v);
             dmc = 0; aligned = 0;
         } else if (who == 1 && get) {                    /* get: lee un byte para la OAM */
             cycle_begin(n, 0);
-            spr_val = nes_read(n, (u16)((page << 8) | spr_i));
-            n->bus = spr_val;
+            spr_val = dma_read(n, (u16)((page << 8) | spr_i), a, 0);
             cycle_end(n, 0);
             aligned = 1;
         } else if (who == 1 && aligned) {                /* put: lo escribe en la OAM */
             cycle_begin(n, 1);
             n->ppu.oam[(u8)(n->ppu.oam_addr + spr_i)] = spr_val;
+            n->bus = spr_val;                            /* la escritura a $2004 pasa por el bus */
             cycle_end(n, 1);
             if (++spr_i == 256) { spr = 0; aligned = 0; }
         } else dma_dummy(n, a, first || !ctrl);          /* detenida o alineación */
@@ -247,7 +261,7 @@ void nes_reset(NES *n)
     n->cyc = 0;
     n->nmi_line = n->need_nmi = n->prev_need_nmi = 0;
     n->run_irq = n->prev_run_irq = 0;
-    n->irq_line = n->stall = 0; n->dmc_left = 0;
+    n->irq_line = n->stall = 0; n->dmc_left = 0; n->pad_pend = 0;
     ppu_reset(n);
     apu_reset(n);
     n->ppu_eager = 0;
@@ -290,8 +304,16 @@ void nes_write(NES *n, u16 a, u8 v)
     else if (a < 0x4000) ppu_reg_write(n, a, v);
     else if (a == 0x4014) { n->oam_page = v; n->stall |= 2; }   /* OAM DMA: se cumple en la próxima lectura del CPU */
     else if (a == 0x4016) {
+        /* El APU toma el strobe en los ciclos get, con el valor escrito en ese mismo ciclo: un 1 escrito en un put
+         * se latchea en el get siguiente, salvo que en ese get ya se haya escrito 0 (DEC $4016 en un put). */
+        int get = (n->cyc & 1) == DMA_GET_PARITY;
+        if (!(v & 1) && n->pad_pend && n->cyc > n->pad_pend) { n->pad_shift[0] = pad_latch(n, 0); n->pad_shift[1] = pad_latch(n, 1); }
+        if (!(v & 1)) n->pad_pend = 0;
+        else if (!n->pad_strobe) {
+            if (get) { n->pad_shift[0] = pad_latch(n, 0); n->pad_shift[1] = pad_latch(n, 1); }
+            else n->pad_pend = n->cyc + 1;
+        }
         n->pad_strobe = v & 1;
-        if (n->pad_strobe) { n->pad_shift[0] = pad_latch(n, 0); n->pad_shift[1] = pad_latch(n, 1); }
     }
     else if (a < 0x4020) apu_write(n, a, v);
     else mapper_cpu_write(n, a, v);

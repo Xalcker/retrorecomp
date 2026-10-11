@@ -55,6 +55,9 @@ Los dos se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo b
 `.github/workflows/ci.yml` también es el mismo en los dos y corre esos pasos en Linux, macOS y Windows. Lo que cambia
 entre consolas queda dentro de esos objetivos.
 
+El mando aleatorio de `--seed` es el mismo en los dos: `src/platform/random_pad.h` es idéntico en ambos repositorios
+(`tests/contract.py` lo comprueba), así que la misma semilla da la misma secuencia de botones.
+
 `python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los dos mencionan esas opciones, mirando los dos repositorios a la vez.
 Si cambias una opción en un recompilador, cámbiala también en el otro y aquí.
 

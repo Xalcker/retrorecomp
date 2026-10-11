@@ -237,8 +237,9 @@ Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
 **Contrato común con GBRecomp.** `nestrace`, `nesshot`, `nesaudio`, `nesbench` y `difftest` tienen las mismas opciones que
 las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp) (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común
-([retrorecomp](https://github.com/Xalcker/retrorecomp)) se apoya en eso. `sh tests/contract.sh` comprueba que las herramientas
-compiladas las mencionan; el CI la corre en cada PR (`.github/workflows/ci.yml`, como en GBRecomp). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
+([retrorecomp](https://github.com/Xalcker/retrorecomp)) se apoya en eso. `sh tests/contract.sh` (el mismo archivo en los
+dos repos) comprueba que las herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé
+la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` igual a `boton:desde-hasta`); el CI la corre en cada PR (`.github/workflows/ci.yml`, como en GBRecomp). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
 
 `tests/golden.sh` compara el hash de imagen y audio de varios casos con una línea base; `tests/coverage.sh` mide la cobertura del análisis estático.
 

@@ -66,11 +66,12 @@ jobs:
       - name: Compilar
         run: make -j4
 
-      - name: Contrato de línea de comandos común
-        run: sh tests/contract.sh
-
       - name: ROMs de prueba
         run: make testroms
+
+      # Opciones y comportamiento (usa las ROMs de prueba)
+      - name: Contrato de línea de comandos común
+        run: sh tests/contract.sh
 
       # Incluye recompilar una ROM de prueba y compararla contra el intérprete con difftest
       - name: Pruebas

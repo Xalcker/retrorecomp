@@ -126,7 +126,7 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 # o jugando en la ventana:  NES_TRACE=smb.trace ./nes juego.nes   (se puede repetir --trace con varias trazas)
 ```
 
-`tests/recomp_game.sh rom nombre` hace los pasos 3, 4 y 5 de una vez (con `NOTRACE=1` solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar; en MSYS2 se usa `CC=gcc sh tests/recomp_game.sh ...`.
+`sh tests/recomp_game.sh rom nombre [cuadros] [semillas...]` hace los pasos 3, 4 y 5 de una vez, con los mismos argumentos que en GBRecomp (`cuadros`: los de cada `difftest`, 1500; `TRACE_FRAMES=N`: los de la traza guionada, 2400; `NOTRACE=1`: solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`, por omisión 1 2 3), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar.
 
 **8. Entender qué encontró el recompilador**
 

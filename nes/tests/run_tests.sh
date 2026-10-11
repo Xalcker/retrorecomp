@@ -48,7 +48,7 @@ else echo "FALLA nesshot --expect/--hash, ramdump"; fail=1; fi
 # Recompilador: recompila con traza y compara contra el intérprete (mapper 0 y MMC1)
 if [ -x ./nesrecomp ]; then
     for f in $T/other/nestest.nes $T/instr_test-v5/rom_singles/01-basics.nes $T/ppu_vbl_nmi/rom_singles/01-vbl_basics.nes; do
-        if tests/recomp_game.sh "$f" rt_$(basename "$f" .nes | tr -c 'A-Za-z0-9\n' _) 400 400 | tee build/rt.log | grep -q "^Sin diferencias"; then
+        if TRACE_FRAMES=400 tests/recomp_game.sh "$f" rt_$(basename "$f" .nes | tr -c 'A-Za-z0-9\n' _) 400 | tee build/rt.log | grep -q "^Sin diferencias"; then
             echo "ok   recomp $(basename "$f")"
         else cat build/rt.log; echo "FALLA recomp $(basename "$f")"; fail=1; fi
     done

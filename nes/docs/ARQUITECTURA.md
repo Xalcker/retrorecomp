@@ -297,7 +297,8 @@ guarda capturas PNG, `--executed archivo` escribe el mapa de bytes de PRG ejecut
 traza de la máquina que solo usa el intérprete; cada instrucción marca su opcode y sus operandos) y
 `--bench` mide la velocidad del recompilado y del intérprete por separado.
 
-`tests/recomp_game.sh rom nombre` hace el ciclo completo: traza guionada, recompila, compila, corre
+`tests/recomp_game.sh rom nombre [cuadros] [semillas...]` (los mismos argumentos que en GBRecomp) hace el
+ciclo completo: traza guionada (`TRACE_FRAMES`), recompila, compila, corre
 `difftest` con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a
 probar.
 

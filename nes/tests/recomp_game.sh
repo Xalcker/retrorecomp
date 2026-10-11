@@ -3,17 +3,18 @@
 # varias semillas, junta las instrucciones que cayeron al intérprete, recompila con esa
 # traza y vuelve a probar.
 #
-# Uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS_TRAZA] [CUADROS_DIFFTEST] [SEMILLAS...]
+# Uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]
+#   Los mismos argumentos que en GBRecomp. CUADROS: los de cada difftest (1500 si no se dice).
 #   Deja el proyecto en build/out/NOMBRE y la traza acumulada en build/NOMBRE.trace.
+#   TRACE_FRAMES=N: cuadros de la traza guionada inicial (2400 si no se dice).
 #   NOTRACE=1: sin la traza guionada inicial (solo análisis estático y lo que descubra difftest).
-#   CC=gcc: compilador para el proyecto generado (en MSYS2 no existe "cc").
 #
 # Las entradas guionadas (Start, A, derecha...) son las mismas para todos los juegos: sirven
 # para pasar del título al juego y moverse un poco. Las semillas agregan un mando aleatorio.
 cd "$(dirname "$0")/.." || exit 2
-ROM=$1; NAME=$2; TF=${3:-2400}; DF=${4:-1500}
-[ -f "$ROM" ] && [ -n "$NAME" ] || { echo "uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS_TRAZA] [CUADROS_DIFFTEST] [SEMILLAS...]" >&2; exit 2; }
-shift 4 2>/dev/null || shift $#
+ROM=$1; NAME=$2; DF=${3:-1500}; TF=${TRACE_FRAMES:-2400}
+[ -f "$ROM" ] && [ -n "$NAME" ] || { echo "uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]  (TRACE_FRAMES=N, NOTRACE=1)" >&2; exit 2; }
+shift 3 2>/dev/null || shift $#
 SEEDS=${*:-"1 2 3"}
 ROM=$(cd "$(dirname "$ROM")" && pwd)/$(basename "$ROM")
 EXE=

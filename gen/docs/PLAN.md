@@ -48,8 +48,9 @@ mismo contrato de línea de comandos.
   detrás del 68000, INT en el VBLANK; PSG; YM2612 propio (fase, envolvente, 8 algoritmos, LFO,
   temporizadores, DAC); mezcla a 44 100 Hz con pasa-altos; sonido en `gen` (menú Audio). `audiotest`,
   `genrun --wav`. MK1 y Mickey Mania pasan su espera del Z80; Sonic 1 dice "SEGA". EEPROM de Wily
-  Wars. Pendiente: SSG-EG, CSM, retardos entre operadores, distorsión de la DAC, la espera del Z80 al
-  leer el bus del 68000, y que el YM2612 sea más rápido (fase 8: hoy ~15 veces el tiempo real).
+  Wars. SSG-EG y la espera del Z80 al usar el bus del 68000. Pendiente: CSM, retardos entre
+  operadores, distorsión de la DAC, lo que pierde el 68000 cuando el Z80 usa su bus, y que el YM2612
+  sea más rápido (fase 8: hoy ~15 veces el tiempo real).
 - [ ] **5. Herramientas sin ventana.** `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,
   `genbench`, `ramdump`, `statetest`, `sramtest`, `inputtest`; `cli.h` e `inputs.h` con 8 botones
   (A B C X Y Z START MODE) sin romper el formato común. `contract.sh` con sus comprobaciones.

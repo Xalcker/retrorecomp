@@ -18,8 +18,12 @@
  * bandera si están habilitados ($27). Leer cualquier puerto da el estado: bit 7 ocupado (tras escribir
  * un dato), bits 0-1 las banderas.
  *
- * Sin emular todavía: SSG-EG (se guarda, no se aplica), el modo CSM, los retardos internos entre
- * operadores y la distorsión del DAC del YM2612 (la "escalera").
+ * SSG-EG ($90, bit 3): la envolvente baja 4 veces más rápido mientras la atenuación es menor que $200
+ * y al llegar ahí, según los bits 0-2 (mantener, alternar, invertir), vuelve a empezar (y la fase a 0),
+ * se invierte o se queda quieta. Invertida, la atenuación que suena es $200 menos la de la envolvente.
+ *
+ * Sin emular todavía: el modo CSM, los retardos internos entre operadores y la distorsión del DAC del
+ * YM2612 (la "escalera").
  */
 #include <math.h>
 #include <string.h>
@@ -109,15 +113,40 @@ static void key_on(YmOp *o, int kc)
     if (o->key) return;
     o->key = 1;
     o->phase = 0;
+    o->ssg_inv = 0;
     if (eg_rate(o->ar, kc, o->ks) >= 62) { o->env = 0; o->state = EG_DECAY; }
     else o->state = EG_ATTACK;
+}
+
+/* SSG-EG: ¿la atenuación suena invertida ahora? */
+static inline int ssg_inverted(const YmOp *o)
+{
+    return (o->ssg & 8) && o->state != EG_RELEASE && ((o->ssg_inv ^ (o->ssg >> 2)) & 1);
 }
 
 static void key_off(YmOp *o)
 {
     if (!o->key) return;
+    /* Si suelta la tecla con la envolvente invertida, se queda con el valor que sonaba */
+    if (ssg_inverted(o)) o->env = (0x200 - o->env) & 0x3FF;
     o->key = 0;
     o->state = EG_RELEASE;
+}
+
+/* SSG-EG al llegar al final del ciclo (atenuación $200 o más) */
+static void ssg_update(YmOp *o, int kc)
+{
+    if (!(o->ssg & 8) || o->env < 0x200 || o->state == EG_RELEASE) return;
+    if (o->ssg & 1) {                                   /* mantener */
+        if (o->ssg & 2) o->ssg_inv = 1;
+        if (o->state != EG_ATTACK && !((o->ssg_inv ^ (o->ssg >> 2)) & 1)) o->env = 0x3FF;
+        return;
+    }
+    if (o->ssg & 2) o->ssg_inv ^= 1;                    /* alternar */
+    else o->phase = 0;                                  /* repetir: la fase vuelve a empezar */
+    if (o->state == EG_ATTACK) return;
+    if (eg_rate(o->ar, kc, o->ks) < 62) o->state = EG_ATTACK;
+    else { o->env = 0; o->state = o->sl ? EG_DECAY : EG_SUSTAIN; }
 }
 
 static void eg_step(YmOp *o, int kc, u32 cnt)
@@ -136,6 +165,10 @@ static void eg_step(YmOp *o, int kc, u32 cnt)
     int row = rate < 48 ? (rate & 3) : rate - 44;
     if (row > 18) row = 18;
     int inc = eg_inc[row][cnt >> shift & 7];
+    if ((o->ssg & 8) && o->state != EG_ATTACK) {       /* SSG-EG: 4 veces más rápido, hasta $200 */
+        if (o->env >= 0x200) return;
+        inc *= 4;
+    }
     switch (o->state) {
     case EG_ATTACK:
         if (rate >= 62) o->env = 0;
@@ -199,7 +232,7 @@ static void sample(Gen *g)
             u8 block = ch->block;
             if (c == 2 && (y->timer_ctl & 0xC0) && o < 3) { fnum = y->fnum3[o]; block = y->block3[o]; }
             int kc = keycode(fnum, block);
-            if (eg_now) eg_step(op, kc, y->eg_cnt);
+            if (eg_now) { eg_step(op, kc, y->eg_cnt); ssg_update(op, kc); }
             if (ch->pms && y->lfo_on) fnum = (u16)(fnum * pm_mul[ch->pms][lfo_pm]) & 0x7FF;
             u32 inc = ((u32)fnum << block) >> 1;
             int dt = dt_tab[op->dt & 3][kc];
@@ -207,7 +240,7 @@ static void sample(Gen *g)
             inc &= 0x1FFFF;
             inc = op->mul ? inc * op->mul : inc >> 1;
             op->phase = (op->phase + inc) & 0xFFFFF;
-            int att = op->env + (op->tl << 3);
+            int att = (ssg_inverted(op) ? (0x200 - op->env) & 0x3FF : op->env) + (op->tl << 3);
             if (op->am && ch->ams) att += lfo_am >> ams_shift[ch->ams];
             out[o] = att > 0x3FF ? 0x3FF : att;     /* aquí: la atenuación; abajo se reemplaza por la salida */
         }

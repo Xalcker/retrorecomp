@@ -151,6 +151,7 @@ typedef struct {
     u8   state;                 /* ataque, decaimiento, sostenido, relajación */
     u8   key;
     u8   dt, mul, tl, ks, ar, am, dr, sr, sl, rr, ssg;
+    u8   ssg_inv;               /* SSG-EG: la envolvente va invertida en este ciclo (modos que alternan) */
 } YmOp;
 
 typedef struct {

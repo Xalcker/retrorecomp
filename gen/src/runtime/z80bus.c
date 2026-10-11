@@ -12,17 +12,20 @@
  * puesto ($A11200) ni con el bus pedido por el 68000 ($A11100). Su INT dura una línea desde el
  * VBLANK (vdp.c fija la ventana z80_irq_from/until).
  *
- * Sin emular todavía: la espera del Z80 (y del 68000) cuando el Z80 lee el bus del 68000.
+ * Cada acceso del Z80 al bus del 68000 (la ventana de $8000) le cuesta unos 3 ciclos más: espera a
+ * que el 68000 le ceda el bus. Sin emular todavía: lo que pierde el 68000 en esa cesión.
  */
 #include "gen.h"
 
 #define MCLK_PER_Z80 15
+#define BANK_WAIT (3 * MCLK_PER_Z80)        /* espera del Z80 al usar el bus del 68000 */
 
 uint8_t z80_read(struct Gen *g, uint16_t a)
 {
     if (a < 0x4000) return g->zram[a & 0x1FFF];
     if (a < 0x6000) return ym_read(g, g->z80_mclk);
     if (a < 0x8000) return 0xFF;
+    g->z80_mclk += BANK_WAIT;
     return bus_read8(g, (u32)g->z80_bank << 15 | (a & 0x7FFFu));
 }
 
@@ -32,7 +35,7 @@ void z80_write(struct Gen *g, uint16_t a, uint8_t v)
     if (a < 0x6000) { ym_write(g, a & 3, v, g->z80_mclk); return; }
     if (a < 0x6100) { g->z80_bank = (u16)(((g->z80_bank >> 1) | ((v & 1u) << 8)) & 0x1FF); return; }
     if (a >= 0x7F10 && a < 0x7F18 && (a & 1)) { psg_write(g, v, g->z80_mclk); return; }
-    if (a >= 0x8000) bus_write8(g, (u32)g->z80_bank << 15 | (a & 0x7FFFu), v);
+    if (a >= 0x8000) { g->z80_mclk += BANK_WAIT; bus_write8(g, (u32)g->z80_bank << 15 | (a & 0x7FFFu), v); }
 }
 
 /* La Mega Drive no usa los puertos del Z80 */

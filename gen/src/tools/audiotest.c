@@ -1,8 +1,8 @@
 /*
  * Prueba sintética del sonido (make test): programa el PSG y el YM2612 directamente y mide la salida a
  * 44 100 Hz: la afinación (cruces por cero de un La de 440 Hz en cada chip), el panorama, la DAC del
- * canal 6, la relajación al soltar la tecla, el temporizador A (cada cuántas muestras desborda) y la
- * bandera de ocupado del YM2612.
+ * canal 6, la relajación al soltar la tecla, el temporizador A (cada cuántas muestras desborda), la
+ * bandera de ocupado y los modos de SSG-EG del YM2612.
  */
 #include <math.h>
 #include <stdio.h>
@@ -149,11 +149,47 @@ static void test_ym(void)
     CHECK(!(ym_read(g, now + 2000) & 0x80), "YM2612: ya no ocupado después");
 }
 
+/* SSG-EG en S1 del canal 0, con decaimiento rápido: nivel (RMS) del último tramo y el menor de
+ * los tramos de 50 ms entre 0.1 s y 1 s */
+static void ssg_case(u8 mode, double *last, double *min_win)
+{
+    fresh();
+    ym_tone(0xC0);
+    ym(0, 0x60, 20);                                /* DR 20 */
+    ym(0, 0x80, 0xFF);                              /* SL 15, RR 15 */
+    ym(0, 0x90, mode);
+    ym(0, 0x28, 0x00);
+    ym(0, 0x28, 0x10);                              /* tecla de nuevo, con todo puesto */
+    run(1.0);
+    *last = rms(0, nbuf - 4410, nbuf);
+    *min_win = 1e9;
+    for (int i = 4410; i + 2205 <= nbuf; i += 2205) {
+        double r = rms(0, i, i + 2205);
+        if (r < *min_win) *min_win = r;
+    }
+}
+
+static void test_ssg(void)
+{
+    double last, minw;
+    ssg_case(0x00, &last, &minw);
+    CHECK(last < 50, "sin SSG-EG la nota decae (%.0f)", last);
+    ssg_case(0x08, &last, &minw);
+    CHECK(minw > 300, "SSG-EG $08 (repetir): sigue sonando (el tramo más bajo %.0f)", minw);
+    ssg_case(0x09, &last, &minw);
+    CHECK(last < 1, "SSG-EG $09 (una vez): queda en silencio (%.0f)", last);
+    ssg_case(0x0B, &last, &minw);
+    CHECK(last > 2000, "SSG-EG $0B (una vez, invertida): queda sonando (%.0f)", last);
+    ssg_case(0x0A, &last, &minw);
+    CHECK(minw > 300, "SSG-EG $0A (alternar): sigue sonando (el tramo más bajo %.0f)", minw);
+}
+
 int main(void)
 {
     console_utf8();
     test_psg();
     test_ym();
+    test_ssg();
     gen_free(g);
     free(g);
     if (!fallas) printf("audiotest: todo bien\n");

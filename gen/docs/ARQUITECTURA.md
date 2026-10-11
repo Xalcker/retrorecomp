@@ -197,8 +197,8 @@ bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepT
 ventana de 32 KB al bus del 68000 en `$8000`). Va a 1/15 del reloj maestro y corre detrás del 68000:
 se pone al día hasta el mismo ciclo después de cada instrucción del 68000 y antes de que el 68000 toque
 su bus. No corre con el reset puesto (`$A11200`, que también reinicia el YM2612) ni con el bus pedido.
-Su INT dura una línea desde el VBLANK. Sin emular todavía: la espera cuando el Z80 lee el bus del
-68000.
+Su INT dura una línea desde el VBLANK. Cada acceso del Z80 al bus del 68000 le cuesta unos 3 ciclos
+más (espera a que el 68000 le ceda el bus); sin emular todavía: lo que pierde el 68000 en esa cesión.
 
 ### Audio
 
@@ -209,13 +209,17 @@ Su INT dura una línea desde el VBLANK. Sin emular todavía: la espera cuando el
   68000 (53 267 Hz). Fase de 20 bits con detune, múltiplo y PM; envolvente de 10 bits con la tabla de
   incrementos del chip, escala por tecla, TL y AM; operador con seno logarítmico y exponencial; los 8
   algoritmos y la realimentación; panorama; LFO; temporizadores A y B con sus banderas; DAC del canal 6;
-  modo especial del canal 3; bandera de ocupado tras escribir. Sin emular todavía: SSG-EG, CSM, los
-  retardos entre operadores y la distorsión de la DAC del YM2612.
+  modo especial del canal 3; bandera de ocupado tras escribir; SSG-EG (la envolvente 4 veces más
+  rápida hasta `$200` y, según el modo, repetir con la fase a 0, alternar invertida o quedarse quieta;
+  invertida suena `$200` menos la atenuación). Sin emular todavía: CSM, los retardos entre operadores
+  y la distorsión de la DAC del YM2612.
 - **Mezcla** (`audio.c`): los chips entregan tramos de tiempo y cada muestra de salida (44 100 Hz,
   estéreo de 16 bits) es el promedio de lo que sonó durante ella; después, un pasa-altos de ~10 Hz como
   el acople de la salida de la consola (quita la componente continua de la DAC quieta).
 - **Pruebas:** `audiotest` programa los chips y mide la afinación (La de 440 Hz en cada uno), el
-  panorama, el ruido, el escalón de la DAC, la relajación, el temporizador A y la bandera de ocupado.
+  panorama, el ruido, el escalón de la DAC, la relajación, el temporizador A, la bandera de ocupado y
+  los modos de SSG-EG (repetir y alternar siguen sonando, una vez queda en silencio, una vez invertida
+  queda sonando).
   Con juegos: la voz "SEGA" de Sonic 1 (por la DAC del Z80) y la música; ningún juego de `roms/` satura.
   `genrun --wav` guarda el sonido y su nivel por segundo.
 

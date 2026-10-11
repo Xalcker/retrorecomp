@@ -52,18 +52,18 @@ all: $(PROGS:%=%$(EXE))
 nestest$(EXE): src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-nesshot$(EXE): src/tools/nesshot.c src/platform/png.c src/platform/cli.h $(RT)
+nesshot$(EXE): src/tools/nesshot.c src/platform/png.c src/platform/cli.h src/platform/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesshot.c src/platform/png.c $(RT)
 
-nesbench$(EXE): src/platform/bench.c src/platform/cli.h $(RT)
+nesbench$(EXE): src/platform/bench.c src/platform/cli.h src/platform/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
-nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(RT)
+nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h src/platform/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h random_pad.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
@@ -93,7 +93,7 @@ dist: nesrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-ramdump$(EXE): src/tools/ramdump.c src/platform/cli.h $(RT)
+ramdump$(EXE): src/tools/ramdump.c src/platform/cli.h src/platform/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/ramdump.c $(RT)
 
 inputtest$(EXE): src/tools/inputtest.c $(RT)
@@ -108,7 +108,7 @@ statetest$(EXE): src/tools/statetest.c $(RT)
 sramtest$(EXE): src/tools/sramtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h $(RT)
+nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h src/platform/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
 
 # (no se llama PLATFORM: ese nombre es el sistema del paquete de make dist, en el bloque común)

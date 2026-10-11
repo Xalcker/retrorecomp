@@ -224,7 +224,8 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
 `bench` de cada proyecto) aceptan las mismas opciones que `gbtrace`, `gbshot`, `gbaudio`, `gbbench` y `difftest` de
 GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `src/platform/inputs.h`),
-`--seed S` (mando aleatorio reproducible) y, en `nesbench`/`bench`, `--repeat N` (se reporta la corrida más rápida).
+`--seed S` (suma un mando aleatorio reproducible: `src/platform/random_pad.h`, idéntico en GBRecomp, así que la misma
+semilla da la misma secuencia de botones en las dos consolas) y, en `nesbench`/`bench`, `--repeat N` (se reporta la corrida más rápida).
 Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde-hasta`):
 
 ```

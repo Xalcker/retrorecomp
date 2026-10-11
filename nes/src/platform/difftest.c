@@ -69,12 +69,12 @@ static int write_executed(const NES *n, const char *path)
 }
 
 /* --bench: el recompilado y el intérprete por separado, con las mismas entradas */
-static void bench(Cli *c, unsigned rng0)
+static void bench(Cli *c)
 {
     NES *m[2] = { &B, &A };
     const char *name[2] = { "recompilado", "intérprete" };
     for (int k = 0; k < 2; k++) {
-        cli_rewind(c); c->rng = rng0;
+        cli_rewind(c);
         nes_force_interp = k;
         clock_t t0 = clock();
         for (long f = 0; f < c->frames; f++) {
@@ -137,7 +137,6 @@ int main(int argc, char **argv)
                         "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]\n");
         return 2;
     }
-    unsigned rng0 = c.rng;
     const char *uncovered = c.uncovered;
     const char *pos[1] = { c.pos[0] };
     size_t len; u8 *rom = slurp(pos[0], &len);
@@ -152,7 +151,7 @@ int main(int argc, char **argv)
     long frames = c.frames;
     if (c.bench) {
         printf("%s: %ld cuadros\n", recomp_name, frames);
-        bench(&c, rng0);
+        bench(&c);
         return 0;
     }
     if (uncovered) nes_trace_start(&B);     /* solo en B: lo que A (intérprete) ejecuta no cuenta */

@@ -12,7 +12,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `vdp.c` (por ahora el esqueleto), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (por ahora el esqueleto), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | Por ahora las partes sin SDL (`png`, `files`, `export`, `random_pad.h`). Se copian a cada proyecto generado. |
 | `src/tools/` | `carttest`, `m68ktest` (SingleStepTests del 68000), `bustest` (bus, mandos, SRAM, SSF2, interrupciones), `genrun` (corre una ROM sin ventana y resume), `embed`. |
@@ -109,7 +109,7 @@ Sin mapper, la dirección es el desplazamiento en la ROM. Con más de 4 MB (o "S
 cabecera), el de SSF2: ocho ventanas de 512 KB; la 0 fija y las otras siete eligen banco en
 `$A130F3-$A130FF` (`cart.bank`, `cart_rom_offset`). Cada cambio sube `cart.map_ver`, que el código
 generado vigilará como `MAPCHK` en NES. Probado con Super Street Fighter II (5 MB). Los mappers sin
-licencia y la EEPROM serie (NBA Jam, etc., necesitan una base de datos por juego) quedan pendientes.
+licencia quedan pendientes.
 
 ### Cartucho
 
@@ -131,6 +131,16 @@ juegos.
   en su rango. Si queda encima de la ROM (ROM de más de 2 MB), solo se ve con `$A130F1` bit 0; el bit
   1 la protege. Sin partida se lee `$FF`. `gen_sram_load`/`gen_sram_save`/`gen_sram_dirty` guardan el
   rango completo (formato de Genesis Plus GX).
+- **EEPROM serie** (`eeprom.c`): el juego mueve SCL y SDA a mano (I2C) en una dirección del
+  cartucho. La cabecera no dice dónde ni qué chip, así que sale de una base de datos por número de
+  serie; el contenido vive en `sram_data` y se guarda igual que la SRAM. Máquina de estados de los
+  X24C01 (dirección en el primer byte), 24C01-24C16 (byte de dispositivo 1010xxx y dirección) y 24C32
+  o más (dos bytes de dirección), con lectura secuencial y escritura por página. En la base de datos
+  por ahora solo NBA Jam (EE. UU./Europa y Japón: 24C02 de 256 bytes, SDA y SCL en los bits 0 y 1 de
+  `$200001`, SDA se lee en el bit 1, página de 4), sacado de su propio código y comprobado: el primer
+  arranque la inicializa y el segundo la acepta sin reescribirla. Los demás juegos con EEPROM (NBA Jam
+  TE, NFL Quarterback Club, Wonder Boy in Monster World, Mega Man: The Wily Wars, los de EA y
+  Codemasters...) se agregan cuando se puedan probar.
 - **Estados guardados:** fase 5.
 
 ## Video y audio
@@ -172,15 +182,18 @@ Fase 3.
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
-  ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, SSF2, y un programa de 68000
+  ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, EEPROM serie (escritura,
+  lectura aleatoria con START repetido, ACK, página), SSF2, y un programa de 68000
   que cuenta VINT y HINT, también con la máscara), las SingleStepTests del 68000 por el intérprete y
   por el camino del código generado (~9 s cada una), `genrecomp --info` con cada ROM de `roms/` y, si
-  está Sonic 1 (USA/Europa), que con Start en el título el intérprete llegue a jugar el nivel.
+  están: Sonic 1 (USA/Europa), que con Start en el título el intérprete llegue a jugar el nivel; NBA
+  Jam (USA/Europa), que guarde su EEPROM y la acepte al volver a arrancar.
 
 ### Resultados con juegos
 
 Con el intérprete, el bus y el esqueleto del VDP (sin imagen todavía): Sonic 1 pasa por la pantalla
 de SEGA, el título y el demo, y con Start entra al nivel y juega (corriendo a la derecha pierde una
 vida contra un enemigo), a ~6.7 veces el tiempo real. Super Street Fighter II corre con el mapper de
-SSF2 (155 cambios de banco en 1200 cuadros). `genrun rom --watch DIR` muestra cuándo cambia un byte
-de la RAM (en Sonic 1, el modo de juego está en `$FFF600`).
+SSF2 (155 cambios de banco en 1200 cuadros). NBA Jam guarda su EEPROM y la acepta al volver a
+arrancar. `genrun rom --watch DIR` muestra cuándo cambia un byte de la RAM (en Sonic 1, el modo de
+juego está en `$FFF600`) y `--sram ARCHIVO` carga y guarda la SRAM o EEPROM.

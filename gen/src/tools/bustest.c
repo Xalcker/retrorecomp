@@ -1,8 +1,9 @@
 /*
  * Prueba sintética del bus (make test): con ROMs armadas en memoria comprueba la RAM y sus
  * espejos, los espejos de la ROM, el registro de versión, el bus del Z80 (pedido, reset, acceso de
- * 8 bits), los mandos de 3 y 6 botones, la SRAM de bytes impares (y guardarla), el mapper de SSF2
- * y las interrupciones VINT/HINT del esqueleto del VDP con un programa de 68000.
+ * 8 bits), los mandos de 3 y 6 botones, la SRAM de bytes impares (y guardarla), la EEPROM serie
+ * (I2C, con el mapeo de NBA Jam), el mapper de SSF2 y las interrupciones VINT/HINT del esqueleto del
+ * VDP con un programa de 68000.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,6 +132,56 @@ static void test_sram(void)
     gen_free(g); free(g); free(rom);
 }
 
+/* I2C a mano, como NBA Jam: SDA en el bit 0 y SCL en el bit 1 de $200001; SDA se lee en el bit 1 */
+static Gen *eg;
+static void i2c(int scl, int sda) { m68k_wr8(eg, 0x200001, (u8)(scl << 1 | sda)); }
+static int  i2c_sda(void) { return m68k_rd8(eg, 0x200001) >> 1 & 1; }
+static void i2c_start(void) { i2c(1, 1); i2c(1, 0); i2c(0, 0); }
+static void i2c_stop(void)  { i2c(0, 0); i2c(1, 0); i2c(1, 1); }
+static int i2c_send(u8 b)       /* devuelve el ACK (0 = la EEPROM respondió) */
+{
+    for (int i = 7; i >= 0; i--) { i2c(0, b >> i & 1); i2c(1, b >> i & 1); i2c(0, b >> i & 1); }
+    i2c(0, 1); i2c(1, 1);
+    int ack = i2c_sda();
+    i2c(0, 1);
+    return ack;
+}
+static u8 i2c_recv(int last)
+{
+    u8 b = 0;
+    for (int i = 0; i < 8; i++) { i2c(0, 1); i2c(1, 1); b = (u8)(b << 1 | i2c_sda()); i2c(0, 1); }
+    i2c(0, last); i2c(1, last); i2c(0, last);
+    return b;
+}
+
+static void test_eeprom(void)
+{
+    u8 *rom = make_rom(0x200000, 0);
+    memcpy(rom + 0x180, "GM T-081326 00", 14);         /* NBA Jam (USA, Europa) */
+    rom[0x1B0] = 'R'; rom[0x1B1] = 'A'; rom[0x1B2] = 0xE8; rom[0x1B3] = 0x40;
+    eg = load(rom, 0x200000);
+    CHECK(eg->cart.has_eeprom && !eg->cart.sram && eg->cart.sram_size == 256, "NBA Jam: EEPROM de 256 bytes en vez de SRAM");
+    i2c_start();
+    int a1 = i2c_send(0xA0), a2 = i2c_send(0x10), a3 = i2c_send(0x11), a4 = i2c_send(0x22), a5 = i2c_send(0x33);
+    i2c_stop();
+    CHECK(!a1 && !a2 && !a3 && !a4 && !a5, "escritura: la EEPROM responde ACK a cada byte");
+    CHECK(eg->cart.sram_data[0x10] == 0x11 && eg->cart.sram_data[0x12] == 0x33, "escritura en $10-$12");
+    i2c_start(); i2c_send(0xA0); i2c_send(0x10);
+    i2c_start(); i2c_send(0xA1);                           /* START repetido: lectura aleatoria */
+    u8 r0 = i2c_recv(0), r1 = i2c_recv(0), r2 = i2c_recv(1);
+    i2c_stop();
+    CHECK(r0 == 0x11 && r1 == 0x22 && r2 == 0x33, "lectura aleatoria: %02X %02X %02X", r0, r1, r2);
+    i2c_start(); i2c_send(0xA0); i2c_send(0x22);
+    for (int i = 0; i < 4; i++) i2c_send((u8)(0x80 + i));  /* 4 bytes desde $22: la página es de 4 */
+    i2c_stop();
+    CHECK(eg->cart.sram_data[0x22] == 0x80 && eg->cart.sram_data[0x23] == 0x81 && eg->cart.sram_data[0x20] == 0x82,
+          "escritura que cruza la página: vuelve al principio de la página");
+    i2c_start();
+    CHECK(i2c_send(0xB0) == 1, "otro dispositivo (1011): sin ACK");
+    i2c_stop();
+    gen_free(eg); free(eg); free(rom);
+}
+
 static void test_ssf2(void)
 {
     size_t size = 0x500000;     /* 5 MB: más de 4, necesita el mapper */
@@ -196,6 +247,7 @@ int main(void)
     test_z80();
     test_mandos();
     test_sram();
+    test_eeprom();
     test_ssf2();
     test_interrupciones();
     if (!fallas) printf("bustest: todo bien\n");

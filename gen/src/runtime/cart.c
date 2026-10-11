@@ -136,7 +136,15 @@ void cart_setup(Cart *c)
     free(c->sram_data); free(c->sram_saved);
     c->sram_data = c->sram_saved = NULL;
     c->sram_size = 0;
-    if (c->sram) {
+    c->has_eeprom = eeprom_detect(c);
+    if (c->has_eeprom) {                /* la cabecera puede declarar "RA" para la EEPROM: no es SRAM */
+        c->sram = 0;
+        c->sram_size = (size_t)c->eeprom.size_mask + 1;
+        c->sram_data = malloc(c->sram_size);
+        c->sram_saved = malloc(c->sram_size);
+        memset(c->sram_data, 0xFF, c->sram_size);
+        memcpy(c->sram_saved, c->sram_data, c->sram_size);
+    } else if (c->sram) {
         u32 base = c->sram_start & ~1u, end = c->sram_end | 1u;
         /* Cabeceras rotas: fuera del espacio del cartucho o de más de 1 MB */
         if (base >= ROM_LINEAR || end >= ROM_LINEAR || end - base >= 0x100000) c->sram = 0;

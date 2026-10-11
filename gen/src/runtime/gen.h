@@ -65,6 +65,24 @@ typedef struct {
     int  sega;                  /* 1 si $100 empieza con "SEGA" (o " SEGA") */
 } GenHeader;
 
+/* EEPROM serie (I2C) de algunos cartuchos: dónde están sus líneas sale de una base de datos por
+ * juego (eeprom.c), porque la cabecera no lo dice */
+typedef struct {
+    u32 sda_in_addr, scl_addr, sda_out_addr;    /* direcciones de byte donde se escriben SDA y SCL y se lee SDA */
+    u8  sda_in_bit, scl_bit, sda_out_bit;
+    u8  addr_bits;              /* 7: X24C01 (la dirección va en el primer byte); 8: 24C01-24C16; 16: 24C32 o más */
+    u16 size_mask, page_mask;   /* tamaño - 1 y página de escritura - 1 */
+} EepromCfg;
+
+typedef struct {
+    u8  scl, sda;               /* líneas que pone la consola */
+    u8  out;                    /* SDA que pone la EEPROM (1 = suelta: la línea es el AND de las dos) */
+    u8  state, bit, shift;
+    u8  sending;                /* la EEPROM está mandando un byte (lectura) */
+    u16 addr;
+    u32 writes;                 /* bytes escritos (estadística) */
+} Eeprom;
+
 typedef struct {
     u8    *rom;  size_t rom_size;       /* imagen normalizada (big-endian, sin cabecera de SMD) */
     int    format;                      /* ROMFMT_* del archivo original */
@@ -74,6 +92,8 @@ typedef struct {
     int    sram;                        /* 1 si la cabecera la declara */
     u8     sram_type;                   /* $1B2: bit 6 = con batería; bits 4-3: 10 = bytes pares, 11 = impares, 00 = palabras */
     u32    sram_start, sram_end;
+    int    has_eeprom;                  /* en vez de SRAM, una EEPROM serie (sram_data es su contenido) */
+    EepromCfg eeprom;
     u8    *sram_data;                   /* todo el rango (también los bytes que el cartucho no usa) */
     u8    *sram_saved;                  /* lo último guardado en disco (para ver si cambió) */
     size_t sram_size;
@@ -117,6 +137,7 @@ typedef struct Gen {
     Cart cart;
     Vdp  vdp;
     Io   io;
+    Eeprom eeprom;
     u16  pad[2];                /* botones apretados (GEN_*) de los mandos 1 y 2 */
     u8   pad6;                  /* bit 0/1: el mando 1/2 es de 6 botones */
     u8   version;               /* registro de versión ($A10001): $80 extranjero, $40 PAL, $20 sin Mega CD, bits 0-3 versión */
@@ -144,6 +165,13 @@ int  gen_sram_dirty(const Gen *g);
 void cart_setup(Cart *c);               /* mapper, espejos y SRAM según el tamaño y la cabecera */
 void cart_map_reset(Cart *c);           /* bancos de SSF2 en su lugar, SRAM según su valor de inicio */
 u32  cart_rom_offset(const Cart *c, u32 addr);   /* desplazamiento en la ROM de una dirección < $400000 */
+
+/* EEPROM serie (eeprom.c) */
+int  eeprom_detect(Cart *c);            /* 1 si el juego está en la base de datos (configura c->eeprom) */
+void eeprom_reset(Gen *g);
+int  eeprom_owns(const Cart *c, u32 addr);
+u8   eeprom_read(Gen *g, u32 addr);
+void eeprom_write(Gen *g, u32 addr, u8 v);
 
 /* VDP (vdp.c) */
 void vdp_reset(Gen *g);

@@ -32,9 +32,10 @@ mismo contrato de línea de comandos.
   pedido y reset del bus del Z80, SRAM de la cabecera (y guardarla), mapper de SSF2, TMSS (solo el
   registro y la versión). Más el esqueleto del VDP (registros, memorias sin DMA, estado, líneas,
   VINT/HINT) para correr juegos reales: Sonic 1 llega a jugar el nivel con el intérprete y Super
-  Street Fighter II corre con su mapper. `bustest` y `genrun` (con `--watch`). Pendiente: EEPROM serie
-  (base de datos por juego), mappers sin licencia, esperas del bus del Z80 y refresco de la DRAM, y que
-  el intérprete no haga un `setjmp` por instrucción (fase 8).
+  Street Fighter II corre con su mapper. EEPROM serie I2C con base de datos por juego (por ahora NBA
+  Jam, comprobado: guarda y acepta su partida). `bustest` y `genrun` (con `--watch` y `--sram`).
+  Pendiente: más juegos con EEPROM, mappers sin licencia, esperas del bus del Z80 y refresco de la
+  DRAM, y que el intérprete no haga un `setjmp` por instrucción (fase 8).
 - [ ] **3. VDP.** Puerto de control, VRAM/CRAM/VSRAM, FIFO, DMA (68k→VRAM con pausa del 68k, relleno,
   copia), dibujo por línea, HV counter, HINT/VINT. Perezoso como `ppu_sync`. Ventana `gen` (llegan
   `main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, icono propio).

@@ -12,9 +12,9 @@ intérprete.
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
   prefetch, RAM y ciclos) por los dos caminos: el intérprete y el del código generado.
-- **Bus:** mapa de memoria, mandos de 3 y 6 botones, bus del Z80, SRAM, mapper de SSF2 y el esqueleto
-  del VDP (registros, líneas, interrupciones). Sin imagen todavía, Sonic 1 llega a jugar el nivel con el
-  intérprete y Super Street Fighter II corre con su mapper.
+- **Bus:** mapa de memoria, mandos de 3 y 6 botones, bus del Z80, SRAM, EEPROM serie, mapper de SSF2
+  y el esqueleto del VDP (registros, líneas, interrupciones). Sin imagen todavía, Sonic 1 llega a jugar
+  el nivel con el intérprete, Super Street Fighter II corre con su mapper y NBA Jam guarda su EEPROM.
 
 ## Compilar
 
@@ -52,7 +52,8 @@ excepción, que serán las semillas del descubrimiento.
 Corre la ROM sin ventana con el intérprete (los botones `up down left right a b c start x y z mode`
 se mantienen en esos cuadros) y resume instrucciones, ciclos, excepciones por vector y en qué PC se le
 fue el tiempo al CPU en el último cuadro. `--watch DIR` imprime un byte de la RAM cada vez que cambia
-(en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel).
+(en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel). `--sram ARCHIVO` carga la
+SRAM o EEPROM del cartucho al empezar y la guarda al terminar.
 
 ## Estructura
 

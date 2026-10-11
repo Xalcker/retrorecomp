@@ -63,6 +63,7 @@ void gen_reset(Gen *g)
     g->version = (u8)((g->version & 0xF0) | (g->tmss ? 1 : 0));
     cart_map_reset(&g->cart);
     io_reset(g);
+    eeprom_reset(g);
     vdp_reset(g);
     m68k_reset(g);
 }

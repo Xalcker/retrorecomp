@@ -10,7 +10,7 @@ corre() {   # descripción comando...
 
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
 mkdir -p build/tests
-corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, SSF2, VINT/HINT)" "$(exe bustest)"
+corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, SSF2, VINT/HINT)" "$(exe bustest)"
 
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
@@ -39,6 +39,15 @@ for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do
         if "$(exe genrun)" "$r" --frames 900 --watch F600 start:600-605 | grep -q "FFF600\] = \$0C"; then
             echo "ok    Sonic 1 llega al nivel con el intérprete"
         else echo "FALLA Sonic 1 no llega al nivel con el intérprete"; fallas=$((fallas + 1)); fi
+    fi
+    # NBA Jam (USA/Europa): el primer arranque inicializa la EEPROM y el segundo la acepta (no escribe)
+    if "$(exe genrecomp)" "$r" | grep -q "99c5bc57fdea7f9df0cd8dec54160b162342344d"; then
+        rm -f build/tests/nba.sav
+        "$(exe genrun)" "$r" --frames 2000 --sram build/tests/nba.sav > build/tests/nba1.txt
+        "$(exe genrun)" "$r" --frames 2000 --sram build/tests/nba.sav > build/tests/nba2.txt
+        if grep -q "EEPROM: *256 bytes" build/tests/nba1.txt && grep -q "EEPROM: *0 bytes" build/tests/nba2.txt; then
+            echo "ok    NBA Jam guarda su EEPROM y la acepta al volver a arrancar"
+        else echo "FALLA NBA Jam y su EEPROM"; fallas=$((fallas + 1)); fi
     fi
 done
 

@@ -7,6 +7,7 @@
  *
  * Botones: up down left right a b c start x y z mode (los cuadros en que se mantienen).
  * --watch DIR (hexadecimal, en la RAM: $FF0000-$FFFFFF) imprime el byte cada vez que cambia.
+ * --sram ARCHIVO carga la SRAM o EEPROM del cartucho al empezar (si existe) y la guarda al terminar.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,9 +50,11 @@ int main(int argc, char **argv)
     long frames = 600;
     Hold h[32]; int nh = 0;
     u32 watch[16]; int nw = 0; int wlast[16];
+    const char *sram = NULL;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
+        else if (!strcmp(argv[i], "--sram") && i + 1 < argc) sram = argv[++i];
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
             if (*a == '$') a++;
@@ -65,7 +68,7 @@ int main(int argc, char **argv)
         else rom = argv[i];
     }
     if (!rom || frames <= 0) {
-        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [boton:desde-hasta ...]\n"
+        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c start x y z mode\n");
         return 2;
     }
@@ -76,6 +79,7 @@ int main(int argc, char **argv)
     const char *err = NULL;
     if (gen_load(g, data, len, &err)) { fprintf(stderr, "%s: %s\n", rom, err); return 1; }
     free(data);
+    if (sram && gen_sram_load(g, sram)) printf("partida cargada de %s\n", sram);
 
     u64 steps = 0;
     for (long f = 0; f < frames; f++) {
@@ -106,6 +110,7 @@ int main(int argc, char **argv)
     printf("ciclos:        %llu\n", (unsigned long long)g->cyc);
     printf("PC $%06X  SR $%04X%s%s\n", c->pc, m68k_get_sr(c), c->stopped ? "  (STOP)" : "", c->halted ? "  (detenido)" : "");
     if (g->cart.mapper == MAPPER_SSF2) printf("mapper SSF2:   %u cambios de mapeo\n", g->cart.map_ver);
+    if (g->cart.has_eeprom) printf("EEPROM:        %u bytes escritos\n", g->eeprom.writes);
     printf("excepciones:\n");
     for (int n = 0; n < 64; n++)
         if (g->exc_count[n]) {
@@ -121,6 +126,10 @@ int main(int argc, char **argv)
         if (!best) break;
         printf("  $%06X  %u\n", hpc[bi], best);
         hcount[bi] = 0;
+    }
+    if (sram && gen_sram_dirty(g)) {
+        if (gen_sram_save(g, sram)) printf("partida guardada en %s\n", sram);
+        else printf("no se pudo guardar la partida en %s\n", sram);
     }
     gen_free(g);
     free(g);

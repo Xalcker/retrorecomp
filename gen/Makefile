@@ -31,7 +31,7 @@ PLATFORM := linux
 endif
 # --- Fin del bloque común ---
 
-RUNTIME := cart.c gen.c bus.c io.c vdp.c cpu68k.c sha1.c
+RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c cpu68k.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 
@@ -59,7 +59,7 @@ m68ktest$(EXE): src/tools/m68ktest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c vdp.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
 EMBED_PLATFORM := random_pad.h png.c png.h files.c files.h export.c export.h
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \

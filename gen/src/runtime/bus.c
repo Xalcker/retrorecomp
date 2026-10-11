@@ -1,7 +1,8 @@
 /*
  * Bus del 68000: el mapa de memoria de la Mega Drive.
  *
- *   $000000-$3FFFFF  cartucho: ROM (con espejos; bancos de 512 KB con el mapper de SSF2) y SRAM
+ *   $000000-$3FFFFF  cartucho: ROM (con espejos; bancos de 512 KB con el mapper de SSF2), SRAM o
+ *                    EEPROM serie (eeprom.c)
  *   $400000-$9FFFFF  expansión (Mega CD, 32X): nada
  *   $A00000-$A0FFFF  bus del Z80 (con el bus pedido): su RAM, el YM2612, el registro de banco
  *   $A10000-$A1001F  E/S: versión, mandos, serie (io.c)
@@ -42,6 +43,7 @@ static inline u8 rom8(const Cart *c, u32 a)
 static inline u8 cart_rd8(Gen *g, u32 a)
 {
     const Cart *c = &g->cart;
+    if (c->has_eeprom && eeprom_owns(c, a)) return eeprom_read(g, a);
     if (sram_window(c, a))
         return sram_lane(c, a) ? c->sram_data[a - (c->sram_start & ~1u)] : (u8)(g->open_bus >> ((a & 1) ? 0 : 8));
     return rom8(c, a);
@@ -50,6 +52,7 @@ static inline u8 cart_rd8(Gen *g, u32 a)
 static inline void cart_wr8(Gen *g, u32 a, u8 v)
 {
     Cart *c = &g->cart;
+    if (c->has_eeprom && eeprom_owns(c, a)) { eeprom_write(g, a, v); return; }
     if (sram_window(c, a) && !(c->a130f1 & 2) && sram_lane(c, a))
         c->sram_data[a - (c->sram_start & ~1u)] = v;
 }

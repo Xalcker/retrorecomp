@@ -33,9 +33,40 @@ systems = {}          # "nes" / "gb" / "gen" -> System
 
 # --------------------------------------------------------------------------- utilidades
 
+# Windows: make y sh no están en el PATH de Windows; los recompiladores se compilan y prueban con MSYS2 UCRT64.
+# Esos dos se corren con su bash (en --msys DIR, MSYS2_ROOT o C:\msys64); el resto (los .exe de los
+# recompiladores, git) se lanza tal cual.
+MSYS = {"root": None}
+POSIX_TOOLS = ("make", "sh")
+
+
+def find_msys(explicit=None):
+    for c in (explicit, os.environ.get("MSYS2_ROOT"), r"C:\msys64"):
+        if c and os.path.isfile(os.path.join(c, "usr", "bin", "bash.exe")):
+            return c
+    return None
+
+
+def posix_path(a):
+    """C:\\Users\\x -> C:/Users/x: sh trata la barra invertida como escape."""
+    return a.replace("\\", "/") if re.match(r"^[A-Za-z]:\\", a) else a
+
+
+def host_cmd(argv, env=None):
+    """(argv, env) para lanzar argv: en Windows, make y sh dentro de MSYS2 UCRT64 (CHERE_INVOKING conserva la
+    carpeta de trabajo del proceso)."""
+    if os.name != "nt" or not argv or argv[0] not in POSIX_TOOLS or not MSYS["root"]:
+        return argv, env
+    e = dict(env if env is not None else os.environ)
+    e.update(MSYSTEM="UCRT64", CHERE_INVOKING="1")
+    script = "exec " + " ".join(shlex.quote(posix_path(a)) for a in argv)
+    return [os.path.join(MSYS["root"], "usr", "bin", "bash.exe"), "-lc", script], e
+
+
 def run_quiet(argv, cwd, timeout=60):
     try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+        argv, env = host_cmd(argv)
+        p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout,
                            encoding="utf-8", errors="replace")   # los recompiladores escriben UTF-8 (en Windows no es el predeterminado)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except Exception as e:  # noqa: BLE001
@@ -706,7 +737,8 @@ class Job:
             try:
                 e = dict(os.environ)
                 e.update(st.get("env") or {})
-                self.proc = subprocess.Popen(st["argv"], cwd=cwd, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                argv, e = host_cmd(st["argv"], e)
+                self.proc = subprocess.Popen(argv, cwd=cwd, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                              text=True, bufsize=1, encoding="utf-8", errors="replace")
                 for ln in self.proc.stdout:
                     self.emit(strip(ln))
@@ -1027,7 +1059,10 @@ def main():
     ap.add_argument("--roms", action="append", default=[], help="carpeta extra con ROMs (se puede repetir)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--msys", help="Windows: carpeta de MSYS2 (por omisión MSYS2_ROOT o C:\\msys64); make y sh corren ahí, en UCRT64")
     a = ap.parse_args()
+    if os.name == "nt":
+        MSYS["root"] = find_msys(a.msys)
     nes = find_repo("NESRecomp", "NESRECOMP_DIR", a.nes, os.path.join("src", "nesrecomp", "nesrecomp.c"))
     gb = find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c"))
     if nes:
@@ -1055,6 +1090,10 @@ def main():
     print(f"retrorecomp: {url}", flush=True)
     for s in systems.values():
         print(f"  {s.label}: {s.root}", flush=True)
+    if os.name == "nt":
+        print(f"  MSYS2 (make, sh): {MSYS['root']}" if MSYS["root"] else
+              "  aviso: no encontré MSYS2 (use --msys DIR o MSYS2_ROOT): «Compilar herramientas», las pruebas y el "
+              "ciclo completo necesitan make y sh de MSYS2 UCRT64", flush=True)
     if not a.no_browser:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
     try:

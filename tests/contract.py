@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Prueba de contrato: las herramientas sin ventana de NESRecomp y GBRecomp aceptan las mismas
-opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
+"""Prueba de contrato: las herramientas sin ventana de NESRecomp, GBRecomp y GENRecomp aceptan las
+mismas opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
 comprueba que su ayuda las menciona. También comprueba que el código compartido (SHARED, p. ej. el
-mando aleatorio random_pad.h) sea idéntico en los dos. Corre con los recompiladores ya compilados (make).
+mando aleatorio random_pad.h) sea idéntico en todos los que encuentre. Corre con los recompiladores ya compilados (make).
 
-    python3 tests/contract.py [--nes DIR] [--gb DIR]
+    python3 tests/contract.py [--nes DIR] [--gb DIR] [--gen DIR]
 """
 import argparse, os, subprocess, sys
 
@@ -16,9 +16,11 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
             "nesaudio": ("--frames", "--input", "--seed"), "nesbench": ("--frames", "--input", "--repeat")},
     "gb": {"gbtrace": ("--frames", "--input", "--seed"), "gbshot": ("--frames", "--input", "--seed"),
            "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat")},
+    "gen": {"gentrace": ("--frames", "--input", "--seed"), "genshot": ("--frames", "--input", "--seed"),
+            "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat")},
 }
 
-# Archivos que los dos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed y
+# Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed y
 # la propia prueba de contrato de cada uno
 SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("tests", "contract.sh"))
 
@@ -27,9 +29,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--nes")
     ap.add_argument("--gb")
+    ap.add_argument("--gen")
     a = ap.parse_args()
     roots = {"nes": rr.find_repo("NESRecomp", "NESRECOMP_DIR", a.nes, os.path.join("src", "nesrecomp", "nesrecomp.c")),
-             "gb": rr.find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c"))}
+             "gb": rr.find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c")),
+             "gen": rr.find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c"))}
     fails = checked = 0
     for sid, tools in COMMON.items():
         root = roots[sid]
@@ -42,7 +46,7 @@ def main():
                 print(f"FALLA {sid}/{tool}: no está compilado")
                 fails += 1
                 continue
-            p = subprocess.run([exe], cwd=root, capture_output=True, text=True, errors="replace")
+            p = subprocess.run([exe], cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
             usage = p.stdout + p.stderr
             missing = [o for o in opts if o not in usage]
             checked += 1
@@ -51,9 +55,10 @@ def main():
                 fails += 1
             else:
                 print(f"ok    {sid}/{tool}")
-    # Archivos que deben ser idénticos en los dos repositorios (sin contar el fin de línea)
+    # Archivos que deben ser idénticos en todos los repositorios (sin contar el fin de línea)
     for shared in SHARED:
-        paths = [os.path.join(roots[s], shared) for s in ("nes", "gb") if roots[s]]
+        found = [s for s in roots if roots[s]]
+        paths = [os.path.join(roots[s], shared) for s in found]
         if len(paths) < 2:
             continue
         checked += 1
@@ -63,10 +68,11 @@ def main():
             print(f"FALLA {shared}: {e}")
             fails += 1
             continue
-        if texts[0] == texts[1]:
-            print(f"ok    {shared} (idéntico en los dos)")
+        distintos = [s for s, t in zip(found, texts) if t != texts[0]]
+        if not distintos:
+            print(f"ok    {shared} (idéntico en {', '.join(found)})")
         else:
-            print(f"FALLA {shared}: no es igual en NESRecomp y GBRecomp")
+            print(f"FALLA {shared}: {', '.join(distintos)} no es igual que en {found[0]}")
             fails += 1
     print(f"{checked} herramientas y archivos revisados, {fails} fallas")
     return 1 if fails else 0

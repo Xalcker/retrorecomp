@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""retrorecomp: una sola GUI local para NESRecomp y GBRecomp (solo biblioteca estándar de Python).
+"""retrorecomp: una sola GUI local para NESRecomp, GBRecomp y GENRecomp (solo biblioteca estándar
+de Python).
 
 Una página servida en 127.0.0.1 que detecta el sistema de cada ROM (NES, Game Boy, Game Boy Color,
-Super Game Boy) y llama a las herramientas del recompilador que corresponda: mapa del descubrimiento
+Super Game Boy, Sega Genesis) y llama a las herramientas del recompilador que corresponda: mapa del descubrimiento
 con clic por celda, avance por ROM, trazas, guiones de entradas, recompilar, difftest, bench y el
 ciclo completo, con la salida en vivo.
 
-    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--roms DIR ...] [--port 8765] [--no-browser]
+    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--gen DIR] [--roms DIR ...] [--port 8765] [--no-browser]
 
-Dónde busca los recompiladores: --nes/--gb, las variables NESRECOMP_DIR/GBRECOMP_DIR, la carpeta
-que contiene a retrorecomp si es uno de ellos (submódulo) o sus hermanas NESRecomp y GBRecomp.
+Dónde busca los recompiladores: --nes/--gb/--gen, las variables NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR,
+la carpeta que contiene a retrorecomp si es uno de ellos (submódulo) o sus hermanas NESRecomp, GBRecomp y
+GENRecomp.
 """
 import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,14 +28,15 @@ lock = threading.RLock()
 jobs, job_seq = {}, [0]
 cfg = {"token": "", "extra_roms": []}
 events_cache = {}
-systems = {}          # "nes" / "gb" -> System
+systems = {}          # "nes" / "gb" / "gen" -> System
 
 
 # --------------------------------------------------------------------------- utilidades
 
 def run_quiet(argv, cwd, timeout=60):
     try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, errors="replace")
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                           encoding="utf-8", errors="replace")   # los recompiladores escriben UTF-8 (en Windows no es el predeterminado)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except Exception as e:  # noqa: BLE001
         return 127, str(e)
@@ -83,7 +86,9 @@ def update_state(rid, **kv):
         os.replace(tmp, STATE_FILE)
 
 
-PAD = r"(-|\$?[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|(A|B|SELECT|START|RIGHT|LEFT|UP|DOWN)(\+(A|B|SELECT|START|RIGHT|LEFT|UP|DOWN))*)"
+# Botones de los tres (C, X, Y, Z y MODE solo existen en el Genesis; SELECT no)
+BTN = r"(A|B|C|X|Y|Z|SELECT|START|MODE|RIGHT|LEFT|UP|DOWN)"
+PAD = r"(-|\$?[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|" + BTN + r"(\+" + BTN + r")*)"
 LINE_OK = re.compile(r"^(#.*|modelo (dmg|cgb|sgb)|paleta [A-Za-z+]+|\d+\s+" + PAD + r"(\s+" + PAD + r")?)?$", re.I)
 
 
@@ -156,9 +161,19 @@ class NES(System):
             "game_frames": 1500}
     ORG_COLOR = {46: 0, 51: 1, 226: 2, 201: 3}
     ANSI = re.compile(r"\x1b\[([0-9;]*)m(.)\x1b\[0m|(.)")
+    # Lo que cambia en GENRecomp, que copia los formatos de NESRecomp (ver class GEN)
+    mem = "PRG"                      # memoria a la que se refieren los desplazamientos
+    window = "nes"                   # el intérprete con ventana
+    bench_tool = "nesbench"
+    trace_tools = {"trace": "nestrace", "screenshot": "nesshot", "audio": "nesaudio"}
 
     def project_dir(self, name):
         return os.path.join(self.root, "build", "out", name)
+
+    def header_stats(self, ln, stats):
+        m = re.search(r"mapper (\d+), PRG (\d+) KB, CHR (\d+) KB", ln)
+        if m:
+            stats.update(mapper=f"mapper {m.group(1)}", banks=int(m.group(2)) // 16, size=int(m.group(2)) * 1024)
 
     def info(self, path):
         try:
@@ -174,14 +189,14 @@ class NES(System):
 
     # -- mapa (de --viz --color)
     def map(self, rom_path, traces, coverage):
-        argv = [self.tool("nesrecomp"), rom_path, "--viz", "--color"]
+        argv = [self.tool(self.recomp), rom_path, "--viz", "--color"]
         for t in traces:
             argv += ["--trace", t]
         if coverage:
             argv += ["--coverage", coverage]
         rc, out = self.run(argv, 120)
         if rc != 0:
-            raise RuntimeError(out.strip() or "falló nesrecomp")
+            raise RuntimeError(out.strip() or f"falló {self.recomp}")
         banks, stats = [], {}
         for ln in out.splitlines():
             m = re.match(r"^([0-9A-F]{6}) (.*)$", ln)
@@ -199,10 +214,8 @@ class NES(System):
                         cells.append([256 if ch == "#" else 100, self.ORG_COLOR.get(n, 0), 0])
                 banks.append({"label": m.group(1), "base": int(m.group(1), 16), "cells": cells})
                 continue
-            m = re.search(r"mapper (\d+), PRG (\d+) KB, CHR (\d+) KB", ln)
-            if m:
-                stats.update(mapper=f"mapper {m.group(1)}", banks=int(m.group(2)) // 16, size=int(m.group(2)) * 1024)
-            m = re.search(r"código: (\d+) instrucciones \((\d+) bytes, ([\d.]+)% del PRG\)", ln)
+            self.header_stats(ln, stats)
+            m = re.search(r"código: (\d+) instrucciones \((\d+) bytes, ([\d.]+)% (?:del PRG|de la ROM)\)", ln)
             if m:
                 stats.update(instr=int(m.group(1)), bytes=int(m.group(2)), pct=float(m.group(3)))
             m = re.search(r"cobertura: (\d+) de (\d+) instrucciones ejecutadas descubiertas sin traza \(([\d.]+)% *\)", ln)
@@ -218,7 +231,7 @@ class NES(System):
     def events(self, rom_path, traces):
         tmp = os.path.join(WORK, f"events_{secrets.token_hex(4)}.txt")
         os.makedirs(WORK, exist_ok=True)
-        argv = [self.tool("nesrecomp"), rom_path, "--events", tmp]
+        argv = [self.tool(self.recomp), rom_path, "--events", tmp]
         for t in traces:
             argv += ["--trace", t]
         rc, out = self.run(argv, 120)
@@ -243,47 +256,51 @@ class NES(System):
         ev = get_events(self, rom_path, traces)
         lo = banks[bank_i]["base"] + ci * CELL
         items = sorted((e for e in ev if lo <= e["pos"] < lo + CELL), key=lambda e: e["pos"])
-        return {"title": f"PRG ${lo:06X}–${lo + CELL - 1:06X}",
+        return {"title": f"{self.mem} ${lo:06X}–${lo + CELL - 1:06X}",
                 "events": [{"addr": "$" + e["addr"], "org": e["org"], "dis": e["dis"], "why": "%X" % e["pos"]} for e in items]}
 
     def why(self, rom_path, traces, arg):
         if not re.fullmatch(r"[0-9A-Fa-f]{1,8}", arg or ""):
             raise ValueError("desplazamiento inválido")
-        argv = [self.tool("nesrecomp"), rom_path, "--why", arg]
+        argv = [self.tool(self.recomp), rom_path, "--why", arg]
         for t in traces:
             argv += ["--trace", t]
-        return re.sub(r"^.*mapper.*\n.*\n", "", self.run(argv, 60)[1])
+        # Sin las dos primeras líneas (cabecera de la ROM y «código: ...»)
+        return re.sub(r"^.*\n.*código:.*\n", "", self.run(argv, 60)[1])
 
     # -- comandos
     def recomp_argv(self, rp, pdir, name, tflags):
-        return [self.tool("nesrecomp"), rp, "-o", pdir, "--name", name, *tflags]
+        return [self.tool(self.recomp), rp, "-o", pdir, "--name", name, *tflags]
 
     def trace_tool(self, kind):
-        return {"trace": "nestrace", "screenshot": "nesshot", "audio": "nesaudio"}[kind]
+        return self.trace_tools[kind]
 
     def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
-        exe = os.path.join(pdir, "bench" + EXE) if recompiled else self.tool("nesbench")
+        exe = os.path.join(pdir, "bench" + EXE) if recompiled else self.tool(self.bench_tool)
         argv = [exe, rp, "--frames", str(frames), "--repeat", str(repeat)]
         return argv + (["--input", inp] if inp else [])
 
     def visor(self, rp, tflags, cov):
         out = os.path.join(WORK, f"visor_{self.id}_{stem(os.path.basename(rp))}.html")
-        argv = [self.tool("nesrecomp"), rp, "--html", out, *tflags]
+        argv = [self.tool(self.recomp), rp, "--html", out, *tflags]
         if cov:
             argv += ["--coverage", cov]
         return argv, out
 
+    def record_trace(self, argv, env, path):
+        env["NES_TRACE"] = path
+
     def play_argv(self, rp, proj, interp, model, env, record_trace_path, record_input_path, play_input):
         if interp or not proj["built"]:
-            exe = self.tool("nes")
+            exe = self.tool(self.window)
             if not os.path.isfile(exe):
-                raise ValueError("falta ./nes (Compilar herramientas)")
+                raise ValueError(f"falta ./{self.window} (Compilar herramientas)")
         else:
             exe = os.path.join(proj["dir"], proj["name"] + EXE)
         argv = [exe, rp]
         if record_trace_path:
-            if exe == self.tool("nes"):
-                env["NES_TRACE"] = record_trace_path
+            if exe == self.tool(self.window):
+                self.record_trace(argv, env, record_trace_path)
             else:
                 raise ValueError("el juego recompilado no graba trazas: use «todo con el intérprete»")
         if record_input_path:
@@ -291,6 +308,45 @@ class NES(System):
         if play_input:
             argv += ["--play", play_input]
         return argv
+
+
+class GEN(NES):
+    """GENRecomp copia los formatos de NESRecomp (mapa de --viz --color, --events, --why, --html,
+    trazas por desplazamiento, recomp_game.sh y bench en el proyecto): solo cambian los nombres,
+    la cabecera de la ROM y cómo graba trazas la ventana."""
+    id, label, exts = "gen", "Genesis", (".md", ".gen", ".bin", ".smd")
+    recomp = "genrecomp"
+    tools = ("genrecomp", "gen", "gentrace", "genshot", "genaudio", "genbench", "genrun", "ramdump")
+    legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (punteros sueltos)")
+    caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
+            "game_frames": 1500}
+    mem = "ROM"
+    window = "gen"
+    bench_tool = "genbench"
+    trace_tools = {"trace": "gentrace", "screenshot": "genshot", "audio": "genaudio"}
+
+    def info(self, path):
+        try:
+            size = os.path.getsize(path)
+            with open(path, "rb") as f:
+                d = f.read(0x200 + 0x200)
+        except OSError:
+            return {}
+        if os.path.splitext(path)[1].lower() == ".smd":     # 512 bytes del copiador y bloques entrelazados
+            return {"title": "", "mapper": "Genesis (.smd)", "banks": max(1, (size - 0x200) // BANK), "size": size - 0x200}
+        if d[0x100:0x104] != b"SEGA" and d[0x101:0x105] != b"SEGA":
+            return {}
+        title = d[0x150:0x180].decode("latin-1", "replace").strip() or d[0x120:0x150].decode("latin-1", "replace").strip()
+        return {"title": " ".join(title.split()), "mapper": "Genesis", "banks": max(1, size // BANK), "size": size}
+
+    def header_stats(self, ln, stats):
+        m = re.search(r": ROM (\d+) KB, SHA1", ln)
+        if m:
+            kb = int(m.group(1))
+            stats.update(mapper="Genesis", banks=max(1, kb // 16), size=kb * 1024)
+
+    def record_trace(self, argv, env, path):
+        argv += ["--trace", path]
 
 
 class GB(System):
@@ -500,8 +556,15 @@ def detect_system(path):
         return "nes"
     if len(d) >= 0x134 and d[0x104:0x108] == bytes([0xCE, 0xED, 0x66, 0x66]):
         return "gb"
+    # Genesis: "SEGA" en la cabecera ($100), o un .smd (cabecera de copiador AA BB y bloques entrelazados)
+    if d[0x100:0x104] == b"SEGA" or d[0x101:0x105] == b"SEGA" or (len(d) > 9 and d[8:10] == b"\xaa\xbb"):
+        return "gen"
     ext = os.path.splitext(path)[1].lower()
-    return "nes" if ext == ".nes" else "gb" if ext in (".gb", ".gbc", ".sgb") else None
+    if ext == ".nes":
+        return "nes"
+    if ext in (".gb", ".gbc", ".sgb"):
+        return "gb"
+    return "gen" if ext in (".md", ".gen", ".smd") else None     # un .bin sin "SEGA" no se adivina
 
 
 ROMS = {}   # id -> (system, ruta)
@@ -586,7 +649,11 @@ def save_input(rid, name, text):
     name = safe_name(name[:-4] if name.endswith(".txt") else name)
     lines = [l.rstrip() for l in text.splitlines()]
     for i, l in enumerate(lines, 1):
-        if not LINE_OK.match(l.strip()) or (sysm.id == "nes" and re.match(r"(modelo|paleta)\b", l.strip(), re.I)):
+        # Botones que esa consola no tiene (se revisan las palabras después del número de cuadro)
+        bad_btn = {"nes": {"C", "X", "Y", "Z", "MODE"}, "gb": {"C", "X", "Y", "Z", "MODE"}, "gen": {"SELECT"}}.get(sysm.id, set())
+        words = set(re.split(r"[\s+]+", l.strip().upper())[1:]) if re.match(r"\d", l.strip()) else set()
+        if (not LINE_OK.match(l.strip()) or (sysm.id != "gb" and re.match(r"(modelo|paleta)\b", l.strip(), re.I))
+                or words & bad_btn):
             raise ValueError(f"línea {i} inválida: {l[:40]} (use «cuadro BOTONES», p. ej. 300 START+A, o «-»)")
     os.makedirs(input_dir(rid), exist_ok=True)
     with open(os.path.join(input_dir(rid), name + ".txt"), "w", encoding="utf-8") as f:
@@ -598,6 +665,8 @@ PRESETS = {
     "nes": {"smb": "0 -\n120 START\n125 -\n300 RIGHT\n", "titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 A\n407 -\n"},
     "gb": {"partida1": "modelo dmg\n0 -\n122 START\n129 -\n550 START\n557 -\n601 RIGHT\n609 -\n",
            "titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 A\n407 -\n"},
+    "gen": {"titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 C\n407 -\n",
+            "sonic": "0 -\n120 START\n127 -\n300 RIGHT\n600 RIGHT+C\n610 RIGHT\n"},
 }
 
 
@@ -638,7 +707,7 @@ class Job:
                 e = dict(os.environ)
                 e.update(st.get("env") or {})
                 self.proc = subprocess.Popen(st["argv"], cwd=cwd, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                             text=True, bufsize=1, errors="replace")
+                                             text=True, bufsize=1, encoding="utf-8", errors="replace")
                 for ln in self.proc.stdout:
                     self.emit(strip(ln))
                 rc = self.proc.wait()
@@ -815,8 +884,8 @@ def api_cell(rid, traces, bank_i, ci):
     n = sysm.info(rp).get("banks", 2)
     if bank_i < 0 or bank_i >= max(n, 1) or not 0 <= ci < BANK // CELL:
         raise ValueError("celda fuera de rango")
-    # NES: una fila por cada 16 KB de PRG; GB: una por banco (el banco 0 en $0000, los demás en $4000)
-    banks = [{"bank": b, "base": b * BANK if sysm.id == "nes" else (0 if b == 0 else 0x4000)} for b in range(n)]
+    # NES y Genesis: una fila por cada 16 KB (de PRG o de ROM); GB: una por banco (el banco 0 en $0000, los demás en $4000)
+    banks = [{"bank": b, "base": b * BANK if sysm.id in ("nes", "gen") else (0 if b == 0 else 0x4000)} for b in range(n)]
     return sysm.cell(rp, trace_files(rid, traces), bank_i, ci, banks)
 
 
@@ -951,9 +1020,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="GUI local para NESRecomp y GBRecomp")
+    ap = argparse.ArgumentParser(description="GUI local para NESRecomp, GBRecomp y GENRecomp")
     ap.add_argument("--nes", help="carpeta de NESRecomp")
     ap.add_argument("--gb", help="carpeta de GBRecomp")
+    ap.add_argument("--gen", help="carpeta de GENRecomp")
     ap.add_argument("--roms", action="append", default=[], help="carpeta extra con ROMs (se puede repetir)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
@@ -964,8 +1034,11 @@ def main():
         systems["nes"] = NES(nes)
     if gb:
         systems["gb"] = GB(gb)
+    gen = find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c"))
+    if gen:
+        systems["gen"] = GEN(gen)
     if not systems:
-        sys.exit("no encontré NESRecomp ni GBRecomp: use --nes/--gb o NESRECOMP_DIR/GBRECOMP_DIR")
+        sys.exit("no encontré NESRecomp, GBRecomp ni GENRecomp: use --nes/--gb/--gen o NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR")
     cfg["extra_roms"] = [os.path.abspath(r) for r in a.roms]
     cfg["token"] = secrets.token_urlsafe(16)
     os.makedirs(WORK, exist_ok=True)

@@ -16,7 +16,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `ramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
 | `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
-| `tools/` | `retrorecomp/` (la GUI común con GBRecomp, submódulo) y `compat/` (prueba de compatibilidad con una colección de ROMs: `scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
+| `tools/` | `retrorecomp/` (la GUI común con GBRecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `ramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 | `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
 
 ## Una sola fuente de verdad para el CPU
@@ -326,7 +326,7 @@ La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md
 AccuracyCoin (`tests/accuracycoin.py`, opcional): 114 de 149. Faltan, sobre todo, el comportamiento
 por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, activar o desactivar el dibujo
 en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y detalles del bus
-abierto de la PPU y del APU.
+abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferencias con TriCNES (que pasa todas).
 
 ### Línea base para optimizar el runtime
 

@@ -2,18 +2,30 @@
 
 NESRecomp toma una ROM de NES (iNES) y genera un proyecto C99 que se compila en un ejecutable
 nativo. El ejecutable carga la ROM del usuario en tiempo de ejecución y valida su SHA1: nunca se
-distribuyen datos de la ROM. Sigue el diseño de GBRecomp.
+distribuyen datos de la ROM.
+
+Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de GBRecomp: lo
+que cambia entre las dos consolas queda dentro de cada una.
 
 ## Piezas
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `nes.c` (cartucho iNES y NES 2.0, bus, reloj, DMA, joypads, RAM con batería, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `recomp.h` (macros del código generado). |
-| `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. |
-| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
+| `src/runtime/` | La consola: `nes.c` (cartucho iNES y NES 2.0, bus, reloj, DMA, joypads, RAM con batería, estados, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `recomp.h` (macros del código generado). |
+| `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `ramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
-| `tests/` | `run_tests.sh` (nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh`, `coverage.sh`, `accuracycoin.py`. |
-| `tools/compat/` | Prueba de compatibilidad con una colección de ROMs (`scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
+| `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
+| `tools/` | `retrorecomp/` (la GUI común con GBRecomp, submódulo) y `compat/` (prueba de compatibilidad con una colección de ROMs: `scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
+| `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
+
+## Una sola fuente de verdad para el CPU
+
+`cpu_ops.h` define la tabla de opcodes y la semántica de cada operación (`op_read`, `op_rmw`,
+`op_store`, `op_implied`, `op_branch_taken`). El intérprete las llama con valores de tiempo de
+ejecución y el código generado con constantes, que el compilador pliega. La secuencia de accesos
+al bus de cada modo de direccionamiento sí está escrita dos veces (`cpu6502.c` y el emisor); el
+`difftest` la vigila.
 
 ## Temporización
 
@@ -24,7 +36,7 @@ nivel) y un NMI que llega mientras se empujan los registros secuestra el vector.
 como 513/514 ciclos reales. Verificado con `nestest` (incluida la posición de la PPU), las
 pruebas de temporización de Blargg y `ppu_vbl_nmi`.
 
-## Rendimiento: ejecución perezosa
+### Rendimiento: ejecución perezosa
 
 La PPU y el APU no avanzan en cada ciclo de CPU sino cuando hace falta; el resultado es idéntico bit a bit
 (`tests/golden.sh` compara el hash de la imagen y del audio de 16 casos con una línea base).
@@ -45,13 +57,30 @@ La PPU y el APU no avanzan en cada ciclo de CPU sino cuando hace falta; el resul
 
 Super Mario Bros. corre a ~55x tiempo real en el código recompilado y ~42x en el intérprete (antes 13x y 11x).
 
-## Una sola fuente de verdad para el CPU
+## Interrupciones y despachador
 
-`cpu_ops.h` define la tabla de opcodes y la semántica de cada operación (`op_read`, `op_rmw`,
-`op_store`, `op_implied`, `op_branch_taken`). El intérprete las llama con valores de tiempo de
-ejecución y el código generado con constantes, que el compilador pliega. La secuencia de accesos
-al bus de cada modo de direccionamiento sí está escrita dos veces (`cpu6502.c` y el emisor); el
-`difftest` la vigila.
+`nes_run_frame` corre hasta que la PPU termina el cuadro. En cada vuelta busca la función
+recompilada que contiene el PC (`recomp_lookup`); si no hay (código en RAM o que el descubrimiento
+no encontró, o `--interp`), ejecuta una instrucción con el intérprete (`cpu_step`) y vuelve a
+buscar. Así el código recompilado y el intérprete se alternan sin perder un ciclo.
+
+`recomp_lookup` (generado en `gen/dispatch.c`) traduce el PC a desplazamiento de PRG con el mapeo
+actual (`mapper_prg_offset`) y busca en la tabla de funciones ordenada por desplazamiento, empezando
+por la primera función de esa página de 256 bytes (`page_first`). Ver "Identidad de las
+instrucciones".
+
+Dentro de una función, las macros de `recomp.h` deciden cuándo volver al despachador:
+
+- `FRAME(pc)`, al empezar cada instrucción: si la PPU terminó el cuadro, guarda el PC y sale.
+- `ICHK(pc)`, al terminar cada instrucción: si hay un NMI o un IRQ listo (`prev_need_nmi`,
+  `prev_run_irq`, muestreados en el penúltimo ciclo como en el intérprete), guarda el PC y atiende
+  la interrupción (`nes_interrupt`) antes de salir.
+- `LEAVE(pc)`, en un salto fuera de la función (`jsr`, `rts`, `rti`, `jmp` fuera): igual, pero
+  siempre sale.
+- `MAPCHK(pc)`, tras una escritura que pudo cambiar el mapeo de PRG (ver "Código generado").
+
+Los IRQ por ciclos de algunos mappers (FME-7, Jaleco, Namco 163) guardan en `cart.irq_cycle` el
+ciclo en que se levantan, y `nes.c` lo compara en cada acceso al bus.
 
 ## Recompilador
 
@@ -147,19 +176,155 @@ L_8000: /* lda #$10 */
   comparan CPU, RAM, PPU, APU, mapper y, al final de cada cuadro, imagen y audio.
 - `./bench rom.nes [cuadros]`: velocidad sin ventana.
 
-## Mappers
+## Bancos, mappers y guardado
+
+### Mappers
 
 El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros `CART_MMC3/MMC5/CHRHOOK/LOWREGS/EXGFX` (nes.h) pasan
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
 13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 23 VRC2/VRC4 (sin IRQ), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
-Los IRQ por ciclos (FME-7, Jaleco, Namco 163) guardan en `cart.irq_cycle` el ciclo en que se levantan; `nes.c` lo compara en cada acceso al bus.
 
 Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
 si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
 `mapper_prg_granule`), más una prueba sintética en `src/tools/mappertest.c`.
 
+### Cartucho
+
 `nes_load` lee la cabecera iNES y NES 2.0 (tamaños con MSB o en notación exponente-multiplicador y los bits altos del mapper; no el submapper).
 Un PRG de 8 KB se repite hasta 16 KB. La RAM con batería sin estrenar se inicializa a `$FF`: con ceros, Kid Dracula interpreta la RAM como una
 partida válida y se cuelga.
+
+### Guardado
+
+- **RAM con batería:** `<juego>.sav` en la carpeta de datos del juego; se guarda al salir y cada 5 s
+  si cambió. Sin partida previa se lee como `$FF` (ver arriba).
+- **Estados** (`nes_state_save` / `nes_state_load`, cuatro ranuras: `<juego>.estado1-4`): la
+  estructura `NES` completa, más la CHR RAM si la hay, con una cabecera que identifica la ROM
+  (mapper, tamaños y un hash del PRG). Al cargar se rehacen los punteros del mapeo
+  (`mapper_remap`), porque los guardados eran de otra ejecución. `statetest` lo prueba en
+  `make test`.
+
+### La ROM se pide una sola vez
+
+Un juego recompilado busca la ROM, en orden: el argumento, la copia guardada en la carpeta de datos,
+`rom.nes` junto al ejecutable o en la carpeta actual, y un `.nes` de la carpeta actual con el SHA1
+correcto. Si no está, la pide con el diálogo de abrir archivo (Windows) o arrastrándola a la ventana.
+Una ROM válida se copia a la carpeta de datos para las siguientes veces (`--forget-rom` la borra).
+
+Carpeta de datos (la da SDL): en Windows `%APPDATA%\NESRecomp\<juego>\`, en Linux
+`~/.local/share/NESRecomp/<juego>/` y en macOS `~/Library/Application Support/NESRecomp/<juego>/`.
+Ahí van también las preferencias (`settings.ini`), la paleta propia (`paleta.pal`) y lo exportado.
+
+## Video y audio
+
+### PPU
+
+2C02 punto por punto: fondo, sprites con su evaluación por línea, scroll, sprite 0 hit y los eventos
+de A12 que necesita el IRQ del MMC3. Pasa las 11 `sprite_hit_tests` y las 10 `ppu_vbl_nmi`. Avanza
+de forma perezosa (ver "Rendimiento: ejecución perezosa"). Los colores salen de una paleta de 64
+entradas, con énfasis: la predeterminada, grises, saturada o un `paleta.pal` propio
+(`ppu_load_palette`). El MMC5 agrega su ExGrafix (`CART_EXGFX`); falta su pantalla dividida.
+
+### APU
+
+Dos pulsos, triángulo, ruido, DMC y frame counter con IRQ (`src/runtime/apu.c`). La mezcla es la no
+lineal del hardware (tablas `pulse_mix` y `tnd_mix`) y la salida pasa por los filtros de la consola:
+paso alto de 90 y 440 Hz y paso bajo de 14 kHz. Sale en mono a 44 100 Hz. Pasa las 8 `apu_test` y las
+pruebas viejas del frame counter. El MMC5 suma sus dos pulsos y su PCM; faltan el audio del Namco 163
+y el 5B del FME-7. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
+
+## Variantes de la consola y accesorios
+
+Solo se emula la NES NTSC (60.0988 cuadros por segundo); no hay modo PAL. Lo que se conecta a la
+consola:
+
+- **Dos mandos** (teclado y mandos de juego) y el **Four Score** (cuatro jugadores, con mandos).
+- **Zapper:** el ratón apunta y el clic izquierdo dispara; la pistola lee la luz de la pantalla en
+  ese punto (`ppu_light_at`). Sin ventana, `nesshot` lo simula con `zapper:X,Y,desde-hasta`.
+  Verificado con Duck Hunt.
+
+## Interfaz del ejecutable
+
+La misma para el intérprete (`nes`) y para los juegos recompilados (`main_sdl.c`, con
+`-DNES_RECOMP` en el proyecto generado): ventana con barra de menús, controles, audio y ritmo de
+60.0988 cuadros por segundo. La barra de menús y los diálogos vienen de Moskva 89 y GBRecomp
+(`ui_menu.c`, `ui_font.c`): se dibujan dentro de la ventana para verse igual en todos los sistemas,
+en español o inglés (`i18n.c`). Con un menú o un diálogo abierto, el juego se pausa.
+
+- **Juego:** estados guardados (4 ranuras), pausa y avance rápido (Tab).
+- **Video:** tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7, overscan y paletas.
+- **Audio:** volumen y silenciar cada canal del APU (tecla M = silencio).
+- **Controles:** 2 jugadores, Four Score y Zapper (ver "Variantes de la consola y accesorios").
+  Jugador 1: flechas, Z = B, X = A, Enter = Start, Mayús/Retroceso = Select. Jugador 2: WASD,
+  F = B, G = A, C = Start, V = Select.
+- **Exportar:** captura PNG y grabación de audio WAV.
+
+Opciones: `juego [rom.nes] [--scale N] [--interp] [--force] [--forget-rom] [--record archivo |
+--play archivo] [--uncovered archivo]`. `--interp` ejecuta todo con el intérprete (para comparar);
+`--force` acepta una ROM con otro SHA1 (solo con el intérprete); `--record` y `--play` graban y
+reproducen los botones (`inputs.h`, el mismo formato que `--input` de las herramientas sin ventana);
+`--uncovered` agrega al salir las instrucciones que tuvo que ejecutar el intérprete, como traza para
+`nesrecomp --trace`. Para pruebas sin ventana: `--ui-shot archivo.png` con `--ui-frames N`,
+`--ui-menu N` y `--ui-action N`.
+
+## Empaquetado y pruebas
+
+- **`make dist`:** deja `dist/nesrecomp-<versión>-<sistema>.tar.gz` con `nesrecomp`, el README, la
+  licencia y este documento. La versión sale de `git describe`.
+- **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2, SDL2 enlazado de forma
+  estática e icono del juego: no necesita DLLs), Linux y macOS (SDL2 por pkg-config). `make dist` en
+  el proyecto deja el ejecutable en `dist/`.
+- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en GBRecomp), en Linux,
+  macOS y Windows:
+  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
+  - `make testroms` (christopherpow/nes-test-roms en un commit fijo) y `make test`, que también
+    recompila tres ROMs de prueba y las compara con `difftest`.
+  - `make dist` y publica el paquete como artefacto; con una etiqueta `vX.Y.Z`, además crea el
+    release con los paquetes de los tres sistemas.
+
+### Prueba diferencial
+
+`difftest` (en cada proyecto generado; ver "Proyecto generado") corre el código recompilado y el
+intérprete lado a lado y compara todo el estado de la consola, la imagen y el audio. `--seed S` suma
+un mando aleatorio reproducible y `--uncovered` guarda las instrucciones de PRG que tuvo que
+interpretar, como traza para `nesrecomp --trace`.
+
+`tests/recomp_game.sh rom nombre` hace el ciclo completo: traza guionada, recompila, compila, corre
+`difftest` con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a
+probar.
+
+### Resultados con juegos
+
+Con una traza, Super Mario Bros., Donkey Kong, Arkanoid, Contra, Castlevania, Mega Man, Super Mario
+Bros. 3 y Zelda corren 1500 cuadros con 100 % de los ciclos en código recompilado (Zelda 99.7 %) e
+idénticos al intérprete (CPU, RAM, PPU, APU, mapper, imagen y audio). Sin traza, solo con el análisis
+estático, los mismos juegos corren con 97-100 % de los ciclos recompilados e idénticos al intérprete.
+La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md](COMPATIBILIDAD.md).
+
+## Estado de la validación
+
+`make test` (`tests/run_tests.sh`):
+
+- CPU: `nestest` (incluida la posición de la PPU), las 16 `instr_test-v5`, `instr_misc`,
+  `instr_timing` y `cpu_interrupts_v2` 1, 2, 3, 4 y 5.
+- Mappers: `mmc3_test_2` (con la revisión vieja del MMC3 en `NES_MMC3_ALT=1`) y `mappertest`
+  (sintética).
+- APU: las 8 `apu_test`. PPU: las 10 `ppu_vbl_nmi`.
+- RAM con batería, estados y entradas grabadas (`sramtest`, `statetest`, `inputtest`).
+- Recompilador: nestest, instr_test 01-basics y ppu_vbl_nmi 01-vbl_basics recompiladas y comparadas
+  con `difftest`; `--why`, `--viz`, `--events` y `--html`.
+- Interfaz: cada menú y cada diálogo se dibuja sin fallar (`--ui-shot`).
+
+AccuracyCoin (`tests/accuracycoin.py`, opcional): 114 de 149. Faltan, sobre todo, el comportamiento
+por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, activar o desactivar el dibujo
+en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y detalles del bus
+abierto de la PPU y del APU.
+
+### Línea base para optimizar el runtime
+
+`tests/golden.sh` corre varios juegos y ROMs de prueba con entradas fijas y compara el hash de la
+imagen final y de todo el audio con `tests/golden.txt`: una optimización no debe cambiar ni un byte
+(`--update` reescribe la línea base). Es lo que respalda la ejecución perezosa de la PPU y el APU
+(ver "Rendimiento: ejecución perezosa").

@@ -1,10 +1,13 @@
 /*
  * Capa de plataforma con SDL2 para GENRecomp: ventana con barra de menús, controles (teclado y
- * mandos), sonido estéreo a 44 100 Hz y ritmo de 59.92 cuadros por segundo. Por ahora la usa el
- * intérprete (`gen`); los juegos recompilados (fase 6) y los estados guardados (fase 5) llegan después.
+ * mandos), sonido estéreo a 44 100 Hz, estados guardados y ritmo de 59.92 cuadros por segundo. Por
+ * ahora la usa el intérprete (`gen`); los juegos recompilados llegan en la fase 6.
  *
- * Uso: gen [rom.bin] [--scale N] [--tmss]
- *   --tmss  consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP)
+ * Uso: gen [rom.bin] [--scale N] [--tmss] [--record archivo | --play archivo] [--trace archivo]
+ *   --tmss    consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP)
+ *   --record  graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
+ *   --play    reproduce un archivo grabado (el teclado se ignora)
+ *   --trace   al salir, agrega a `archivo` las instrucciones de ROM que se ejecutaron (para genrecomp)
  * Para pruebas sin ventana: --ui-shot archivo.png [--ui-frames N] [--ui-menu N] [--ui-action N].
  *
  * Jugador 1: flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode. Jugador 2: I J K L,
@@ -12,8 +15,8 @@
  *
  * Carpeta de datos (la da SDL): en Windows %APPDATA%\GENRecomp\<juego>\, en Linux
  * ~/.local/share/GENRecomp/<juego>/, en macOS ~/Library/Application Support/GENRecomp/<juego>/.
- * Ahí van la partida (<rom>.sav: SRAM o EEPROM; se guarda al salir y cada 5 segundos si cambió), las
- * preferencias (settings.ini) y lo exportado.
+ * Ahí van la partida (<rom>.sav: SRAM o EEPROM; se guarda al salir y cada 5 segundos si cambió), los
+ * estados guardados (<rom>.estado1-4), las preferencias (settings.ini) y lo exportado.
  *
  * La barra de menús y los diálogos vienen de Moskva 89 (ui_menu.c, ui_font.c): se dibujan dentro
  * de la ventana para verse igual en todos los sistemas. Con un menú o un diálogo abierto, el juego
@@ -31,6 +34,7 @@
 #include "gen.h"
 #include "i18n.h"
 #include "icono.h"
+#include "inputs.h"
 #include "png.h"
 #include "settings.h"
 #include "ui_font.h"
@@ -50,7 +54,7 @@ typedef struct {
 } Rom;
 
 enum {
-    A_NONE, A_OPEN_ROM, A_RESET, A_PAUSE, A_QUIT,
+    A_NONE, A_OPEN_ROM, A_RESET, A_PAUSE, A_SAVE_STATE, A_LOAD_STATE, A_SLOT_1, A_SLOT_4 = A_SLOT_1 + 3, A_QUIT,
     A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN, A_ASPECT, A_INTEGER,
     A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3, A_CHAN_0, A_CHAN_6 = A_CHAN_0 + 6,
     A_PAD_AUTO, A_PAD_3, A_PAD_6,
@@ -90,6 +94,12 @@ typedef struct {
     char notice[128];
     Uint32 notice_until;
     long frame;
+
+    InputScript script;
+    int play;
+    FILE *record;
+    int last_pad[2];
+    const char *trace_path;
 } App;
 
 static App *the_app;
@@ -194,6 +204,11 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
 /* Partida                                                             */
 /* ------------------------------------------------------------------ */
 
+static void state_path(const App *app, int slot, char *out, size_t size)
+{
+    snprintf(out, size, "%s%s.estado%d", app->pref, app->name, slot);
+}
+
 static int save_game(App *app)
 {
     if (!app->loaded || !gen_sram_dirty(app->gen)) return 1;
@@ -218,7 +233,15 @@ static void power_on(App *app)
     if (app->tmss) { app->gen->tmss = 1; gen_reset(app->gen); }
     apply_pad(app);
     gen_sram_load(app->gen, app->save_path);
+    if (app->trace_path) { gen_trace_start(app->gen); gen_trace_load(app->gen, app->trace_path); }
     app->frame = 0;
+    app->last_pad[0] = app->last_pad[1] = -1;
+    if (app->script.n) app->script.pos = 0;
+}
+
+static void write_trace(App *app)
+{
+    if (app->trace_path && app->gen->trace) gen_trace_write(app->gen, app->trace_path);
 }
 
 /* Cambia de ROM (arrastrar y soltar o Abrir ROM): guarda la partida actual y enciende la nueva */
@@ -237,6 +260,7 @@ static int switch_rom(App *app, const char *path)
         return 0;
     }
     save_game(app);
+    write_trace(app);
     free(app->rom.data);
     app->rom = rom;
     snprintf(app->rom_path, sizeof app->rom_path, "%s", path);
@@ -346,15 +370,56 @@ static void open_exports(App *app)
 }
 
 /* ------------------------------------------------------------------ */
+/* Estados guardados                                                   */
+/* ------------------------------------------------------------------ */
+
+static void save_state(App *app)
+{
+    char path[1100], text[1300];
+    size_t size;
+    u8 *data = gen_state_save(app->gen, &size);
+    state_path(app, app->cfg.slot, path, sizeof path);
+    if (data && u8_write_file(path, data, size)) {
+        snprintf(text, sizeof text, tr(T_TITLE_SAVED_FMT), app->cfg.slot);
+        notify(app, text);
+    } else {
+        snprintf(text, sizeof text, tr(T_STATE_WRITE_FMT), path);
+        message(app, tr(T_STATE_TITLE), text);
+    }
+    free(data);
+}
+
+static void load_state(App *app)
+{
+    char path[1100], text[1300];
+    size_t size;
+    state_path(app, app->cfg.slot, path, sizeof path);
+    u8 *data = u8_read_file(path, &size);
+    if (!data) {
+        snprintf(text, sizeof text, tr(T_STATE_EMPTY_FMT), app->cfg.slot);
+        message(app, tr(T_STATE_TITLE), text);
+        return;
+    }
+    if (gen_state_load(app->gen, data, size)) {
+        snprintf(text, sizeof text, tr(T_TITLE_LOADED_FMT), app->cfg.slot);
+        notify(app, text);
+    } else {
+        snprintf(text, sizeof text, tr(T_STATE_BAD_FMT), app->cfg.slot);
+        message(app, tr(T_STATE_TITLE), text);
+    }
+    free(data);
+}
+
+/* ------------------------------------------------------------------ */
 /* Menús                                                               */
 /* ------------------------------------------------------------------ */
 
 #define SEPARATOR(m, n) m[n++] = (MenuItem){ "", NULL, A_NONE, ITEM_SEPARATOR }
 #define ITEM(m, n, text, key, action, kind) m[n++] = (MenuItem){ text, key, action, kind }
 
-static MenuItem menu_game[8], menu_video[12], menu_audio[16], menu_input[4], menu_export[4], menu_language[LANG_COUNT], menu_help[4];
+static MenuItem menu_game[16], menu_video[12], menu_audio[16], menu_input[4], menu_export[4], menu_language[LANG_COUNT], menu_help[4];
 static Menu menus[7];
-static char size_labels[6][40], volume_labels[4][40], chan_labels[6][40];
+static char size_labels[6][40], volume_labels[4][40], chan_labels[6][40], slot_labels[4][40];
 
 static void build_menus(App *app)
 {
@@ -363,6 +428,13 @@ static void build_menus(App *app)
     SEPARATOR(menu_game, n);
     ITEM(menu_game, n, tr(T_RESET), "Ctrl+R", A_RESET, ITEM_ACTION);
     ITEM(menu_game, n, tr(T_PAUSE), "P", A_PAUSE, ITEM_CHECK);
+    SEPARATOR(menu_game, n);
+    ITEM(menu_game, n, tr(T_SAVE_STATE), "F5", A_SAVE_STATE, ITEM_ACTION);
+    ITEM(menu_game, n, tr(T_LOAD_STATE), "F8", A_LOAD_STATE, ITEM_ACTION);
+    for (int i = 0; i < 4; i++) {
+        snprintf(slot_labels[i], sizeof slot_labels[i], tr(T_SLOT_FMT), i + 1);
+        ITEM(menu_game, n, slot_labels[i], NULL, A_SLOT_1 + i, ITEM_RADIO);
+    }
     SEPARATOR(menu_game, n);
     ITEM(menu_game, n, tr(T_QUIT), "Alt+F4", A_QUIT, ITEM_ACTION);
     menus[k++] = (Menu){ tr(T_MENU_GAME), menu_game, n };
@@ -422,7 +494,12 @@ static void build_menus(App *app)
 static int menu_state(void *ctx, int action, int *checked)
 {
     App *app = ctx;
+    /* Con una grabación, lo que cambia la partida desfasaría los botones */
+    int replay = app->play || app->record;
     switch (action) {
+    case A_OPEN_ROM:     return !replay;
+    case A_RESET:        return !replay;
+    case A_LOAD_STATE:   return !replay;
     case A_PAUSE:        *checked = app->paused; return 1;
     case A_FULLSCREEN:   *checked = app->fullscreen; return 1;
     case A_INTEGER:      *checked = app->cfg.integer; return 1;
@@ -435,6 +512,10 @@ static int menu_state(void *ctx, int action, int *checked)
         if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             *checked = app->cfg.volume == 25 * (action - A_VOLUME_25 + 1);
             return app->cfg.sound;
+        }
+        if (action >= A_SLOT_1 && action <= A_SLOT_4) {
+            *checked = app->cfg.slot == action - A_SLOT_1 + 1;
+            return 1;
         }
         if (action >= A_CHAN_0 && action <= A_CHAN_6) {
             *checked = !(app->cfg.mute & (1 << (action - A_CHAN_0)));    /* marcado = suena */
@@ -486,6 +567,8 @@ static void do_action(App *app, int action)
     case A_OPEN_ROM:     ask_open_rom(app); break;
     case A_RESET:        save_game(app); power_on(app); break;
     case A_PAUSE:        app->paused = !app->paused; break;
+    case A_SAVE_STATE:   save_state(app); break;
+    case A_LOAD_STATE:   load_state(app); break;
     case A_QUIT:         app->running = 0; break;
     case A_FULLSCREEN:   toggle_fullscreen(app); break;
     case A_INTEGER:      app->cfg.integer = !app->cfg.integer; break;
@@ -516,6 +599,8 @@ static void do_action(App *app, int action)
         if (action >= A_SCALE_1 && action <= A_SCALE_6) {
             app->cfg.scale = action - A_SCALE_1 + 1;
             resize_window(app);
+        } else if (action >= A_SLOT_1 && action <= A_SLOT_4) {
+            app->cfg.slot = action - A_SLOT_1 + 1;
         } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
             app->cfg.volume = 25 * (action - A_VOLUME_25 + 1);
         } else if (action >= A_CHAN_0 && action <= A_CHAN_6) {
@@ -536,9 +621,12 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     if (k->repeat) return 0;
     int ctrl = (k->keysym.mod & KMOD_CTRL) != 0;
     int alt = (k->keysym.mod & KMOD_ALT) != 0;
+    int replay = app->play || app->record;
     switch (k->keysym.sym) {
-    case SDLK_r:      if (ctrl) { do_action(app, A_RESET); return 1; } break;
-    case SDLK_o:      if (ctrl) { do_action(app, A_OPEN_ROM); return 1; } break;
+    case SDLK_r:      if (ctrl && !replay) { do_action(app, A_RESET); return 1; } break;
+    case SDLK_o:      if (ctrl && !replay) { do_action(app, A_OPEN_ROM); return 1; } break;
+    case SDLK_F5:     do_action(app, A_SAVE_STATE); return 1;
+    case SDLK_F8:     if (!replay) { do_action(app, A_LOAD_STATE); return 1; } break;
     case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
     case SDLK_p:      do_action(app, A_PAUSE); return 1;
     case SDLK_F11:    do_action(app, A_FULLSCREEN); return 1;
@@ -572,7 +660,7 @@ static void handle_event(App *app, SDL_Event *e)
         return;
     }
     if (e->type == SDL_DROPFILE) {
-        switch_rom(app, e->drop.file);
+        if (!(app->play || app->record)) switch_rom(app, e->drop.file);
         SDL_free(e->drop.file);
         return;
     }
@@ -697,6 +785,11 @@ static void step(App *app, int audible)
 {
     u16 pads[2];
     player_pads(app, pads);
+    if (app->play) {
+        pads[0] = inputs_pad(&app->script, app->frame, 0);
+        pads[1] = inputs_pad(&app->script, app->frame, 1);
+    }
+    if (app->record) inputs_record(app->record, app->frame, pads, app->last_pad);
     app->gen->pad[0] = pads[0];
     app->gen->pad[1] = pads[1];
     app->gen->audio.mute = (u8)app->cfg.mute;
@@ -724,6 +817,7 @@ static void update_title(App *app)
     else if (app->gen->tmss_locked) detail = "TMSS";
     else if (app->paused) detail = tr(T_TITLE_PAUSED);
     else if (app->fast) detail = tr(T_TITLE_FAST);
+    else if (app->play) detail = tr(T_TITLE_PLAYING);
     if (detail[0]) snprintf(t, sizeof t, "%s - %s", app->title, detail);
     else snprintf(t, sizeof t, "%s", app->title);
     if (strcmp(t, app->win_title) != 0) {
@@ -834,7 +928,7 @@ int main(int argc, char *argv[])
 {
     static App app_storage;
     App *app = &app_storage;
-    const char *rom_arg = NULL;
+    const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
     int scale_arg = 0, shot_menu = -1, shot_action = 0;
     long shot_frames = 300;
     char msg[4096];
@@ -857,6 +951,9 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--tmss")) app->tmss = 1;
+        else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
+        else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
+        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) app->trace_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);
@@ -904,9 +1001,16 @@ int main(int argc, char *argv[])
     set_game(app, found_path);
     SDL_SetWindowTitle(app->win, app->title);
 
+    if (play_path) {
+        const char *ierr = inputs_load(&app->script, play_path);
+        if (ierr) fail(ierr);
+        app->play = 1;
+    }
     app->bar = (MenuBar){ menus, 0, menu_state, app, -1, -1, 0, 0 };
     build_menus(app);
     power_on(app);
+    if (record_path && !(app->record = u8_fopen(record_path, "w"))) fail(tr(T_RECORD_FAILED));
+    if (app->record) fprintf(app->record, "# GENRecomp: cuadro jugador1 jugador2\n");
 
     resize_window(app);
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
@@ -970,6 +1074,8 @@ int main(int argc, char *argv[])
     }
 
     settings_save(&app->cfg, app->settings_path);
+    if (app->record) fclose(app->record);
+    write_trace(app);
     if (!save_game(app)) {
         snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);

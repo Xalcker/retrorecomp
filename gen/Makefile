@@ -54,7 +54,8 @@ endif
 gen$(EXE): $(GEN_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := genrecomp carttest m68ktest z80test bustest vdptest audiotest genrun gen
+PROGS := genrecomp gentrace genshot genaudio genbench ramdump genrun gen \
+         carttest m68ktest z80test bustest vdptest audiotest statetest inputtest
 
 # SDL2 para el intérprete con ventana (gen). En Windows, enlazado de forma
 # estática para que el .exe no pida SDL2.dll.
@@ -79,6 +80,29 @@ vdptest$(EXE): src/tools/vdptest.c $(RT)
 
 audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+# Herramientas sin ventana con las opciones comunes (cli.h)
+TOOL_DEPS := src/platform/cli.h src/platform/inputs.h src/platform/random_pad.h src/tools/romload.h $(RT)
+gentrace$(EXE): src/tools/gentrace.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/gentrace.c $(RT) -lm
+
+genshot$(EXE): src/tools/genshot.c src/platform/png.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genshot.c src/platform/png.c $(RT) -lm
+
+genaudio$(EXE): src/tools/genaudio.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genaudio.c $(RT) -lm
+
+genbench$(EXE): src/platform/bench.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+
+ramdump$(EXE): src/tools/ramdump.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/ramdump.c $(RT) -lm
+
+statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/statetest.c $(RT) -lm
+
+inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
 
 genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm

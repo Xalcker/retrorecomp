@@ -46,7 +46,9 @@ void gen_free(Gen *g)
     free(g->cart.rom);
     free(g->cart.sram_data);
     free(g->cart.sram_saved);
+    free(g->trace);
     g->cart.rom = g->cart.sram_data = g->cart.sram_saved = NULL;
+    g->trace = NULL;
 }
 
 void gen_reset(Gen *g)
@@ -124,4 +126,92 @@ int gen_sram_dirty(const Gen *g)
 {
     const Cart *c = &g->cart;
     return c->sram_data && memcmp(c->sram_data, c->sram_saved, c->sram_size) != 0;
+}
+
+/* --- Traza --- */
+
+void gen_trace_start(Gen *g)
+{
+    if (!g->trace) g->trace = calloc(g->cart.rom_size / 2 + 1, sizeof *g->trace);
+}
+
+int gen_trace_load(Gen *g, const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    gen_trace_start(g);
+    unsigned off, addr;
+    char line[128];
+    while (fgets(line, sizeof line, f))
+        if (sscanf(line, "%x:%x", &off, &addr) == 2 && off < g->cart.rom_size && !g->trace[off >> 1])
+            g->trace[off >> 1] = 0x80000000u | (addr & 0xFFFFFF);
+    fclose(f);
+    return 1;
+}
+
+int gen_trace_write(const Gen *g, const char *path)
+{
+    if (!g->trace) return 0;
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    for (size_t i = 0; i < g->cart.rom_size / 2; i++)
+        if (g->trace[i]) fprintf(f, "%06X:%06X\n", (unsigned)(i * 2), g->trace[i] & 0xFFFFFF);
+    return fclose(f) == 0;
+}
+
+size_t gen_trace_count(const Gen *g)
+{
+    size_t n = 0;
+    if (g->trace) for (size_t i = 0; i < g->cart.rom_size / 2; i++) n += g->trace[i] != 0;
+    return n;
+}
+
+/* --- Estados guardados ---
+ * Cabecera (magia, versión, tamaño de Gen, tamaño y SHA1 de la ROM, tamaño de la SRAM), la estructura
+ * Gen tal cual y el contenido de la SRAM/EEPROM. Al cargar se conservan los punteros de esta corrida. */
+
+#define STATE_MAGIC "GENRSTA1"
+
+typedef struct {
+    char magic[8];
+    u32  gen_size;
+    u32  rom_size, sram_size;
+    char sha1[41];
+} StateHeader;
+
+u8 *gen_state_save(const Gen *g, size_t *size)
+{
+    StateHeader h;
+    memset(&h, 0, sizeof h);
+    memcpy(h.magic, STATE_MAGIC, 8);
+    h.gen_size = (u32)sizeof *g;
+    h.rom_size = (u32)g->cart.rom_size;
+    h.sram_size = (u32)g->cart.sram_size;
+    memcpy(h.sha1, g->cart.sha1, sizeof h.sha1);
+    *size = sizeof h + sizeof *g + g->cart.sram_size;
+    u8 *d = malloc(*size);
+    if (!d) return NULL;
+    memcpy(d, &h, sizeof h);
+    memcpy(d + sizeof h, g, sizeof *g);
+    if (g->cart.sram_size) memcpy(d + sizeof h + sizeof *g, g->cart.sram_data, g->cart.sram_size);
+    return d;
+}
+
+int gen_state_load(Gen *g, const u8 *data, size_t size)
+{
+    StateHeader h;
+    if (size < sizeof h) return 0;
+    memcpy(&h, data, sizeof h);
+    if (memcmp(h.magic, STATE_MAGIC, 8) || h.gen_size != sizeof *g || h.rom_size != g->cart.rom_size ||
+        h.sram_size != g->cart.sram_size || memcmp(h.sha1, g->cart.sha1, sizeof h.sha1) ||
+        size != sizeof h + sizeof *g + h.sram_size) return 0;
+    /* Lo que es de esta corrida y no del estado: punteros */
+    u8 *rom = g->cart.rom, *sram = g->cart.sram_data, *saved = g->cart.sram_saved;
+    u32 *trace = g->trace;
+    void *jb = g->jb;
+    memcpy(g, data + sizeof h, sizeof *g);
+    g->cart.rom = rom; g->cart.sram_data = sram; g->cart.sram_saved = saved;
+    g->trace = trace; g->jb = jb;
+    if (h.sram_size) memcpy(sram, data + sizeof h + sizeof *g, h.sram_size);
+    return 1;
 }

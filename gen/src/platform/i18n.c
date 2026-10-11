@@ -21,6 +21,9 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_OPEN_ROM]       = { "Abrir ROM…", "Open ROM…" },
     [T_RESET]          = { "Reiniciar", "Reset" },
     [T_PAUSE]          = { "Pausa", "Pause" },
+    [T_SAVE_STATE]     = { "Guardar estado", "Save state" },
+    [T_LOAD_STATE]     = { "Cargar estado", "Load state" },
+    [T_SLOT_FMT]       = { "Ranura %d", "Slot %d" },
     [T_QUIT]           = { "Salir", "Quit" },
 
     [T_SIZE_FMT]       = { "Tamaño %dx", "Size %dx" },
@@ -51,6 +54,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            (el 1.º es el jugador 1)\n"
         "\n"
         "P pausa   Tab (mantener) avance rápido\n"
+        "F5 guardar estado   F8 cargar estado\n"
         "Ctrl+R reiniciar   Ctrl+M sonido   F11 pantalla completa\n"
         "F12 captura   Esc cierra el menú",
         "Player 1:   arrows, Z X C = A B C, Enter = Start,\n"
@@ -61,6 +65,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            (the 1st is player 1)\n"
         "\n"
         "P pause   Tab (hold) fast forward\n"
+        "F5 save state   F8 load state\n"
         "Ctrl+R reset   Ctrl+M sound   F11 fullscreen\n"
         "F12 screenshot   Esc closes the menu",
     },
@@ -88,10 +93,20 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
 
     [T_EXPORT_TITLE]      = { "Exportar", "Export" },
     [T_EXPORT_FAILED_FMT] = { "No se pudo escribir\n%s", "Could not write\n%s" },
+    [T_STATE_TITLE]     = { "Estados guardados", "Save states" },
+    [T_STATE_EMPTY_FMT] = { "La ranura %d está vacía.", "Slot %d is empty." },
+    [T_STATE_BAD_FMT]   = {
+        "El estado de la ranura %d no sirve para esta ROM o esta versión.",
+        "The state in slot %d does not match this ROM or version.",
+    },
+    [T_STATE_WRITE_FMT] = { "No se pudo guardar el estado en\n%s", "Could not save the state to\n%s" },
 
     [T_TITLE_PAUSED]    = { "Pausa", "Paused" },
     [T_TITLE_SHOT_FMT]  = { "Captura: %s", "Screenshot: %s" },
     [T_TITLE_FAST]      = { "avance rápido", "fast forward" },
+    [T_TITLE_SAVED_FMT] = { "Estado %d guardado", "State %d saved" },
+    [T_TITLE_LOADED_FMT] = { "Estado %d cargado", "State %d loaded" },
+    [T_TITLE_PLAYING]   = { "reproduciendo entradas", "playing back inputs" },
 
     [T_ROM_CHOOSE]       = { "Elige tu ROM", "Choose your ROM" },
     [T_ROM_CHOOSE_AGAIN] = { "Elige otra ROM", "Choose another ROM" },
@@ -106,6 +121,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_NO_DATA_DIR]   = { "No se pudo crear la carpeta de datos del juego.",
                           "Could not create the game's data folder." },
     [T_SAVE_FAILED_FMT] = { "No se pudo guardar la partida en\n%s", "Could not save the game to\n%s" },
+    [T_RECORD_FAILED] = { "No se pudo crear el archivo de grabación.", "Could not create the recording file." },
 };
 
 static const char *const names[LANG_COUNT] = { "Español", "English" };

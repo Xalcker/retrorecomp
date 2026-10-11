@@ -22,11 +22,9 @@ elif [ -f src/nesrecomp/nesrecomp.c ]; then
     TOOLS="nestrace:txt nesshot:png nesaudio:wav"
 elif [ -f src/genrecomp/genrecomp.c ]; then
     P=gen
-    # Las herramientas sin ventana llegan en la fase 5 (docs/PLAN.md): gentrace, genshot, genaudio
-    # y genbench, con las mismas opciones. Hasta entonces no hay nada que comprobar.
-    CHECKS=""
-    ROM=testroms/gen/contract.bin
-    TOOLS=""
+    CHECKS="gentrace:--frames,--input,--seed genshot:--frames,--input,--seed genaudio:--frames,--input,--seed genbench:--frames,--input,--repeat"
+    ROM=testroms/demos/overdrive.bin
+    TOOLS="gentrace:txt genshot:png genaudio:wav"
 else
     echo "no es la raíz de NESRecomp, GBRecomp ni GENRecomp" >&2; exit 2
 fi
@@ -66,12 +64,12 @@ if [ -f "$ROM" ]; then
         "$e" "$ROM" "$D/d.$x" --frames 120 --input "$D/guion.txt" --seed 7 >/dev/null 2>&1
         igual "$n: --input con --seed da lo mismo dos veces" "$D/c.$x" "$D/d.$x"
     done
-    if [ $P = nes ]; then
-        # Hash de todos los cuadros y de todo el audio (nesshot --hash): distingue un cuadro de diferencia
-        e=$(exe nesshot)
+    if [ $P = nes ] || [ $P = gen ]; then
+        # Hash de todos los cuadros y de todo el audio (nesshot/genshot --hash): distingue un cuadro de diferencia
+        e=$(exe ${P}shot)
         "$e" "$ROM" "$D/e.png" --frames 120 --input "$D/guion.txt" --hash 2>/dev/null | grep '^hash' > "$D/guion.hash"
         "$e" "$ROM" "$D/e.png" 120 start:30-35 down:60-69 a:60-69 --hash 2>/dev/null | grep '^hash' > "$D/antes.hash"
-        igual "nesshot: --input da lo mismo que boton:desde-hasta" "$D/guion.hash" "$D/antes.hash"
+        igual "${P}shot: --input da lo mismo que boton:desde-hasta" "$D/guion.hash" "$D/antes.hash"
     fi
 else
     echo "(sin $ROM se omiten las pruebas de comportamiento: make testroms)"

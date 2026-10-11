@@ -51,7 +51,11 @@ mismo contrato de línea de comandos.
   Wars. SSG-EG y la espera del Z80 al usar el bus del 68000. Pendiente: CSM, retardos entre
   operadores, distorsión de la DAC, lo que pierde el 68000 cuando el Z80 usa su bus, y que el YM2612
   sea más rápido (fase 8: hoy ~15 veces el tiempo real).
-- [ ] **5. Herramientas sin ventana.** `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,
+- [x] **5. Herramientas sin ventana.** Hecho: `gentrace`, `genshot` (`--expect`, `--hash`),
+  `genaudio`, `genbench`, `ramdump`, `statetest`, `inputtest`; `cli.h` e `inputs.h` con 12 botones (el
+  mismo formato de texto; `--seed` traduce el mando aleatorio común); `contract.sh` completo con
+  Overdrive; estados guardados (F5/F8, 4 ranuras), `--record`/`--play` y `--trace` en `gen`. Lo que
+  decía el plan: `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,
   `genbench`, `ramdump`, `statetest`, `sramtest`, `inputtest`; `cli.h` e `inputs.h` con 8 botones
   (A B C X Y Z START MODE) sin romper el formato común. `contract.sh` con sus comprobaciones.
 - [ ] **6. Recompilador v1.** Descubrimiento desde los vectores siguiendo `bra/bsr/Bcc/DBcc/jmp/jsr`

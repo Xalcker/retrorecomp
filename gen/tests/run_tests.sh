@@ -12,7 +12,14 @@ corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe car
 mkdir -p build/tests
 corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, SSF2, VINT/HINT)" "$(exe bustest)"
 corre "vdptest (puertos, DMA, estado, planos, ventana, sprites, sombra y resalte)" "$(exe vdptest)"
-corre "audiotest (afinación del PSG y del YM2612, panorama, DAC, relajación, temporizador A, ocupado)" "$(exe audiotest)"
+corre "audiotest (afinación del PSG y del YM2612, panorama, DAC, relajación, temporizador A, ocupado, SSG-EG)" "$(exe audiotest)"
+corre "inputtest (entradas grabadas, 12 botones, \$hex, --seed, boton:desde-hasta)" "$(exe inputtest)"
+# Estados guardados: con la demo Overdrive (make testroms) y con Sonic 1 si está en roms/
+if [ -f testroms/demos/overdrive.bin ]; then corre "statetest con Overdrive (VDP, Z80, YM2612, PSG)" "$(exe statetest)" testroms/demos/overdrive.bin 300 300; fi
+for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do [ -f "$r" ] && corre "statetest con Sonic 1" "$(exe statetest)" "$r" 700 300; done
+# Contrato común con NESRecomp y GBRecomp (opciones y comportamiento de las herramientas sin ventana)
+r=$(sh tests/contract.sh | tail -1)
+case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
 # Z80: SingleStepTests (make testroms)
 if [ -f testroms/z80/v1/00.json.gz ]; then
     r=$(sh tests/sstz80.sh | tail -1)
@@ -43,11 +50,11 @@ if [ -x "$(exe gen)" ]; then
         "$(exe gen)" "$R" --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
             && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
     done
-    for a in 31 32 33; do       # Controles, Este juego, Acerca de (A_HELP_CONTROLS... en main_sdl.c)
+    for a in 5 37 38 39; do     # Cargar estado, Controles, Este juego, Acerca de (A_LOAD_STATE, A_HELP_CONTROLS... en main_sdl.c)
         "$(exe gen)" "$R" --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
             && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; ui=1; }
     done
-    if [ $ui -eq 0 ]; then echo "ok    gen: los 7 menús y los 3 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
+    if [ $ui -eq 0 ]; then echo "ok    gen: los 7 menús y los 4 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
 fi
 
 # genrecomp: --info con una ROM que no es de Mega Drive debe fallar sin caerse, y sin ROM, dar el uso

@@ -226,6 +226,7 @@ typedef struct Gen {
     Audio audio;
     u16  open_bus;              /* último valor en el bus de datos (lo que leen las direcciones sin nada) */
     u32  exc_count[64];         /* excepciones atendidas por vector (estadística) */
+    u32 *trace;                 /* NULL, o por cada palabra de ROM: 0 = no ejecutada; si no, $80000000 | dirección */
     u8   ram[0x10000];          /* RAM del 68000: $FF0000-$FFFFFF (y sus espejos desde $E00000) */
     u8   zram[0x2000];          /* RAM del Z80 */
 } Gen;
@@ -239,6 +240,17 @@ void gen_after_step(Gen *g);            /* VDP y Z80 al ciclo del 68000 (tras ca
 int  gen_sram_load(Gen *g, const char *path);  /* 1 si se cargó; 0 si no aplica o falló */
 int  gen_sram_save(Gen *g, const char *path);
 int  gen_sram_dirty(const Gen *g);
+
+/* Traza: qué instrucciones de ROM ejecutó el intérprete (líneas "OFFSET:DIRECCION" en hexadecimal,
+ * lo que lee genrecomp --trace) */
+void gen_trace_start(Gen *g);
+int  gen_trace_load(Gen *g, const char *path);  /* suma lo de una traza anterior; 1 si se leyó */
+int  gen_trace_write(const Gen *g, const char *path);
+size_t gen_trace_count(const Gen *g);
+
+/* Estados guardados: la consola entera. Solo los lee la misma versión con la misma ROM. */
+u8  *gen_state_save(const Gen *g, size_t *size);   /* malloc; NULL si falla */
+int  gen_state_load(Gen *g, const u8 *data, size_t size);  /* 1 si se cargó */
 
 /* Mapeo del cartucho */
 void cart_setup(Cart *c);               /* mapper, espejos y SRAM según el tamaño y la cabecera */

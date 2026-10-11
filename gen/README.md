@@ -7,7 +7,7 @@ Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin 
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
 
-**Estado: fase 4 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80 y sonido). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 5 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido y herramientas). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -44,8 +44,10 @@ make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ./gen "roms/juego.bin"
 ```
 
-El intérprete con ventana y sonido: menús de juego, video (tamaño, pantalla completa, escala entera,
-aspecto 4:3), audio (volumen y canales), entrada (mando de 3 o 6 botones), captura (F12) e idioma. Teclado:
+El intérprete con ventana y sonido: menús de juego (estados con F5/F8 en 4 ranuras), video (tamaño,
+pantalla completa, escala entera, aspecto 4:3), audio (volumen y canales), entrada (mando de 3 o 6
+botones), captura (F12) e idioma. `--record`/`--play archivo` graban y reproducen los botones y
+`--trace archivo` guarda qué instrucciones de ROM se ejecutaron. Teclado:
 flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```
@@ -69,6 +71,26 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 (apagado por omisión). `--shot ARCHIVO.png` guarda la imagen del último cuadro y `--shots CARPETA
 --every N` una cada N cuadros. `--wav ARCHIVO.wav` guarda el sonido (y dice su nivel por segundo).
 
+## Herramientas
+
+| Comando | Qué hace |
+|---|---|
+| `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
+| `genrecomp juego.bin` | El recompilador (por ahora, `--info`). |
+| `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `OFFSET:DIRECCION`). |
+| `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
+| `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
+| `genbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
+| `ramdump rom [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr la ROM. |
+| `genrun rom [--frames N] [--watch DIR] [--sram archivo] [--tmss] [--shot/--shots/--wav ...]` | Diagnóstico: resume instrucciones, excepciones y dónde se va el tiempo. |
+| `carttest`, `m68ktest`, `z80test`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` | Pruebas; `make test` corre todas. |
+
+**Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp y
+GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
+`src/platform/inputs.h`), `--seed S` (suma un mando aleatorio reproducible, el mismo de las otras dos
+consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros suelto y
+`boton:desde-hasta` (`a b c x y z start mode up down left right`). `sh tests/contract.sh` lo comprueba.
+
 ## Estructura
 
 | Ruta | Contenido |
@@ -76,7 +98,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y `png`, `files`, `export`, `random_pad.h`. |
-| `src/tools/` | `genrun`, `carttest`, `m68ktest`, `z80test`, `bustest`, `vdptest`, `audiotest`, `embed`. |
+| `src/tools/` | `gentrace`, `genshot`, `genaudio`, `ramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |

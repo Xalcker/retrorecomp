@@ -15,7 +15,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80.h`/`z80.c` (el Z80), `z80bus.c` (su mapa y cuándo corre), `psg.c`, `ym2612.c`, `audio.c` (mezcla), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `icono.h`), `random_pad.h`. |
-| `src/tools/` | `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `bustest` (bus, mandos, SRAM, EEPROM, SSF2, interrupciones), `vdptest` (VDP), `audiotest` (PSG y YM2612), `genrun` (corre una ROM sin ventana, resume y guarda capturas y sonido), `embed`. |
+| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `ramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
@@ -85,6 +85,10 @@ generado llega en la fase 6.
 genrecomp juego.bin [--info]
 ```
 
+`--trace` (fase 6) leerá las trazas de `gentrace` o de `gen --trace`: una línea `OFFSET:DIRECCION` en
+hexadecimal por instrucción de ROM ejecutada (el desplazamiento en la ROM normalizada y la dirección
+del 68000 con la que se ejecutó; con SSF2 pueden no coincidir). Las marca el intérprete (`g->trace`).
+
 ### Identidad de las instrucciones
 
 Una instrucción se identificará por su desplazamiento en la ROM normalizada. Sin mapper coincide
@@ -153,7 +157,12 @@ juegos.
   dirección en el primer byte; SDA en el bit 0 y SCL en el bit 1 de `$200001`, SDA se lee en el bit 0),
   comprobado igual. Los demás juegos con EEPROM (NFL Quarterback Club, los de EA y Codemasters...) se
   agregan cuando se puedan probar.
-- **Estados guardados:** fase 5.
+- **Estados guardados** (`gen_state_save`/`gen_state_load`, cuatro ranuras en `gen`:
+  `<rom>.estado1-4`): una cabecera (magia, versión, tamaño de `Gen`, tamaño y SHA1 de la ROM, tamaño de
+  la SRAM), la estructura `Gen` entera (68000, Z80, VDP con su imagen, YM2612, PSG, mezcla, RAM) y el
+  contenido de la SRAM/EEPROM. Al cargar se conservan los punteros de la corrida actual. Solo los lee
+  la misma versión con la misma ROM. `statetest` lo prueba: tras cargar, los mismos cuadros dan
+  exactamente lo mismo (imagen, sonido, RAM, CPU, chips).
 
 ## Video y audio
 
@@ -259,10 +268,14 @@ Con un menú o un diálogo abierto, el juego se pausa.
 
 - **Audio:** sonido (Ctrl+M), volumen y silenciar cada canal (FM 1-6 y PSG); en pausa, con un menú
   abierto o en avance rápido, no suena.
+- **Estados:** guardar (F5) y cargar (F8) en cuatro ranuras.
 
-Opciones: `gen [rom.bin] [--scale N] [--tmss]`; para pruebas sin ventana, `--ui-shot archivo.png` con
-`--ui-frames N`, `--ui-menu N` y `--ui-action N`. Los estados guardados y `--record`/`--play` (fase 5)
-y el modo de juego recompilado (fase 6) llegan después.
+Opciones: `gen [rom.bin] [--scale N] [--tmss] [--record archivo | --play archivo] [--trace archivo]`.
+`--record` y `--play` graban y reproducen los botones (`inputs.h`, el mismo formato que `--input` de
+las herramientas sin ventana); mientras tanto no se puede reiniciar, cargar estados ni cambiar de ROM.
+`--trace` agrega al salir las instrucciones de ROM que se ejecutaron, como traza para `genrecomp`. Para
+pruebas sin ventana: `--ui-shot archivo.png` con `--ui-frames N`, `--ui-menu N` y `--ui-action N`. El
+modo de juego recompilado llega en la fase 6.
 
 Icono: `MD.png` (serie TriMui) de
 [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0;
@@ -275,6 +288,11 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   licencia y este documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp y GBRecomp),
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
+- **Contrato común** (`tests/contract.sh`, el mismo archivo en los tres repos): `gentrace`, `genshot`,
+  `genaudio` y `genbench` aceptan `--frames`, `--input`, `--seed` (y `--repeat`); con la demo Overdrive,
+  la misma entrada da la misma traza, captura y sonido, y `--input` da el mismo `genshot --hash` que la
+  sintaxis `boton:desde-hasta`. Los botones del guion común (`START`, `DOWN+A`) existen en las tres
+  consolas; `--seed` usa el mismo mando aleatorio (`random_pad.h`) traducido a la Mega Drive.
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del 68000 y del Z80 (comprimidas) y las demos Overdrive (Evoke 2013, la versión para hardware)
   y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las

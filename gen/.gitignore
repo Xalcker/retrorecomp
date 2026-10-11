@@ -18,3 +18,10 @@ juegos/
 /gen
 /z80test
 /audiotest
+/gentrace
+/genshot
+/genaudio
+/genbench
+/ramdump
+/statetest
+/inputtest

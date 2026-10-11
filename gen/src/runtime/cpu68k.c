@@ -279,6 +279,11 @@ static void step_body(struct Gen *g)
     } else {
         int trace = c->t;
         u16 op = c->ir;
+        if (g->trace && c->pc < 0x400000) {             /* traza de lo que ejecuta el intérprete en ROM */
+            u32 off = cart_rom_offset(&g->cart, c->pc);
+            if (g->cart.mapper == MAPPER_NONE) off &= g->cart.rom_mask;
+            if (off < g->cart.rom_size && !g->trace[off >> 1]) g->trace[off >> 1] = 0x80000000u | c->pc;
+        }
         kind_fn[kind_tab[op]](g, op, NULL, c->pc);
         if (trace) {
             X xs = { g, c, NULL, 0, c->pc, c->pc + 2, c->ir, c->pc + 2 };

@@ -105,22 +105,31 @@ typedef struct {
     u32    map_ver;                     /* sube con cada cambio de banco (el código generado lo vigila) */
 } Cart;
 
-/* VDP (vdp.c). Fase 2: registros, puerto de control, memorias, líneas e interrupciones. */
+/* VDP (vdp.c, vdp_render.c) */
+#define FB_W 320                /* ancho del búfer de imagen (320 en H40; en H32 se usan 256) */
+#define FB_H 240
 typedef struct {
     u8   reg[24];
     u16  addr;                  /* dirección del puerto de datos */
     u8   code;                  /* CD5-CD0: destino (VRAM, CRAM, VSRAM), lectura/escritura, DMA */
     u8   pending;               /* se escribió la primera palabra de un comando de dirección */
+    u8   fill_pending;          /* DMA de relleno: espera la escritura en el puerto de datos */
     u8   vint_pending, hint_pending;
     u8   f_flag;                /* bit 7 del estado: hubo VINT (se borra al atenderla) */
+    u8   spr_overflow, spr_collision;   /* bits 6 y 5 del estado (se borran al leerlo) */
+    u8   odd;                   /* cuadro impar (entrelazado) */
     int  line;                  /* línea actual (0-261) */
     int  hint_counter;
     u64  next_line;             /* ciclo maestro en que empieza la línea siguiente */
+    u64  dma_busy_until;        /* ciclo maestro en que termina un DMA de relleno o de copia */
     u64  frame;                 /* cuadros terminados */
     u8   frame_done;            /* terminó un cuadro (lo borra quien corre el cuadro) */
+    u16  width, height;         /* del cuadro: 256 o 320 por 224 (o 240 en PAL) */
     u8   vram[0x10000];
     u16  cram[64];
     u16  vsram[40];
+    u16  fb[FB_W * FB_H];       /* por pixel: color de 9 bits (B G R, 3 bits cada uno) | modo << 9
+                                   (0 normal, 1 sombra, 2 resalte) */
 } Vdp;
 
 /* E/S (io.c): los tres puertos de la consola */
@@ -181,6 +190,8 @@ u16  vdp_read(Gen *g, u32 addr);        /* $C00000-$C0001F (sin los espejos) */
 void vdp_write(Gen *g, u32 addr, u16 v);
 void vdp_sync(Gen *g);                  /* líneas e interrupciones hasta g->cyc */
 void vdp_int_ack(Gen *g, int level);
+void vdp_render_line(Gen *g, int y);    /* dibuja la línea y en fb (vdp_render.c) */
+uint32_t vdp_argb(u16 px);              /* un pixel de fb en ARGB 8888 */
 
 /* E/S (io.c): registros de $A10000-$A1001F, de 0 a 15 */
 void io_reset(Gen *g);

@@ -7,7 +7,7 @@ Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin 
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
 
-**Estado: fase 2 de 9** (esqueleto, cartucho, 68000 y bus). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 3 de 9** (esqueleto, cartucho, 68000, bus y VDP con ventana). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -15,10 +15,13 @@ intérprete.
 - **Bus:** mapa de memoria, mandos de 3 y 6 botones, bus del Z80, SRAM, EEPROM serie, mapper de SSF2
   y el esqueleto del VDP (registros, líneas, interrupciones). Sin imagen todavía, Sonic 1 llega a jugar
   el nivel con el intérprete, Super Street Fighter II corre con su mapper y NBA Jam guarda su EEPROM.
+- **VDP:** puertos, los tres DMA, planos con todos los scrolls, ventana, sprites, prioridades, sombra
+  y resalte. Sonic 1, Super Street Fighter II y NBA Jam se ven bien en la ventana `gen` (sin sonido
+  todavía).
 
 ## Compilar
 
-Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-config` y SDL2 (SDL2 todavía no se usa).
+Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-config` y SDL2.
 
 | Sistema | Paquetes |
 |---|---|
@@ -28,13 +31,21 @@ Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-co
 
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
-make            # genrecomp, genrun y las pruebas (carttest, m68ktest, bustest)
+make            # gen (la ventana), genrecomp, genrun y las pruebas
 make testroms   # una sola vez: las SingleStepTests del 68000 (~200 MB, comprimidas) en testroms/
 make test       # pruebas
 make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ```
 
 ## Lo que hace hoy
+
+```
+./gen "roms/juego.bin"
+```
+
+El intérprete con ventana (sin sonido todavía): menús de juego, video (tamaño, pantalla completa,
+escala entera, aspecto 4:3), entrada (mando de 3 o 6 botones), captura (F12) e idioma. Teclado:
+flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```
 ./genrecomp "roms/juego.bin"
@@ -54,7 +65,8 @@ se mantienen en esos cuadros) y resume instrucciones, ciclos, excepciones por ve
 fue el tiempo al CPU en el último cuadro. `--watch DIR` imprime un byte de la RAM cada vez que cambia
 (en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel). `--sram ARCHIVO` carga la
 SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula una consola con TMSS
-(apagado por omisión).
+(apagado por omisión). `--shot ARCHIVO.png` guarda la imagen del último cuadro y `--shots CARPETA
+--every N` una cada N cuadros.
 
 ## Estructura
 
@@ -62,13 +74,21 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 |---|---|
 | `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `vdp.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
-| `src/platform/` | Partes de la plataforma sin SDL (`png`, `files`, `export`, `random_pad.h`); el resto llega con la ventana. |
-| `src/tools/` | `genrun`, `carttest`, `m68ktest`, `bustest`, `embed`. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y `png`, `files`, `export`, `random_pad.h`. |
+| `src/tools/` | `genrun`, `carttest`, `m68ktest`, `bustest`, `vdptest`, `embed`. |
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
+
+## Créditos
+
+- Interfaz basada en Moskva 89, GBRecomp y NESRecomp (MIT).
+- Icono: `MD.png` (mando de Mega Drive, serie TriMui) de
+  [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), con
+  licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Se incluye tal cual en
+  `src/platform/icono.h`; `src/platform/icono.ico` es un recorte llevado a 256x256 (`tools/make_icon.py`).
 
 ## Licencia
 

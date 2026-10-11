@@ -11,6 +11,7 @@ corre() {   # descripción comando...
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
 mkdir -p build/tests
 corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, SSF2, VINT/HINT)" "$(exe bustest)"
+corre "vdptest (puertos, DMA, estado, planos, ventana, sprites, sombra y resalte)" "$(exe vdptest)"
 
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
@@ -20,6 +21,25 @@ if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
     done
 else
     echo "(sin testroms/680x0 se omiten las SingleStepTests del 68000: make testroms)"
+fi
+
+# Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana), con una ROM
+# mínima hecha aquí (vectores, "SEGA" en $100 y un bucle en $200)
+if [ -x "$(exe gen)" ]; then
+    R=build/tests/minima.bin
+    mkdir -p build/tests build/shots
+    { printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '
+      head -c 240 /dev/zero; printf '\140\376'; head -c 510 /dev/zero; } > "$R"
+    ui=0
+    for m in 0 1 2 3 4 5; do
+        "$(exe gen)" "$R" --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
+            && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
+    done
+    for a in 19 20 21; do       # Controles, Este juego, Acerca de
+        "$(exe gen)" "$R" --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
+            && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; ui=1; }
+    done
+    if [ $ui -eq 0 ]; then echo "ok    gen: los 6 menús y los 3 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
 fi
 
 # genrecomp: --info con una ROM que no es de Mega Drive debe fallar sin caerse, y sin ROM, dar el uso

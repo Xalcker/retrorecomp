@@ -9,6 +9,7 @@
  * --watch DIR (hexadecimal, en la RAM: $FF0000-$FFFFFF) imprime el byte cada vez que cambia.
  * --sram ARCHIVO carga la SRAM o EEPROM del cartucho al empezar (si existe) y la guarda al terminar.
  * --tmss: consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP).
+ * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,24 @@
 
 #include "gen.h"
 #include "console.h"
+#include "png.h"
+
+/* La imagen del cuadro (el tamaño que tiene en ese modo) como PNG */
+static int save_frame(const Gen *g, const char *path)
+{
+    const Vdp *v = &g->vdp;
+    int w = v->width, h = v->height;
+    unsigned char *rgb = malloc((size_t)w * h * 3);
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            uint32_t c = vdp_argb(v->fb[y * FB_W + x]);
+            unsigned char *p = rgb + ((size_t)y * w + x) * 3;
+            p[0] = (unsigned char)(c >> 16); p[1] = (unsigned char)(c >> 8); p[2] = (unsigned char)c;
+        }
+    int ok = png_write_rgb(path, rgb, w, h);
+    free(rgb);
+    return ok;
+}
 
 static u8 *read_file(const char *path, size_t *len)
 {
@@ -64,11 +83,16 @@ int main(int argc, char **argv)
     u32 watch[16]; int nw = 0; int wlast[16];
     const char *sram = NULL;
     int tmss = 0;
+    const char *shot = NULL, *shots = NULL;
+    long every = 60;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--sram") && i + 1 < argc) sram = argv[++i];
         else if (!strcmp(argv[i], "--tmss")) tmss = 1;
+        else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
             if (*a == '$') a++;
@@ -82,7 +106,8 @@ int main(int argc, char **argv)
         else rom = argv[i];
     }
     if (!rom || frames <= 0) {
-        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [--tmss] [boton:desde-hasta ...]\n"
+        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [--tmss]\n"
+                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c start x y z mode\n");
         return 2;
     }
@@ -103,6 +128,11 @@ int main(int argc, char **argv)
         last_frame = f == frames - 1;
         g->vdp.frame_done = 0;
         m68k_run(g, after);
+        if (shots && every > 0 && (f + 1) % every == 0) {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/%06ld.png", shots, f + 1);
+            if (!save_frame(g, path)) fprintf(stderr, "no se pudo escribir %s\n", path);
+        }
         for (int i = 0; i < nw; i++)
             if (g->ram[watch[i]] != wlast[i]) {
                 wlast[i] = g->ram[watch[i]];
@@ -138,6 +168,10 @@ int main(int argc, char **argv)
         if (!best) break;
         printf("  $%06X  %u\n", hpc[bi], best);
         hcount[bi] = 0;
+    }
+    if (shot) {
+        if (save_frame(g, shot)) printf("imagen en %s (%dx%d)\n", shot, g->vdp.width, g->vdp.height);
+        else printf("no se pudo escribir %s\n", shot);
     }
     if (sram && gen_sram_dirty(g)) {
         if (gen_sram_save(g, sram)) printf("partida guardada en %s\n", sram);

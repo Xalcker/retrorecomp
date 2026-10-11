@@ -12,12 +12,12 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (por ahora el esqueleto), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
-| `src/platform/` | Por ahora las partes sin SDL (`png`, `files`, `export`, `random_pad.h`). Se copian a cada proyecto generado. |
-| `src/tools/` | `carttest`, `m68ktest` (SingleStepTests del 68000), `bustest` (bus, mandos, SRAM, SSF2, interrupciones), `genrun` (corre una ROM sin ventana y resume), `embed`. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `icono.h`), `random_pad.h`. |
+| `src/tools/` | `carttest`, `m68ktest` (SingleStepTests del 68000), `bustest` (bus, mandos, SRAM, SSF2, interrupciones), `vdptest` (VDP), `genrun` (corre una ROM sin ventana, resume y guarda capturas), `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
-| `tools/` | `retrorecomp/` (la GUI común, submódulo). |
+| `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
 ## Una sola fuente de verdad para el CPU
 
@@ -148,12 +148,32 @@ juegos.
 
 ### VDP
 
-Fase 2 (`vdp.c`): el esqueleto que necesita el bus. Puerto de control (registros y comandos de
-dirección de dos palabras), puerto de datos a VRAM/CRAM/VSRAM con el incremento del registro 15,
-estado (VBLANK, F, HBLANK aproximado), contador HV (la V exacta; la H aproximada) y el reloj de líneas
-con VINT al empezar la línea 224 y HINT por el contador del registro 10 (baja en las líneas 0-224 y se
-recarga en las demás). Va al día de forma perezosa (`vdp_sync`). En la fase 3: DMA, FIFO, la H
-exacta y el dibujo.
+`vdp.c`: puerto de control (registros y comandos de dirección de dos palabras; en modo 4 solo se
+escriben los registros 0-10) y de datos (VRAM, donde una dirección impar cambia el orden de los
+bytes; CRAM; VSRAM; lecturas con los bits sin usar del bus) con el incremento del registro 15. Los tres
+DMA: desde el bus del 68000 (la fuente da la vuelta en 128 KB; el 68000 queda detenido lo que dura,
+según los accesos por línea: 18/205 en H40 y 16/167 en H32, con imagen o en el VBLANK), relleno (tras la
+escritura en el puerto de datos, el byte alto en VRAM o la palabra en CRAM/VSRAM) y copia de VRAM; los
+dos últimos dejan el bit de DMA del estado mientras duran. Estado (FIFO vacía, F, desborde y colisión
+de sprites, cuadro impar, VBLANK, HBLANK, DMA, PAL), contador HV (la V salta de `$EA` a `$E5`; la H
+recorre los valores de H40 o H32 repartidos parejo en la línea) y el reloj de líneas: VINT al empezar la
+línea 224 y HINT por el contador del registro 10 (baja en las líneas 0-224 y se recarga en las demás).
+Cada línea con imagen se dibuja al terminar, así lo que cambia una HINT sale en su línea. El modo (H32
+o H40, 224 o 240 líneas) se fija al empezar el cuadro.
+
+`vdp_render.c`: planos A y B (tamaño del registro 16; scroll horizontal de pantalla, por celda o por
+línea; vertical de pantalla o por columna de 16 pixeles), ventana (franja horizontal o vertical, sin
+scroll), sprites (lista enlazada; 20/16 por línea y 320/256 pixeles, con desborde; un sprite en X = 0
+tapa a los que siguen si ya hubo otro; colisión), prioridades (sprite, A, B con prioridad; luego sin
+ella; luego el fondo), sombra y resalte (operadores con los colores 14 y 15 de la paleta 3), columna
+izquierda en blanco y pantalla apagada. `fb` guarda por pixel el color de 9 bits y el modo (normal,
+sombra, resalte); `vdp_argb` lo pasa a ARGB con los niveles no lineales de la consola.
+
+Sin emular todavía: la FIFO (las escrituras del 68000 no esperan y el estado dice siempre "vacía"),
+el orden exacto de los accesos del 68000 dentro de una instrucción (78 % con `m68ktest --bus`), el
+modo 2 de entrelazado (doble resolución, como el 2 jugadores de Sonic 2), el modo 4 (SMS) y la
+posición exacta de HINT/VINT y del HBLANK dentro de la línea. Las orillas del DMA de relleno (qué pasa
+con el primer y el último byte) no están confirmadas con hardware.
 
 ### Audio
 
@@ -178,7 +198,29 @@ así que no aparece su pantalla de licencia. Sonic 1, NBA Jam y Super Street Fig
 
 ## Interfaz del ejecutable
 
-Fase 3.
+`gen` (`main_sdl.c`): ventana con barra de menús, controles y ritmo de 59.92 cuadros por segundo. La
+barra de menús y los diálogos vienen de Moskva 89, GBRecomp y NESRecomp (`ui_menu.c`, `ui_font.c`): se
+dibujan dentro de la ventana para verse igual en todos los sistemas, en español o inglés (`i18n.c`).
+Con un menú o un diálogo abierto, el juego se pausa.
+
+- **Juego:** abrir ROM (o arrastrarla a la ventana), reiniciar, pausa.
+- **Video:** tamaños 1x-6x, pantalla completa, escala entera y aspecto 4:3 (los pixeles de la Mega
+  Drive no son cuadrados; la ventana se ajusta al cambiar entre H32 y H40).
+- **Entrada:** el mando que pide la cabecera, o forzar el de 3 o el de 6 botones.
+- **Controles:** jugador 1 con flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode;
+  jugador 2 con I J K L, V B N = A B C, H = Start; mandos con X A B = A B C y LB Y RB = X Y Z.
+- **Exportar:** captura PNG (F12).
+- La SRAM o EEPROM se guarda al salir y cada 5 segundos si cambió, en la carpeta de datos
+  (`GENRecomp/interprete/`, junto con `settings.ini` y lo exportado).
+
+Opciones: `gen [rom.bin] [--scale N] [--tmss]`; para pruebas sin ventana, `--ui-shot archivo.png` con
+`--ui-frames N`, `--ui-menu N` y `--ui-action N`. El audio (fase 4), los estados guardados y
+`--record`/`--play` (fase 5) y el modo de juego recompilado (fase 6) llegan después.
+
+Icono: `MD.png` (serie TriMui) de
+[KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0;
+la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 256x256
+(`tools/make_icon.py`).
 
 ## Empaquetado y pruebas
 
@@ -193,13 +235,16 @@ Fase 3.
   que cuenta VINT y HINT, también con la máscara), las SingleStepTests del 68000 por el intérprete y
   por el camino del código generado (~9 s cada una), `genrecomp --info` con cada ROM de `roms/` y, si
   están: Sonic 1 (USA/Europa), que con Start en el título el intérprete llegue a jugar el nivel; NBA
-  Jam (USA/Europa), que guarde su EEPROM y la acepte al volver a arrancar.
+  Jam (USA/Europa), que guarde su EEPROM y la acepte al volver a arrancar. También `vdptest` (puertos,
+  los tres DMA, estado, contador V, planos, ventana, sprites con su límite, máscara y desborde,
+  sombra y resalte) y que `gen` dibuje cada menú y cada diálogo sin ventana (`--ui-shot`).
 
 ### Resultados con juegos
 
-Con el intérprete, el bus y el esqueleto del VDP (sin imagen todavía): Sonic 1 pasa por la pantalla
-de SEGA, el título y el demo, y con Start entra al nivel y juega (corriendo a la derecha pierde una
+Con el intérprete, el bus y el VDP: Sonic 1 se ve bien en la pantalla de SEGA, "SONIC TEAM
+PRESENTS", el título (con el emblema y Sonic) y Green Hill (HUD, scroll por capas, agua, enemigos);
+con Start entra al nivel y juega (corriendo a la derecha pierde una
 vida contra un enemigo), a ~60 veces el tiempo real. Super Street Fighter II corre con el mapper de
-SSF2 (155 cambios de banco en 1200 cuadros). NBA Jam guarda su EEPROM y la acepta al volver a
+SSF2 (155 cambios de banco en 1200 cuadros) y muestra el logo de SEGA, la intro y el título. NBA Jam guarda su EEPROM y la acepta al volver a
 arrancar. `genrun rom --watch DIR` muestra cuándo cambia un byte de la RAM (en Sonic 1, el modo de
 juego está en `$FFF600`) y `--sram ARCHIVO` carga y guarda la SRAM o EEPROM.

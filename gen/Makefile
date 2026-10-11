@@ -31,16 +31,36 @@ PLATFORM := linux
 endif
 # --- Fin del bloque común ---
 
-RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c cpu68k.c sha1.c
+RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c cpu68k.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 
-# Partes de la plataforma que no dependen de SDL: se compilan ya para que no se queden atrás
-# (las usarán genshot, genaudio y la ventana)
+# Partes de la plataforma que no dependen de SDL (las usan también genshot y genaudio)
 PLAT := png.c files.c export.c
 PLAT_OBJ := $(PLAT:%.c=$(BUILD)/plat_%.o)
 
-PROGS := genrecomp carttest m68ktest bustest genrun
+# La ventana: el intérprete con menús (gen)
+GEN_SRC := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
+# Windows: el icono del .exe sale de un recurso (windres)
+ifeq ($(OS),Windows_NT)
+WINRES := $(BUILD)/icono_res.o
+$(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
+	windres -I src/platform -i $< -o $@ -O coff
+endif
+
+gen$(EXE): $(GEN_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+
+PROGS := genrecomp carttest m68ktest bustest vdptest genrun gen
+
+# SDL2 para el intérprete con ventana (gen). En Windows, enlazado de forma
+# estática para que el .exe no pida SDL2.dll.
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdlg32
+else
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+endif
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
@@ -51,15 +71,18 @@ carttest$(EXE): src/tools/carttest.c $(RT)
 bustest$(EXE): src/tools/bustest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-genrun$(EXE): src/tools/genrun.c $(RT)
+vdptest$(EXE): src/tools/vdptest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+
+genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^
 
 # m68ktest pone su propio bus (memoria plana): no usa bus.c
 m68ktest$(EXE): src/tools/m68ktest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
 EMBED_PLATFORM := random_pad.h png.c png.h files.c files.h export.c export.h
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
@@ -92,7 +115,7 @@ dist: genrecomp$(EXE)
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BUILD)/plat_%.o: src/platform/%.c $(wildcard src/platform/*.h) | $(BUILD)
+$(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(RT): $(RUNTIME_OBJ)

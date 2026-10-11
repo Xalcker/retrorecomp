@@ -36,9 +36,12 @@ mismo contrato de línea de comandos.
   Jam, comprobado: guarda y acepta su partida). `bustest` y `genrun` (con `--watch` y `--sram`).
   Pendiente: más juegos con EEPROM, mappers sin licencia, esperas del bus del Z80 y refresco de la
   DRAM.
-- [ ] **3. VDP.** Puerto de control, VRAM/CRAM/VSRAM, FIFO, DMA (68k→VRAM con pausa del 68k, relleno,
-  copia), dibujo por línea, HV counter, HINT/VINT. Perezoso como `ppu_sync`. Ventana `gen` (llegan
-  `main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, icono propio).
+- [x] **3. VDP.** Puertos, los tres DMA (el del 68000 lo detiene lo que dura), estado, contador HV,
+  dibujo por línea (planos con todos los scrolls, ventana, sprites con sus límites, máscara y colisión,
+  prioridades, sombra y resalte), perezoso. Ventana `gen` (menús, controles de 6 botones, aspecto 4:3,
+  capturas; icono `MD.png` de KyleBing, CC BY 4.0). `vdptest`, `genrun --shot/--shots`. Sonic 1, SSF2 y
+  NBA Jam se ven bien. Pendiente: FIFO, orden exacto de los accesos del 68000, entrelazado doble,
+  posición exacta de HINT/VINT/HBLANK en la línea.
 - [ ] **4. Z80 y audio.** Z80 interpretado (zexdoc/zexall, SingleStepTests z80), SN76489, YM2612,
   mezcla y remuestreo a 44 100 Hz.
 - [ ] **5. Herramientas sin ventana.** `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,

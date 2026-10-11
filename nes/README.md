@@ -44,7 +44,7 @@ es `%APPDATA%\NESRecomp\<juego>\`.
 make            # nesrecomp, nes (intérprete con ventana), las herramientas sin ventana y el runtime
 make testroms   # una sola vez: baja las ROMs de prueba libres (nes-test-roms) a testroms/
 make test       # opcional: nestest, Blargg, mappers, recompilado contra intérprete...
-make dist       # dist/nesrecomp-<versión>.tar.gz
+make dist       # dist/nesrecomp-<versión>-<sistema>.tar.gz (sistema: linux, macos o windows)
 ```
 
 Son los mismos objetivos que en GBRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre exactamente
@@ -53,6 +53,10 @@ eso en Linux, macOS y Windows. AccuracyCoin es opcional (`tests/accuracycoin.py`
 ```
 git clone --depth 1 https://github.com/100thCoin/AccuracyCoin testroms/accuracycoin
 ```
+
+**Versiones.** La versión es la etiqueta de git más cercana (`git describe`: `v0.1.0`, o `v0.1.0-3-gabc1234` con
+commits después de ella). Al subir una etiqueta `vX.Y.Z` de `main` (`git tag v0.2.0 && git push origin v0.2.0`), el CI
+publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual que en el otro recompilador.
 
 **2. Probar la ROM con el intérprete** (ventana SDL2; teclas en Ayuda → Controles)
 

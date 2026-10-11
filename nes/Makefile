@@ -21,6 +21,14 @@ endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Sistema para el nombre del paquete de make dist: windows, macos o linux
+ifeq ($(OS),Windows_NT)
+PLATFORM := windows
+else ifeq ($(shell uname -s 2>/dev/null),Darwin)
+PLATFORM := macos
+else
+PLATFORM := linux
+endif
 # --- Fin del bloque común ---
 
 # SDL2 para el intérprete con ventana (nes). En Windows, enlazado de forma
@@ -76,13 +84,13 @@ nesrecomp$(EXE): src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(BUILD)/gen
 		src/nesrecomp/nesrecomp.c $(BUILD)/gen/embedded.c $(RT)
 
 # Paquete para distribuir: nesrecomp, la documentación y la licencia
-DIST := dist/nesrecomp-$(VERSION)
+DIST := dist/nesrecomp-$(VERSION)-$(PLATFORM)
 dist: nesrecomp$(EXE)
 	rm -rf $(DIST)
 	mkdir -p $(DIST)
-	cp nesrecomp$(EXE) README.md $(wildcard LICENSE) $(DIST)/
+	cp nesrecomp$(EXE) README.md LICENSE $(DIST)/
 	cp docs/ARQUITECTURA.md $(DIST)/
-	tar -czf $(DIST).tar.gz -C dist nesrecomp-$(VERSION)
+	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
 ramdump$(EXE): src/tools/ramdump.c $(RT)

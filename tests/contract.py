@@ -18,8 +18,9 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
            "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat")},
 }
 
-# Código que comparten los dos tal cual (hasta que se mueva aquí): el mando aleatorio de --seed
-SHARED = (os.path.join("src", "platform", "random_pad.h"),)
+# Archivos que los dos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed y
+# la propia prueba de contrato de cada uno
+SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("tests", "contract.sh"))
 
 
 def main():

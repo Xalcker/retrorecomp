@@ -1,5 +1,5 @@
 /*
- * GENRecomp: recompilador estático de juegos de Mega Drive / Genesis.
+ * GENRecomp: recompilador estático de juegos de Sega Genesis.
  *
  * Fase 0: lee la ROM y muestra lo que el recompilador usará como punto de partida (formato,
  * SHA1, cabecera y la tabla de vectores, de donde sale el descubrimiento). La emisión de C y
@@ -34,7 +34,7 @@ static u8 *read_file(const char *path, size_t *len)
 static void usage(void)
 {
     fprintf(stderr,
-        "GENRecomp %s: recompilador estático de Mega Drive / Genesis\n"
+        "GENRecomp %s: recompilador estático de Sega Genesis\n"
         "uso: genrecomp rom.bin [--info]\n"
         "  --info   formato, SHA1, cabecera y vectores de la ROM (lo que hace sin opciones)\n"
         "  (recompilar con -o carpeta llega en la fase 6: ver docs/PLAN.md)\n",
@@ -55,7 +55,7 @@ static void print_info(const char *path, const Gen *g)
     const GenHeader *h = &c->hdr;
     printf("%s: %zu KB, %s\n", path, c->rom_size / 1024, c->format == ROMFMT_SMD ? "SMD (entrelazado)" : "binario");
     printf("SHA1:        %s\n", c->sha1);
-    if (!h->sega) printf("aviso: no hay \"SEGA\" en $100; puede no ser una ROM de Mega Drive\n");
+    if (!h->sega) printf("aviso: no hay \"SEGA\" en $100; puede no ser una ROM de Genesis\n");
     printf("sistema:     %s\n", h->system);
     printf("copyright:   %s\n", h->copyright);
     printf("nombre (JP): %s\n", h->name_dom);

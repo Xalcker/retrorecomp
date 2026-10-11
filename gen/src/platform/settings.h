@@ -8,7 +8,7 @@ typedef struct {
     int sound;              /* 0/1 */
     int volume;             /* 25, 50, 75 o 100 */
     int slot;               /* ranura de estados: 1-4 */
-    int aspect;             /* 0/1: imagen en 4:3 (los pixeles de la Mega Drive no son cuadrados) */
+    int aspect;             /* 0/1: imagen en 4:3 (los pixeles del Genesis no son cuadrados) */
     int integer;            /* 0/1: escala entera */
     int pad;                /* mando: 0 el que dice la cabecera, 3 de 3 botones, 6 de 6 botones */
     int mute;               /* bits 0-5: canales FM 1-6 silenciados, bit 6: PSG */

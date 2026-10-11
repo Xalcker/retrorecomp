@@ -185,7 +185,7 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     for (;;) {
         int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path_out, path_size);
         if (!got) {
-            snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), "Mega Drive");
+            snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), "Genesis");
             if (first) inform(msg);
             if (!wait_for_drop(path_out, path_size)) return 0;
         }
@@ -872,7 +872,7 @@ static void render(App *app)
     SDL_RenderPresent(app->ren);
 }
 
-/* Icono de la ventana: el mando de Mega Drive, recortado al dibujo y centrado en un cuadrado */
+/* Icono de la ventana: el mando de Genesis, recortado al dibujo y centrado en un cuadrado */
 static void set_window_icon(App *app)
 {
     int w, h;

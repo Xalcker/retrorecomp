@@ -1,5 +1,5 @@
 /*
- * El Z80 dentro de la Mega Drive: su mapa de memoria y cuándo corre.
+ * El Z80 dentro del Genesis: su mapa de memoria y cuándo corre.
  *
  *   $0000-$1FFF  RAM de 8 KB (espejo en $2000-$3FFF)
  *   $4000-$5FFF  YM2612 ($4000-$4003, con espejos)
@@ -38,7 +38,7 @@ void z80_write(struct Gen *g, uint16_t a, uint8_t v)
     if (a >= 0x8000) { g->z80_mclk += BANK_WAIT; bus_write8(g, (u32)g->z80_bank << 15 | (a & 0x7FFFu), v); }
 }
 
-/* La Mega Drive no usa los puertos del Z80 */
+/* El Genesis no usa los puertos del Z80 */
 uint8_t z80_in(struct Gen *g, uint16_t port) { (void)g; (void)port; return 0xFF; }
 void z80_out(struct Gen *g, uint16_t port, uint8_t v) { (void)g; (void)port; (void)v; }
 

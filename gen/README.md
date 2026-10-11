@@ -1,11 +1,14 @@
 # GENRecomp
 
-Recompilador estático de juegos de Mega Drive / Genesis, con la misma arquitectura que
+Recompilador estático de juegos de Sega Genesis, con la misma arquitectura que
 [NESRecomp](https://github.com/Xalcker/NESrecomp) y [GBRecomp](https://github.com/Xalcker/GBRecomp):
 toma una ROM y generará un proyecto C99 portable que se compila en un ejecutable nativo con SDL2.
 Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin datos de la ROM en el
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
+
+Por ahora solo NTSC (el Genesis de EE. UU., 60 Hz): los juegos y demos que exigen PAL esperan a
+que esté hecho.
 
 **Estado: fase 5 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido y herramientas). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
@@ -108,7 +111,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 ## Créditos
 
 - Interfaz basada en Moskva 89, GBRecomp y NESRecomp (MIT).
-- Icono: `MD.png` (mando de Mega Drive, serie TriMui) de
+- Icono: `MD.png` (mando de Genesis, serie TriMui) de
   [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), con
   licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Se incluye tal cual en
   `src/platform/icono.h`; `src/platform/icono.ico` es un recorte llevado a 256x256 (`tools/make_icon.py`).

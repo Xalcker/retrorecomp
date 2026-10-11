@@ -1,5 +1,5 @@
 /*
- * Z80: estado y lo que pide del bus. En la Mega Drive corre el programa de sonido desde su RAM de
+ * Z80: estado y lo que pide del bus. En el Genesis corre el programa de sonido desde su RAM de
  * 8 KB; siempre va interpretado (z80.c).
  */
 #ifndef Z80_H

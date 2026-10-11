@@ -22,7 +22,7 @@ typedef struct {
     uint8_t  halted;            /* doble falta: el CPU se detiene hasta el reset */
     uint8_t  ipl;               /* nivel de interrupción que pide la consola (0-7) */
     uint8_t  nmi_edge;          /* el nivel 7 subió (el 7 no se enmascara: es por flanco) */
-    uint8_t  tas;               /* 1 durante la escritura de TAS (la Mega Drive la ignora en la RAM) */
+    uint8_t  tas;               /* 1 durante la escritura de TAS (el Genesis la ignora en la RAM) */
 } M68k;
 
 /* Bus: lo implementa la consola (o m68ktest). Cada acceso avanza 4 ciclos del 68000. Las

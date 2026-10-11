@@ -1,6 +1,6 @@
 /*
  * Entradas grabadas: archivo de texto con una línea por cambio de botones (el mismo formato que en
- * NESRecomp y GBRecomp; aquí con los botones de la Mega Drive).
+ * NESRecomp y GBRecomp; aquí con los botones del Genesis).
  *
  *   # comentario
  *   0     -              (ningún botón desde el cuadro 0)

@@ -1,5 +1,5 @@
 /*
- * E/S de la Mega Drive ($A10000-$A1001F): registro de versión, los tres puertos (datos y
+ * E/S del Genesis ($A10000-$A1001F): registro de versión, los tres puertos (datos y
  * dirección de los pines) y sus registros serie. En los puertos 1 y 2 hay un mando de 3 o de 6
  * botones; en el 3, nada.
  *

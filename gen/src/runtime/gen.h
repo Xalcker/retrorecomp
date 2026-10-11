@@ -45,7 +45,7 @@ enum {
 enum {
     VEC_SSP = 0, VEC_RESET = 1, VEC_BUS = 2, VEC_ADDRESS = 3, VEC_ILLEGAL = 4, VEC_ZERODIV = 5,
     VEC_CHK = 6, VEC_TRAPV = 7, VEC_PRIV = 8, VEC_TRACE = 9, VEC_LINEA = 10, VEC_LINEF = 11,
-    VEC_SPURIOUS = 24, VEC_AUTO1 = 25,  /* nivel n: VEC_AUTO1 + n - 1; en la Mega Drive: 2 = EXT, 4 = HINT, 6 = VINT */
+    VEC_SPURIOUS = 24, VEC_AUTO1 = 25,  /* nivel n: VEC_AUTO1 + n - 1; en el Genesis: 2 = EXT, 4 = HINT, 6 = VINT */
     VEC_TRAP0 = 32, VEC_COUNT = 64
 };
 

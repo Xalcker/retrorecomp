@@ -57,7 +57,7 @@ if [ -x "$(exe gen)" ]; then
     if [ $ui -eq 0 ]; then echo "ok    gen: los 7 menús y los 4 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
 fi
 
-# genrecomp: --info con una ROM que no es de Mega Drive debe fallar sin caerse, y sin ROM, dar el uso
+# genrecomp: --info con una ROM que no es de Genesis debe fallar sin caerse, y sin ROM, dar el uso
 D=build/tests; mkdir -p "$D"
 printf 'no es una rom' > "$D/chica.bin"
 if "$(exe genrecomp)" "$D/chica.bin" >/dev/null 2>&1; then echo "FALLA genrecomp acepta un archivo de 13 bytes"; fallas=$((fallas + 1))

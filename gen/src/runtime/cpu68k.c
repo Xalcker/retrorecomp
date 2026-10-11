@@ -247,7 +247,7 @@ static void kinds_init(void)
     kind_ready = 1;
 }
 
-/* Interrupción de nivel `lvl` (autovector, como en la Mega Drive) */
+/* Interrupción de nivel `lvl` (autovector, como en el Genesis) */
 static void interrupt(struct Gen *g, int lvl)
 {
     M68k *c = &g->cpu;

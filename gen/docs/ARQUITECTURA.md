@@ -1,6 +1,6 @@
 # Arquitectura de GENRecomp
 
-GENRecomp toma una ROM de Mega Drive / Genesis y generará un proyecto C99 que se compila en un
+GENRecomp toma una ROM de Sega Genesis y generará un proyecto C99 que se compila en un
 ejecutable nativo. El ejecutable cargará la ROM del usuario en tiempo de ejecución y validará su
 SHA1: nunca se distribuyen datos de la ROM.
 
@@ -76,7 +76,7 @@ bajo un solo `setjmp` (el error de dirección vuelve ahí; en macOS `setjmp` hac
 y uno por instrucción costaba casi 10 veces el tiempo) y después de cada una llama a `vdp_sync`, que pone las líneas al día y fija el nivel de interrupción del 68000
 (`cpu.ipl`): 6 si hay VINT pendiente y habilitada (registro 1, bit 5), 4 si hay HINT (registro 0, bit
 4). El 68000 la atiende al empezar la instrucción siguiente si el nivel pasa su máscara (autovector,
-como en la Mega Drive) y avisa con `m68k_int_ack`, que la borra en el VDP. El despachador del código
+como en el Genesis) y avisa con `m68k_int_ack`, que la borra en el VDP. El despachador del código
 generado llega en la fase 6.
 
 ## Recompilador
@@ -292,7 +292,7 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   `genaudio` y `genbench` aceptan `--frames`, `--input`, `--seed` (y `--repeat`); con la demo Overdrive,
   la misma entrada da la misma traza, captura y sonido, y `--input` da el mismo `genshot --hash` que la
   sintaxis `boton:desde-hasta`. Los botones del guion común (`START`, `DOWN+A`) existen en las tres
-  consolas; `--seed` usa el mismo mando aleatorio (`random_pad.h`) traducido a la Mega Drive.
+  consolas; `--seed` usa el mismo mando aleatorio (`random_pad.h`) traducido al Genesis.
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del 68000 y del Z80 (comprimidas) y las demos Overdrive (Evoke 2013, la versión para hardware)
   y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las

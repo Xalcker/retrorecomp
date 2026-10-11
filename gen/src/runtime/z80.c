@@ -4,7 +4,7 @@
  * instrucciones de bloque al repetir) y las interrupciones IM 0/1/2. Se comprueba con las
  * SingleStepTests del Z80 (src/tools/z80test.c).
  *
- * Los ciclos T salen de la instrucción (no se cuentan accesos al bus: en la Mega Drive el Z80 solo
+ * Los ciclos T salen de la instrucción (no se cuentan accesos al bus: en el Genesis el Z80 solo
  * espera al leer el bus del 68000, y eso lo agrega z80bus.c).
  */
 #include <string.h>
@@ -559,7 +559,7 @@ int z80_step(struct Gen *g, Z80 *z)
     z->ei = 0;
     int t;
     if (z->irq && z->iff1 && !ei_was) {
-        /* Interrupción: en la Mega Drive el bus de datos lee $FF (IM 0 ejecuta RST 38h) */
+        /* Interrupción: en el Genesis el bus de datos lee $FF (IM 0 ejecuta RST 38h) */
         if (z->halted) { z->halted = 0; z->pc++; }
         z->iff1 = z->iff2 = 0;
         inc_r(z);

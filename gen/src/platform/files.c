@@ -64,7 +64,7 @@ int ask_rom_path(const char *title, char *out, size_t size)
     OPENFILENAMEW ofn;
     memset(&ofn, 0, sizeof ofn);
     ofn.lStructSize = sizeof ofn;
-    ofn.lpstrFilter = L"ROM de Mega Drive / Genesis (*.bin, *.md, *.gen, *.smd)\0*.bin;*.md;*.gen;*.smd\0Todos los archivos\0*.*\0";
+    ofn.lpstrFilter = L"ROM de Sega Genesis (*.bin, *.md, *.gen, *.smd)\0*.bin;*.md;*.gen;*.smd\0Todos los archivos\0*.*\0";
     ofn.lpstrFile = file;
     ofn.nMaxFile = sizeof file / sizeof file[0];
     ofn.lpstrTitle = wtitle;

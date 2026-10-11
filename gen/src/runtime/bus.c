@@ -1,5 +1,5 @@
 /*
- * Bus del 68000: el mapa de memoria de la Mega Drive.
+ * Bus del 68000: el mapa de memoria del Genesis.
  *
  *   $000000-$3FFFFF  cartucho: ROM (con espejos; bancos de 512 KB con el mapper de SSF2), SRAM o
  *                    EEPROM serie (eeprom.c)
@@ -263,7 +263,7 @@ uint16_t m68k_peek16(Gen *g, uint32_t a)
     return 0xFFFF;
 }
 
-/* RESET del 68000: en la Mega Drive no llega a los periféricos que se emulan */
+/* RESET del 68000: en el Genesis no llega a los periféricos que se emulan */
 void m68k_reset_line(Gen *g) { (void)g; }
 
 void m68k_int_ack(Gen *g, int level) { vdp_int_ack(g, level); }

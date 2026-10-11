@@ -101,7 +101,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
     return 0;
 }
 
-/* El mando aleatorio común (RP_*, los bits de la NES) en los botones de la Mega Drive: A y B del NES
+/* El mando aleatorio común (RP_*, los bits de la NES) en los botones del Genesis: A y B del NES
  * son A y B; Select no se usa */
 static inline u16 cli_rp_to_gen(unsigned rp)
 {

@@ -22,7 +22,7 @@ int main(void)
     CHECK(inputs_parse_pad("X+Y+Z+MODE+C", &p) && p == (GEN_X | GEN_Y | GEN_Z | GEN_MODE | GEN_C), "los de 6 botones");
     CHECK(inputs_parse_pad("$0C0", &p) && p == (GEN_A | GEN_START), "forma $hex");
     CHECK(inputs_parse_pad("-", &p) && p == 0, "ninguno");
-    CHECK(!inputs_parse_pad("SELECT", &p), "SELECT no es un botón de la Mega Drive");
+    CHECK(!inputs_parse_pad("SELECT", &p), "SELECT no es un botón del Genesis");
     char buf[96];
     inputs_format(buf, sizeof buf, GEN_UP | GEN_B | GEN_MODE);
     CHECK(!strcmp(buf, "UP+B+MODE"), "formato (%s)", buf);

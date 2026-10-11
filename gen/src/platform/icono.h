@@ -1,5 +1,5 @@
 /*
- * Icono de la ventana: mando de Mega Drive ("MD.png", serie TriMui, de KyleBing/retro-game-console-icons
+ * Icono de la ventana: mando de Genesis ("MD.png", serie TriMui, de KyleBing/retro-game-console-icons
  * en GitHub: https://github.com/KyleBing/retro-game-console-icons), con licencia CC BY 4.0. PNG RGBA de
  * 300x300 incluido tal cual (main_sdl.c lo recorta al dibujo); lo genera tools/make_icon.py.
  */

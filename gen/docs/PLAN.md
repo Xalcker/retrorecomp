@@ -1,13 +1,13 @@
 # Plan de GENRecomp
 
-Recompilador estático de Mega Drive / Genesis con la misma estructura que
+Recompilador estático de Sega Genesis con la misma estructura que
 [NESRecomp](https://github.com/Xalcker/NESrecomp) y GBRecomp: runtime con intérprete de respaldo,
 proyecto C99 generado sin datos de la ROM (valida su SHA1), `difftest` contra el intérprete y el
 mismo contrato de línea de comandos.
 
 ## Qué cambia respecto a NES
 
-| | NES | Mega Drive | Consecuencia |
+| | NES | Genesis | Consecuencia |
 |---|---|---|---|
 | CPU principal | 6502, 1-3 bytes | 68000, 2-10 bytes, alineado a palabra, big-endian | Decodificador más grande; muchos opcodes ilegales ayudan a separar código de datos. |
 | Bancos | Mappers por todos lados | ROM lineal hasta 4 MB; solo el mapper de SSF2 y algunos sin licencia | Identidad por desplazamiento casi trivial. |

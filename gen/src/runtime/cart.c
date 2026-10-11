@@ -33,7 +33,7 @@ static void smd_deinterleave(const u8 *src, size_t blocks, u8 *dst)
 
 u8 *cart_normalize(const u8 *data, size_t len, size_t *out_len, int *format, const char **err)
 {
-    if (len < 0x200) { *err = "el archivo es demasiado chico para ser una ROM de Mega Drive"; return NULL; }
+    if (len < 0x200) { *err = "el archivo es demasiado chico para ser una ROM de Genesis"; return NULL; }
     *format = ROMFMT_BIN;
     /* Cabecera de copiador de 512 bytes: .smd (entrelazado) o, rara vez, un .bin con cabecera */
     if (len % 0x4000 == 0x200 && len > 0x200) {

@@ -1,4 +1,4 @@
-"""Genera los iconos de GENRecomp a partir de MD.png (mando de Mega Drive, serie TriMui) de
+"""Genera los iconos de GENRecomp a partir de MD.png (mando de Genesis, serie TriMui) de
 KyleBing/retro-game-console-icons (https://github.com/KyleBing/retro-game-console-icons),
 con licencia CC BY 4.0:
   src/platform/icono.h   el PNG tal cual, como arreglo de C (icono de la ventana; main_sdl.c lo
@@ -89,7 +89,7 @@ def main():
     root = pathlib.Path(__file__).resolve().parents[1]
     data = pathlib.Path(sys.argv[1]).read_bytes()
     lines = ['/*',
-             ' * Icono de la ventana: mando de Mega Drive ("MD.png", serie TriMui, de KyleBing/retro-game-console-icons',
+             ' * Icono de la ventana: mando de Genesis ("MD.png", serie TriMui, de KyleBing/retro-game-console-icons',
              ' * en GitHub: https://github.com/KyleBing/retro-game-console-icons), con licencia CC BY 4.0. PNG RGBA de',
              ' * 300x300 incluido tal cual (main_sdl.c lo recorta al dibujo); lo genera tools/make_icon.py.',
              ' */', '#ifndef ICONO_H', '#define ICONO_H', '', 'static const unsigned char icono_png[] = {']

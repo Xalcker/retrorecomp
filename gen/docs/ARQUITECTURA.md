@@ -47,12 +47,18 @@ modifica a sí mismo: en ROM no pasa y el código en RAM lo corre el intérprete
 
 Comportamientos poco documentados que siguen a las pruebas: banderas N/V de ABCD/SBCD/NBCD; CHK
 compara primero con el límite (38 ciclos, N = signo) y luego el signo (40 ciclos, N = 1), y si no
-atrapa N no cambia; DIVU/DIVS con desborde no tocan N ni Z, y DIVS termina antes (16/18 ciclos); la
+atrapa N no cambia; DIVS con desborde termina antes (16/18 ciclos); la
 división entre cero apila la dirección de la instrucción (solo un caso lo cubre); ASR con más pasos que
 bits deja C = X = 0; ADDQ.l a An tarda 6 ciclos. El error de dirección apila el IR, el estado (R/W,
 I/N, código de función), la dirección y como PC la última palabra de programa leída menos 2 (al saltar a
 una dirección impar, el destino menos 4); MOVE a `-(An)` hace el prefetch antes de escribir y un long
 se escribe en dos pasos (la palabra baja primero), igual que MOVEM a `-(An)` y ADDX/SUBX con `-(An)`.
+
+**Donde no seguimos a las pruebas:** DIVU/DIVS con desborde dejan N = 1 y Z = 0 (las SingleStepTests
+dejan N y Z sin cambiar). NBA Jam Tournament Edition lo demuestra: tras un `divu.w #4` que se desborda
+decide con `beq` cómo escribir su EEPROM, y solo con Z = 0 escribe páginas de 4 bytes y reconoce su
+partida al volver a arrancar; Genesis Plus GX hace lo mismo. `m68ktest` compara esos casos sin N ni Z
+y los cuenta aparte (1854 de DIVU y 2839 de DIVS).
 
 ## Temporización
 
@@ -138,10 +144,13 @@ juegos.
   X24C01 (dirección en el primer byte), 24C01-24C16 (byte de dispositivo 1010xxx y dirección) y 24C32
   o más (dos bytes de dirección), con lectura secuencial y escritura por página. En la base de datos
   por ahora solo NBA Jam (EE. UU./Europa y Japón: 24C02 de 256 bytes, SDA y SCL en los bits 0 y 1 de
-  `$200001`, SDA se lee en el bit 1, página de 4), sacado de su propio código y comprobado: el primer
-  arranque la inicializa y el segundo la acepta sin reescribirla. Los demás juegos con EEPROM (NBA Jam
-  TE, NFL Quarterback Club, Wonder Boy in Monster World, Mega Man: The Wily Wars, los de EA y
-  Codemasters...) se agregan cuando se puedan probar.
+  `$200001`, SDA se lee en el bit 1, página de 4) y NBA Jam Tournament Edition (X24C02: SDA en el
+  bit 0 de `$200001` para escribir y leer, SCL en el bit 0 de `$200000`), sacados de su propio código
+  y comprobados: el primer arranque la inicializa y el segundo la acepta sin reescribirla. En los
+  chips de hasta 256 bytes, los bits 1-3 del byte de dispositivo son patas de selección conectadas a
+  tierra: con otro valor no hay ACK (NBA Jam TE escribe en `A2`, `A4` y `A6` y cuenta con que no
+  respondan). Los demás juegos con EEPROM (NFL Quarterback Club, Wonder Boy in Monster World, Mega
+  Man: The Wily Wars, los de EA y Codemasters...) se agregan cuando se puedan probar.
 - **Estados guardados:** fase 5.
 
 ## Video y audio
@@ -228,6 +237,12 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   licencia y este documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp y GBRecomp),
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
+- **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
+  versionan): las SingleStepTests del 68000 y las demos Overdrive (Evoke 2013, la versión para hardware)
+  y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las
+  demos son la meta más exigente (Overdrive 1 corre pero avisa que necesita PAL; Overdrive 2 queda en
+  negro). El 240p Test Suite (GPL) no se baja solo: su ROM compilada está en itch.io y compilarla pide
+  SGDK; se puede poner a mano en `testroms/`.
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
   ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, EEPROM serie (escritura,

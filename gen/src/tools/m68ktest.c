@@ -166,6 +166,7 @@ static void load_state(Gen *g, int st)
 }
 
 static int verbose, check_bus, recomp;
+static int div_overflow_nz;     /* casos de DIVU/DIVS con desborde: N y Z discrepan a propósito */
 static char why[2048];
 
 #define DIFF(...) do { size_t l = strlen(why); snprintf(why + l, sizeof why - l, __VA_ARGS__); bad = 1; } while (0)
@@ -210,8 +211,15 @@ static int run_one(Gen *g, int t)
     u32 usp = c->s ? c->osp : c->a[7], ssp = c->s ? c->a[7] : c->osp;
     if (usp != (u32)num(fi, "usp")) DIFF(" usp=%08X(esperado %08X)", usp, (u32)num(fi, "usp"));
     if (ssp != (u32)num(fi, "ssp")) DIFF(" ssp=%08X(esperado %08X)", ssp, (u32)num(fi, "ssp"));
-    u16 sr = m68k_get_sr(c);
-    if (sr != (u16)num(fi, "sr")) DIFF(" sr=%04X(esperado %04X)", sr, (u16)num(fi, "sr"));
+    u16 sr = m68k_get_sr(c), esr = (u16)num(fi, "sr");
+    /* DIVU/DIVS con desborde: aquí N = 1 y Z = 0 (lo que hace el hardware: ver k_DIV); las pruebas los
+     * dejan sin cambiar. Se compara el resto del SR y se cuenta aparte. */
+    u16 op0 = (u16)nodes[child(get(ini, "prefetch"), 0)].num;
+    if (m68k_decode(op0) == K_DIV && (esr & 0x02) && !(esr & 0x01) && ((sr ^ esr) & ~0x0C) == 0 && sr != esr) {
+        div_overflow_nz++;
+        esr = sr;
+    }
+    if (sr != esr) DIFF(" sr=%04X(esperado %04X)", sr, esr);
     if (c->pc != (u32)num(fi, "pc")) DIFF(" pc=%06X(esperado %06X)", c->pc, (u32)num(fi, "pc"));
     int pf = get(fi, "prefetch");
     /* Código que se modifica a sí mismo: si la instrucción escribió sobre su propia cola de prefetch,
@@ -320,6 +328,7 @@ int main(int argc, char **argv)
     printf("%-14.*s %5d/%d%s", (int)(strstr(name, ".json") ? strstr(name, ".json") - name : (long)strlen(name)), name,
            pass, total, pass == total ? "" : "  <--");
     if (skipped) printf("  (%d omitidas: datos malos conocidos)", skipped);
+    if (div_overflow_nz) printf("  (%d con desborde: N y Z como el hardware)", div_overflow_nz);
     printf("\n");
     free(text);
     free(g);

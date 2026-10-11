@@ -127,14 +127,10 @@ $(BUILD):
 test: all
 	sh tests/run_tests.sh
 
-# Pruebas libres en testroms/ (no se versionan). Por ahora las SingleStepTests del 68000
-# (~200 MB comprimidas; se quedan comprimidas y m68ktest las lee con gunzip -c) en un commit fijo.
-SST68K_URL := https://codeload.github.com/SingleStepTests/680x0/tar.gz/e0d5ece9670205cc84a0101081837deb446f86a3
+# Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del
+# 68000 y las demos Overdrive de Titan (ver tests/testroms.sh)
 testroms:
-	@if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then echo "testroms/680x0 ya tiene las SingleStepTests del 68000"; else \
-		mkdir -p testroms/680x0 $(BUILD) && curl -fsSL -o $(BUILD)/680x0.tar.gz $(SST68K_URL) && \
-		tar -xzf $(BUILD)/680x0.tar.gz -C testroms/680x0 --strip-components=1 && rm -f $(BUILD)/680x0.tar.gz && \
-		echo "SingleStepTests del 68000 en testroms/680x0"; fi
+	sh tests/testroms.sh
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

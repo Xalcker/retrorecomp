@@ -993,14 +993,17 @@ OPF(DIV)
     if (!(op & 0x100)) {
         u32 q = dd / s, rem = dd % s;
         idle(x, divu_cycles(dd, (u16)s) - 4);
-        if (q > 0xFFFF) { c->fv = 1; c->fc = 0; }            /* desborde: N y Z no cambian */
+        /* Desborde: V = 1, C = 0, N = 1, Z = 0. Las SingleStepTests dejan N y Z sin cambiar, pero NBA Jam
+         * Tournament Edition depende de que Z quede en 0 tras un desborde (si no, escribe su EEPROM mal y
+         * no la reconoce al volver a arrancar); Genesis Plus GX hace lo mismo. */
+        if (q > 0xFFFF) { c->fv = 1; c->fc = 0; c->fn = 1; c->fz = 0; }
         else { c->d[dn] = rem << 16 | q; f_nz(c, q, 1); c->fv = 0; c->fc = 0; }
     } else {
         int32_t sd = (int32_t)dd;
         int16_t sv = (int16_t)s;
         int64_t q = (int64_t)sd / sv, rem = (int64_t)sd % sv;
         idle(x, divs_cycles(sd, sv, q < -32768 || q > 32767) - 4);
-        if (q < -32768 || q > 32767) { c->fv = 1; c->fc = 0; }
+        if (q < -32768 || q > 32767) { c->fv = 1; c->fc = 0; c->fn = 1; c->fz = 0; }
         else { c->d[dn] = ((u32)rem & 0xFFFF) << 16 | ((u32)q & 0xFFFF); f_nz(c, (u32)q, 1); c->fv = 0; c->fc = 0; }
     }
     return fin(x);

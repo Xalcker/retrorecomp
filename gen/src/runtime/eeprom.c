@@ -22,6 +22,8 @@ static const struct { const char *serial; EepromCfg cfg; } db[] = {
     /* Acclaim, mapeo viejo: SDA y SCL en los bits 0 y 1 de $200001; SDA se lee en el bit 1 */
     { "T-081326", { 0x200001, 0x200001, 0x200001, 0, 1, 1, 8, 0xFF, 0x03 } },     /* NBA Jam (USA, Europa) */
     { "T-81033",  { 0x200001, 0x200001, 0x200001, 0, 1, 1, 8, 0xFF, 0x03 } },     /* NBA Jam (Japón) */
+    /* Acclaim, mapeo nuevo: SDA en el bit 0 de $200001 (escribir y leer), SCL en el bit 0 de $200000 */
+    { "T-81406",  { 0x200001, 0x200000, 0x200001, 0, 0, 0, 8, 0xFF, 0x03 } },     /* NBA Jam Tournament Edition (X24C02) */
 };
 
 int eeprom_detect(Cart *c)
@@ -60,11 +62,15 @@ static int received(Gen *g, u8 b)
     Eeprom *e = &g->eeprom;
     const EepromCfg *k = &g->cart.eeprom;
     switch (e->state) {
-    case E_DEV:
-        if ((b & 0xF0) != 0xA0) { e->state = E_IDLE; return 0; }
-        if (k->addr_bits == 8) e->addr = (u16)((e->addr & 0xFF) | ((b >> 1 & 7) << 8));
+    case E_DEV: {
+        /* Los bits 1-3 del byte de dispositivo son dirección en los de más de 256 bytes (24C04-24C16); el
+         * resto son patas de selección de chip, conectadas a tierra en los cartuchos: otro valor, sin ACK */
+        u32 sel = b >> 1 & 7, blocks = k->addr_bits == 8 ? ((u32)k->size_mask + 1) >> 8 : 0;
+        if ((b & 0xF0) != 0xA0 || sel >= (blocks ? blocks : 1)) { e->state = E_IDLE; return 0; }
+        if (k->addr_bits == 8) e->addr = (u16)((e->addr & 0xFF) | (sel << 8));
         e->state = (b & 1) ? E_READ : k->addr_bits == 16 ? E_ADDR_HI : E_ADDR_LO;
         return 1;
+    }
     case E_ADDR7:
         e->addr = b >> 1;
         e->state = (b & 1) ? E_READ : E_WRITE;

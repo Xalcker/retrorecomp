@@ -42,6 +42,8 @@ mismo contrato de línea de comandos.
   capturas; icono `MD.png` de KyleBing, CC BY 4.0). `vdptest`, `genrun --shot/--shots`. Sonic 1, SSF2 y
   NBA Jam se ven bien. Pendiente: FIFO, orden exacto de los accesos del 68000, entrelazado doble,
   posición exacta de HINT/VINT/HBLANK en la línea.
+- [ ] **PAL** (después de la fase 4): 312 líneas y 50 Hz. Lo piden Street Fighter II' (Europa), las
+  demos Overdrive y quizá Mega Man: The Wily Wars (Europa).
 - [ ] **4. Z80 y audio.** Z80 interpretado (zexdoc/zexall, SingleStepTests z80), SN76489, YM2612,
   mezcla y remuestreo a 44 100 Hz.
 - [ ] **5. Herramientas sin ventana.** `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,

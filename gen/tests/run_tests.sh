@@ -60,15 +60,18 @@ for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do
             echo "ok    Sonic 1 llega al nivel con el intérprete"
         else echo "FALLA Sonic 1 no llega al nivel con el intérprete"; fallas=$((fallas + 1)); fi
     fi
-    # NBA Jam (USA/Europa): el primer arranque inicializa la EEPROM y el segundo la acepta (no escribe)
-    if "$(exe genrecomp)" "$r" | grep -q "99c5bc57fdea7f9df0cd8dec54160b162342344d"; then
+    # NBA Jam (USA/Europa) y NBA Jam TE: el primer arranque inicializa la EEPROM y el segundo la acepta
+    # (no escribe). En TE depende también de las banderas del desborde de DIVU (ver k_DIV).
+    for nba in "99c5bc57fdea7f9df0cd8dec54160b162342344d:2000:NBA Jam" "ddbf09c5e6ed5d528ef5ec816129a332c685f103:1500:NBA Jam TE"; do
+        sha=${nba%%:*}; rest=${nba#*:}; nf=${rest%%:*}; nn=${rest#*:}
+        "$(exe genrecomp)" "$r" | grep -q "$sha" || continue
         rm -f build/tests/nba.sav
-        "$(exe genrun)" "$r" --frames 2000 --sram build/tests/nba.sav > build/tests/nba1.txt
-        "$(exe genrun)" "$r" --frames 2000 --sram build/tests/nba.sav > build/tests/nba2.txt
+        "$(exe genrun)" "$r" --frames "$nf" --sram build/tests/nba.sav > build/tests/nba1.txt
+        "$(exe genrun)" "$r" --frames "$nf" --sram build/tests/nba.sav > build/tests/nba2.txt
         if grep -q "EEPROM: *256 bytes" build/tests/nba1.txt && grep -q "EEPROM: *0 bytes" build/tests/nba2.txt; then
-            echo "ok    NBA Jam guarda su EEPROM y la acepta al volver a arrancar"
-        else echo "FALLA NBA Jam y su EEPROM"; fallas=$((fallas + 1)); fi
-    fi
+            echo "ok    $nn guarda su EEPROM y la acepta al volver a arrancar"
+        else echo "FALLA $nn y su EEPROM"; fallas=$((fallas + 1)); fi
+    done
 done
 
 [ $fallas -eq 0 ] && echo "Todas las pruebas pasaron." || echo "$fallas pruebas fallaron."

@@ -106,6 +106,8 @@ int main(void)
     W(0x8000, 14); W(0xA000, 10); W(0x8000, 15); W(0xA000, 0);   /* contador = 10 */
     W(0x8000, 13); W(0xA000, 0x81);                              /* IRQ activo y contador activo */
     if (n.cart.irq_cycle != 1000 + 10 + 1) { printf("FALLA mapper 69: IRQ en %llu, esperaba 1011\n", (unsigned long long)n.cart.irq_cycle); fails++; }
+    W(0xC000, 7); W(0xE000, 0x3E); W(0xC000, 13); W(0xE000, 0x0E);   /* audio 5B: $C000 elige registro, $E000 lo escribe */
+    if (n.s5b.reg[7] != 0x3E || n.s5b.reg[13] != 0x0E || n.cart.reg[0] != 13) { puts("FALLA mapper 69: registros del 5B"); fails++; }
 
     /* 118 TxSROM: el bit 7 del banco de CHR elige la página del nametable */
     make(118, 128, 64, MIRROR_VERTICAL);

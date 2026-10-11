@@ -143,6 +143,15 @@ typedef struct {
     u16 period[3], timer[3];
 } Vrc6;
 
+/* Audio del Sunsoft 5B (FME-7, mapper 69): tres tonos cuadrados, ruido y envolvente, como un YM2149 a la mitad del
+ * reloj del CPU. Los contadores van en ciclos de CPU y cuentan hacia 0 (el evento ocurre al llegar). */
+typedef struct {
+    u8  reg[16], sel;
+    u16 tcnt[3]; u8 tout[3];                    /* tonos: cambian de nivel cada 16 x período ciclos */
+    u16 ncnt; u32 lfsr;                         /* ruido: LFSR de 17 bits, un paso cada 32 x período ciclos */
+    u32 ecnt; u8 estep, eatt, ehold;            /* envolvente: 32 pasos, uno cada 16 x período ciclos */
+} S5b;
+
 #define APU_BUF 16384
 typedef struct {
     Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
@@ -159,6 +168,7 @@ typedef struct {
     u8   dmc_delay, dmc_next;   /* el bit del DMC escrito en $4015 (dmc_next) se aplica dmc_delay ciclos después */
     u8   dmc_implicit;          /* $4015 encendió el DMC justo antes de su reloj: en el próximo byte sale una DMA de un ciclo */
     u8   vrc6;                  /* el cartucho tiene el audio del VRC6 (estado en NES.vrc6) */
+    u8   s5b;                   /* el cartucho tiene el audio del Sunsoft 5B (estado en NES.s5b) */
     double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
@@ -201,6 +211,7 @@ typedef struct NES {
     u64  pad_pend;              /* $4016 = 1 escrito en un ciclo put: el control se latchea en el get siguiente (ciclo
                                    guardado aquí) si el strobe sigue en 1; 0 = nada pendiente */
     Vrc6 vrc6;                  /* audio del VRC6 (al final: en medio desplazaría campos de cada ciclo) */
+    S5b  s5b;                   /* audio del Sunsoft 5B (también al final) */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */
@@ -272,6 +283,7 @@ void apu_sync(NES *n);                           /* ejecuta lo pendiente hasta e
 void apu_dmc_dma_done(NES *n, u8 v);             /* el DMA del DMC entregó su byte */
 u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a leer */
 void apu_vrc6_write(NES *n, u16 reg, u8 v);      /* $9000-$9003, $A000-$A002, $B000-$B002 (ya decodificados) */
+void apu_5b_write(NES *n, int data, u8 v);       /* Sunsoft 5B: data = 0 elige registro ($C000), 1 lo escribe ($E000) */
 int  apu_dmc_dma_live(NES *n);                   /* ¿sigue en pie la DMA del DMC? (no la abortó $4015) */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */

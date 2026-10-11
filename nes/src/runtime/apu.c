@@ -23,8 +23,13 @@ static const u8 tri_tab[32] = { 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
                                 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
 
 static float pulse_mix[31], tnd_mix[203];
+/* Sunsoft 5B: 32 niveles de 1.5 dB (el registro fijo de 4 bits usa los impares); 1.0 es el máximo */
+static float s5b_lvl[32];
 /* Un paso de volumen del VRC6: un pulso a 15 suena como un pulso del 2A03 a 15 (el diente de sierra llega a 31) */
 #define VRC6_UNIT (pulse_mix[15] / 15.0f)
+/* Un canal del 5B a volumen máximo suena unas 3.5 veces más fuerte que un pulso del 2A03 a 15 (~+11 dB, como en Mesen):
+ * el 5B es mucho más fuerte que el 2A03 y los juegos lo usan a volúmenes medios (Gimmick!, a 8) */
+#define S5B_UNIT (3.5f * pulse_mix[15])
 static int tabs_ready;
 
 static void init_tabs(void)
@@ -46,6 +51,11 @@ void apu_reset(NES *n)
     a->vrc6 = CART_VRC6(&n->cart);
     memset(&n->vrc6, 0, sizeof n->vrc6);
     n->vrc6.step[0] = n->vrc6.step[1] = 15;
+    a->s5b = MAPPER(&n->cart) == 69;
+    memset(&n->s5b, 0, sizeof n->s5b);
+    { S5b *s = &n->s5b; for (int i = 0; i < 3; i++) s->tcnt[i] = 16; s->ncnt = 32; s->ecnt = 16; s->lfsr = 1; s->ehold = 1; }
+    s5b_lvl[31] = 1.0f;                                /* -1.5 dB por paso: 10^(-1.5/20) (sin libm: no todas las herramientas la enlazan) */
+    for (int i = 30; i >= 1; i--) s5b_lvl[i] = s5b_lvl[i + 1] * 0.8413951416f;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
     a->cps = CPU_HZ / APU_RATE;
     a->rate_mul = 1.0;
@@ -160,6 +170,69 @@ void apu_vrc6_write(NES *n, u16 reg, u8 x)
         break;
     case 3: if (i == 0) v->ctrl = x & 7; break;
     }
+}
+
+/* ---- Sunsoft 5B ---- */
+
+static u32 s5b_tone_reload(const S5b *s, int i)
+{
+    u32 p = s->reg[2 * i] | ((s->reg[2 * i + 1] & 15) << 8);
+    return 16 * (p ? p : 1);
+}
+static u32 s5b_noise_reload(const S5b *s) { u32 p = s->reg[6] & 31; return 32 * (p ? p : 1); }
+static u32 s5b_env_reload(const S5b *s) { u32 p = s->reg[11] | (s->reg[12] << 8); return 16 * (p ? p : 1); }
+
+static int s5b_env_level(const S5b *s) { return s->eatt ? s->estep : 31 - s->estep; }
+
+static float s5b_out(const S5b *s)
+{
+    float o = 0;
+    for (int i = 0; i < 3; i++) {
+        int on = (s->tout[i] | ((s->reg[7] >> i) & 1)) & ((s->lfsr & 1) | ((s->reg[7] >> (i + 3)) & 1));
+        if (!on) continue;
+        u8 v = s->reg[8 + i];
+        o += s5b_lvl[(v & 0x10) ? s5b_env_level(s) : (v & 15) ? 2 * (v & 15) + 1 : 0];
+    }
+    return o;
+}
+
+static void s5b_env_step(S5b *s)
+{
+    if (s->ehold) return;
+    if (++s->estep < 32) return;
+    u8 sh = s->reg[13];                                /* fin de un ciclo de 32 pasos: CONT, ATT, ALT, HOLD */
+    if (!(sh & 8)) { s->ehold = 1; s->estep = 31; s->eatt = 0; return; }     /* sin CONT: queda en 0 */
+    if (sh & 1) { s->ehold = 1; s->estep = 31; if (sh & 2) s->eatt ^= 1; return; }
+    if (sh & 2) s->eatt ^= 1;
+    s->estep = 0;
+}
+
+static void s5b_clock(S5b *s)
+{
+    for (int i = 0; i < 3; i++) if (--s->tcnt[i] == 0) { s->tcnt[i] = (u16)s5b_tone_reload(s, i); s->tout[i] ^= 1; }
+    if (--s->ncnt == 0) {
+        s->ncnt = (u16)s5b_noise_reload(s);
+        s->lfsr = (s->lfsr >> 1) | (((s->lfsr ^ (s->lfsr >> 3)) & 1) << 16);
+    }
+    if (--s->ecnt == 0) { s->ecnt = s5b_env_reload(s); s5b_env_step(s); }
+}
+
+static u64 s5b_skip(const NES *n)                  /* ciclos que se pueden saltar sin llegar a un evento */
+{
+    const S5b *s = &n->s5b;
+    u64 k = s->ncnt - 1;
+    for (int i = 0; i < 3; i++) if ((u64)s->tcnt[i] - 1 < k) k = s->tcnt[i] - 1;
+    if (!s->ehold && (u64)s->ecnt - 1 < k) k = s->ecnt - 1;
+    return k;
+}
+
+void apu_5b_write(NES *n, int data, u8 v)
+{
+    S5b *s = &n->s5b;
+    if (!data) { s->sel = v & 15; return; }
+    apu_sync(n);
+    s->reg[s->sel] = v;
+    if (s->sel == 13) { s->estep = 0; s->ehold = 0; s->eatt = (v >> 2) & 1; s->ecnt = s5b_env_reload(s); }
 }
 
 /* ---- DMC ---- */
@@ -315,6 +388,7 @@ static void apu_cycle(NES *n)
     dmc_clock(n);
     if (__builtin_expect(a->d.load_delay | a->dmc_delay, 0)) dmc_pending(n);
     if (a->vrc6) vrc6_clock(&n->vrc6);
+    if (a->s5b) s5b_clock(&n->s5b);
 
     /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
@@ -335,6 +409,7 @@ static void apu_cycle(NES *n)
     float mix = pulse_mix[p] + tnd_mix[3 * tri + 2 * nz + dm];
     if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
     if (a->vrc6) mix += vrc6_out(&n->vrc6) * VRC6_UNIT;
+    if (a->s5b) mix += s5b_out(&n->s5b) * S5B_UNIT;
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -476,6 +551,13 @@ static void bulk(NES *n, u64 k)
         if (!(v->ctrl & 1)) for (int i = 0; i < 3; i++) if (v->en[i]) v->timer[i] = (u16)(v->timer[i] - k);
         mix += vrc6_out(v) * VRC6_UNIT;
     }
+    if (a->s5b) {                                   /* (advance no deja llegar a un evento del 5B) */
+        S5b *s = &n->s5b;
+        for (int i = 0; i < 3; i++) s->tcnt[i] = (u16)(s->tcnt[i] - k);
+        s->ncnt = (u16)(s->ncnt - k);
+        if (!s->ehold) s->ecnt -= (u32)k;
+        mix += s5b_out(s) * S5B_UNIT;
+    }
     /* k sumas de 'mix' (un float) en un double: exactas en ambos casos (menos de 50 bits), así que
      * una multiplicación da el mismo resultado que sumar ciclo a ciclo */
     a->acc += (double)mix * (double)k;
@@ -510,6 +592,7 @@ static void advance(NES *n, u64 target)
         u64 left = target - a->cycle;
         u64 k = safe_skip(a);
         if (a->vrc6) { u64 kv = vrc6_skip(n); if (kv < k) k = kv; }
+        if (a->s5b) { u64 ks = s5b_skip(n); if (ks < k) k = ks; }
         if (k > left) k = left;
         if (k) bulk(n, k);
         if (a->cycle < target) apu_cycle(n);

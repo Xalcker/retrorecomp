@@ -260,8 +260,11 @@ entradas, con énfasis: la predeterminada, grises, saturada o un `paleta.pal` pr
 Dos pulsos, triángulo, ruido, DMC y frame counter con IRQ (`src/runtime/apu.c`). La mezcla es la no
 lineal del hardware (tablas `pulse_mix` y `tnd_mix`) y la salida pasa por los filtros de la consola:
 paso alto de 90 y 440 Hz y paso bajo de 14 kHz. Sale en mono a 44 100 Hz. Pasa las 8 `apu_test` y las
-pruebas viejas del frame counter. El MMC5 suma sus dos pulsos y su PCM; faltan el audio del Namco 163
-y el 5B del FME-7. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
+pruebas viejas del frame counter. El MMC5 suma sus dos pulsos y su PCM; el VRC6, sus dos pulsos y su diente de
+sierra; el 5B del FME-7, sus tres tonos, ruido y envolvente (como un YM2149 a la mitad del reloj del CPU, con
+volumen de 32 niveles de 1.5 dB y un canal al máximo unas 3.5 veces un pulso del 2A03; ese nivel es aproximado).
+Falta el audio del Namco 163. El estado del VRC6 y del 5B va al final de `NES`, y `advance` no deja que un salto
+en bloque pase uno de sus eventos. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
 
 ## Variantes de la consola y accesorios
 

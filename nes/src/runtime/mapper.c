@@ -1,7 +1,7 @@
 /*
  * Mappers: 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3, 7 AxROM, 11 Color Dreams, 34 BNROM/NINA-001,
  * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés), 206 (DxROM), 9 (MMC2), 10 (MMC4),
- * 69 (FME-7, sin el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
+ * 69 (FME-7, con el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
  * 13 (CPROM), 75 (VRC1), 95 (Namcot 3425), 115 (Kasheng), 184 (Sunsoft 1), 210 (Namco 175/340), 18 (Jaleco SS88006),
  * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4), 24 y 26 (VRC6, con su audio) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
@@ -628,7 +628,7 @@ static void fme7_write(NES *n, u16 a, u8 v)
 {
     Cart *c = &n->cart;
     if (a < 0xA000) { if (a < 0xC000) c->reg[0] = v & 15; return; }      /* $8000: comando */
-    if (a >= 0xC000) return;                                           /* (audio 5B en $C000/$E000: no) */
+    if (a >= 0xC000) { apu_5b_write(n, a >= 0xE000, v); return; }     /* audio del 5B: $C000 elige registro, $E000 lo escribe */
     u64 now = n->cyc;
     /* valor actual del contador, antes de cambiar nada */
     u32 cur = (c->reg[15] & 0x80) ? (u16)(c->reg[16] - (u16)(now - c->irq_t0)) : c->reg[16];

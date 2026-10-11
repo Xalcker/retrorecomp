@@ -11,6 +11,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* De dónde viene un recorrido (lo heredan los destinos que descubre) */
 enum {
@@ -50,10 +51,12 @@ extern int ev_on;   /* solo se anota si se pidió --events o --viz */
 void ev_add(int type, int origin, unsigned bank, unsigned addr, unsigned bank2, unsigned addr2,
             int len, int aux);
 int ev_write(const char *path);
+void ev_write_file(FILE *f);    /* lo mismo, en un archivo ya abierto (--html) */
 const Event *ev_list(size_t *n);
 
 /* Dirección que el juego ejecutó (--coverage): --viz la marca hasta que se descubra */
 void viz_want(unsigned bank, unsigned addr);
+extern int viz_force_color;     /* --color */
 void viz_play(unsigned nbanks, const char *title, double seconds);
 
 #endif

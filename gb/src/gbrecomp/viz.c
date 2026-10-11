@@ -70,10 +70,8 @@ void ev_add(int type, int origin, unsigned bank, unsigned addr, unsigned bank2, 
 static const char *const org_tag[ORG_COUNT] = { "arranque", "irq", "tabla", "traza" };
 static const char *const phase_tag[] = { "vectores", "tablas", "traza", "traza-tablas" };
 
-int ev_write(const char *path)
+void ev_write_file(FILE *f)
 {
-    FILE *f = fopen(path, "w");
-    if (!f) return 0;
     fprintf(f, "# gbrecomp eventos 1\n"
                "# fase NOMBRE                       vectores | tablas | traza | traza-tablas\n"
                "# recorrido BB:AAAA ORIGEN [desde|desde-entrada BB:AAAA]\n"
@@ -126,6 +124,13 @@ int ev_write(const char *path)
             break;
         }
     }
+}
+
+int ev_write(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    ev_write_file(f);
     return fclose(f) == 0;
 }
 
@@ -170,6 +175,7 @@ void viz_want(unsigned bank, unsigned addr)
     nwants++;
 }
 static int frame, color;
+int viz_force_color;    /* --color: con color aunque la salida no sea una terminal */
 static const char *v_title;
 
 /* Estado que se muestra abajo del mapa */
@@ -478,9 +484,9 @@ void viz_play(unsigned nbanks, const char *title, double seconds)
     v_nbanks = nbanks;
     v_title = title;
     int tty = IS_TTY();
-    color = tty && !getenv("NO_COLOR");
+    color = viz_force_color || (tty && !getenv("NO_COLOR"));     /* --color gana a NO_COLOR */
 #ifdef _WIN32
-    if (tty) {
+    if (tty && color) {
         void *h = GetStdHandle((unsigned long)-11);   /* STD_OUTPUT_HANDLE */
         unsigned long mode;
         if (!GetConsoleMode(h, &mode) || !SetConsoleMode(h, mode | 0x0004))  /* VT */
@@ -491,7 +497,7 @@ void viz_play(unsigned nbanks, const char *title, double seconds)
     term_size(&w, &h);
     if (!tty) h = 60;       /* a un archivo: sin límite real de alto */
     int fits = choose_layout(w, h);
-    int animate = fits && color && seconds > 0;
+    int animate = fits && color && tty && seconds > 0;
     if (!fits) {
         /* No cabe: celdas de 1 KB, una columna (habrá que desplazarse) */
         v_bpc = 1024;

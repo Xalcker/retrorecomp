@@ -64,15 +64,17 @@ linktest$(EXE): src/tools/linktest.c src/platform/png.c src/platform/png.h src/p
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
+# (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
                   recomp.h console.h save.c sgb.c compat.c
 EMBED_PLATFORM := main_sdl.c difftest.c inputs.h files.c files.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h png.c png.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(BUILD)/gen/interp_ops.inc
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(BUILD)/gen/interp_ops.inc tools/visor.html
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f)) \
-              runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc
+              runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
+              tools/visor.html=tools/visor.html
 
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<

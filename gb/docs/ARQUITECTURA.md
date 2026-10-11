@@ -108,7 +108,9 @@ sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
 `tools/visor.html` lee el mismo registro en el navegador (mapa, línea de
 tiempo, desensamblado y la cadena de `--why`); su desensamblador y su
-explicación dan lo mismo que `gbrecomp --dis` y `--why`.
+explicación dan lo mismo que `gbrecomp --dis` y `--why`. `gbrecomp --html` lo
+escribe con el registro adentro (el visor va dentro de `gbrecomp`, como el
+runtime; no se copia al proyecto), así que la página abre ya cargada.
 
 Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
 cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia
@@ -733,7 +735,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 132, con `sgb_controles` y el proyecto generado), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 133, con `sgb_controles`, el proyecto generado y `--html`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -776,7 +778,7 @@ capturas y `--bench` mide la velocidad de cada máquina.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **132 de 132** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **133 de 133** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`).
 

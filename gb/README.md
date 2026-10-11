@@ -231,6 +231,8 @@ Para ver qué encontró el descubrimiento y de dónde salió cada parte:
 gbrecomp juego.gb -o salida/ --viz                  # mapa animado de la ROM
 gbrecomp juego.gb -o salida/ --viz-time 0           # solo el mapa final
 gbrecomp juego.gb -o salida/ --events eventos.txt   # cada paso, en texto
+gbrecomp juego.gb --html visor.html                 # el visor del navegador, con todo adentro
+gbrecomp juego.gb --codemap codigo.txt              # qué bytes son código (C), como difftest --executed
 ```
 
 `--viz` dibuja cada banco como una cuadrícula que se va encendiendo a medida
@@ -274,6 +276,13 @@ una lista de cobertura. Muestra el mapa de la ROM con una línea de tiempo para
 avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
 desensambla sus instrucciones y explica, como `--why`, por qué cada una es
 código. Los archivos se leen en la computadora; no se mandan a ningún lado.
+
+`gbrecomp juego.gb --html visor.html` escribe ese mismo visor con los eventos
+adentro (y la cobertura, con `--coverage`): una página sola que abre ya cargada,
+igual que `nesrecomp --html`. La ROM, si se quiere desensamblar, se arrastra a la
+página; no va adentro. Sin `-o`, `--viz`, `--events`, `--html`, `--codemap` y
+`--coverage` no generan el proyecto. `--viz --color` colorea el mapa aunque la
+salida no sea una terminal (la GUI lo usa), sin animación.
 
 **Herramientas sin ventana** (las mismas opciones que `nestrace`, `nesshot` y `nesaudio` de NESRecomp:
 `--frames N`, `--input archivo`, `--seed S`, `--model dmg|cgb|sgb`):
@@ -356,7 +365,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-132 de 132.
+133 de 133.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -364,6 +373,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
 - `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
 - Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
+- `gbrecomp --html`, `--viz --color` y `--codemap`.
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.

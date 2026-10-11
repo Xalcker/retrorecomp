@@ -71,6 +71,12 @@ static const char usage_text[] =
     "  --viz              muestra el descubrimiento como un mapa animado de la ROM\n"
     "  --viz-time S       duración de la animación en segundos (por omisión 5;\n"
     "                     0 dibuja solo el resultado)\n"
+    "  --color            con --viz, colorea aunque la salida no sea una terminal\n"
+    "                     (lo usa la GUI; sin animación)\n"
+    "  --html archivo     el descubrimiento como una página HTML sola (el visor de\n"
+    "                     tools/visor.html con los eventos adentro; con --coverage,\n"
+    "                     también la cobertura). La ROM, para desensamblar, se\n"
+    "                     arrastra a la página\n"
     "  --coverage archivo direcciones que ejecutó el juego (formato de --uncovered);\n"
     "                     cuenta las que no se descubrieron y --viz las marca en rojo\n"
     "  --why BB:AAAA      explica por qué esa dirección se tomó como código: la\n"
@@ -1719,12 +1725,59 @@ static void write_embedded(const char *dir)
 {
     char to[1024];
     for (const EmbeddedFile *e = embedded_files; e->name; e++) {
+        if (!strncmp(e->name, "tools/", 6)) continue;     /* lo usa gbrecomp, no el proyecto */
         snprintf(to, sizeof to, "%s/%s", dir, e->name);
         FILE *f = fopen(to, "wb");
         if (!f) die("no se pudo crear %s", to);
         if (fwrite(e->data, 1, e->size, f) != e->size) die("no se pudo escribir %s", to);
         fclose(f);
     }
+}
+
+/* Texto dentro de un <script type="text/plain">: todo menos '<', que podría cerrarlo */
+static void put_script_text(FILE *f, const char *s, size_t n)
+{
+    for (size_t i = 0; i < n; i++) if (s[i] != '<') fputc(s[i], f);
+}
+
+/* --html: el visor (tools/visor.html, que gbrecomp lleva adentro) con los eventos
+ * y, si se dio, la cobertura adentro; se cargan solos al abrir la página. Como el
+ * de nesrecomp --html: una página sola, sin servidor. */
+static void write_html(const char *path, const char *title, const char *coverage)
+{
+    const EmbeddedFile *v = NULL;
+    for (const EmbeddedFile *e = embedded_files; e->name; e++)
+        if (!strcmp(e->name, "tools/visor.html")) v = e;
+    if (!v) die("gbrecomp se compiló sin tools/visor.html");
+    const char *html = (const char *)v->data;
+    const char *end = strstr(html, "</body>");
+    if (!end) die("tools/visor.html no tiene </body>");
+
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    fwrite(html, 1, (size_t)(end - html), f);
+    fputs("<script type=\"text/plain\" id=\"gbrecomp-eventos\">\n", f);
+    ev_write_file(f);
+    fputs("</script>\n", f);
+    if (coverage) {
+        FILE *c = fopen(coverage, "rb");
+        if (!c) die("no se pudo leer %s", coverage);
+        fputs("<script type=\"text/plain\" id=\"gbrecomp-cobertura\">\n", f);
+        char buf[4096];
+        size_t n;
+        while ((n = fread(buf, 1, sizeof buf, c)) > 0) put_script_text(f, buf, n);
+        fclose(c);
+        fputs("</script>\n", f);
+    }
+    fputs("<script>\n"
+          "cargarEventos(document.getElementById('gbrecomp-eventos').textContent, '", f);
+    for (const char *p = title; *p; p++) fputc(*p == '<' || *p == '\'' ? '?' : *p, f);
+    fputs("');\n", f);
+    if (coverage)
+        fputs("cargarCobertura(document.getElementById('gbrecomp-cobertura').textContent, 'cobertura');\n", f);
+    fputs("</script>\n", f);
+    fputs(end, f);
+    if (fclose(f)) die("no se pudo escribir %s", path);
 }
 
 /* Ícono del .exe en Windows: el Game Boy Color para los juegos de color, el
@@ -1984,7 +2037,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
-    const char *events = NULL, *coverage = NULL;
+    const char *events = NULL, *coverage = NULL, *html = NULL;
     const char *why[16];
     int nwhy = 0;
     int viz = 0;
@@ -2008,6 +2061,8 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events = argv[++i];
         else if (!strcmp(argv[i], "--viz")) viz = 1;
+        else if (!strcmp(argv[i], "--color")) viz_force_color = 1;
+        else if (!strcmp(argv[i], "--html") && i + 1 < argc) html = argv[++i];
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
         else if (!strcmp(argv[i], "--why") && i + 1 < argc) {
             if (nwhy == 16) die("--why: como mucho 16 direcciones");
@@ -2018,7 +2073,8 @@ int main(int argc, char **argv)
         else if (argv[i][0] == '-') die("opción desconocida: %s (ver gbrecomp --help)", argv[i]);
         else rom_path = argv[i];
     }
-    if (!rom_path || (!out && !dis && !nwhy)) {
+    /* Sin -o basta con pedir algo que no sea el proyecto (como en nesrecomp) */
+    if (!rom_path || (!out && !dis && !nwhy && !viz && !events && !html && !codemap && !coverage)) {
         fprintf(stderr, "%s", usage_text);
         return 2;
     }
@@ -2080,7 +2136,7 @@ int main(int argc, char **argv)
     }
 
     /* 1. Descubrimiento */
-    ev_on = events || viz || nwhy;
+    ev_on = events || viz || nwhy || html;
     ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_VECTORS);
     discover();
     if (trace) {
@@ -2098,6 +2154,10 @@ int main(int argc, char **argv)
 
     if (codemap) write_codemap(codemap);
     if (events && !ev_write(events)) die("no se pudo escribir %s", events);
+    if (html) {
+        write_html(html, title, coverage);
+        printf("visor escrito en %s\n", html);
+    }
     unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (viz) viz_play(nbanks, title, viz_time);
     if (coverage) {

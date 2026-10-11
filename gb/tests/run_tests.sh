@@ -82,6 +82,25 @@ fi
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 
+# --- gbrecomp --html (visor con los eventos adentro), --viz --color y --codemap ---
+if [ -x ./gbrecomp ] || [ -x ./gbrecomp.exe ]; then
+    if [ -z "$FILTRO" ] || case "visor" in *"$FILTRO"*) true ;; *) false ;; esac; then
+        rom="$T/blargg/cpu_instrs/cpu_instrs.gb"
+        mkdir -p build
+        if ./gbrecomp "$rom" --html build/visor.html --codemap build/codemap.txt > /tmp/gbtest.out 2>&1 \
+            && grep -q 'id="gbrecomp-eventos"' build/visor.html && grep -q '^insn ' build/visor.html \
+            && grep -q C build/codemap.txt \
+            && ./gbrecomp "$rom" --viz --viz-time 0 --color > build/viz.txt 2>&1 \
+            && grep -q "$(printf '\033')\[" build/viz.txt; then
+            pasa=$((pasa + 1))
+        else
+            falla=$((falla + 1))
+            fallidas="$fallidas
+  gbrecomp --html/--viz --color/--codemap: $(tail -3 /tmp/gbtest.out)"
+        fi
+    fi
+fi
+
 # --- Recompilador: proyecto generado de cpu_instrs, compilado y comparado
 #     contra el intérprete con difftest (como en NESRecomp) ---
 EXE=

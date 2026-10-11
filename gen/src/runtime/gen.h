@@ -117,6 +117,7 @@ typedef struct {
     int  hint_counter;
     u64  next_line;             /* ciclo maestro en que empieza la línea siguiente */
     u64  frame;                 /* cuadros terminados */
+    u8   frame_done;            /* terminó un cuadro (lo borra quien corre el cuadro) */
     u8   vram[0x10000];
     u16  cram[64];
     u16  vsram[40];

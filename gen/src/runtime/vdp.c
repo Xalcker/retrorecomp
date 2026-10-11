@@ -44,7 +44,7 @@ void vdp_sync(Gen *g)
         if (v->line <= VBLANK_LINE) {
             if (--v->hint_counter < 0) { v->hint_counter = v->reg[10]; v->hint_pending = 1; }
         } else v->hint_counter = v->reg[10];
-        if (++v->line == LINES_NTSC) { v->line = 0; v->frame++; }
+        if (++v->line == LINES_NTSC) { v->line = 0; v->frame++; v->frame_done = 1; }
         if (v->line == VBLANK_LINE) { v->vint_pending = 1; v->f_flag = 1; }
     }
     update_ipl(g);

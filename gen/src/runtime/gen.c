@@ -68,13 +68,16 @@ void gen_reset(Gen *g)
     m68k_reset(g);
 }
 
+static int frame_after(Gen *g)
+{
+    vdp_sync(g);
+    return g->vdp.frame_done;
+}
+
 void gen_run_frame(Gen *g)
 {
-    u64 f = g->vdp.frame;
-    while (g->vdp.frame == f) {
-        m68k_step(g);
-        vdp_sync(g);
-    }
+    g->vdp.frame_done = 0;
+    m68k_run(g, frame_after);
 }
 
 int gen_sram_load(Gen *g, const char *path)

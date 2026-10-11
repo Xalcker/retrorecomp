@@ -265,34 +265,56 @@ static void interrupt(struct Gen *g, int lvl)
     jump(&xs, rd(&xs, (u32)(VEC_AUTO1 + lvl - 1) * 4, 2));
 }
 
-int m68k_step(struct Gen *g)
+/* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
+static void step_body(struct Gen *g)
 {
     M68k *c = &g->cpu;
+    if (c->halted) { m68k_idle(g, 4); return; }
+    int lvl = c->ipl;
+    if (lvl > c->ipm || (lvl == 7 && c->nmi_edge)) {
+        c->nmi_edge = 0;
+        interrupt(g, lvl);
+    } else if (c->stopped) {
+        m68k_idle(g, 4);
+    } else {
+        int trace = c->t;
+        u16 op = c->ir;
+        kind_fn[kind_tab[op]](g, op, NULL, c->pc);
+        if (trace) {
+            X xs = { g, c, NULL, 0, c->pc, c->pc + 2, c->ir, c->pc + 2 };
+            m68k_exception(&xs, VEC_TRACE, c->pc, 4);
+        }
+    }
+}
+
+int m68k_step(struct Gen *g)
+{
     u64 c0 = g->cyc;
     if (!kind_ready) kinds_init();
-    if (c->halted) { m68k_idle(g, 4); return 4; }
     jmp_buf jb;
     void *prev = g->jb;
     g->jb = &jb;
-    if (setjmp(jb) == 0) {
-        int lvl = c->ipl;
-        if (lvl > c->ipm || (lvl == 7 && c->nmi_edge)) {
-            c->nmi_edge = 0;
-            interrupt(g, lvl);
-        } else if (c->stopped) {
-            m68k_idle(g, 4);
-        } else {
-            int trace = c->t;
-            u16 op = c->ir;
-            kind_fn[kind_tab[op]](g, op, NULL, c->pc);
-            if (trace) {
-                X xs = { g, c, NULL, 0, c->pc, c->pc + 2, c->ir, c->pc + 2 };
-                m68k_exception(&xs, VEC_TRACE, c->pc, 4);
-            }
-        }
-    }
+    if (setjmp(jb) == 0) step_body(g);
     g->jb = prev;
     return (int)(g->cyc - c0);
+}
+
+/* Muchas instrucciones con un solo setjmp (en macOS, setjmp guarda la máscara de señales con una
+ * llamada al sistema: uno por instrucción costaba la mitad del tiempo). after() corre después de
+ * cada instrucción; si devuelve distinto de 0, se para. */
+void m68k_run(struct Gen *g, int (*after)(struct Gen *))
+{
+    if (!kind_ready) kinds_init();
+    jmp_buf jb;
+    void *prev = g->jb;
+    g->jb = &jb;
+    if (setjmp(jb) && after(g)) goto out;      /* un error de dirección terminó la instrucción */
+    for (;;) {
+        step_body(g);
+        if (after(g)) break;
+    }
+out:
+    g->jb = prev;
 }
 
 void m68k_reset(struct Gen *g)

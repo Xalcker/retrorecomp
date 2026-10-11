@@ -42,6 +42,17 @@ static void hist_add(u32 pc)
     hpc[i] = pc; hcount[i]++;
 }
 
+/* Después de cada instrucción: VDP al día, cuenta y (en el último cuadro) histograma del PC */
+static u64 steps;
+static int last_frame;
+static int after(Gen *g)
+{
+    vdp_sync(g);
+    steps++;
+    if (last_frame) hist_add(g->cpu.pc);
+    return g->vdp.frame_done || g->cpu.halted;
+}
+
 int main(int argc, char **argv)
 {
     console_utf8();
@@ -81,20 +92,13 @@ int main(int argc, char **argv)
     free(data);
     if (sram && gen_sram_load(g, sram)) printf("partida cargada de %s\n", sram);
 
-    u64 steps = 0;
     for (long f = 0; f < frames; f++) {
         u16 pad = 0;
         for (int i = 0; i < nh; i++) if (f >= h[i].from && f <= h[i].to) pad |= (u16)h[i].btn;
         g->pad[0] = pad;
-        int last = f == frames - 1;
-        u64 fr = g->vdp.frame;
-        while (g->vdp.frame == fr) {
-            if (last) hist_add(g->cpu.pc);
-            m68k_step(g);
-            vdp_sync(g);
-            steps++;
-            if (g->cpu.halted) break;
-        }
+        last_frame = f == frames - 1;
+        g->vdp.frame_done = 0;
+        m68k_run(g, after);
         for (int i = 0; i < nw; i++)
             if (g->ram[watch[i]] != wlast[i]) {
                 wlast[i] = g->ram[watch[i]];

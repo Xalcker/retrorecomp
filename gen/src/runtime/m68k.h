@@ -41,6 +41,7 @@ void     m68k_int_ack(struct Gen *g, int level);            /* el CPU atiende un
 /* Intérprete (cpu68k.c) */
 void     m68k_reset(struct Gen *g);                         /* reset del CPU: SSP y PC de los vectores 0 y 1 */
 int      m68k_step(struct Gen *g);                          /* una instrucción (o la interrupción pendiente); ciclos */
+void     m68k_run(struct Gen *g, int (*after)(struct Gen *));   /* instrucciones hasta que after() devuelva != 0 */
 uint16_t m68k_get_sr(const M68k *c);
 void     m68k_set_sr(M68k *c, uint16_t sr);
 int      m68k_decode(uint16_t op);                          /* K_* de la instrucción (K_ILLEGAL si no es válida) */

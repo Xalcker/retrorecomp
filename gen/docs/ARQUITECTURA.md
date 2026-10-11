@@ -65,8 +65,9 @@ El VDP y el audio serán perezosos.
 
 ## Interrupciones y despachador
 
-`gen_run_frame` corre hasta que el VDP termina el cuadro: una instrucción del intérprete
-(`m68k_step`) y `vdp_sync`, que pone las líneas al día y fija el nivel de interrupción del 68000
+`gen_run_frame` corre hasta que el VDP termina el cuadro con `m68k_run`, que ejecuta instrucciones
+bajo un solo `setjmp` (el error de dirección vuelve ahí; en macOS `setjmp` hace una llamada al sistema
+y uno por instrucción costaba casi 10 veces el tiempo) y después de cada una llama a `vdp_sync`, que pone las líneas al día y fija el nivel de interrupción del 68000
 (`cpu.ipl`): 6 si hay VINT pendiente y habilitada (registro 1, bit 5), 4 si hay HINT (registro 0, bit
 4). El 68000 la atiende al empezar la instrucción siguiente si el nivel pasa su máscara (autovector,
 como en la Mega Drive) y avisa con `m68k_int_ack`, que la borra en el VDP. El despachador del código
@@ -193,7 +194,7 @@ Fase 3.
 
 Con el intérprete, el bus y el esqueleto del VDP (sin imagen todavía): Sonic 1 pasa por la pantalla
 de SEGA, el título y el demo, y con Start entra al nivel y juega (corriendo a la derecha pierde una
-vida contra un enemigo), a ~6.7 veces el tiempo real. Super Street Fighter II corre con el mapper de
+vida contra un enemigo), a ~60 veces el tiempo real. Super Street Fighter II corre con el mapper de
 SSF2 (155 cambios de banco en 1200 cuadros). NBA Jam guarda su EEPROM y la acepta al volver a
 arrancar. `genrun rom --watch DIR` muestra cuándo cambia un byte de la RAM (en Sonic 1, el modo de
 juego está en `$FFF600`) y `--sram ARCHIVO` carga y guarda la SRAM o EEPROM.

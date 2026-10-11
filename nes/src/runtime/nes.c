@@ -143,8 +143,19 @@ __attribute__((noinline, cold)) static void dma_run(NES *n, u16 a)
         if (who == 2) {                                  /* get: el byte del DMC */
             n->dmc_get_cyc = n->cyc;
             cycle_begin(n, 0);
-            u8 v = nes_read(n, apu_dmc_addr(n));
+            u16 da = apu_dmc_addr(n);
+            u8 v = nes_read(n, da);
             n->bus = v;
+            if ((a & 0xFFE0) == 0x4000) {
+                /* Conflicto de bus: con el CPU detenido en $4000-$401F los registros del APU están activos en
+                 * cualquier dirección, así que también responde el de $4000 | (da & $1F). Leer $4015 borra el IRQ
+                 * del frame counter (y no toca el bus); $4016/$4017 avanzan el control y dejan en el bus su bit
+                 * con los bits 5-7 de la muestra. El DMC recibe el byte de la muestra: lo que le llega en el
+                 * conflicto no se puede medir sin hardware modificado (nota de AccuracyCoin). */
+                u8 reg = da & 0x1F;
+                if (reg == 0x15) nes_read(n, 0x4015);
+                else if (reg == 0x16 || reg == 0x17) n->bus = nes_read(n, (u16)(0x4000 | reg));
+            }
             cycle_end(n, 0);
             apu_dmc_dma_done(n, v);
             dmc = 0; aligned = 0;

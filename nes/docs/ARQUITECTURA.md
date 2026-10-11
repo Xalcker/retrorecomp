@@ -43,7 +43,9 @@ DMC tiene prioridad en los get y la OAM en los put. Del lado del APU (`apu.c`): 
 ciclos put después de encender el DMC con `$4015`; el bit del DMC se aplica 3-4 ciclos después de
 escribirlo (5-6 si la DMA está por salir); si se apaga mientras su DMA está detenida, la DMA se aborta
 pero queda pendiente (`dmc_left`) y sigue al volver a encenderlo; y encenderlo justo antes de un reloj
-del DMC produce una DMA de un ciclo (aborto implícito).
+del DMC produce una DMA de un ciclo (aborto implícito). Si el CPU quedó detenido en `$4000-$401F`, los registros
+del APU responden en cualquier dirección: el byte del DMC en `$xx15` lee también `$4015` (borra el IRQ del frame
+counter) y en `$xx16`/`$xx17` avanza el control, que deja su bit en el bus (el fallo de la DPCM con los controles).
 
 ### Rendimiento: ejecución perezosa
 
@@ -333,9 +335,9 @@ La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md
   con `difftest`; `--why`, `--viz`, `--events` y `--html`.
 - Interfaz: cada menú y cada diálogo se dibuja sin fallar (`--ui-shot`).
 
-AccuracyCoin (`tests/accuracycoin.py`, opcional): 125 de 149. Faltan, sobre todo, el comportamiento
+AccuracyCoin (`tests/accuracycoin.py`, opcional): 126 de 149. Faltan, sobre todo, el comportamiento
 por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, activar o desactivar el dibujo
-en puntos concretos, la OAM2), el conflicto de bus de la DMA del DMC con los registros del APU, y detalles del bus
+en puntos concretos, la OAM2), la activación de los registros del APU por la DMA de OAM, y detalles del bus
 abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferencias con TriCNES (que pasa todas).
 
 ### Línea base para optimizar el runtime

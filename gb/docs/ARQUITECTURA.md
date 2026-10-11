@@ -672,6 +672,13 @@ Validación:
 
 ## Interfaz del ejecutable
 
+El intérprete con ventana (`gb juego.gb`, objetivo `gb` del Makefile) es este
+mismo `main_sdl.c` compilado con `-DGB_INTERP`: en vez de `gen/info.c`, el
+título, el nombre y el SHA1 salen de la ROM que se abre; no hay código
+recompilado, no se valida el SHA1 ni se guarda copia de la ROM, y los datos
+van a la carpeta `interprete/` con el nombre del archivo de la ROM. Es el
+equivalente de `nes` en NESRecomp (que usa `NES_RECOMP` al revés).
+
 `platform/main_sdl.c` usa la barra de menús y los diálogos de Moskva 89
 (`ui_menu.c`, `ui_font.c`: fuente de mapa de bits propia, sin depender de las
 del sistema), con textos en `i18n.c` (español e inglés) y preferencias en
@@ -735,7 +742,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 134, con `sgb_controles`, el proyecto generado, `--html` y `gbramdump`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 135, con `sgb_controles`, el proyecto generado, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -778,7 +785,7 @@ capturas y `--bench` mide la velocidad de cada máquina.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **134 de 134** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **135 de 135** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`).
 

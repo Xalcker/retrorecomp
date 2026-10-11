@@ -35,7 +35,7 @@ RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
 .PHONY: all clean test dist testroms
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -66,6 +66,28 @@ gbaudio$(EXE): src/tools/gbaudio.c src/tools/cli.h src/platform/inputs.h $(BUILD
 # Dos Game Boy conectados por cable link, sin ventana
 linktest$(EXE): src/tools/linktest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
+
+# El intérprete con ventana: gb juego.gb (como nes juego.nes en NESRecomp). Es la misma
+# plataforma que la de los juegos generados, compilada con -DGB_INTERP. SDL2 como en
+# NESRecomp: en Windows, enlazado de forma estática para que el .exe no pida SDL2.dll.
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdlg32
+else
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+endif
+GB_SRC := main_sdl.c files.c i18n.c settings.c ui_menu.c ui_font.c export.c png.c iconos.c
+# Windows: el ícono del .exe (el del Game Boy)
+ifeq ($(OS),Windows_NT)
+WINRES := $(BUILD)/gb_icono.o
+$(WINRES): src/platform/icono_gb.ico | $(BUILD)
+	printf '1 ICON "icono_gb.ico"\n' > $(BUILD)/gb_icono.rc
+	windres -I src/platform -i $(BUILD)/gb_icono.rc -o $@ -O coff
+endif
+
+gb$(EXE): $(GB_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a $(WINRES)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -DGB_INTERP -Isrc/runtime -Isrc/platform -o $@ \
+		$(GB_SRC:%=src/platform/%) $(BUILD)/libgbrt.a $(WINRES) $(SDL_LIBS) -lm
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
@@ -139,4 +161,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+	rm -rf $(BUILD) dist gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

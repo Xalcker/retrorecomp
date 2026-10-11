@@ -101,6 +101,20 @@ if [ -x ./gbrecomp ] || [ -x ./gbrecomp.exe ]; then
     fi
 fi
 
+# --- gb (el intérprete con ventana): corre y dibuja cada menú sin ventana (--ui-shot) ---
+GB=./gb
+[ -x ./gb.exe ] && GB=./gb.exe
+if [ -x "$GB" ] && { [ -z "$FILTRO" ] || case "interprete" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    ok=1
+    for m in 0 1 2 3 4 5 6; do
+        rm -f build/gb_ui.bmp
+        "$GB" "$T/dmg-acid2/dmg-acid2.gb" --ui-shot build/gb_ui.bmp --ui-frames 5 --ui-menu $m > /tmp/gbtest.out 2>&1 \
+            && [ -s build/gb_ui.bmp ] || { ok=0; echo "  menú $m" >> /tmp/gbtest.out; }
+    done
+    if [ $ok = 1 ]; then pasa=$((pasa + 1)); else falla=$((falla + 1)); fallidas="$fallidas
+  gb (intérprete con ventana): $(tail -3 /tmp/gbtest.out)"; fi
+fi
+
 # --- gbramdump: WRAM y HRAM tras correr la ROM (el equivalente de ramdump de NESRecomp) ---
 if [ -z "$FILTRO" ] || case "gbramdump" in *"$FILTRO"*) true ;; *) false ;; esac; then
     rom="$T/blargg/cpu_instrs/cpu_instrs.gb"

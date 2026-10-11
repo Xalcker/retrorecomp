@@ -53,7 +53,7 @@ para la versión y para `make testroms`. Son los mismos paquetes que en NESRecom
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-make            # gbrecomp, las herramientas sin ventana y el runtime
+make            # gbrecomp, gb (intérprete con ventana), las herramientas sin ventana y el runtime
 make testroms   # una sola vez: baja las ROMs de prueba libres (c-sp/game-boy-test-roms v7.0) a testroms/
 make test       # opcional: Blargg, Mooneye, SameSuite, acid2, recompilado contra intérprete...
 make dist       # dist/gbrecomp-<versión>-<sistema>.tar.gz (sistema: linux, macos o windows)
@@ -61,6 +61,16 @@ make dist       # dist/gbrecomp-<versión>-<sistema>.tar.gz (sistema: linux, mac
 
 Son los mismos objetivos que en NESRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre
 exactamente eso en Linux, macOS y Windows.
+
+**Probar una ROM con el intérprete, sin recompilar** (como `nes juego.nes` en NESRecomp):
+
+```
+./gb roms/juego.gb            # la misma ventana que un juego recompilado, todo con el intérprete
+./gb roms/juego.gb --uncovered juego.trace    # y al salir, lo que ejecutó, como traza para gbrecomp
+```
+
+Acepta cualquier ROM (no valida el SHA1 ni guarda copia). La partida, los estados y lo exportado
+van a la carpeta de datos `interprete/`, con el nombre del archivo de la ROM.
 
 **Versiones.** La versión es la etiqueta de git más cercana (`git describe`: `v0.1.0`, o `v0.1.0-3-gabc1234` con
 commits después de ella). Al subir una etiqueta `vX.Y.Z` de `main` (`git tag v0.2.0 && git push origin v0.2.0`), el CI
@@ -366,7 +376,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-134 de 134.
+135 de 135.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -374,7 +384,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
 - `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
 - Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
-- `gbrecomp --html`, `--viz --color` y `--codemap`, y `gbramdump`.
+- `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.

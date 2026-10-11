@@ -45,6 +45,13 @@
  * La barra de menús y los diálogos vienen de Moskva 89 (ui_menu.c,
  * ui_font.c): se dibujan dentro de la ventana para verse igual en todos los
  * sistemas. Mientras un menú o un diálogo está abierto, el juego se pausa.
+ *
+ * Con -DGB_INTERP (el objetivo `gb` del Makefile: `gb juego.gb`, como `nes
+ * juego.nes` en NESRecomp) es el intérprete con ventana: acepta cualquier ROM,
+ * sin código recompilado, y el título, el nombre y el SHA1 salen de la ROM
+ * abierta en vez de gen/info.c. No guarda copia de la ROM; la partida, los
+ * estados y lo exportado van a la carpeta de datos "interprete", con el nombre
+ * del archivo de la ROM.
  */
 #include <SDL.h>
 
@@ -58,7 +65,16 @@
 #include "i18n.h"
 #include "iconos.h"
 #include "inputs.h"
+#ifdef GB_INTERP
+#include "gb.h"
+/* Lo que en un juego recompilado viene de gen/info.c; aquí se llena al abrir la ROM */
+static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[41];
+#define recomp_rom_title interp_title
+#define recomp_name interp_name
+#define recomp_rom_sha1 interp_sha1
+#else
 #include "recomp.h"
+#endif
 #include "settings.h"
 #include "sha1.h"
 #include "ui_font.h"
@@ -85,15 +101,43 @@ typedef struct {
     size_t size;
 } Rom;
 
-/* 1: es la ROM esperada; 0: otra ROM; -1: no se pudo leer */
+/* 1: es la ROM esperada; 0: otra ROM; -1: no se pudo leer. El intérprete acepta cualquiera. */
 static int load_rom(const char *path, Rom *rom)
 {
     rom->data = u8_read_file(path, &rom->size);
     if (!rom->data) return -1;
+#ifdef GB_INTERP
+    return 1;
+#else
     char sha1[41];
     sha1_hex(rom->data, rom->size, sha1);
     return strcmp(sha1, recomp_rom_sha1) == 0;
+#endif
 }
+
+#ifdef GB_INTERP
+/* Título (cabecera), nombre (el del archivo, para la partida y los estados) y SHA1 de la ROM abierta */
+static void interp_identity(const char *path, const Rom *rom)
+{
+    int k = 0;
+    for (int i = 0x134; i < 0x144 && rom->data[i]; i++) {
+        unsigned char ch = rom->data[i];
+        interp_title[k++] = ch >= 0x20 && ch < 0x7F ? (char)ch : '?';
+    }
+    while (k > 0 && interp_title[k - 1] == ' ') k--;
+    interp_title[k] = 0;
+    if (!k) snprintf(interp_title, sizeof interp_title, "Game Boy");
+    const char *base = path;
+    for (const char *p = path; *p; p++) if (*p == '/' || *p == '\\') base = p + 1;
+    size_t n = strlen(base);
+    if (n >= sizeof interp_name) n = sizeof interp_name - 1;
+    memcpy(interp_name, base, n);
+    interp_name[n] = 0;
+    char *dot = strrchr(interp_name, '.');
+    if (dot && dot != interp_name) *dot = 0;
+    sha1_hex(rom->data, rom->size, interp_sha1);
+}
+#endif
 
 static void wrong_rom_message(const char *path, char *msg, size_t size)
 {
@@ -116,6 +160,9 @@ static int wait_for_drop(char *out, size_t size)
     return 0;
 }
 
+/* Ruta de la ROM que eligió el usuario (el intérprete nombra la partida por ella) */
+static char chosen_rom[1024] = "rom.gb";
+
 /* Pide la ROM hasta que den una válida. 0 si el usuario cancela. */
 static int ask_for_rom(Rom *rom)
 {
@@ -131,7 +178,7 @@ static int ask_for_rom(Rom *rom)
         }
         first = 0;
         int r = load_rom(path, rom);
-        if (r == 1) return 1;
+        if (r == 1) { snprintf(chosen_rom, sizeof chosen_rom, "%s", path); return 1; }
         if (r == 0) {
             free(rom->data);
             wrong_rom_message(path, msg, sizeof msg);
@@ -581,7 +628,9 @@ static void link_start(App *app)
 {
     const char *err = gb_init_model(&app->gb2, app->rom.data, (u32)app->rom.size, app->model);
     if (err) fail(err);
+#ifndef GB_INTERP
     if (!app->interp_only) app->gb2.recomp_lookup = recomp_lookup;
+#endif
     if (app->uncovered_path) app->gb2.trace = mark_uncovered;
     if (gb_has_battery(&app->gb2)) load_game(&app->gb2, app->save_path2);
     app->gb2.apu.enabled = 1;
@@ -614,7 +663,9 @@ static void power_on(App *app)
     const char *err = gb_init_model(&app->gb, app->rom.data, (u32)app->rom.size, app->model);
     if (err) fail(err);
     apply_palette(app);
+#ifndef GB_INTERP
     if (!app->interp_only) app->gb.recomp_lookup = recomp_lookup;
+#endif
     app->gb.apu.enabled = 1;
     if (app->uncovered_path) app->gb.trace = mark_uncovered;
     if (gb_has_battery(&app->gb)) load_game(&app->gb, app->save_path);
@@ -1362,7 +1413,11 @@ static void render(App *app)
 
     /* Para pruebas: captura de la ventana completa (--ui-shot) */
     if (ui_shot_path) {
-        SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+        /* Del tamaño de lo que dibuja el renderer, que puede ser mayor que la ventana (SDL3
+         * en macOS): con el de la ventana, SDL_RenderReadPixels escribía más allá de la superficie */
+        int ow = w, oh = h;
+        if (SDL_GetRendererOutputSize(app->ren, &ow, &oh) != 0) { ow = w; oh = h; }
+        SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, ow, oh, 32, SDL_PIXELFORMAT_ARGB8888);
         if (shot && SDL_RenderReadPixels(app->ren, NULL, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch) == 0)
             SDL_SaveBMP(shot, ui_shot_path);
         SDL_FreeSurface(shot);
@@ -1408,7 +1463,12 @@ int main(int argc, char *argv[])
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 
     /* Carpeta de datos del juego: copia de la ROM, partida, estados y preferencias */
+#ifdef GB_INTERP
+    app->pref = SDL_GetPrefPath("GBRecomp", "interprete");
+    app->interp_only = 1;
+#else
     app->pref = SDL_GetPrefPath("GBRecomp", recomp_name);
+#endif
     if (!app->pref) fail(tr(T_NO_DATA_DIR));
     char cache_path[1024];
     snprintf(cache_path, sizeof cache_path, "%srom.gb", app->pref);
@@ -1479,6 +1539,7 @@ int main(int argc, char *argv[])
         }
         have = 1;
     }
+#ifndef GB_INTERP
     if (!have && load_rom(cache_path, rom) == 1) have = from_cache = 1;
     if (!have) {
         free(rom->data);
@@ -1493,12 +1554,21 @@ int main(int argc, char *argv[])
             else free(rom->data);
         }
     }
+#endif
     if (!have && !ask_for_rom(rom)) return 0;
     if (rom->size < 0x150) fail("ROM < 0x150");
     fprintf(stderr, "ROM: %s\n", from_cache ? cache_path : rom_arg ? rom_arg : "elegida por el usuario o rom.gb");
+#ifdef GB_INTERP
+    /* El intérprete nombra la partida por la ROM */
+    interp_identity(rom_arg ? rom_arg : chosen_rom, rom);
+    snprintf(app->save_path, sizeof app->save_path, "%s%s.sav", app->pref, recomp_name);
+    snprintf(app->save_path2, sizeof app->save_path2, "%s%s_jugador2.sav", app->pref, recomp_name);
+    SDL_SetWindowTitle(app->win, recomp_rom_title);
+#else
     /* Copia para las siguientes veces (solo si es la ROM correcta) */
     if (!from_cache && !app->interp_only && !u8_write_file(cache_path, rom->data, rom->size))
         fprintf(stderr, "no se pudo guardar la copia de la ROM en %s\n", cache_path);
+#endif
 
     if (play_path) {
         /* La grabación dice con qué modelo y paleta se hizo */

@@ -77,7 +77,7 @@ static int cli_parse_n(Cli *c, int argc, char **argv, const char *usage, int nre
     return 0;
 }
 
-static int cli_parse(Cli *c, int argc, char **argv, const char *usage)
+static inline int cli_parse(Cli *c, int argc, char **argv, const char *usage)
 {
     return cli_parse_n(c, argc, argv, usage, 2);
 }

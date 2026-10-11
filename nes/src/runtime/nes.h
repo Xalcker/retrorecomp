@@ -88,6 +88,7 @@ typedef struct {
 } Cart;
 #define CART_VRC(c) (MAPPER(c) == 21 || MAPPER(c) == 22 || MAPPER(c) == 23 || MAPPER(c) == 25)
 #define CART_VRC6(c) (MAPPER(c) == 24 || MAPPER(c) == 26)
+#define CART_VRC7(c) (MAPPER(c) == 85)
 
 typedef struct {
     u8  spr_y, spr_tile, spr_attr, spr_x;      /* (sin uso: la OAM se lee cruda) */
@@ -161,6 +162,16 @@ typedef struct {
     int out[8];                                 /* última salida de cada canal: (muestra - 8) x volumen */
 } N163;
 
+/* Audio del VRC7 (mapper 85): un OPLL de 6 canales FM (vrc7.c) */
+typedef struct { float phase, eg, fb[2]; u8 state; } Vrc7Op;     /* state: 0 ataque, 1 decaimiento, 2 sostenido, 3 liberación */
+typedef struct {
+    u8  reg[0x40], sel, off;                    /* registros del OPLL; $9010 elige, $9030 escribe; $E000 bit 6 = silencio */
+    u16 cnt;                                    /* ciclos de CPU hasta la próxima muestra (una cada 36) */
+    float out;                                  /* última muestra (suma de los 6 canales, cada uno en -1..1) */
+    u32 am_phase, pm_phase;                     /* osciladores del trémolo y del vibrato */
+    Vrc7Op op[12];                              /* modulador y portador de cada canal */
+} Vrc7;
+
 #define APU_BUF 16384
 typedef struct {
     Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
@@ -179,6 +190,7 @@ typedef struct {
     u8   vrc6;                  /* el cartucho tiene el audio del VRC6 (estado en NES.vrc6) */
     u8   s5b;                   /* el cartucho tiene el audio del Sunsoft 5B (estado en NES.s5b) */
     u8   n163;                  /* el cartucho tiene el audio del Namco 163 (estado en NES.n163) */
+    u8   vrc7;                  /* el cartucho tiene el audio del VRC7 (estado en NES.vrc7) */
     double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
@@ -223,6 +235,7 @@ typedef struct NES {
     Vrc6 vrc6;                  /* audio del VRC6 (al final: en medio desplazaría campos de cada ciclo) */
     S5b  s5b;                   /* audio del Sunsoft 5B (también al final) */
     N163 n163;                  /* audio del Namco 163 (también al final) */
+    Vrc7 vrc7;                  /* audio del VRC7 (también al final) */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */
@@ -297,6 +310,11 @@ void apu_vrc6_write(NES *n, u16 reg, u8 v);      /* $9000-$9003, $A000-$A002, $B
 void apu_5b_write(NES *n, int data, u8 v);       /* Sunsoft 5B: data = 0 elige registro ($C000), 1 lo escribe ($E000) */
 void apu_n163_addr(NES *n, u8 v);                /* Namco 163: $F800 */
 void apu_n163_off(NES *n, int off);              /* Namco 163: $E000 bit 6 apaga el audio */
+void apu_vrc7_write(NES *n, int data, u8 v);     /* VRC7: data = 0 elige registro ($9010), 1 lo escribe ($9030) */
+void apu_vrc7_off(NES *n, int off);              /* VRC7: $E000 bit 6 silencia el audio */
+void  vrc7_reset(Vrc7 *v);                       /* vrc7.c */
+void  vrc7_write(Vrc7 *v, u8 reg, u8 x);
+float vrc7_sample(Vrc7 *v);
 u8   apu_n163_data(NES *n, int write, u8 v);     /* Namco 163: $4800 (lee o escribe la RAM interna) */
 int  apu_dmc_dma_live(NES *n);                   /* ¿sigue en pie la DMA del DMC? (no la abortó $4015) */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */

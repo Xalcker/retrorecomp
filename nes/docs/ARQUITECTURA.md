@@ -11,7 +11,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `nes.c` (cartucho iNES y NES 2.0, bus, reloj, DMA, joypads, RAM con batería, estados, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `recomp.h` (macros del código generado). |
+| `src/runtime/` | La consola: `nes.c` (cartucho iNES y NES 2.0, bus, reloj, DMA, joypads, RAM con batería, estados, traza), `cpu6502.c` (intérprete), `cpu_ops.h` (tabla de opcodes y semántica de cada operación), `ppu.c`, `apu.c`, `mapper.c`, `vrc7.c` (el OPLL del VRC7), `recomp.h` (macros del código generado). |
 | `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `ramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
@@ -201,7 +201,7 @@ El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
-13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (con su audio), 21, 22, 23 y 25 VRC2/VRC4, 24 y 26 VRC6 (con su audio), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
+13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (con su audio), 21, 22, 23 y 25 VRC2/VRC4, 24 y 26 VRC6 (con su audio), 85 VRC7 (con su audio FM), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
 
 Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
 si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
@@ -264,7 +264,11 @@ pruebas viejas del frame counter. El MMC5 suma sus dos pulsos y su PCM; el VRC6,
 sierra; el 5B del FME-7, sus tres tonos, ruido y envolvente (como un YM2149 a la mitad del reloj del CPU, con
 volumen de 32 niveles de 1.5 dB); el Namco 163, de 1 a 8 canales con ondas de 4 bits en su RAM de 128 bytes, uno
 actualizado cada 15 ciclos, y la salida es la media de los canales (el chip los muestra de a uno). Los niveles
-de los tres están calibrados como Mesen2 (`VRC6_UNIT`, `S5B_UNIT`, `N163_UNIT`). Su estado va al final de `NES`;
+de los tres están calibrados como Mesen2 (`VRC6_UNIT`, `S5B_UNIT`, `N163_UNIT`). El VRC7 (`vrc7.c`) es un OPLL
+propio: 6 canales FM de dos operadores, 15 instrumentos de fábrica (volcado de Nuke.YKT) y uno programable, una
+muestra cada 36 ciclos. Las constantes que la documentación deja abiertas (velocidad de la envolvente, ataque,
+realimentación) están ajustadas contra emu2413 con los 15 instrumentos en tres notas, y el nivel también
+(`VRC7_UNIT`). Su estado va al final de `NES`;
 `advance` no deja que un salto en bloque pase un evento del VRC6 o del 5B, y el Namco 163 se suma por tramos
 dentro del salto. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
 

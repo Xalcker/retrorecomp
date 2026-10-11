@@ -151,7 +151,7 @@ static const char *mapper_name(int m)
     case 0: return "NROM";   case 1: return "MMC1";  case 2: return "UxROM";
     case 3: return "CNROM";  case 4: return "MMC3";  case 5: return "MMC5";  case 7: return "AxROM";
     case 9: return "MMC2";   case 10: return "MMC4"; case 13: return "CPROM"; case 18: return "Jaleco SS88006";
-    case 19: return "Namco 163"; case 21: case 22: case 23: case 25: return "VRC2/VRC4"; case 24: case 26: return "VRC6"; case 69: return "FME-7"; case 75: return "VRC1";
+    case 19: return "Namco 163"; case 21: case 22: case 23: case 25: return "VRC2/VRC4"; case 24: case 26: return "VRC6"; case 85: return "VRC7"; case 69: return "FME-7"; case 75: return "VRC1";
     case 115: return "Kasheng"; case 184: return "Sunsoft 1"; case 206: return "DxROM"; case 210: return "Namco 175/340";
     }
     return "?";

@@ -237,6 +237,17 @@ int main(void)
     W(0xD001, 5); W(0xD002, 6); EXPECT_CHR(0x0800, 5); EXPECT_CHR(0x0400, 6);   /* el 26 cruza A0 y A1 */
     n.cyc = 50; W(0xF000, 0xF0); W(0xF002, 6); EXPECT_IRQ(26, 51 + 16);        /* $F002 es el control */
 
+    /* 85 VRC7: tres bancos de 8 KB, CHR de 1 KB (segundo registro en A3 o A4), $E000 espejado y silencio, IRQ y OPLL */
+    make(85, 128, 128, MIRROR_VERTICAL);
+    W(0x8000, 3); W(0x8008, 5); W(0x9000, 7);
+    EXPECT_PRG(0x8000, 3); EXPECT_PRG(0xA000, 5); EXPECT_PRG(0xC000, 7); EXPECT_PRG(0xE000, 15);
+    W(0xA000, 11); W(0xA010, 12); W(0xD008, 99); EXPECT_CHR(0x0000, 11); EXPECT_CHR(0x0400, 12); EXPECT_CHR(0x1C00, 99);
+    W(0xE000, 0x41);
+    if (n.cart.mirroring != MIRROR_HORIZONTAL || !n.vrc7.off) { puts("FALLA mapper 85: $E000"); fails++; }
+    n.cyc = 50; W(0xE010, 0xF0); W(0xF000, 6); EXPECT_IRQ(85, 51 + 16);
+    W(0x9010, 0x30); W(0x9030, 0x4A);
+    if (n.vrc7.reg[0x30] != 0x4A) { puts("FALLA mapper 85: registros del OPLL"); fails++; }
+
     /* 19 Namco 163: PRG/CHR, nametables en CIRAM y contador de IRQ de 15 bits */
     make(19, 128, 128, MIRROR_VERTICAL);
     W(0xE000, 3); W(0xE800, 4); W(0xF000, 5);

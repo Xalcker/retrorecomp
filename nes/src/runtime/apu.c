@@ -34,6 +34,9 @@ static float s5b_lvl[32];
 #define VRC6_UNIT (pulse_mix[15] * 75.0f / MESEN_PULSE15)
 #define S5B_UNIT (pulse_mix[15] * 178.0f * 15.0f / MESEN_PULSE15)
 #define N163_UNIT (pulse_mix[15] * 20.0f / MESEN_PULSE15)
+/* VRC7: Mesen2 suma la salida de emu2413 sin escalar; un canal de vrc7.c a 1.0 equivale a ~2040 de emu2413 (medido con
+ * los 15 instrumentos), así que un canal al máximo suena ~2.7 veces un pulso del 2A03 a 15 */
+#define VRC7_UNIT (pulse_mix[15] * 2040.0f / MESEN_PULSE15)
 static int tabs_ready;
 
 static void init_tabs(void)
@@ -61,6 +64,8 @@ void apu_reset(NES *n)
     a->n163 = MAPPER(&n->cart) == 19;
     memset(&n->n163, 0, sizeof n->n163);
     n->n163.ch = 7; n->n163.cnt = 15;
+    a->vrc7 = CART_VRC7(&n->cart);
+    vrc7_reset(&n->vrc7);
     s5b_lvl[31] = 1.0f;                                /* -1.5 dB por paso: 10^(-1.5/20) (sin libm: no todas las herramientas la enlazan) */
     for (int i = 30; i >= 1; i--) s5b_lvl[i] = s5b_lvl[i + 1] * 0.8413951416f;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
@@ -272,6 +277,15 @@ static float n163_out(const N163 *s)                /* el chip muestra los canal
 
 void apu_n163_addr(NES *n, u8 v) { n->n163.addr = v; }
 
+void apu_vrc7_write(NES *n, int data, u8 v)
+{
+    if (!data) { n->vrc7.sel = v; return; }
+    apu_sync(n);
+    vrc7_write(&n->vrc7, n->vrc7.sel, v);
+}
+
+void apu_vrc7_off(NES *n, int off) { if (n->vrc7.off != off) { apu_sync(n); n->vrc7.off = (u8)off; } }
+
 void apu_n163_off(NES *n, int off) { if (n->n163.off != off) { apu_sync(n); n->n163.off = (u8)off; } }
 
 u8 apu_n163_data(NES *n, int write, u8 v)
@@ -438,6 +452,7 @@ static void apu_cycle(NES *n)
     if (a->vrc6) vrc6_clock(&n->vrc6);
     if (a->s5b) s5b_clock(&n->s5b);
     if (a->n163) n163_clock(&n->n163);
+    if (a->vrc7 && --n->vrc7.cnt == 0) { n->vrc7.cnt = 36; n->vrc7.out = n->vrc7.off ? 0 : vrc7_sample(&n->vrc7); }
 
     /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
@@ -460,6 +475,7 @@ static void apu_cycle(NES *n)
     if (a->vrc6) mix += vrc6_out(&n->vrc6) * VRC6_UNIT;
     if (a->s5b) mix += s5b_out(&n->s5b) * S5B_UNIT;
     if (a->n163) mix += n163_out(&n->n163) * N163_UNIT;
+    if (a->vrc7) mix += n->vrc7.out * VRC7_UNIT;
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -621,6 +637,17 @@ static void bulk(NES *n, u64 k)
             if (rem) { s->cnt = 15; n163_update(s); sum += n163_out(s); rem--; }   /* el ciclo de la actualización */
         }
         a->acc += sum * N163_UNIT;
+    }
+    if (a->vrc7) {                                  /* el VRC7 da una muestra cada 36 ciclos: se suma por tramos */
+        Vrc7 *v = &n->vrc7;
+        double sum = 0;
+        u64 rem = k;
+        while (rem) {
+            u64 run = (u64)v->cnt - 1 < rem ? (u64)v->cnt - 1 : rem;
+            sum += v->out * (double)run; rem -= run; v->cnt = (u16)(v->cnt - run);
+            if (rem) { v->cnt = 36; v->out = v->off ? 0 : vrc7_sample(v); sum += v->out; rem--; }
+        }
+        a->acc += sum * VRC7_UNIT;
     }
     a->acc_n += (double)k;
     a->next -= (double)k;

@@ -114,6 +114,13 @@ class System:
     def roms_dir(self):
         return os.path.join(self.root, "roms")
 
+    # Iguales en los dos recompiladores (mismos argumentos de recomp_game.sh y mismo make test)
+    def game_argv(self, rp, name, frames):
+        return ["sh", "tests/recomp_game.sh", rp, name, str(frames)]
+
+    def test_argv(self):
+        return ["make", "test"]
+
     def project_dir(self, name):
         raise NotImplementedError
 
@@ -145,7 +152,8 @@ class NES(System):
     recomp = "nesrecomp"
     tools = ("nesrecomp", "nes", "nestrace", "nesshot", "nesaudio", "nesbench", "nestest", "ramdump")
     legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (todos los bancos)")
-    caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True}
+    caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
+            "game_frames": 1500}
     ORG_COLOR = {46: 0, 51: 1, 226: 2, 201: 3}
     ANSI = re.compile(r"\x1b\[([0-9;]*)m(.)\x1b\[0m|(.)")
 
@@ -258,12 +266,6 @@ class NES(System):
         argv = [exe, rp, "--frames", str(frames), "--repeat", str(repeat)]
         return argv + (["--input", inp] if inp else [])
 
-    def game_argv(self, rp, name, frames):
-        return ["sh", "tests/recomp_game.sh", rp, name]
-
-    def test_argv(self):
-        return ["make", "test"]
-
     def visor(self, rp, tflags, cov):
         out = os.path.join(WORK, f"visor_{self.id}_{stem(os.path.basename(rp))}.html")
         argv = [self.tool("nesrecomp"), rp, "--html", out, *tflags]
@@ -296,7 +298,8 @@ class GB(System):
     recomp = "gbrecomp"
     tools = ("gbrecomp", "gb", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "gbramdump", "linktest", "vgmcheck")
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
-    caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False}
+    caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
+            "game_frames": 6000}
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
            0x0F: "MBC3+TIMER+BAT", 0x10: "MBC3+TIMER+RAM+BAT", 0x11: "MBC3", 0x12: "MBC3+RAM", 0x13: "MBC3+RAM+BAT",
            0x19: "MBC5", 0x1A: "MBC5+RAM", 0x1B: "MBC5+RAM+BAT", 0x1C: "MBC5+RUMBLE", 0x1E: "MBC5+RUMBLE+RAM+BAT",
@@ -432,12 +435,6 @@ class GB(System):
             return [os.path.join(pdir, "difftest" + EXE), rp, "--frames", str(frames), "--bench"]
         argv = [self.tool("gbbench"), rp, "--frames", str(frames), "--repeat", str(repeat)]
         return argv + (["--input", inp] if inp else []) + (["--model", model] if model else [])
-
-    def game_argv(self, rp, name, frames):
-        return ["sh", "tests/recomp_game.sh", rp, name, str(frames)]
-
-    def test_argv(self):
-        return ["sh", "tests/run_tests.sh"]
 
     def visor(self, rp, tflags, cov):
         out = os.path.join(WORK, f"eventos_{self.id}_{stem(os.path.basename(rp))}.txt")

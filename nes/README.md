@@ -7,21 +7,22 @@ generado (valida su SHA1) y con `difftest` para comprobar el código recompilado
 
 ## Un caso completo: recompilar Super Mario Bros.
 
-Se necesita un compilador C99, `make`, `pkg-config` y SDL2 (macOS: `brew install sdl2 pkg-config`; Debian:
-`apt install build-essential pkg-config libsdl2-dev`). La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
+Se necesita un compilador C99, `make`, `pkg-config` y SDL2; `git` y `unzip` se usan para la versión y para
+`make testroms`. Son los mismos paquetes que en GBRecomp. La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
+
+| Sistema | Paquetes |
+|---|---|
+| Windows | [MSYS2](https://www.msys2.org/) UCRT64: `pacman -S --needed make git unzip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2` |
+| Linux (Debian/Ubuntu) | `sudo apt install build-essential pkg-config libsdl2-dev curl unzip` |
+| macOS | `brew install sdl2 pkg-config` |
 
 <details>
 <summary><b>Windows 11 (MSYS2)</b></summary>
 
 Con [MSYS2](https://www.msys2.org) instalado en `C:\msys64`, abre la terminal **MSYS2 UCRT64** (menú Inicio; no la
-"MSYS2 MSYS" ni PowerShell) e instala las herramientas una sola vez:
-
-```
-pacman -S --needed make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2
-```
-
-Después se usan los mismos comandos de abajo; los ejecutables salen con `.exe` (el Makefile usa `gcc` cuando no existe `cc`, así que no hace falta `CC=gcc`)
-y llevan el icono del control de NES. En esa terminal tus carpetas de Windows están bajo `/c/Users/<tú>/...`:
+"MSYS2 MSYS" ni PowerShell) e instala los paquetes de la tabla una sola vez. Después se usan los mismos comandos de
+abajo; los ejecutables salen con `.exe` y llevan el icono del control de NES. En esa terminal tus carpetas de Windows
+están bajo `/c/Users/<tú>/...`:
 
 ```
 cd /c/Users/<tú>/Documents/NESRecomp
@@ -40,15 +41,17 @@ es `%APPDATA%\NESRecomp\<juego>\`.
 **1. Compilar el recompilador y sus herramientas**
 
 ```
-make
-make test        # opcional: nestest, Blargg, mappers, recompilado contra intérprete...
+make            # nesrecomp, nes (intérprete con ventana), las herramientas sin ventana y el runtime
+make testroms   # una sola vez: baja las ROMs de prueba libres (nes-test-roms) a testroms/
+make test       # opcional: nestest, Blargg, mappers, recompilado contra intérprete...
+make dist       # dist/nesrecomp-<versión>.tar.gz
 ```
 
-`make test` necesita las ROMs de prueba abiertas en `testroms/` (no se versionan):
+Son los mismos objetivos que en GBRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre exactamente
+eso en Linux, macOS y Windows. AccuracyCoin es opcional (`tests/accuracycoin.py`; usa uv):
 
 ```
-git clone --depth 1 https://github.com/christopherpow/nes-test-roms testroms/nes-test-roms
-git clone --depth 1 https://github.com/100thCoin/AccuracyCoin testroms/accuracycoin      # opcional (tests/accuracycoin.py; usa uv)
+git clone --depth 1 https://github.com/100thCoin/AccuracyCoin testroms/accuracycoin
 ```
 
 **2. Probar la ROM con el intérprete** (ventana SDL2; teclas en Ayuda → Controles)
@@ -221,7 +224,7 @@ Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde
 **Contrato común con GBRecomp.** `nestrace`, `nesshot`, `nesaudio`, `nesbench` y `difftest` tienen las mismas opciones que
 las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp) (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común
 ([retrorecomp](https://github.com/Xalcker/retrorecomp)) se apoya en eso. `sh tests/contract.sh` comprueba que las herramientas
-compiladas las mencionan (en GBRecomp lo corre el CI). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
+compiladas las mencionan; el CI la corre en cada PR (`.github/workflows/ci.yml`, como en GBRecomp). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
 
 `tests/golden.sh` compara el hash de imagen y audio de varios casos con una línea base; `tests/coverage.sh` mide la cobertura del análisis estático.
 
@@ -237,7 +240,7 @@ compiladas las mencionan (en GBRecomp lo corre el CI). Si cambias una opción aq
 | `tools/` | `retrorecomp/`: la GUI común con GBRecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
-| `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
+| `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Pendiente

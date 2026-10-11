@@ -28,8 +28,13 @@ mismo contrato de línea de comandos.
   el intérprete y por el camino del código generado (`m68ktest`, `--recomp`; en `make test`). Pendiente
   para la fase 3: el orden exacto de los accesos dentro de una instrucción (78 % con `--bus`).
   Sin probar todavía con hardware: interrupciones, traza y reset (llegan con el bus y el VDP).
-- [ ] **2. Bus y cartucho.** Mapa de memoria, RAM, I/O (`$A10000`), arbitraje del Z80 (BUSREQ/RESET),
-  SRAM/EEPROM con batería, mapper de SSF2, TMSS opcional, mandos de 3 y 6 botones.
+- [x] **2. Bus y cartucho.** Mapa de memoria (`bus.c`), RAM, E/S y mandos de 3 y 6 botones (`io.c`),
+  pedido y reset del bus del Z80, SRAM de la cabecera (y guardarla), mapper de SSF2, TMSS (solo el
+  registro y la versión). Más el esqueleto del VDP (registros, memorias sin DMA, estado, líneas,
+  VINT/HINT) para correr juegos reales: Sonic 1 llega a jugar el nivel con el intérprete y Super
+  Street Fighter II corre con su mapper. `bustest` y `genrun` (con `--watch`). Pendiente: EEPROM serie
+  (base de datos por juego), mappers sin licencia, esperas del bus del Z80 y refresco de la DRAM, y que
+  el intérprete no haga un `setjmp` por instrucción (fase 8).
 - [ ] **3. VDP.** Puerto de control, VRAM/CRAM/VSRAM, FIFO, DMA (68k→VRAM con pausa del 68k, relleno,
   copia), dibujo por línea, HV counter, HINT/VINT. Perezoso como `ppu_sync`. Ventana `gen` (llegan
   `main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, icono propio).

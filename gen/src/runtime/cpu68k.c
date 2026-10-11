@@ -173,6 +173,7 @@ u32 m68k_exception(X *x, int vec, u32 push_pc, int pre_idle)
     M68k *c = x->c;
     u16 sr = enter_super(c);
     c->stopped = 0;
+    x->g->exc_count[vec]++;
     idle(x, (u32)pre_idle);
     c->a[7] -= 6;
     wr(x, c->a[7] + 4, 1, push_pc & 0xFFFF);
@@ -189,6 +190,7 @@ void m68k_address_error(X *x, u32 addr, int flags)
     int was_super = c->s;
     u16 sr = enter_super(c);
     c->stopped = 0;
+    g->exc_count[VEC_ADDRESS]++;
     u16 ir = x->op;
     /* Estado: los bits altos son los del IR; R/W (1 = lectura), I/N (1 = lectura de programa) y el
      * código de función (supervisor/usuario, programa/datos). Al saltar a una dirección impar se
@@ -253,6 +255,7 @@ static void interrupt(struct Gen *g, int lvl)
     u16 sr = enter_super(c);
     c->ipm = (u8)lvl;
     c->stopped = 0;
+    g->exc_count[VEC_AUTO1 + lvl - 1]++;
     m68k_int_ack(g, lvl);
     idle(&xs, 16);
     c->a[7] -= 6;

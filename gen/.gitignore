@@ -12,3 +12,5 @@ juegos/
 .DS_Store
 *.exe
 /m68ktest
+/bustest
+/genrun

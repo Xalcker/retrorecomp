@@ -15,8 +15,13 @@
  * Va al día de forma perezosa: vdp_sync avanza las líneas hasta el ciclo actual (después de cada
  * instrucción y antes de cada acceso del 68000 al VDP).
  *
- * Sin emular todavía: la FIFO (las escrituras del 68000 no esperan; el estado dice siempre "vacía"),
- * el modo 2 de entrelazado (doble resolución) y el modo 4 (SMS).
+ * - FIFO de 4 escrituras: el VDP las atiende en sus ranuras de acceso (con imagen, 18 por línea en
+ *   H40 y 16 en H32; en el VBLANK o con la pantalla apagada, casi todas). Una escritura en VRAM ocupa
+ *   dos (va de a byte); en CRAM o VSRAM, una. Con las 4 ocupadas, el 68000 espera a que se libere la
+ *   más vieja; para leer el puerto de datos, a que se vacíe. El estado dice si está vacía o llena. La
+ *   memoria se escribe en el momento (solo se emula cuánto espera el 68000).
+ *
+ * Sin emular todavía: el modo 2 de entrelazado (doble resolución) y el modo 4 (SMS).
  */
 #include <string.h>
 
@@ -104,7 +109,9 @@ static u16 status(Gen *g)
 {
     Vdp *v = &g->vdp;
     u16 s = (u16)(g->open_bus & 0xFC00);
-    s |= 0x0200;                                                       /* FIFO vacía */
+    u64 now = g->cyc * MCLK_PER_M68K;
+    if (v->fifo_done[(v->fifo_head + 3) & 3] <= now) s |= 0x0200;      /* FIFO vacía */
+    if (v->fifo_done[v->fifo_head] > now) s |= 0x0100;                 /* FIFO llena */
     if (v->f_flag) s |= 0x80;
     if (v->spr_overflow) s |= 0x40;
     if (v->spr_collision) s |= 0x20;
@@ -238,10 +245,35 @@ static void control_write(Gen *g, u16 w)
     v->pending = 1;
 }
 
+/* Una escritura del 68000 entra en la FIFO: si las 4 entradas están ocupadas, espera a que se libere la
+ * más vieja; el VDP la atiende cuando termina la anterior, en sus ranuras de acceso */
+static void fifo_push(Gen *g, u32 slots)
+{
+    Vdp *v = &g->vdp;
+    u64 now = g->cyc * MCLK_PER_M68K;
+    u64 oldest = v->fifo_done[v->fifo_head];
+    if (oldest > now) {
+        g->cyc += (oldest - now + MCLK_PER_M68K - 1) / MCLK_PER_M68K;
+        now = g->cyc * MCLK_PER_M68K;
+    }
+    u64 last = v->fifo_done[(v->fifo_head + 3) & 3];
+    v->fifo_done[v->fifo_head] = (last > now ? last : now) + dma_mclk(g, slots);
+    v->fifo_head = (u8)((v->fifo_head + 1) & 3);
+}
+
+/* Antes de leer el puerto de datos: la FIFO tiene que quedar vacía */
+static void fifo_drain(Gen *g)
+{
+    Vdp *v = &g->vdp;
+    u64 now = g->cyc * MCLK_PER_M68K, last = v->fifo_done[(v->fifo_head + 3) & 3];
+    if (last > now) g->cyc += (last - now + MCLK_PER_M68K - 1) / MCLK_PER_M68K;
+}
+
 static void data_write(Gen *g, u16 w)
 {
     Vdp *v = &g->vdp;
     v->pending = 0;
+    fifo_push(g, (v->code & 0x0F) == 0x1 ? 2 : 1);
     mem_write(v, w);
     v->addr = (u16)(v->addr + v->reg[15]);
     if (v->fill_pending) { v->fill_pending = 0; dma_fill(g, w); }
@@ -252,6 +284,7 @@ static u16 data_read(Gen *g)
     Vdp *v = &g->vdp;
     u16 w;
     v->pending = 0;
+    fifo_drain(g);
     switch (v->code & 0x0F) {
     case 0x0: w = rd16(v->vram + (v->addr & 0xFFFE)); break;
     case 0x4: w = (u16)(((v->addr >> 1 & 0x3F) < 40 ? v->vsram[v->addr >> 1 & 0x3F] : 0) | (g->open_bus & 0xF800)); break;

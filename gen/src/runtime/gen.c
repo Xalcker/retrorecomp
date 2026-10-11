@@ -54,6 +54,7 @@ void gen_free(Gen *g)
 void gen_reset(Gen *g)
 {
     g->cyc = 0;
+    g->refresh_at = REFRESH_EVERY;
     memset(g->ram, 0, sizeof g->ram);
     memset(g->zram, 0, sizeof g->zram);
     memset(g->exc_count, 0, sizeof g->exc_count);

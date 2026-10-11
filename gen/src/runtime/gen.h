@@ -122,6 +122,8 @@ typedef struct {
     int  hint_counter;
     u64  next_line;             /* ciclo maestro en que empieza la línea siguiente */
     u64  dma_busy_until;        /* ciclo maestro en que termina un DMA de relleno o de copia */
+    u64  fifo_done[4];          /* FIFO: ciclo maestro en que el VDP termina cada una de las 4 últimas escrituras */
+    u8   fifo_head;             /* la más vieja de fifo_done */
     u64  frame;                 /* cuadros terminados */
     u8   frame_done;            /* terminó un cuadro (lo borra quien corre el cuadro) */
     u16  width, height;         /* del cuadro: 256 o 320 por 224 (o 240 en PAL) */
@@ -229,6 +231,7 @@ typedef struct Gen {
     Audio audio;
     u16  open_bus;              /* último valor en el bus de datos (lo que leen las direcciones sin nada) */
     u32  exc_count[64];         /* excepciones atendidas por vector (estadística) */
+    u64  refresh_at;            /* ciclo del 68000 en que toca el próximo refresco de la DRAM */
     u64  cyc_recomp;            /* ciclos del 68000 en código recompilado (estadística) */
     u64  recomp_calls;          /* entradas al código recompilado (estadística) */
     u32 *trace;                 /* NULL, o por cada palabra de ROM: 0 = no ejecutada; si no, $80000000 | dirección */
@@ -326,8 +329,19 @@ const char *cart_vector_name(int n);            /* "reset", "VINT"...; NULL si n
 /* Ciclos del 68000 sin acceso al bus */
 GEN_INL void m68k_idle(Gen *g, uint32_t n) { g->cyc += n; }
 
+/* Refresco de la DRAM: el 68000 pierde unos ciclos cada tanto. Se cobra en el límite de instrucción
+ * (así el intérprete y el código generado, que no hace las lecturas de las palabras de extensión,
+ * cuentan igual): 2 ciclos cada 128, la proporción que más se acerca a Genesis Plus GX y a BlastEm
+ * en los juegos de prueba (tools/oracles). */
+#define REFRESH_EVERY 128
+#define REFRESH_STALL 2
+
 GEN_INL void gen_after_step_inline(Gen *g)
 {
+    if (g->cyc >= g->refresh_at) {
+        g->cyc += REFRESH_STALL;
+        g->refresh_at = (g->cyc / REFRESH_EVERY + 1) * REFRESH_EVERY;
+    }
     u64 m = g->cyc * MCLK_PER_M68K;
     if (m >= g->vdp.next_line) vdp_sync(g);
     if (g->z80_mclk < m) z80_run_until(g, m);

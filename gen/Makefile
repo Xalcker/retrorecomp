@@ -138,6 +138,14 @@ genrecomp$(EXE): src/genrecomp/genrecomp.c src/genrecomp/dis68k.c src/genrecomp/
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -o $@ \
 		src/genrecomp/genrecomp.c src/genrecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT)
 
+# Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, BlastEm) sin ventana; los núcleos los
+# baja tools/oracles/oracle.py a build/oracles/ (no van en el repo)
+ifeq ($(shell uname -s 2>/dev/null),Linux)
+DL_LIBS := -ldl
+endif
+$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+
 # Paquete para distribuir: genrecomp, la documentación y la licencia
 DIST := dist/genrecomp-$(VERSION)-$(PLATFORM)
 dist: genrecomp$(EXE)

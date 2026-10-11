@@ -170,7 +170,7 @@ L_8000: /* lda #$10 */
 `make` produce `nombre` (el juego), `difftest` y `bench`.
 
 - `./nombre [rom.nes]`: sin argumentos busca en la carpeta un `.nes` con el SHA1 esperado.
-- `./difftest rom.nes [cuadros] [boton:desde-hasta ...] [--seed S] [--uncovered f]`: corre el
+- `./difftest rom.nes [--frames N] [--input f] [--seed S] [--uncovered f] [--screens d] [--executed f] [--bench]`: corre el
   código recompilado y el intérprete lado a lado (`--seed` suma un mando aleatorio; `--uncovered`
   guarda las instrucciones de PRG que tuvo que interpretar, como traza para `nesrecomp --trace`); tras cada función, el intérprete avanza hasta el mismo ciclo y se
   comparan CPU, RAM, PPU, APU, mapper y, al final de cada cuadro, imagen y audio.
@@ -289,7 +289,10 @@ reproducen los botones (`inputs.h`, el mismo formato que `--input` de las herram
 `difftest` (en cada proyecto generado; ver "Proyecto generado") corre el código recompilado y el
 intérprete lado a lado y compara todo el estado de la consola, la imagen y el audio. `--seed S` suma
 un mando aleatorio reproducible y `--uncovered` guarda las instrucciones de PRG que tuvo que
-interpretar, como traza para `nesrecomp --trace`.
+interpretar, como traza para `nesrecomp --trace`. Como en GBRecomp, `--screens carpeta --every N`
+guarda capturas PNG, `--executed archivo` escribe el mapa de bytes de PRG ejecutados (lo registra la
+traza de la máquina que solo usa el intérprete; cada instrucción marca su opcode y sus operandos) y
+`--bench` mide la velocidad del recompilado y del intérprete por separado.
 
 `tests/recomp_game.sh rom nombre` hace el ciclo completo: traza guionada, recompila, compila, corre
 `difftest` con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a

@@ -43,6 +43,16 @@ if [ -x ./nesrecomp ]; then
         else cat build/rt.log; echo "FALLA recomp $(basename "$f")"; fail=1; fi
     done
 fi
+# difftest: --bench, --screens/--every y --executed (con el proyecto de nestest de arriba)
+D=build/out/rt_nestest
+if [ -x ./nesrecomp ]; then
+    rm -rf build/dt_shots; mkdir -p build/dt_shots
+    if "$D/difftest" $T/other/nestest.nes --frames 200 --bench | grep -q "intérprete" \
+        && "$D/difftest" $T/other/nestest.nes --frames 200 --screens build/dt_shots --every 100 --executed build/dt_exec.txt >/dev/null \
+        && [ -s build/dt_shots/cuadro_000100.png ] && [ -s build/dt_shots/cuadro_000200.png ] \
+        && grep -q C build/dt_exec.txt; then echo "ok   difftest --bench/--screens/--executed"
+    else echo "FALLA difftest --bench/--screens/--executed"; fail=1; fi
+fi
 # Descubrimiento: --why, --viz y --events
 if [ -x ./nesrecomp ]; then
     ./nesrecomp $T/other/nestest.nes --why 4 --viz --events build/ev.txt 2>&1 | grep -q "punto de entrada: vector" \

@@ -98,9 +98,11 @@ difftest: 600 cuadros iguales (106686 llamadas, 106686 a código recompilado, 10
 ```
 
 Los argumentos `boton:desde-hasta` son los cuadros en que se mantiene cada botón (`a b select start up down left right`).
-Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos nuevos. Dos opciones más: `--seed S` suma un
-mando aleatorio (reproducible con la semilla) y `--uncovered archivo` escribe, en formato de traza, las instrucciones de PRG que
-tuvo que interpretar (sirve como `--trace` de `nesrecomp`).
+Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos nuevos. Más opciones (las mismas que el
+`difftest` de GBRecomp): `--seed S` suma un mando aleatorio (reproducible con la semilla); `--uncovered archivo` escribe, en
+formato de traza, las instrucciones de PRG que tuvo que interpretar (sirve como `--trace` de `nesrecomp`); `--screens carpeta`
+guarda una captura PNG cada `--every N` cuadros (600 si no se dice); `--executed archivo` escribe qué bytes de PRG se ejecutaron
+(una letra por byte, `C` = ejecutado); y `--bench` mide la velocidad del código recompilado y la del intérprete, sin comparar.
 
 **6. Velocidad** (sin ventana ni límite de cuadros):
 

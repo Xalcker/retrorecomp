@@ -111,7 +111,8 @@ sramtest$(EXE): src/tools/sramtest.c $(RT)
 nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
 
-PLATFORM := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
+# (no se llama PLATFORM: ese nombre es el sistema del paquete de make dist, en el bloque común)
+NES_SRC := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
 # Windows: el icono del .exe sale de un recurso (windres)
 ifeq ($(OS),Windows_NT)
 WINRES := $(BUILD)/icono_res.o
@@ -119,8 +120,8 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 	windres -I src/platform -i $< -o $@ -O coff
 endif
 
-nes$(EXE): $(PLATFORM:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(PLATFORM:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+nes$(EXE): $(NES_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NES_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<

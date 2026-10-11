@@ -129,7 +129,7 @@ typedef struct { u8 on, duty, step, len, halt, cst, vol, env_start, env_div, env
 typedef struct { u8 on, ctrl, lin_val, lin, lin_reload, step, len; u16 period, timer; u8 lhalt, hnew, rel, prev; } Triangle;
 typedef struct { u8 on, halt, cst, vol, env_start, env_div, env_decay, mode, len; u16 period, timer, shift;
                  u8 lhalt, hnew, rel, prev; } Noise;
-typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence;
+typedef struct { u8 on, irq_en, loop, out, buf, buf_empty, shift, bits, silence, load_delay;
                  u16 rate, timer, addr, cur, remaining, length; } Dmc;
 
 #define APU_BUF 16384
@@ -145,6 +145,8 @@ typedef struct {
     /* salida */
     double acc, acc_n, next, cps;       /* promedio entre muestras; ciclos por muestra */
     u8   mute;                  /* bits 0-4: silencia pulso 1, pulso 2, triángulo, ruido, DMC */
+    u8   dmc_delay, dmc_next;   /* el bit del DMC escrito en $4015 (dmc_next) se aplica dmc_delay ciclos después */
+    u8   dmc_implicit;          /* $4015 encendió el DMC justo antes de su reloj: en el próximo byte sale una DMA de un ciclo */
     double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
@@ -164,7 +166,7 @@ typedef struct NES {
     int  run_irq, prev_run_irq;               /* IRQ visto en el penúltimo ciclo */
     int  irq_seen;              /* irq_line un ciclo antes (el IRQ llega al CPU con un ciclo de retraso) */
     int  irq_line;              /* bit 0 = mapper, 1 = APU (frame), 2 = DMC */
-    int  stall;                 /* DMA pendiente: bit 0 = el DMC pidió un byte, bit 1 = escritura a $4014 (OAM DMA, página en oam_page); el CPU los cumple en su próxima lectura */
+    int  stall;                 /* DMA pendiente: bit 0 = el DMC pidió un byte, bit 1 = escritura a $4014 (OAM DMA, página en oam_page), bit 2 = la del DMC ya no está detenida (sobrante de un aborto); el CPU los cumple en su próxima lectura */
     u8   oam_page;
     u8   bus;                   /* último valor en el bus de datos del CPU (lo que leen las direcciones sin nada) */
     u64  cyc_recomp;            /* ciclos ejecutados por código recompilado (estadística) */
@@ -180,6 +182,10 @@ typedef struct NES {
     int  ppu_eager;             /* 1: la PPU avanza en cada ciclo (MMC3, DMA de OAM); 0: solo cuando hace falta */
     u64  dma_end;               /* ciclo en que terminó la última DMA (la lectura del CPU que detuvo empieza ahí). Al final: en
                                    medio desplaza campos que se usan en cada ciclo y el emulador va más lento */
+    u8   dmc_left;              /* DMA del DMC abortada por $4015 que sigue pendiente: bit 0 = hay, bit 1 = ya no está detenida.
+                                   Vuelve a stall cuando el DMC se enciende */
+    u64  dmc_get_cyc;           /* ciclo en que la última DMA del DMC leyó su byte (en ese ciclo no sale otra) */
+    u64  dmc_implicit_cyc;      /* ciclo en que una DMA del aborto implícito puede detener al CPU (solo ese) */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */
@@ -250,6 +256,7 @@ void apu_reset(NES *n);
 void apu_sync(NES *n);                           /* ejecuta lo pendiente hasta el ciclo actual de la consola */
 void apu_dmc_dma_done(NES *n, u8 v);             /* el DMA del DMC entregó su byte */
 u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a leer */
+int  apu_dmc_dma_live(NES *n);                   /* ¿sigue en pie la DMA del DMC? (no la abortó $4015) */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */
 void apu_write(NES *n, u16 addr, u8 v);          /* $4000-$4013, $4015, $4017 */

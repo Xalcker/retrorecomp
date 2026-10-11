@@ -188,9 +188,10 @@ ni un byte de imagen o audio.
 
 ### Conocido
 
-- AccuracyCoin (`testroms/accuracycoin`, marcador con `tests/accuracycoin.py`): 119 de 149 pruebas pasan (27 fallan; el detalle por grupos está en el issue #11). Faltan, sobre todo, el
+- AccuracyCoin (`testroms/accuracycoin`, marcador con `tests/accuracycoin.py`): 125 de 149 pruebas pasan (21 fallan; el detalle por grupos está en el issue #11). Faltan, sobre todo, el
   comportamiento por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, registros de desplazamiento "viejos",
-  activar o desactivar el dibujo en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y varios
+  activar o desactivar el dibujo en puntos concretos, la OAM2), el conflicto de bus de la DMA del DMC con los registros del
+  APU, y varios
   detalles del bus abierto de la PPU y del APU. `RMW2007`, `CPUInstr` y `Unimplemented` no llegan a ejecutarse.
 
 - Las pruebas que arrastraba el proyecto (`mmc3_test_2` completo, con la revisión vieja del MMC3 en `NES_MMC3_ALT=1`, y

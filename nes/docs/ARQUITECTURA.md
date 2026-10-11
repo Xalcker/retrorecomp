@@ -32,9 +32,18 @@ al bus de cada modo de direccionamiento sí está escrita dos veces (`cpu6502.c`
 Cada acceso al bus del CPU, incluidas las lecturas y escrituras falsas, avanza un ciclo de la consola:
 3 puntos de PPU y 1 de APU. Los ciclos de cada instrucción salen de los accesos, no de una tabla.
 NMI e IRQ se muestrean en el penúltimo ciclo de cada instrucción (el NMI es un borde, el IRQ un
-nivel) y un NMI que llega mientras se empujan los registros secuestra el vector. El OAM DMA corre
-como 513/514 ciclos reales. Verificado con `nestest` (incluida la posición de la PPU), las
-pruebas de temporización de Blargg y `ppu_vbl_nmi`.
+nivel) y un NMI que llega mientras se empujan los registros secuestra el vector. Verificado con
+`nestest` (incluida la posición de la PPU), las pruebas de temporización de Blargg y `ppu_vbl_nmi`.
+
+**DMA** (`dma_run` en `nes.c`, mismo modelo que TriCNES). Una DMA detiene al CPU en su próxima lectura
+y avanza ciclo a ciclo alternando get (ciclos pares, lecturas) y put (impares). Recién pedida empieza
+detenida hasta que pasa un get; esos ciclos repiten la lectura del CPU. La del DMC lee su byte en el
+primer get libre (3 o 4 ciclos); la de OAM lee en los get y escribe en los put (513 o 514). Juntas, el
+DMC tiene prioridad en los get y la OAM en los put. Del lado del APU (`apu.c`): la DMA de carga sale dos
+ciclos put después de encender el DMC con `$4015`; el bit del DMC se aplica 3-4 ciclos después de
+escribirlo (5-6 si la DMA está por salir); si se apaga mientras su DMA está detenida, la DMA se aborta
+pero queda pendiente (`dmc_left`) y sigue al volver a encenderlo; y encenderlo justo antes de un reloj
+del DMC produce una DMA de un ciclo (aborto implícito).
 
 ### Rendimiento: ejecución perezosa
 
@@ -324,9 +333,9 @@ La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md
   con `difftest`; `--why`, `--viz`, `--events` y `--html`.
 - Interfaz: cada menú y cada diálogo se dibuja sin fallar (`--ui-shot`).
 
-AccuracyCoin (`tests/accuracycoin.py`, opcional): 119 de 149. Faltan, sobre todo, el comportamiento
+AccuracyCoin (`tests/accuracycoin.py`, opcional): 125 de 149. Faltan, sobre todo, el comportamiento
 por punto de la PPU (lecturas de `$2004`/`$2007` con el dibujo activo, activar o desactivar el dibujo
-en puntos concretos, la OAM2), el aborto de DMA y la interacción DMC + OAM DMA, y detalles del bus
+en puntos concretos, la OAM2), el conflicto de bus de la DMA del DMC con los registros del APU, y detalles del bus
 abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferencias con TriCNES (que pasa todas).
 
 ### Línea base para optimizar el runtime

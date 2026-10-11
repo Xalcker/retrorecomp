@@ -99,14 +99,25 @@ static void half(Apu *a)
 /* ---- DMC ---- */
 
 /* El DMC pide un byte: el CPU se detiene en su próxima lectura y cumple el DMA (ver dma_run en nes.c) */
-static void dmc_fetch(NES *n)
+__attribute__((noinline, cold)) static void dmc_fetch(NES *n, int boundary)
 {
     Dmc *d = &n->apu.d;
-    if (!d->buf_empty || !d->remaining || (n->stall & 1)) return;
+    if (!d->buf_empty || (n->stall & 1) || n->dmc_left || n->apu.cycle - 1 == n->dmc_get_cyc) return;
+    if (boundary && n->apu.dmc_implicit) {      /* solo en un límite de byte, no en la DMA de carga */
+        n->apu.dmc_implicit = 0;
+        n->dmc_implicit_cyc = n->apu.cycle;          /* el ciclo siguiente al de este reloj (a->cycle ya avanzó) */
+    } else if (!d->remaining) return;
     n->stall |= 1;
 }
 
 u16 apu_dmc_addr(const NES *n) { return n->apu.d.cur; }
+
+/* Al principio de cada ciclo de una DMA del DMC: si $4015 ya apagó el DMC, la DMA se aborta (aborto explícito) */
+int apu_dmc_dma_live(NES *n)
+{
+    apu_sync(n);
+    return n->apu.d.on;
+}
 
 void apu_dmc_dma_done(NES *n, u8 v)
 {
@@ -117,7 +128,20 @@ void apu_dmc_dma_done(NES *n, u8 v)
     d->cur = (u16)((d->cur + 1) | 0x8000);
     if (--d->remaining == 0) {
         if (d->loop) { d->cur = d->addr; d->remaining = d->length; }
-        else if (d->irq_en) { n->irq_line |= 4; }
+        else { d->on = 0; if (d->irq_en) n->irq_line |= 4; }
+    }
+}
+
+/* Lo que $4015 dejó pendiente: la DMA de carga (sale en el segundo ciclo put) y el bit del DMC, que se aplica con
+ * retraso. Fuera de apu_cycle para no engordar la ruta de cada ciclo. */
+__attribute__((noinline, cold)) static void dmc_pending(NES *n)
+{
+    Apu *a = &n->apu;
+    if (a->d.load_delay && !(a->cycle & 1) && --a->d.load_delay == 0) dmc_fetch(n, 0);   /* ciclo put (a->cycle ya avanzó) */
+    if (a->dmc_delay && --a->dmc_delay == 0) {
+        a->d.on = a->dmc_next;
+        if (!a->d.on) a->d.remaining = 0;
+        else if (n->dmc_left) { n->stall |= 1 | ((n->dmc_left & 2) << 1); n->dmc_left = 0; }   /* la DMA abortada sigue */
     }
 }
 
@@ -134,7 +158,8 @@ static void dmc_clock(NES *n)
     if (--d->bits == 0) {
         d->bits = 8;
         if (d->buf_empty) d->silence = 1;
-        else { d->silence = 0; d->shift = d->buf; d->buf_empty = 1; dmc_fetch(n); }
+        else { d->silence = 0; d->shift = d->buf; d->buf_empty = 1; }
+        dmc_fetch(n, 1);                             /* en cada límite de byte, si el búfer quedó vacío */
     }
 }
 
@@ -222,6 +247,7 @@ static void apu_cycle(NES *n)
     }
 
     dmc_clock(n);
+    if (__builtin_expect(a->d.load_delay | a->dmc_delay, 0)) dmc_pending(n);
 
     /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
@@ -313,6 +339,7 @@ static u64 safe_skip(const Apu *a)
     if (!tri_inert(a)) LIM(a->t.timer);
     if (!noise_inert(a)) LIM(a->nz.timer);
     LIM(a->d.timer);
+    if (a->d.load_delay | a->dmc_delay) return 0;    /* DMA de carga o $4015 pendiente: ciclo a ciclo */
     if (a->m5) LIM(((74574 - (u64)a->m5_acc + 9) / 10) - 1);       /* reloj de 240 Hz del MMC5 */
     for (int i = 0; i < (a->m5 ? 4 : 2); i++) {
         if (pulse_inert(a, i)) continue;
@@ -395,6 +422,11 @@ static void set_deadline(Apu *a)
         u64 e = a->cycle + (u64)a->d.timer + 1;
         if (e < d) d = e;
     }
+    if (a->d.load_delay) {                         /* la DMA de carga sale en el load_delay-ésimo ciclo put (impar) */
+        u64 e = (a->cycle | 1) + 2 * (u64)(a->d.load_delay - 1) + 1;
+        if (e < d) d = e;
+    }
+    if (a->dmc_delay && a->cycle + a->dmc_delay < d) d = a->cycle + a->dmc_delay;   /* $4015 puede reanudar una DMA abortada */
     a->deadline = d;
 }
 
@@ -489,16 +521,28 @@ void apu_write(NES *n, u16 addr, u8 v)
         if (!a->p[1].on) a->p[1].len = a->p[1].rel = 0;
         if (!a->t.on) a->t.len = a->t.rel = 0;
         if (!a->nz.on) a->nz.len = a->nz.rel = 0;
-        a->d.on = (v >> 4) & 1;
         n->irq_line &= ~4;
-        if (!a->d.on) a->d.remaining = 0;
-        else if (!a->d.remaining) { a->d.cur = a->d.addr; a->d.remaining = a->d.length; dmc_fetch(n); }
+        {
+            /* El bit del DMC se aplica después: impar = put: 3 ciclos; par = get: 4 (cuentan este mismo ciclo). Al
+             * apagar, si la DMA del DMC sale en este ciclo o salió en el anterior, espera a que termine: 5 o 6. Al
+             * encender justo antes de un reloj del DMC, en ese límite de byte sale una DMA de un ciclo (aborto
+             * implícito). Mismo modelo que TriCNES. */
+            int put = a->cycle & 1, on = (v >> 4) & 1;
+            int firing = !on && (put ? a->d.timer == a->d.rate - 1 : a->d.timer == 0);
+            a->dmc_delay = (u8)(firing ? (put ? 5 : 6) : (put ? 3 : 4));
+            a->dmc_next = (u8)on;
+            if (on && a->d.timer == (put ? 7 : 8)) a->dmc_implicit = 1;
+            if (on && !a->d.remaining) {
+                a->d.cur = a->d.addr; a->d.remaining = a->d.length;
+                if (a->d.buf_empty) a->d.load_delay = 2;    /* DMA de carga: tras dos ciclos put */
+            }
+        }
         break;
     case 0x4017:
         a->inhibit = (v >> 6) & 1;
         if (a->inhibit) { a->frame_irq = 0; n->irq_line &= ~2; }
         a->pending = v;
-        a->delay = (a->cycle & 1) ? 4 : 3;
+        a->delay = (a->cycle & 1) ? 3 : 4;               /* impar = put: 3; par = get: 4 */
         break;
     }
     set_deadline(a);

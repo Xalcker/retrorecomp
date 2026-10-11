@@ -77,7 +77,7 @@ static inline void cycle_end(NES *n, int wr)
     u64 t3 = 3 * (n->cyc + 1);
     int sync = n->ppu_eager || n->ppu.event_dot <= t3;
     if (sync) ppu_sync(n, t3 - 1);
-    apu_check(n);
+    if (UNLIKELY(n->cyc + 1 >= n->apu.deadline)) apu_check(n);   /* en línea: casi nunca hay evento del APU */
     if (UNLIKELY(n->cart.irq_cycle <= n->cyc + 1)) { n->irq_line |= 1; n->cart.irq_cycle = ~0ull; }   /* FME-7 */
     n->prev_need_nmi = n->need_nmi;
     int line = (n->ppu.status & 0x80) && (n->ppu.ctrl & 0x80);
@@ -90,17 +90,19 @@ static inline void cycle_end(NES *n, int wr)
     n->cyc++;
 }
 
-/* ---- DMA del DMC ----
- * Cuando el DMC necesita un byte, el CPU se detiene en su próxima lectura (las escrituras no se pueden detener): el
- * ciclo de parada y los de "alineación" repiten la lectura que el CPU iba a hacer (con sus efectos en $2007,
- * $4015...), y en un ciclo "get" (par) se lee el byte del DMC. Son 3 o 4 ciclos según la alineación. Después el CPU
- * hace su lectura de verdad. Los registros de los controles ($4016/$4017) solo se leen en el ciclo de parada:
- * lecturas seguidas de la misma dirección no vuelven a dar pulso de reloj. */
+/* ---- DMA del DMC y de OAM ----
+ * Una DMA detiene al CPU en su próxima lectura (las escrituras no se pueden detener) y desde ahí avanza ciclo a
+ * ciclo, alternando "get" (ciclos pares: lecturas) y "put" (impares). Mismo modelo que TriCNES:
+ * - Una DMA recién pedida empieza "detenida" y sigue así hasta que pasa un ciclo get: esos ciclos, y los de
+ *   alineación, repiten la lectura que el CPU iba a hacer (con sus efectos en $2007, $4015...).
+ * - DMC: lee su byte en el primer get sin detención (3 o 4 ciclos en total).
+ * - OAM: lee en los get y escribe en los put; un put sin byte leído es de alineación (513 o 514 ciclos).
+ * - Las dos a la vez: en los put tiene prioridad la OAM y en los get el DMC; tras el byte del DMC, la OAM pierde
+ *   la alineación y necesita otro put.
+ * Los registros de los controles ($4016/$4017) solo se leen en el primer ciclo: lecturas seguidas de la misma
+ * dirección no vuelven a dar pulso de reloj. */
 #ifndef DMA_GET_PARITY
 #define DMA_GET_PARITY 0
-#endif
-#ifndef OAM_GET_PARITY
-#define OAM_GET_PARITY 1
 #endif
 
 static void dma_dummy(NES *n, u16 a, int do_read)
@@ -116,50 +118,51 @@ static void dma_dummy(NES *n, u16 a, int do_read)
 
 __attribute__((noinline, cold)) static void dma_run(NES *n, u16 a)
 {
-    int dmc = n->stall & 1, spr = (n->stall & 2) != 0;
-    u8 page = n->oam_page;
-    n->stall = 0;
+    int dmc = 0, spr = 0, dmc_halt = 0, spr_halt = 0, aligned = 0, spr_i = 0;
+    u8 page = 0, spr_val = 0;
     int was_eager = n->ppu_eager;
     n->ppu_eager = 1;                                    /* la OAM se llena mientras la PPU sigue */
-    int ctrl = (a == 0x4016 || a == 0x4017);
-    dma_dummy(n, a, 1);                                  /* ciclo de parada */
-    int need_dummy = dmc, spr_i = 0, spr_val = 0, have = 0;
-    while (dmc || spr) {
-        if (n->stall & 1) { dmc = 1; need_dummy = 1; n->stall &= ~1; }       /* el DMC pide un byte en medio del OAM DMA */
-        if (n->stall & 2) { n->stall &= ~2; page = n->oam_page; }               /* otra escritura a $4014: cambia la página */
-        int get = ((n->cyc & 1) == (dmc ? DMA_GET_PARITY : OAM_GET_PARITY));
-        if (get) {
-            if (dmc && !need_dummy) {                    /* ciclo "get": el byte del DMC */
-                cycle_begin(n, 0);
-                u8 v = nes_read(n, apu_dmc_addr(n));
-                n->bus = v;
-                cycle_end(n, 0);
-                apu_dmc_dma_done(n, v);
-                dmc = 0;
-            } else if (spr) {                            /* ciclo "get": lee un byte para la OAM */
-                cycle_begin(n, 0);
-                spr_val = nes_read(n, (u16)((page << 8) | spr_i));
-                n->bus = (u8)spr_val;
-                cycle_end(n, 0);
-                have = 1;
-            } else {
-                dma_dummy(n, a, !ctrl);
-                need_dummy = 0;
-            }
-        } else {
-            if (spr && have && (!dmc || need_dummy)) {   /* ciclo "put": escribe en la OAM */
-                cycle_begin(n, 1);
-                n->ppu.oam[(u8)(n->ppu.oam_addr + spr_i)] = (u8)spr_val;
-                cycle_end(n, 1);
-                have = 0;
-                if (++spr_i == 256) spr = 0;
-                need_dummy = 0;
-            } else {
-                dma_dummy(n, a, !ctrl);                  /* alineación o ciclo "dummy" del DMC */
-                need_dummy = 0;
-            }
+    int ctrl = (a == 0x4016 || a == 0x4017), first = 1;
+    do {
+        int get = (n->cyc & 1) == DMA_GET_PARITY;
+        if (n->stall & 1) { if (!dmc) { dmc = 1; dmc_halt = !(n->stall & 4); } n->stall &= ~5; }
+        if (n->stall & 2) {                              /* escritura a $4014: empieza (o cambia de página) */
+            n->stall &= ~2; page = n->oam_page;
+            if (!spr) { spr = 1; spr_i = 0; aligned = 0; spr_halt = get; }
         }
-    }
+        if (dmc && !apu_dmc_dma_live(n) && n->cyc != n->dmc_implicit_cyc) {   /* DMC apagado: la DMA se aborta pero queda pendiente */
+            n->dmc_left = (u8)(1 | (dmc_halt ? 0 : 2));
+            dmc = 0;
+        }
+        if (!dmc && !spr) break;
+        /* quién usa este ciclo: 0 = nadie (lectura repetida), 1 = OAM, 2 = DMC */
+        int who;
+        if (dmc && spr) who = dmc_halt && spr_halt ? 0 : dmc_halt ? 1 : spr_halt ? (get ? 2 : 0) : (get ? 2 : 1);
+        else if (dmc) who = dmc_halt || !get ? 0 : 2;
+        else who = spr_halt ? 0 : 1;
+        if (who == 2) {                                  /* get: el byte del DMC */
+            n->dmc_get_cyc = n->cyc;
+            cycle_begin(n, 0);
+            u8 v = nes_read(n, apu_dmc_addr(n));
+            n->bus = v;
+            cycle_end(n, 0);
+            apu_dmc_dma_done(n, v);
+            dmc = 0; aligned = 0;
+        } else if (who == 1 && get) {                    /* get: lee un byte para la OAM */
+            cycle_begin(n, 0);
+            spr_val = nes_read(n, (u16)((page << 8) | spr_i));
+            n->bus = spr_val;
+            cycle_end(n, 0);
+            aligned = 1;
+        } else if (who == 1 && aligned) {                /* put: lo escribe en la OAM */
+            cycle_begin(n, 1);
+            n->ppu.oam[(u8)(n->ppu.oam_addr + spr_i)] = spr_val;
+            cycle_end(n, 1);
+            if (++spr_i == 256) { spr = 0; aligned = 0; }
+        } else dma_dummy(n, a, first || !ctrl);          /* detenida o alineación */
+        if (get) dmc_halt = spr_halt = 0;
+        first = 0;
+    } while (dmc || spr || (n->stall & 3));
     n->ppu_eager = was_eager;
     n->dma_end = n->cyc;
 }
@@ -233,7 +236,7 @@ void nes_reset(NES *n)
     n->cyc = 0;
     n->nmi_line = n->need_nmi = n->prev_need_nmi = 0;
     n->run_irq = n->prev_run_irq = 0;
-    n->irq_line = n->stall = 0;
+    n->irq_line = n->stall = 0; n->dmc_left = 0;
     ppu_reset(n);
     apu_reset(n);
     n->ppu_eager = 0;

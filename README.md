@@ -17,6 +17,11 @@ Como submódulo: `git submodule update --init` y `python3 tools/retrorecomp/retr
 de la carpeta `roms/` de cada uno y de las que se pasen con `--roms DIR`. Compila las herramientas desde la
 propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
 
+En Windows, `make` y `sh` (compilar, pruebas, ciclo completo, compilar el proyecto generado) corren dentro de MSYS2
+UCRT64, como se compila a mano: la GUI los lanza con su `bash` (`MSYSTEM=UCRT64`) y pasa las rutas como `C:/...`.
+Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:msys64`, y al arrancar dice cuál usa. Los ejecutables de los
+recompiladores y `git` se lanzan directo.
+
 ## Qué hace
 
 - **Avance por ROM:** análisis estático, cobertura, trazas, proyecto generado, compilado, `difftest` y velocidad.

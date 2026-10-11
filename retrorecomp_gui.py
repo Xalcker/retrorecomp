@@ -143,7 +143,7 @@ class System:
 class NES(System):
     id, label, exts = "nes", "NES", (".nes",)
     recomp = "nesrecomp"
-    tools = ("nesrecomp", "nes", "nestrace", "nesshot", "nesaudio", "nesbench", "nestest")
+    tools = ("nesrecomp", "nes", "nestrace", "nesshot", "nesaudio", "nesbench", "nestest", "ramdump")
     legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (todos los bancos)")
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True}
     ORG_COLOR = {46: 0, 51: 1, 226: 2, 201: 3}
@@ -294,7 +294,7 @@ class NES(System):
 class GB(System):
     id, label, exts = "gb", "Game Boy", (".gb", ".gbc", ".sgb")
     recomp = "gbrecomp"
-    tools = ("gbrecomp", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "linktest", "vgmcheck")
+    tools = ("gbrecomp", "gb", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "gbramdump", "linktest", "vgmcheck")
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
     caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False}
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
@@ -444,13 +444,19 @@ class GB(System):
         return [self.tool("gbrecomp"), rp, "--why", "00:0000", "--events", out, *tflags], out
 
     def play_argv(self, rp, proj, interp, model, env, record_trace_path, record_input_path, play_input):
-        if not proj["built"]:
-            raise ValueError("el proyecto no está compilado (Recompilar primero)")
-        argv = [os.path.join(proj["dir"], proj["name"] + EXE), rp]
+        # Con el intérprete (o sin proyecto compilado): gb, como nes en NESRecomp. Si el GBRecomp
+        # es anterior y no tiene gb, el juego recompilado con --interp.
+        gb = self.tool("gb")
+        if (interp or not proj["built"]) and os.path.isfile(gb):
+            argv = [gb, rp]
+        elif not proj["built"]:
+            raise ValueError("el proyecto no está compilado (Recompilar primero) y falta ./gb (Compilar herramientas)")
+        else:
+            argv = [os.path.join(proj["dir"], proj["name"] + EXE), rp]
+            if interp:
+                argv.append("--interp")
         if model:
             argv += ["--model", model]
-        if interp:
-            argv.append("--interp")
         if record_trace_path:
             argv += ["--uncovered", record_trace_path]
         if record_input_path:

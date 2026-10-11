@@ -334,3 +334,8 @@ abierto de la PPU y del APU.
 imagen final y de todo el audio con `tests/golden.txt`: una optimización no debe cambiar ni un byte
 (`--update` reescribe la línea base). Es lo que respalda la ejecución perezosa de la PPU y el APU
 (ver "Rendimiento: ejecución perezosa").
+
+`nesshot --hash` imprime un hash de todos los cuadros y de todo el audio, como `gbtest --hash`, que
+es lo que usa el `golden.sh` de GBRecomp. El de NES todavía compara el md5 de la captura final y del
+WAV (`nesshot` y `nesaudio`); pasarlo a `--hash` cambia `tests/golden.txt`, así que hay que
+regenerarlo con todos los juegos de `roms/` a la mano.

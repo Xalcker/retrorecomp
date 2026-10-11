@@ -93,8 +93,8 @@ dist: nesrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-ramdump$(EXE): src/tools/ramdump.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+ramdump$(EXE): src/tools/ramdump.c src/platform/cli.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/ramdump.c $(RT)
 
 inputtest$(EXE): src/tools/inputtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^

@@ -204,11 +204,11 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nes juego.nes` | Ventana SDL2 con el intérprete. `NES_TRACE=archivo` guarda la traza mientras juegas. |
 | `nesrecomp` | El recompilador. |
 | `nestrace rom traza [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (también `cuadros [boton:desde-hasta ...]`). |
-| `nesshot rom salida.png [--frames N] [--input archivo] [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. |
+| `nesshot rom salida.png [--frames N] [--input archivo] [--expect esperado.png] [--hash] [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. Como `gbtest` de GBRecomp: `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el audio. |
 | `nesaudio rom salida.wav [--frames N] [--input archivo] [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
 | `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` / `--codemap archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta), vuelca cada instrucción con su origen o escribe qué bytes se tomaron como código (el formato de `difftest --executed`, para compararlos). |
-| `ramdump rom cuadros [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`). |
+| `ramdump rom [--frames N] [--input archivo] [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`; en GBRecomp, `gbramdump`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
 | `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |

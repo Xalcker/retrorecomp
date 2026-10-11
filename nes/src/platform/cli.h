@@ -9,6 +9,8 @@
  *   --screens DIR    (difftest) guarda una captura PNG cada --every N cuadros (600 si no se dice)
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
  *   --executed F     (difftest) escribe qué bytes de PRG se ejecutaron (formato de nesrecomp --codemap)
+ *   --expect PNG     (nesshot) pasa si la pantalla final es idéntica al PNG, como gbtest --expect
+ *   --hash           (nesshot) imprime un hash de todos los cuadros y de todo el audio, como gbtest --hash
  * Siguen valiendo los argumentos de antes: el número de cuadros como argumento suelto y los
  * botones sostenidos `boton:desde-hasta` (a b select start up down left right).
  */
@@ -33,6 +35,7 @@ typedef struct {
     int repeat;
     const char *uncovered;
     const char *screens, *executed; long every; int bench;     /* solo difftest */
+    const char *expect; int hash;                               /* solo nesshot */
     CliHold h[64]; int nh;
     const char *extra[64]; int nextra;  /* sueltos que no se reconocieron (p. ej. zapper:X,Y,a-b) */
 } Cli;
@@ -95,6 +98,8 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--every") && i + 1 < argc) c->every = atol(argv[++i]);
         else if (!strcmp(a, "--executed") && i + 1 < argc) c->executed = argv[++i];
         else if (!strcmp(a, "--bench")) c->bench = 1;
+        else if (!strcmp(a, "--expect") && i + 1 < argc) c->expect = argv[++i];
+        else if (!strcmp(a, "--hash")) c->hash = 1;
         else if (a[0] == '-' && a[1] == '-') { fprintf(stderr, "opción desconocida: %s\n", a); return 2; }
         else if (sscanf(a, "%15[a-z]:%d-%d", name, &f0, &f1) == 3) {
             int ok = 0;

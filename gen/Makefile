@@ -31,7 +31,10 @@ PLATFORM := linux
 endif
 # --- Fin del bloque común ---
 
-RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c cpu68k.c sha1.c
+# Lo que hace `make` a secas (las reglas de abajo no siguen el orden en que se usan)
+.DEFAULT_GOAL := all
+
+RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c cpu68k.c z80.c z80bus.c psg.c ym2612.c audio.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 
@@ -51,7 +54,7 @@ endif
 gen$(EXE): $(GEN_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := genrecomp carttest m68ktest bustest vdptest genrun gen
+PROGS := genrecomp carttest m68ktest z80test bustest vdptest audiotest genrun gen
 
 # SDL2 para el intérprete con ventana (gen). En Windows, enlazado de forma
 # estática para que el .exe no pida SDL2.dll.
@@ -74,15 +77,21 @@ bustest$(EXE): src/tools/bustest.c $(RT)
 vdptest$(EXE): src/tools/vdptest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
-genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^
+audiotest$(EXE): src/tools/audiotest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
-# m68ktest pone su propio bus (memoria plana): no usa bus.c
-m68ktest$(EXE): src/tools/m68ktest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
+
+# m68ktest y z80test ponen su propio bus (memoria plana): no usan bus.c ni z80bus.c
+m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT)
+
+z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT)
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h
 EMBED_PLATFORM := random_pad.h png.c png.h files.c files.h export.c export.h
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
@@ -112,7 +121,7 @@ dist: genrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)

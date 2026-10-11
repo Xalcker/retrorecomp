@@ -10,7 +10,9 @@
  * --sram ARCHIVO carga la SRAM o EEPROM del cartucho al empezar (si existe) y la guarda al terminar.
  * --tmss: consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP).
  * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
+ * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y su nivel por segundo.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +69,7 @@ static u64 steps;
 static int last_frame;
 static int after(Gen *g)
 {
-    vdp_sync(g);
+    gen_after_step(g);
     steps++;
     if (last_frame) hist_add(g->cpu.pc);
     return g->vdp.frame_done || g->cpu.halted;
@@ -83,7 +85,7 @@ int main(int argc, char **argv)
     u32 watch[16]; int nw = 0; int wlast[16];
     const char *sram = NULL;
     int tmss = 0;
-    const char *shot = NULL, *shots = NULL;
+    const char *shot = NULL, *shots = NULL, *wav = NULL;
     long every = 60;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
@@ -91,6 +93,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--sram") && i + 1 < argc) sram = argv[++i];
         else if (!strcmp(argv[i], "--tmss")) tmss = 1;
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
@@ -107,7 +110,8 @@ int main(int argc, char **argv)
     }
     if (!rom || frames <= 0) {
         fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [--tmss]\n"
-                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [boton:desde-hasta ...]\n"
+                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav]\n"
+                        "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c start x y z mode\n");
         return 2;
     }
@@ -119,6 +123,15 @@ int main(int argc, char **argv)
     if (gen_load(g, data, len, &err)) { fprintf(stderr, "%s: %s\n", rom, err); return 1; }
     free(data);
     if (tmss) { g->tmss = 1; gen_reset(g); }
+    FILE *wf = NULL;
+    u32 wav_bytes = 0;
+    double sec_sum = 0; long sec_n = 0, sec = 0;
+    if (wav) {
+        wf = fopen(wav, "wb");
+        if (!wf) { fprintf(stderr, "no se pudo crear %s\n", wav); return 1; }
+        static const u8 hdr[44] = { 0 };
+        fwrite(hdr, 1, 44, wf);
+    }
     if (sram && gen_sram_load(g, sram)) printf("partida cargada de %s\n", sram);
 
     for (long f = 0; f < frames; f++) {
@@ -128,6 +141,21 @@ int main(int argc, char **argv)
         last_frame = f == frames - 1;
         g->vdp.frame_done = 0;
         m68k_run(g, after);
+        audio_end_frame(g);
+        {
+            static int16_t s[4096 * 2];
+            int n = gen_audio_take(g, s, 4096);
+            if (wf) {
+                fwrite(s, 4, (size_t)n, wf);
+                wav_bytes += (u32)n * 4;
+                for (int i = 0; i < n * 2; i++) sec_sum += (double)s[i] * s[i];
+                sec_n += n * 2;
+                if (sec_n >= AUDIO_RATE * 2) {
+                    printf("audio, segundo %3ld: nivel %5.0f\n", sec++, sec_n ? sqrt(sec_sum / (double)sec_n) : 0.0);
+                    sec_sum = 0; sec_n = 0;
+                }
+            }
+        }
         if (shots && every > 0 && (f + 1) % every == 0) {
             char path[1024];
             snprintf(path, sizeof path, "%s/%06ld.png", shots, f + 1);
@@ -168,6 +196,27 @@ int main(int argc, char **argv)
         if (!best) break;
         printf("  $%06X  %u\n", hpc[bi], best);
         hcount[bi] = 0;
+    }
+    if (wf) {
+        /* Cabecera RIFF/WAVE de 44 bytes (PCM, 2 canales, 16 bits) */
+        u8 h[44];
+        u32 rate = AUDIO_RATE;
+        memcpy(h, "RIFF", 4);
+        u32 v = 36 + wav_bytes; memcpy(h + 4, &v, 4);
+        memcpy(h + 8, "WAVEfmt ", 8);
+        v = 16; memcpy(h + 16, &v, 4);
+        u16 w = 1; memcpy(h + 20, &w, 2);
+        w = 2; memcpy(h + 22, &w, 2);
+        memcpy(h + 24, &rate, 4);
+        v = rate * 4; memcpy(h + 28, &v, 4);
+        w = 4; memcpy(h + 32, &w, 2);
+        w = 16; memcpy(h + 34, &w, 2);
+        memcpy(h + 36, "data", 4);
+        memcpy(h + 40, &wav_bytes, 4);
+        fseek(wf, 0, SEEK_SET);
+        fwrite(h, 1, 44, wf);
+        fclose(wf);
+        printf("sonido en %s (%.1f s)\n", wav, wav_bytes / 4.0 / AUDIO_RATE);
     }
     if (shot) {
         if (save_frame(g, shot)) printf("imagen en %s (%dx%d)\n", shot, g->vdp.width, g->vdp.height);

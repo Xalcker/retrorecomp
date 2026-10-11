@@ -1,7 +1,7 @@
 /*
  * Capa de plataforma con SDL2 para GENRecomp: ventana con barra de menús, controles (teclado y
- * mandos) y ritmo de 59.92 cuadros por segundo. Por ahora la usa el intérprete (`gen`); los juegos
- * recompilados (fase 6), el audio (fase 4) y los estados guardados (fase 5) llegan después.
+ * mandos), sonido estéreo a 44 100 Hz y ritmo de 59.92 cuadros por segundo. Por ahora la usa el
+ * intérprete (`gen`); los juegos recompilados (fase 6) y los estados guardados (fase 5) llegan después.
  *
  * Uso: gen [rom.bin] [--scale N] [--tmss]
  *   --tmss  consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP)
@@ -52,6 +52,7 @@ typedef struct {
 enum {
     A_NONE, A_OPEN_ROM, A_RESET, A_PAUSE, A_QUIT,
     A_SCALE_1, A_SCALE_6 = A_SCALE_1 + 5, A_FULLSCREEN, A_ASPECT, A_INTEGER,
+    A_SOUND, A_VOLUME_25, A_VOLUME_100 = A_VOLUME_25 + 3, A_CHAN_0, A_CHAN_6 = A_CHAN_0 + 6,
     A_PAD_AUTO, A_PAD_3, A_PAD_6,
     A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
@@ -80,6 +81,8 @@ typedef struct {
     SDL_Texture *tex;
     int tex_w, tex_h;
     SDL_GameController *pads[2];
+    SDL_AudioDeviceID audio;
+    int audio_was_running;
 
     MenuBar bar;
     Dialog dlg;
@@ -349,9 +352,9 @@ static void open_exports(App *app)
 #define SEPARATOR(m, n) m[n++] = (MenuItem){ "", NULL, A_NONE, ITEM_SEPARATOR }
 #define ITEM(m, n, text, key, action, kind) m[n++] = (MenuItem){ text, key, action, kind }
 
-static MenuItem menu_game[8], menu_video[12], menu_input[4], menu_export[4], menu_language[LANG_COUNT], menu_help[4];
-static Menu menus[6];
-static char size_labels[6][40];
+static MenuItem menu_game[8], menu_video[12], menu_audio[16], menu_input[4], menu_export[4], menu_language[LANG_COUNT], menu_help[4];
+static Menu menus[7];
+static char size_labels[6][40], volume_labels[4][40], chan_labels[6][40];
 
 static void build_menus(App *app)
 {
@@ -374,6 +377,21 @@ static void build_menus(App *app)
     ITEM(menu_video, n, tr(T_INTEGER), NULL, A_INTEGER, ITEM_CHECK);
     ITEM(menu_video, n, tr(T_ASPECT), NULL, A_ASPECT, ITEM_CHECK);
     menus[k++] = (Menu){ tr(T_MENU_VIDEO), menu_video, n };
+
+    n = 0;
+    ITEM(menu_audio, n, tr(T_SOUND), "Ctrl+M", A_SOUND, ITEM_CHECK);
+    SEPARATOR(menu_audio, n);
+    for (int i = 0; i < 4; i++) {
+        snprintf(volume_labels[i], sizeof volume_labels[i], tr(T_VOLUME_FMT), 25 * (i + 1));
+        ITEM(menu_audio, n, volume_labels[i], NULL, A_VOLUME_25 + i, ITEM_RADIO);
+    }
+    SEPARATOR(menu_audio, n);
+    for (int i = 0; i < 6; i++) {
+        snprintf(chan_labels[i], sizeof chan_labels[i], tr(T_CHAN_FM_FMT), i + 1);
+        ITEM(menu_audio, n, chan_labels[i], NULL, A_CHAN_0 + i, ITEM_CHECK);
+    }
+    ITEM(menu_audio, n, tr(T_CHAN_PSG), NULL, A_CHAN_6, ITEM_CHECK);
+    menus[k++] = (Menu){ tr(T_MENU_AUDIO), menu_audio, n };
 
     n = 0;
     ITEM(menu_input, n, tr(T_PAD_AUTO), NULL, A_PAD_AUTO, ITEM_RADIO);
@@ -412,7 +430,16 @@ static int menu_state(void *ctx, int action, int *checked)
     case A_PAD_AUTO:     *checked = app->cfg.pad == 0; return 1;
     case A_PAD_3:        *checked = app->cfg.pad == 3; return 1;
     case A_PAD_6:        *checked = app->cfg.pad == 6; return 1;
+    case A_SOUND:        *checked = app->cfg.sound; return 1;
     default:
+        if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
+            *checked = app->cfg.volume == 25 * (action - A_VOLUME_25 + 1);
+            return app->cfg.sound;
+        }
+        if (action >= A_CHAN_0 && action <= A_CHAN_6) {
+            *checked = !(app->cfg.mute & (1 << (action - A_CHAN_0)));    /* marcado = suena */
+            return 1;
+        }
         if (action >= A_SCALE_1 && action <= A_SCALE_6) {
             *checked = app->cfg.scale == action - A_SCALE_1 + 1;
             return !app->fullscreen;
@@ -466,6 +493,7 @@ static void do_action(App *app, int action)
     case A_PAD_AUTO:     app->cfg.pad = 0; apply_pad(app); break;
     case A_PAD_3:        app->cfg.pad = 3; apply_pad(app); break;
     case A_PAD_6:        app->cfg.pad = 6; apply_pad(app); break;
+    case A_SOUND:        app->cfg.sound = !app->cfg.sound; break;
     case A_SCREENSHOT:   screenshot(app); break;
     case A_OPEN_EXPORTS: open_exports(app); break;
     case A_HELP_CONTROLS: {
@@ -488,6 +516,10 @@ static void do_action(App *app, int action)
         if (action >= A_SCALE_1 && action <= A_SCALE_6) {
             app->cfg.scale = action - A_SCALE_1 + 1;
             resize_window(app);
+        } else if (action >= A_VOLUME_25 && action <= A_VOLUME_100) {
+            app->cfg.volume = 25 * (action - A_VOLUME_25 + 1);
+        } else if (action >= A_CHAN_0 && action <= A_CHAN_6) {
+            app->cfg.mute ^= 1 << (action - A_CHAN_0);
         } else if (action >= A_LANGUAGE_0 && action < A_LANGUAGE_0 + LANG_COUNT) {
             i18n_set((Language)(action - A_LANGUAGE_0));
             snprintf(app->cfg.language, sizeof app->cfg.language, "%s", i18n_code(i18n_get()));
@@ -507,6 +539,7 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     switch (k->keysym.sym) {
     case SDLK_r:      if (ctrl) { do_action(app, A_RESET); return 1; } break;
     case SDLK_o:      if (ctrl) { do_action(app, A_OPEN_ROM); return 1; } break;
+    case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
     case SDLK_p:      do_action(app, A_PAUSE); return 1;
     case SDLK_F11:    do_action(app, A_FULLSCREEN); return 1;
     case SDLK_RETURN: if (alt) { do_action(app, A_FULLSCREEN); return 1; } break;
@@ -660,16 +693,26 @@ static int game_running(const App *app)
     return !app->paused && !menubar_is_open(&app->bar) && app->dlg.kind == DIALOG_NONE;
 }
 
-static void step(App *app)
+static void step(App *app, int audible)
 {
     u16 pads[2];
     player_pads(app, pads);
     app->gen->pad[0] = pads[0];
     app->gen->pad[1] = pads[1];
+    app->gen->audio.mute = (u8)app->cfg.mute;
     app->frame++;
     gen_run_frame(app->gen);
     /* Guardado automático cada 5 segundos si la RAM del cartucho cambió */
     if (app->frame % 300 == 0 && gen_sram_dirty(app->gen)) save_game(app);
+
+    static int16_t samples[AUDIO_BINS * 2];
+    int n = gen_audio_take(app->gen, samples, AUDIO_BINS);
+    if (!app->audio || !app->cfg.sound || !audible) return;
+    int vol = app->cfg.volume;
+    if (vol != 100) for (int i = 0; i < n * 2; i++) samples[i] = (int16_t)(samples[i] * vol / 100);
+    /* Se mantiene una cola corta: si el audio se adelanta (relojes distintos), se descarta un cuadro */
+    Uint32 queued = SDL_GetQueuedAudioSize(app->audio) / 4;
+    if (queued < AUDIO_RATE / 10) SDL_QueueAudio(app->audio, samples, (Uint32)n * 4);
 }
 
 static void update_title(App *app)
@@ -799,7 +842,7 @@ int main(int argc, char *argv[])
     app->gen = calloc(1, sizeof *app->gen);
     if (!app->gen) fail("sin memoria");
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 
     /* Carpeta de datos: partida y preferencias */
     app->pref = SDL_GetPrefPath("GENRecomp", "interprete");
@@ -868,8 +911,17 @@ int main(int argc, char *argv[])
     resize_window(app);
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
+    SDL_AudioSpec want, have_spec;
+    SDL_zero(want);
+    want.freq = AUDIO_RATE;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 1024;
+    if (!ui_shot_path) app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
+    if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
+
     if (ui_shot_path) {
-        for (long i = 0; i < shot_frames; i++) step(app);
+        for (long i = 0; i < shot_frames; i++) step(app, 0);
         if (shot_action) do_action(app, shot_action);
         if (shot_menu >= 0 && shot_menu < app->bar.count) {
             app->bar.open = shot_menu;
@@ -894,9 +946,13 @@ int main(int argc, char *argv[])
         const Uint8 *keys = SDL_GetKeyboardState(NULL);
         app->fast = running && keys[SDL_SCANCODE_TAB];
         if (running) {
-            if (app->fast) for (int i = 0; i < 4; i++) step(app);
-            else step(app);
-        }
+            if (!app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
+            if (app->fast) {
+                for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin sonido */
+                if (app->audio) SDL_ClearQueuedAudio(app->audio);
+            } else step(app, 1);
+        } else if (app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
+        app->audio_was_running = running;
         update_title(app);
         render(app);
 
@@ -918,6 +974,7 @@ int main(int argc, char *argv[])
         snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);
     }
+    if (app->audio) SDL_CloseAudioDevice(app->audio);
     for (int i = 0; i < 2; i++)
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);

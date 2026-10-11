@@ -22,6 +22,10 @@ static const struct { const char *serial; EepromCfg cfg; } db[] = {
     /* Acclaim, mapeo viejo: SDA y SCL en los bits 0 y 1 de $200001; SDA se lee en el bit 1 */
     { "T-081326", { 0x200001, 0x200001, 0x200001, 0, 1, 1, 8, 0xFF, 0x03 } },     /* NBA Jam (USA, Europa) */
     { "T-81033",  { 0x200001, 0x200001, 0x200001, 0, 1, 1, 8, 0xFF, 0x03 } },     /* NBA Jam (Japón) */
+    /* Sega: X24C01 (128 bytes, la dirección va en el primer byte); SDA en el bit 0 y SCL en el bit 1
+     * de $200001; SDA se lee en el bit 0 */
+    { "T-12053",  { 0x200001, 0x200001, 0x200001, 0, 1, 0, 7, 0x7F, 0x03 } },     /* Mega Man: The Wily Wars (EE. UU., Genesis Mini) */
+    { "T-12046",  { 0x200001, 0x200001, 0x200001, 0, 1, 0, 7, 0x7F, 0x03 } },     /* Mega Man: The Wily Wars (Europa) */
     /* Acclaim, mapeo nuevo: SDA en el bit 0 de $200001 (escribir y leer), SCL en el bit 0 de $200000 */
     { "T-81406",  { 0x200001, 0x200000, 0x200001, 0, 0, 0, 8, 0xFF, 0x03 } },     /* NBA Jam Tournament Edition (X24C02) */
 };

@@ -77,21 +77,23 @@ static inline int z80_bus_free(const Gen *g) { return g->z80_busreq || g->z80_re
 
 static u8 z80area_rd8(Gen *g, u32 a)
 {
+    z80_sync(g);
     if (!z80_bus_free(g)) return 0xFF;
     a &= 0x7FFF;
     if (a < 0x4000) return g->zram[a & 0x1FFF];
-    if (a < 0x6000) return 0x00;                /* YM2612: estado sin ocupado (fase 4) */
+    if (a < 0x6000) return ym_read(g, g->cyc * MCLK_PER_M68K);
     return 0xFF;
 }
 
 static void z80area_wr8(Gen *g, u32 a, u8 v)
 {
+    z80_sync(g);
     if (!z80_bus_free(g)) return;
     a &= 0x7FFF;
     if (a < 0x4000) g->zram[a & 0x1FFF] = v;
-    else if (a < 0x6000) { /* YM2612 (fase 4) */ }
+    else if (a < 0x6000) ym_write(g, (int)(a & 3), v, g->cyc * MCLK_PER_M68K);
     else if (a < 0x6100) g->z80_bank = (u16)(((g->z80_bank >> 1) | ((v & 1u) << 8)) & 0x1FF);
-    /* $7F11: PSG (fase 4) */
+    else if (a >= 0x7F10 && a < 0x7F18 && (a & 1)) psg_write(g, v, g->cyc * MCLK_PER_M68K);
 }
 
 /* --- Lectura y escritura --- */
@@ -117,8 +119,10 @@ static u16 read16(Gen *g, u32 a)
     case 0xA:
         if (a < 0xA10000) { u8 v = z80area_rd8(g, a); return (u16)(v << 8 | v); }
         if (a < 0xA10020) { u8 v = io_read(g, a >> 1 & 0xF); return (u16)(v << 8 | v); }
-        if ((a & 0xFFFF00) == 0xA11100)         /* bit 8: 0 = el 68000 tiene el bus del Z80 */
+        if ((a & 0xFFFF00) == 0xA11100) {       /* bit 8: 0 = el 68000 tiene el bus del Z80 */
+            z80_sync(g);
             return (u16)((g->open_bus & 0xFEFF) | ((g->z80_busreq && !g->z80_reset) ? 0 : 0x100));
+        }
         return g->open_bus;
     default:
         return g->open_bus;
@@ -153,13 +157,15 @@ static void write16(Gen *g, u32 a, u16 v)
         g->ram[a & 0xFFFF] = (u8)(v >> 8); g->ram[(a & 0xFFFF) + 1] = (u8)v;
         return;
     case 0xC: case 0xD:
-        if (vdp_addr(g, a)) vdp_write(g, a & 0x1E, v);
+        if (!vdp_addr(g, a)) return;
+        if ((a & 0x1F) >= 0x10) { if ((a & 0x1E) == 0x10) psg_write(g, (u8)v, g->cyc * MCLK_PER_M68K); return; }
+        vdp_write(g, a & 0x1E, v);
         return;
     case 0xA:
         if (a < 0xA10000) { z80area_wr8(g, a, (u8)(v >> 8)); return; }
         if (a < 0xA10020) { io_write(g, a >> 1 & 0xF, (u8)v); return; }
-        if ((a & 0xFFFF00) == 0xA11100) { g->z80_busreq = v >> 8 & 1; return; }
-        if ((a & 0xFFFF00) == 0xA11200) { g->z80_reset = !(v >> 8 & 1); return; }
+        if ((a & 0xFFFF00) == 0xA11100) { z80_set_busreq(g, v >> 8 & 1); return; }
+        if ((a & 0xFFFF00) == 0xA11200) { z80_set_reset(g, !(v >> 8 & 1)); return; }
         if ((a & 0xFFFFF0) == 0xA130F0) { mapper_write(g, a + 1, (u8)v); return; }
         if ((a & 0xFFFFFC) == 0xA14000) {
             if (a & 2) g->tmss_reg = (g->tmss_reg & 0xFFFF0000u) | v;
@@ -182,14 +188,17 @@ static void write8(Gen *g, u32 a, u8 v)
         return;
     case 0xC: case 0xD:
         if (!vdp_addr(g, a)) return;
-        if ((a & 0x1F) >= 0x10) return;                     /* $C00011-$C00017: PSG (fase 4) */
+        if ((a & 0x1F) >= 0x10) {                           /* $C00011-$C00017: PSG */
+            if ((a & 0x19) == 0x11) psg_write(g, v, g->cyc * MCLK_PER_M68K);
+            return;
+        }
         vdp_write(g, a & 0x1E, (u16)(v << 8 | v));          /* el byte va en las dos mitades */
         return;
     case 0xA:
         if (a < 0xA10000) { z80area_wr8(g, a, v); return; }
         if (a < 0xA10020) { if (a & 1) io_write(g, a >> 1 & 0xF, v); return; }
-        if (a == 0xA11100) { g->z80_busreq = v & 1; return; }
-        if (a == 0xA11200) { g->z80_reset = !(v & 1); return; }
+        if (a == 0xA11100) { z80_set_busreq(g, v & 1); return; }
+        if (a == 0xA11200) { z80_set_reset(g, !(v & 1)); return; }
         if ((a & 0xFFFFF0) == 0xA130F0) { mapper_write(g, a, v); return; }
         if ((a & 0xFFFFFC) == 0xA14000) {
             int sh = (3 - (int)(a & 3)) * 8;
@@ -200,6 +209,10 @@ static void write8(Gen *g, u32 a, u8 v)
         return;
     }
 }
+
+/* Para el Z80 (su ventana al bus del 68000) y otros accesos sin ciclos del 68000 */
+u8 bus_read8(Gen *g, u32 addr) { return read8(g, addr & 0xFFFFFF); }
+void bus_write8(Gen *g, u32 addr, u8 v) { write8(g, addr & 0xFFFFFF, v); }
 
 /* --- Lo que pide el 68000 (m68k.h) --- */
 

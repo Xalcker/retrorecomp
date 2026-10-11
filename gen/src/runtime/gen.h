@@ -1,8 +1,7 @@
 /*
  * GENRecomp: estado completo de la consola y su interfaz.
- * Fase 2: cartucho (formatos, cabecera, vectores, SRAM, mapper de SSF2), 68000, bus,
- * E/S (mandos) y el esqueleto del VDP (registros, líneas, interrupciones). El resto
- * del VDP, el Z80 y el audio llegan en las fases siguientes (ver docs/PLAN.md).
+ * Cartucho (formatos, cabecera, vectores, SRAM, EEPROM, mapper de SSF2), 68000, bus,
+ * E/S (mandos), VDP, Z80 y audio (YM2612 y PSG). Ver docs/PLAN.md.
  */
 #ifndef GEN_H
 #define GEN_H
@@ -11,6 +10,7 @@
 #include <stdint.h>
 
 #include "m68k.h"
+#include "z80.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -132,6 +132,66 @@ typedef struct {
                                    (0 normal, 1 sombra, 2 resalte) */
 } Vdp;
 
+/* PSG SN76489 (psg.c): 3 tonos y ruido, al reloj del Z80 / 16 */
+typedef struct {
+    u16  period[4];             /* tonos: 10 bits; el 3 es el registro de ruido (3 bits) */
+    u8   vol[4];                /* atenuación 0-15 (15 = silencio) */
+    u8   latch;                 /* registro elegido por el último byte con el bit 7 */
+    u16  counter[4];
+    u8   out[4];                /* salida actual de cada canal (0/1) */
+    u8   noise_ff;              /* biestable del ruido (el LFSR avanza en cada subida) */
+    u16  lfsr;
+    u64  mclk;                  /* ciclo maestro hasta el que va */
+} Psg;
+
+/* YM2612 (ym2612.c): 6 canales FM de 4 operadores, DAC, LFO y temporizadores */
+typedef struct {
+    u32  phase;                 /* 20 bits */
+    int  env;                   /* atenuación 0-1023 */
+    u8   state;                 /* ataque, decaimiento, sostenido, relajación */
+    u8   key;
+    u8   dt, mul, tl, ks, ar, am, dr, sr, sl, rr, ssg;
+} YmOp;
+
+typedef struct {
+    YmOp op[4];                 /* S1 S2 S3 S4 (orden de modulación) */
+    u16  fnum;
+    u8   block, alg, fb, pan, ams, pms;
+    u8   latch;                 /* $A4-$A6: bits altos de fnum y bloque, que se aplican al escribir $A0-$A2 */
+    int  fb_out[2];             /* las dos últimas salidas de S1 (realimentación) */
+    int  out;                   /* última salida del canal (14 bits) */
+} YmCh;
+
+typedef struct {
+    YmCh ch[6];
+    u8   addr[2];               /* registro elegido en cada puerto */
+    u16  fnum3[3];              /* canal 3 en modo especial: fnum de S1, S2, S3 */
+    u8   block3[3], latch3;
+    u8   lfo_on, lfo_freq, lfo_step;
+    u16  lfo_cnt;
+    u16  ta, ta_cnt;
+    u8   tb, tb_cnt, tb_sub;
+    u8   timer_ctl;             /* $27 */
+    u8   status;                /* bits 0-1: desbordaron los temporizadores A y B */
+    u8   dac_on, dac;
+    u32  eg_cnt;
+    u8   eg_sub;
+    u64  busy_until;            /* ciclo maestro hasta el que la lectura dice "ocupado" */
+    u64  mclk;                  /* ciclo maestro hasta el que va */
+} Ym2612;
+
+/* Audio (audio.c): los dos chips mezclados a 44100 Hz en estéreo de 16 bits */
+#define AUDIO_RATE 44100
+#define AUDIO_BINS 4096
+typedef struct {
+    float acc[AUDIO_BINS][2];   /* muestras de salida que se están formando (por promedio en el tiempo) */
+    u64  first;                 /* índice de la primera de acc */
+    int16_t buf[AUDIO_BINS * 2]; /* muestras listas (L R), para quien las tome */
+    int  n;
+    u8   mute;                  /* bits 0-5: canales FM 1-6, bit 6: PSG */
+    float hp_x[2], hp_y[2];     /* filtro pasa-altos de la salida (el acople de la consola) */
+} Audio;
+
 /* E/S (io.c): los tres puertos de la consola */
 typedef struct {
     u8   data[3], ctrl[3];      /* $A10003/5/7 (datos) y $A10009/B/D (dirección de cada pin: 1 = salida) */
@@ -157,6 +217,12 @@ typedef struct Gen {
     u8   z80_busreq;            /* el 68000 pidió el bus del Z80 ($A11100) */
     u8   z80_reset;             /* el Z80 está en reset ($A11200 = 0) */
     u16  z80_bank;              /* banco de 32 KB que ve el Z80 en $8000 (9 bits, $A06000) */
+    Z80  z80;
+    u64  z80_mclk;              /* ciclo maestro hasta el que corrió el Z80 */
+    u64  z80_irq_from, z80_irq_until;   /* INT del Z80: una línea desde el VBLANK */
+    Psg  psg;
+    Ym2612 ym;
+    Audio audio;
     u16  open_bus;              /* último valor en el bus de datos (lo que leen las direcciones sin nada) */
     u32  exc_count[64];         /* excepciones atendidas por vector (estadística) */
     u8   ram[0x10000];          /* RAM del 68000: $FF0000-$FFFFFF (y sus espejos desde $E00000) */
@@ -168,6 +234,7 @@ int  gen_load(Gen *g, const u8 *data, size_t len, const char **err);
 void gen_free(Gen *g);
 void gen_reset(Gen *g);                 /* reset de la consola */
 void gen_run_frame(Gen *g);             /* corre hasta terminar el cuadro (con el intérprete) */
+void gen_after_step(Gen *g);            /* VDP y Z80 al ciclo del 68000 (tras cada instrucción) */
 int  gen_sram_load(Gen *g, const char *path);  /* 1 si se cargó; 0 si no aplica o falló */
 int  gen_sram_save(Gen *g, const char *path);
 int  gen_sram_dirty(const Gen *g);
@@ -192,6 +259,27 @@ void vdp_sync(Gen *g);                  /* líneas e interrupciones hasta g->cyc
 void vdp_int_ack(Gen *g, int level);
 void vdp_render_line(Gen *g, int y);    /* dibuja la línea y en fb (vdp_render.c) */
 uint32_t vdp_argb(u16 px);              /* un pixel de fb en ARGB 8888 */
+
+/* Z80 en la consola (z80bus.c): corre hasta el ciclo maestro dado (o hasta el del 68000) */
+void z80_run_until(Gen *g, u64 mclk);
+void z80_sync(Gen *g);
+void z80_set_reset(Gen *g, int on);     /* $A11200: el reset del Z80 también reinicia el YM2612 */
+void z80_set_busreq(Gen *g, int on);
+u8   bus_read8(Gen *g, u32 addr);       /* el bus del 68000 sin ciclos (para el Z80 y el DMA) */
+void bus_write8(Gen *g, u32 addr, u8 v);
+
+/* Sonido (psg.c, ym2612.c, audio.c). Los tiempos son ciclos maestros. */
+void psg_reset(Psg *p);
+void psg_write(Gen *g, u8 v, u64 mclk);
+void psg_run(Gen *g, u64 mclk);
+void ym_reset(Ym2612 *y);
+u8   ym_read(Gen *g, u64 mclk);
+void ym_write(Gen *g, int a, u8 v, u64 mclk);     /* a: 0-3 ($4000-$4003) */
+void ym_run(Gen *g, u64 mclk);
+void audio_reset(Gen *g);
+void audio_add(Gen *g, u64 t0, u64 t1, float l, float r);  /* un tramo constante de un chip */
+void audio_end_frame(Gen *g);                   /* lleva los chips al final del cuadro y suelta las muestras */
+int  gen_audio_take(Gen *g, int16_t *out, int max_frames);  /* muestras L R; devuelve cuántos pares */
 
 /* E/S (io.c): registros de $A10000-$A1001F, de 0 a 15 */
 void io_reset(Gen *g);

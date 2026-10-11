@@ -12,10 +12,10 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80.h`/`z80.c` (el Z80), `z80bus.c` (su mapa y cuándo corre), `psg.c`, `ym2612.c`, `audio.c` (mezcla), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `icono.h`), `random_pad.h`. |
-| `src/tools/` | `carttest`, `m68ktest` (SingleStepTests del 68000), `bustest` (bus, mandos, SRAM, SSF2, interrupciones), `vdptest` (VDP), `genrun` (corre una ROM sin ventana, resume y guarda capturas), `embed`. |
+| `src/tools/` | `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `bustest` (bus, mandos, SRAM, EEPROM, SSF2, interrupciones), `vdptest` (VDP), `audiotest` (PSG y YM2612), `genrun` (corre una ROM sin ventana, resume y guarda capturas y sonido), `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
@@ -149,8 +149,10 @@ juegos.
   y comprobados: el primer arranque la inicializa y el segundo la acepta sin reescribirla. En los
   chips de hasta 256 bytes, los bits 1-3 del byte de dispositivo son patas de selección conectadas a
   tierra: con otro valor no hay ACK (NBA Jam TE escribe en `A2`, `A4` y `A6` y cuenta con que no
-  respondan). Los demás juegos con EEPROM (NFL Quarterback Club, Wonder Boy in Monster World, Mega
-  Man: The Wily Wars, los de EA y Codemasters...) se agregan cuando se puedan probar.
+  respondan). Y Mega Man: The Wily Wars (EE. UU. del Genesis Mini y Europa: X24C01 de 128 bytes, la
+  dirección en el primer byte; SDA en el bit 0 y SCL en el bit 1 de `$200001`, SDA se lee en el bit 0),
+  comprobado igual. Los demás juegos con EEPROM (NFL Quarterback Club, los de EA y Codemasters...) se
+  agregan cuando se puedan probar.
 - **Estados guardados:** fase 5.
 
 ## Video y audio
@@ -184,9 +186,38 @@ modo 2 de entrelazado (doble resolución, como el 2 jugadores de Sonic 2), el mo
 posición exacta de HINT/VINT y del HBLANK dentro de la línea. Las orillas del DMA de relleno (qué pasa
 con el primer y el último byte) no están confirmadas con hardware.
 
+### Z80
+
+`z80.c`: el Z80 completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades de
+IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
+bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80
+(`z80test`, `tests/sstz80.sh`, en `make test`). Siempre interpretado.
+
+`z80bus.c`: su mapa (RAM de 8 KB con espejo, YM2612, registro de banco de 9 bits, PSG en `$7F11` y la
+ventana de 32 KB al bus del 68000 en `$8000`). Va a 1/15 del reloj maestro y corre detrás del 68000:
+se pone al día hasta el mismo ciclo después de cada instrucción del 68000 y antes de que el 68000 toque
+su bus. No corre con el reset puesto (`$A11200`, que también reinicia el YM2612) ni con el bus pedido.
+Su INT dura una línea desde el VBLANK. Sin emular todavía: la espera cuando el Z80 lee el bus del
+68000.
+
 ### Audio
 
-Fase 4.
+- **PSG** (`psg.c`): el SN76489 de Sega: tres tonos (un periodo de 0 o 1 deja la salida fija, para
+  las muestras por volumen) y el ruido con LFSR de 16 bits (blanco: bits 0 y 3), al reloj del Z80 /
+  16; volumen en pasos de 2 dB. Desde el 68000 en `$C00011` y desde el Z80 en `$7F11`.
+- **YM2612** (`ym2612.c`, escrito desde la documentación del chip): una muestra cada 144 ciclos del
+  68000 (53 267 Hz). Fase de 20 bits con detune, múltiplo y PM; envolvente de 10 bits con la tabla de
+  incrementos del chip, escala por tecla, TL y AM; operador con seno logarítmico y exponencial; los 8
+  algoritmos y la realimentación; panorama; LFO; temporizadores A y B con sus banderas; DAC del canal 6;
+  modo especial del canal 3; bandera de ocupado tras escribir. Sin emular todavía: SSG-EG, CSM, los
+  retardos entre operadores y la distorsión de la DAC del YM2612.
+- **Mezcla** (`audio.c`): los chips entregan tramos de tiempo y cada muestra de salida (44 100 Hz,
+  estéreo de 16 bits) es el promedio de lo que sonó durante ella; después, un pasa-altos de ~10 Hz como
+  el acople de la salida de la consola (quita la componente continua de la DAC quieta).
+- **Pruebas:** `audiotest` programa los chips y mide la afinación (La de 440 Hz en cada uno), el
+  panorama, el ruido, el escalón de la DAC, la relajación, el temporizador A y la bandera de ocupado.
+  Con juegos: la voz "SEGA" de Sonic 1 (por la DAC del Z80) y la música; ningún juego de `roms/` satura.
+  `genrun --wav` guarda el sonido y su nivel por segundo.
 
 ## Variantes de la consola y accesorios
 
@@ -222,9 +253,12 @@ Con un menú o un diálogo abierto, el juego se pausa.
 - La SRAM o EEPROM se guarda al salir y cada 5 segundos si cambió, en la carpeta de datos
   (`GENRecomp/interprete/`, junto con `settings.ini` y lo exportado).
 
+- **Audio:** sonido (Ctrl+M), volumen y silenciar cada canal (FM 1-6 y PSG); en pausa, con un menú
+  abierto o en avance rápido, no suena.
+
 Opciones: `gen [rom.bin] [--scale N] [--tmss]`; para pruebas sin ventana, `--ui-shot archivo.png` con
-`--ui-frames N`, `--ui-menu N` y `--ui-action N`. El audio (fase 4), los estados guardados y
-`--record`/`--play` (fase 5) y el modo de juego recompilado (fase 6) llegan después.
+`--ui-frames N`, `--ui-menu N` y `--ui-action N`. Los estados guardados y `--record`/`--play` (fase 5)
+y el modo de juego recompilado (fase 6) llegan después.
 
 Icono: `MD.png` (serie TriMui) de
 [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0;
@@ -238,7 +272,7 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp y GBRecomp),
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
-  versionan): las SingleStepTests del 68000 y las demos Overdrive (Evoke 2013, la versión para hardware)
+  versionan): las SingleStepTests del 68000 y del Z80 (comprimidas) y las demos Overdrive (Evoke 2013, la versión para hardware)
   y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las
   demos son la meta más exigente (Overdrive 1 corre pero avisa que necesita PAL; Overdrive 2 queda en
   negro). El 240p Test Suite (GPL) no se baja solo: su ROM compilada está en itch.io y compilarla pide

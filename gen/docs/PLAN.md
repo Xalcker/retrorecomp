@@ -42,10 +42,14 @@ mismo contrato de línea de comandos.
   capturas; icono `MD.png` de KyleBing, CC BY 4.0). `vdptest`, `genrun --shot/--shots`. Sonic 1, SSF2 y
   NBA Jam se ven bien. Pendiente: FIFO, orden exacto de los accesos del 68000, entrelazado doble,
   posición exacta de HINT/VINT/HBLANK en la línea.
-- [ ] **PAL** (después de la fase 4): 312 líneas y 50 Hz. Lo piden Street Fighter II' (Europa), las
-  demos Overdrive y quizá Mega Man: The Wily Wars (Europa).
-- [ ] **4. Z80 y audio.** Z80 interpretado (zexdoc/zexall, SingleStepTests z80), SN76489, YM2612,
-  mezcla y remuestreo a 44 100 Hz.
+- [ ] **PAL**: 312 líneas y 50 Hz. Lo piden los juegos solo europeos (Street Fighter II' de Europa) y
+  las demos Overdrive.
+- [x] **4. Z80 y audio.** Z80 completo (las 1 604 000 SingleStepTests del Z80), su mapa y su ritmo
+  detrás del 68000, INT en el VBLANK; PSG; YM2612 propio (fase, envolvente, 8 algoritmos, LFO,
+  temporizadores, DAC); mezcla a 44 100 Hz con pasa-altos; sonido en `gen` (menú Audio). `audiotest`,
+  `genrun --wav`. MK1 y Mickey Mania pasan su espera del Z80; Sonic 1 dice "SEGA". EEPROM de Wily
+  Wars. Pendiente: SSG-EG, CSM, retardos entre operadores, distorsión de la DAC, la espera del Z80 al
+  leer el bus del 68000, y que el YM2612 sea más rápido (fase 8: hoy ~15 veces el tiempo real).
 - [ ] **5. Herramientas sin ventana.** `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,
   `genbench`, `ramdump`, `statetest`, `sramtest`, `inputtest`; `cli.h` e `inputs.h` con 8 botones
   (A B C X Y Z START MODE) sin romper el formato común. `contract.sh` con sus comprobaciones.

@@ -65,7 +65,12 @@ void vdp_sync(Gen *g)
             v->width = h40(v) ? 320 : 256;
             v->height = ((v->reg[1] & 0x08) && (g->version & 0x40)) ? 240 : 224;
         }
-        if (v->line == v->height) { v->vint_pending = 1; v->f_flag = 1; }
+        if (v->line == v->height) {
+            v->vint_pending = 1; v->f_flag = 1;
+            /* La INT del Z80 sale a la vez y dura una línea */
+            g->z80_irq_from = v->next_line - MCLK_PER_LINE;
+            g->z80_irq_until = v->next_line;
+        }
     }
     update_ipl(g);
 }

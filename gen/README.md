@@ -7,7 +7,7 @@ Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin 
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
 
-**Estado: fase 3 de 9** (esqueleto, cartucho, 68000, bus y VDP con ventana). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 4 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80 y sonido). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -16,8 +16,9 @@ intérprete.
   y el esqueleto del VDP (registros, líneas, interrupciones). Sin imagen todavía, Sonic 1 llega a jugar
   el nivel con el intérprete, Super Street Fighter II corre con su mapper y NBA Jam guarda su EEPROM.
 - **VDP:** puertos, los tres DMA, planos con todos los scrolls, ventana, sprites, prioridades, sombra
-  y resalte. Sonic 1, Super Street Fighter II y NBA Jam se ven bien en la ventana `gen` (sin sonido
-  todavía).
+  y resalte. Sonic 1, Super Street Fighter II y NBA Jam se ven bien en la ventana `gen`.
+- **Z80 y sonido:** el Z80 pasa las 1 604 000 SingleStepTests; PSG y YM2612 propios, mezclados a
+  44 100 Hz. Se oyen la voz "SEGA" de Sonic 1 y la música de los juegos de `roms/`.
 
 ## Compilar
 
@@ -32,7 +33,7 @@ Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-co
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
 make            # gen (la ventana), genrecomp, genrun y las pruebas
-make testroms   # una sola vez: las SingleStepTests del 68000 (~200 MB, comprimidas) y las demos Overdrive en testroms/
+make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas) y las demos Overdrive
 make test       # pruebas
 make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ```
@@ -43,8 +44,8 @@ make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ./gen "roms/juego.bin"
 ```
 
-El intérprete con ventana (sin sonido todavía): menús de juego, video (tamaño, pantalla completa,
-escala entera, aspecto 4:3), entrada (mando de 3 o 6 botones), captura (F12) e idioma. Teclado:
+El intérprete con ventana y sonido: menús de juego, video (tamaño, pantalla completa, escala entera,
+aspecto 4:3), audio (volumen y canales), entrada (mando de 3 o 6 botones), captura (F12) e idioma. Teclado:
 flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```
@@ -66,20 +67,20 @@ fue el tiempo al CPU en el último cuadro. `--watch DIR` imprime un byte de la R
 (en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel). `--sram ARCHIVO` carga la
 SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula una consola con TMSS
 (apagado por omisión). `--shot ARCHIVO.png` guarda la imagen del último cuadro y `--shots CARPETA
---every N` una cada N cuadros.
+--every N` una cada N cuadros. `--wav ARCHIVO.wav` guarda el sonido (y dice su nivel por segundo).
 
 ## Estructura
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `vdp.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`; `sha1`, `console.h` (de GBRecomp). |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y `png`, `files`, `export`, `random_pad.h`. |
-| `src/tools/` | `genrun`, `carttest`, `m68ktest`, `bustest`, `vdptest`, `embed`. |
+| `src/tools/` | `genrun`, `carttest`, `m68ktest`, `z80test`, `bustest`, `vdptest`, `audiotest`, `embed`. |
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |
-| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
+| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Créditos

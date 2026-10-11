@@ -8,6 +8,11 @@ static Language current = LANG_ES;
 static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_MENU_GAME]     = { "Juego", "Game" },
     [T_MENU_VIDEO]    = { "Video", "Video" },
+    [T_MENU_AUDIO]    = { "Audio", "Audio" },
+    [T_SOUND]         = { "Sonido", "Sound" },
+    [T_VOLUME_FMT]    = { "Volumen %d%%", "Volume %d%%" },
+    [T_CHAN_FM_FMT]   = { "FM %d (YM2612)", "FM %d (YM2612)" },
+    [T_CHAN_PSG]      = { "PSG (SN76489)", "PSG (SN76489)" },
     [T_MENU_INPUT]    = { "Entrada", "Input" },
     [T_MENU_EXPORT]   = { "Exportar", "Export" },
     [T_MENU_LANGUAGE] = { "Idioma", "Language" },
@@ -46,7 +51,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            (el 1.º es el jugador 1)\n"
         "\n"
         "P pausa   Tab (mantener) avance rápido\n"
-        "Ctrl+R reiniciar   F11 pantalla completa\n"
+        "Ctrl+R reiniciar   Ctrl+M sonido   F11 pantalla completa\n"
         "F12 captura   Esc cierra el menú",
         "Player 1:   arrows, Z X C = A B C, Enter = Start,\n"
         "            A S D = X Y Z, Shift = Mode\n"
@@ -56,7 +61,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "            (the 1st is player 1)\n"
         "\n"
         "P pause   Tab (hold) fast forward\n"
-        "Ctrl+R reset   F11 fullscreen\n"
+        "Ctrl+R reset   Ctrl+M sound   F11 fullscreen\n"
         "F12 screenshot   Esc closes the menu",
     },
     [T_GAME_TITLE]    = { "Este juego", "This game" },

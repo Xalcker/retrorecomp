@@ -2,6 +2,8 @@
 # make testroms: baja las pruebas libres a testroms/ (no se versionan), cada una en una versión fija.
 #   - testroms/680x0: SingleStepTests del 68000 (github.com/SingleStepTests/680x0, un commit fijo;
 #     ~200 MB que se quedan comprimidos: m68ktest los lee con gunzip -c)
+#   - testroms/z80: SingleStepTests del Z80 (github.com/SingleStepTests/z80, un commit fijo; se
+#     guardan comprimidas, z80test las lee con gunzip -c)
 #   - testroms/demos: las demos de Titan de scene.org (gratuitas; se comprueba el SHA-256 del zip):
 #     overdrive.bin (Overdrive, Evoke 2013, la versión para hardware) y overdrive2.bin (Overdrive 2,
 #     Revision 2017: 8 MB con el mapper de SSF2, solo PAL; la meta más exigente que hay)
@@ -19,6 +21,16 @@ else
     curl -fsSL -o build/680x0.tar.gz https://codeload.github.com/SingleStepTests/680x0/tar.gz/e0d5ece9670205cc84a0101081837deb446f86a3 && \
     tar -xzf build/680x0.tar.gz -C testroms/680x0 --strip-components=1 && rm -f build/680x0.tar.gz && \
     echo "SingleStepTests del 68000 en testroms/680x0" || exit 1
+fi
+
+if [ -f "testroms/z80/v1/00.json.gz" ]; then echo "testroms/z80 ya tiene las SingleStepTests del Z80"
+else
+    rm -rf build/z80tests && mkdir -p build/z80tests testroms/z80/v1 && \
+    curl -fsSL -o build/z80.tar.gz https://codeload.github.com/SingleStepTests/z80/tar.gz/ebe1875d48f374bcfd4b505d8eb8ee751568b5f7 && \
+    tar -xzf build/z80.tar.gz -C build/z80tests --strip-components=1 && rm -f build/z80.tar.gz && \
+    for f in build/z80tests/v1/*.json; do gzip -c "$f" > "testroms/z80/v1/$(basename "$f").gz" || exit 1; done && \
+    cp build/z80tests/LICENSE testroms/z80/ && rm -rf build/z80tests && \
+    echo "SingleStepTests del Z80 en testroms/z80" || exit 1
 fi
 
 # demo archivo-en-scene.org sha256-del-zip miembro-del-zip destino

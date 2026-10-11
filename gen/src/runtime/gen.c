@@ -58,6 +58,12 @@ void gen_reset(Gen *g)
     g->z80_busreq = 0;
     g->z80_reset = 1;
     g->z80_bank = 0;
+    z80_reset(&g->z80);
+    g->z80_mclk = 0;
+    g->z80_irq_from = g->z80_irq_until = 0;
+    psg_reset(&g->psg);
+    ym_reset(&g->ym);
+    audio_reset(g);
     g->open_bus = 0;
     g->tmss_reg = 0;
     g->tmss_locked = 0;
@@ -69,9 +75,16 @@ void gen_reset(Gen *g)
     m68k_reset(g);
 }
 
-static int frame_after(Gen *g)
+/* Después de cada instrucción del 68000: el VDP y el Z80 al mismo ciclo */
+void gen_after_step(Gen *g)
 {
     vdp_sync(g);
+    z80_sync(g);
+}
+
+static int frame_after(Gen *g)
+{
+    gen_after_step(g);
     return g->vdp.frame_done;
 }
 
@@ -79,6 +92,7 @@ void gen_run_frame(Gen *g)
 {
     g->vdp.frame_done = 0;
     m68k_run(g, frame_after);
+    audio_end_frame(g);
 }
 
 int gen_sram_load(Gen *g, const char *path)

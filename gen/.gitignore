@@ -1,0 +1,13 @@
+build/
+testroms/
+roms/
+*.gen
+*.smd
+*.sav
+out/
+dist/
+juegos/
+/genrecomp
+/carttest
+.DS_Store
+*.exe

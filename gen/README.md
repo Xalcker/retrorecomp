@@ -1,0 +1,58 @@
+# GENRecomp
+
+Recompilador estático de juegos de Mega Drive / Genesis, con la misma arquitectura que
+[NESRecomp](https://github.com/Xalcker/NESrecomp) y [GBRecomp](https://github.com/Xalcker/GBRecomp):
+toma una ROM y generará un proyecto C99 portable que se compila en un ejecutable nativo con SDL2.
+Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin datos de la ROM en el
+proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
+intérprete.
+
+**Estado: fase 0 de 9** (esqueleto y cartucho). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+
+## Compilar
+
+Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-config` y SDL2 (SDL2 todavía no se usa).
+
+| Sistema | Paquetes |
+|---|---|
+| Windows | [MSYS2](https://www.msys2.org/) UCRT64: `pacman -S --needed make git unzip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-SDL2` |
+| Linux (Debian/Ubuntu) | `sudo apt install build-essential pkg-config libsdl2-dev curl unzip` |
+| macOS | `brew install sdl2 pkg-config` |
+
+```
+git submodule update --init     # la GUI común (tools/retrorecomp)
+make            # genrecomp y carttest
+make test       # pruebas
+make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
+```
+
+## Lo que hace hoy
+
+```
+./genrecomp "roms/juego.bin"
+```
+
+Lee `.bin`, `.md`, `.gen` y `.smd` (deshace el entrelazado; el SHA1 es el de la imagen normalizada,
+igual para los dos formatos) y muestra el formato, el SHA1, la cabecera de `$100` (nombres, serie,
+región, periféricos), la suma declarada y la calculada, la RAM del cartucho y los vectores de
+excepción, que serán las semillas del descubrimiento.
+
+## Estructura
+
+| Ruta | Contenido |
+|---|---|
+| `src/runtime/` | La consola: `gen.h`, `cart.c`; `sha1`, `console.h` (de GBRecomp). |
+| `src/genrecomp/` | El recompilador. |
+| `src/platform/` | Partes de la plataforma sin SDL (`png`, `files`, `export`, `random_pad.h`); el resto llega con la ventana. |
+| `src/tools/` | `carttest`, `embed`. |
+| `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
+| `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
+| `tests/` | `run_tests.sh` (`make test`), `contract.sh` (el mismo archivo en los tres repos). |
+| `roms/` | Tus juegos. No se versionan. |
+
+## Licencia
+
+GENRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp y retrorecomp.
+La licencia cubre el código del recompilador y del runtime, no las ROMs ni el código que se genera a
+partir de ellas: ese código es una traducción del programa del juego, así que sirve para jugar tu
+propia copia, pero no distribuyas el proyecto ni el ejecutable de un juego comercial.

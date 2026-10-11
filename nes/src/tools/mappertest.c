@@ -248,6 +248,11 @@ int main(void)
     W(0x5000, 0xFE); W(0x5800, 0xFF);
     if (n.cart.irq_cycle != 101) { printf("FALLA mapper 19: IRQ en el ciclo %llu\n", (unsigned long long)n.cart.irq_cycle); fails++; }
     if (mapper_cpu_read(&n, 0x5000) != 0xFE || mapper_cpu_read(&n, 0x5800) != 0xFF) { puts("FALLA mapper 19: lectura del contador"); fails++; }
+    W(0xF800, 0x80 | 0x7E); W(0x4800, 0x12); W(0x4800, 0x34);     /* audio: $F800 = dirección con autoincremento, $4800 = dato */
+    W(0xF800, 0x7E);
+    if (mapper_cpu_read(&n, 0x4800) != 0x12 || mapper_cpu_read(&n, 0x4800) != 0x12 || n.n163.ram[0x7F] != 0x34) {
+        puts("FALLA mapper 19: RAM del audio"); fails++;
+    }
 
     /* 115 Kasheng: MMC3 con $6000 (modo NROM de 16 o 32 KB) */
     make(115, 128, 128, MIRROR_VERTICAL);

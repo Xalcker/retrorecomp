@@ -295,7 +295,7 @@ u8 nes_read(NES *n, u16 a)
     }
     if (a == 0x4015) return (apu_read(n, a) & 0xDF) | (n->bus & 0x20);    /* el bit 5 es el bus abierto */
     if (a < 0x4020) return n->bus;                            /* $4000-$4014: solo escritura */
-    if (a < 0x6000 && !CART_MMC5(&n->cart)) return n->bus;          /* sin dispositivo */
+    if (a < 0x6000 && !CART_MMC5(&n->cart) && !(MAPPER(&n->cart) == 19 && a >= 0x4800)) return n->bus;   /* sin dispositivo */
     return mapper_cpu_read(n, a);
 }
 

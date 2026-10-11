@@ -25,11 +25,15 @@ static const u8 tri_tab[32] = { 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
 static float pulse_mix[31], tnd_mix[203];
 /* Sunsoft 5B: 32 niveles de 1.5 dB (el registro fijo de 4 bits usa los impares); 1.0 es el máximo */
 static float s5b_lvl[32];
-/* Un paso de volumen del VRC6: un pulso a 15 suena como un pulso del 2A03 a 15 (el diente de sierra llega a 31) */
-#define VRC6_UNIT (pulse_mix[15] / 15.0f)
-/* Un canal del 5B a volumen máximo suena unas 3.5 veces más fuerte que un pulso del 2A03 a 15 (~+11 dB, como en Mesen):
- * el 5B es mucho más fuerte que el 2A03 y los juegos lo usan a volúmenes medios (Gimmick!, a 8) */
-#define S5B_UNIT (3.5f * pulse_mix[15])
+/* Niveles del audio de expansión, calibrados como Mesen2 (la referencia más usada): en su escala, un pulso del 2A03 a
+ * volumen 15 vale ~746.8, un paso de volumen del VRC6 vale 75 (15 x 5), el máximo de un canal del 5B 178 x 15 y una
+ * unidad de (muestra - 8) x volumen del Namco 163, ya promediada entre sus canales, 20. Aquí se expresan en
+ * pulse_mix[15]. Con estos niveles un pulso del VRC6 a 15 suena ~1.5 veces un pulso del 2A03 y un canal del 5B al
+ * máximo ~3.6 veces. */
+#define MESEN_PULSE15 746.8f
+#define VRC6_UNIT (pulse_mix[15] * 75.0f / MESEN_PULSE15)
+#define S5B_UNIT (pulse_mix[15] * 178.0f * 15.0f / MESEN_PULSE15)
+#define N163_UNIT (pulse_mix[15] * 20.0f / MESEN_PULSE15)
 static int tabs_ready;
 
 static void init_tabs(void)
@@ -54,6 +58,9 @@ void apu_reset(NES *n)
     a->s5b = MAPPER(&n->cart) == 69;
     memset(&n->s5b, 0, sizeof n->s5b);
     { S5b *s = &n->s5b; for (int i = 0; i < 3; i++) s->tcnt[i] = 16; s->ncnt = 32; s->ecnt = 16; s->lfsr = 1; s->ehold = 1; }
+    a->n163 = MAPPER(&n->cart) == 19;
+    memset(&n->n163, 0, sizeof n->n163);
+    n->n163.ch = 7; n->n163.cnt = 15;
     s5b_lvl[31] = 1.0f;                                /* -1.5 dB por paso: 10^(-1.5/20) (sin libm: no todas las herramientas la enlazan) */
     for (int i = 30; i >= 1; i--) s5b_lvl[i] = s5b_lvl[i + 1] * 0.8413951416f;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
@@ -235,6 +242,47 @@ void apu_5b_write(NES *n, int data, u8 v)
     if (s->sel == 13) { s->estep = 0; s->ehold = 0; s->eatt = (v >> 2) & 1; s->ecnt = s5b_env_reload(s); }
 }
 
+/* ---- Namco 163 ---- */
+
+static int n163_channels(const N163 *s) { return ((s->ram[0x7F] >> 4) & 7) + 1; }
+
+static void n163_update(N163 *s)                    /* actualiza el canal que toca y pasa al siguiente */
+{
+    u8 *r = &s->ram[0x40 + 8 * s->ch];
+    u32 freq = r[0] | (r[2] << 8) | ((r[4] & 3) << 16);
+    u32 phase = r[1] | (r[3] << 8) | (r[5] << 16);
+    u32 len = (256 - (r[4] & 0xFC)) << 16;
+    phase = (phase + freq) % len;
+    r[1] = (u8)phase; r[3] = (u8)(phase >> 8); r[5] = (u8)(phase >> 16);
+    u8 idx = (u8)((phase >> 16) + r[6]);
+    u8 b = s->ram[idx >> 1];
+    int smp = (idx & 1) ? b >> 4 : b & 15;
+    s->out[s->ch] = (smp - 8) * (r[7] & 15);
+    s->ch = s->ch <= 8 - n163_channels(s) ? 7 : s->ch - 1;
+}
+
+static void n163_clock(N163 *s) { if (!s->off && --s->cnt == 0) { s->cnt = 15; n163_update(s); } }
+
+static float n163_out(const N163 *s)                /* el chip muestra los canales de a uno: en promedio, la media */
+{
+    int n = n163_channels(s), o = 0;
+    for (int c = 8 - n; c < 8; c++) o += s->out[c];
+    return (float)o / n;
+}
+
+void apu_n163_addr(NES *n, u8 v) { n->n163.addr = v; }
+
+void apu_n163_off(NES *n, int off) { if (n->n163.off != off) { apu_sync(n); n->n163.off = (u8)off; } }
+
+u8 apu_n163_data(NES *n, int write, u8 v)
+{
+    N163 *s = &n->n163;
+    if (write) { apu_sync(n); s->ram[s->addr & 0x7F] = v; }
+    else v = s->ram[s->addr & 0x7F];
+    if (s->addr & 0x80) s->addr = (u8)(0x80 | ((s->addr + 1) & 0x7F));
+    return v;
+}
+
 /* ---- DMC ---- */
 
 /* El DMC pide un byte: el CPU se detiene en su próxima lectura y cumple el DMA (ver dma_run en nes.c) */
@@ -389,6 +437,7 @@ static void apu_cycle(NES *n)
     if (__builtin_expect(a->d.load_delay | a->dmc_delay, 0)) dmc_pending(n);
     if (a->vrc6) vrc6_clock(&n->vrc6);
     if (a->s5b) s5b_clock(&n->s5b);
+    if (a->n163) n163_clock(&n->n163);
 
     /* Cargas del contador de longitud y cambios del halt escritos en este ciclo: se aplican después del
      * paso del frame counter. Una carga se ignora si el reloj de longitud tocó el contador en este ciclo. */
@@ -410,6 +459,7 @@ static void apu_cycle(NES *n)
     if (a->m5) mix += pulse_mix[pulse_out(&a->p[2], 2) + pulse_out(&a->p[3], 3)] + tnd_mix[a->m5_pcm >> 1];
     if (a->vrc6) mix += vrc6_out(&n->vrc6) * VRC6_UNIT;
     if (a->s5b) mix += s5b_out(&n->s5b) * S5B_UNIT;
+    if (a->n163) mix += n163_out(&n->n163) * N163_UNIT;
     a->acc += mix; a->acc_n += 1;
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
@@ -561,6 +611,17 @@ static void bulk(NES *n, u64 k)
     /* k sumas de 'mix' (un float) en un double: exactas en ambos casos (menos de 50 bits), así que
      * una multiplicación da el mismo resultado que sumar ciclo a ciclo */
     a->acc += (double)mix * (double)k;
+    if (a->n163) {                                  /* el Namco 163 cambia cada 15 ciclos: se suma por tramos sin partir el salto */
+        N163 *s = &n->n163;
+        double sum = 0;
+        u64 rem = k;
+        while (rem) {
+            u64 run = s->off ? rem : (u64)s->cnt - 1 < rem ? (u64)s->cnt - 1 : rem;   /* ciclos sin actualización */
+            sum += n163_out(s) * (double)run; rem -= run; s->cnt = (u8)(s->cnt - run);
+            if (rem) { s->cnt = 15; n163_update(s); sum += n163_out(s); rem--; }   /* el ciclo de la actualización */
+        }
+        a->acc += sum * N163_UNIT;
+    }
     a->acc_n += (double)k;
     a->next -= (double)k;
 }

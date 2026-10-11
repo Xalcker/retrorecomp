@@ -201,7 +201,7 @@ El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
-13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 21, 22, 23 y 25 VRC2/VRC4, 24 y 26 VRC6 (con su audio), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
+13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (con su audio), 21, 22, 23 y 25 VRC2/VRC4, 24 y 26 VRC6 (con su audio), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
 
 Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
 si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
@@ -215,8 +215,8 @@ con las seis variantes de cableado, y Gradius II, TMNT y Parodius Da! (Japan) da
 
 **VRC6** (24, 26; el 26 cruza A0 y A1): 16 KB de PRG en `$8000`, 8 KB en `$C000`, CHR de 1 KB (solo el modo de
 bancos 0, el habitual), espejado en `$B003` y el mismo IRQ del VRC4 con el latch entero en `$F000`. Su audio (dos
-pulsos de 8 anchos y un diente de sierra, `apu.c`) va en `NES.vrc6` y se suma a la mezcla: un pulso a volumen 15
-suena como un pulso del 2A03 a 15. `advance` no deja que un salto en bloque pase un vencimiento de sus divisores.
+pulsos de 8 anchos y un diente de sierra, `apu.c`) va en `NES.vrc6` y se suma a la mezcla (un pulso a volumen 15
+suena ~1.5 veces un pulso del 2A03 a 15, como en Mesen2). `advance` no deja que un salto en bloque pase un vencimiento de sus divisores.
 
 ### Cartucho
 
@@ -262,9 +262,11 @@ lineal del hardware (tablas `pulse_mix` y `tnd_mix`) y la salida pasa por los fi
 paso alto de 90 y 440 Hz y paso bajo de 14 kHz. Sale en mono a 44 100 Hz. Pasa las 8 `apu_test` y las
 pruebas viejas del frame counter. El MMC5 suma sus dos pulsos y su PCM; el VRC6, sus dos pulsos y su diente de
 sierra; el 5B del FME-7, sus tres tonos, ruido y envolvente (como un YM2149 a la mitad del reloj del CPU, con
-volumen de 32 niveles de 1.5 dB y un canal al máximo unas 3.5 veces un pulso del 2A03; ese nivel es aproximado).
-Falta el audio del Namco 163. El estado del VRC6 y del 5B va al final de `NES`, y `advance` no deja que un salto
-en bloque pase uno de sus eventos. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
+volumen de 32 niveles de 1.5 dB); el Namco 163, de 1 a 8 canales con ondas de 4 bits en su RAM de 128 bytes, uno
+actualizado cada 15 ciclos, y la salida es la media de los canales (el chip los muestra de a uno). Los niveles
+de los tres están calibrados como Mesen2 (`VRC6_UNIT`, `S5B_UNIT`, `N163_UNIT`). Su estado va al final de `NES`;
+`advance` no deja que un salto en bloque pase un evento del VRC6 o del 5B, y el Namco 163 se suma por tramos
+dentro del salto. Avanza de forma perezosa (ver "Rendimiento: ejecución perezosa").
 
 ## Variantes de la consola y accesorios
 

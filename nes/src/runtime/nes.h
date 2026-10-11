@@ -152,6 +152,15 @@ typedef struct {
     u32 ecnt; u8 estep, eatt, ehold;            /* envolvente: 32 pasos, uno cada 16 x período ciclos */
 } S5b;
 
+/* Audio del Namco 163 (mapper 19): RAM interna de 128 bytes con ondas de 4 bits y los registros de hasta 8 canales
+ * ($40-$7F, 8 bytes cada uno). Cada 15 ciclos se actualiza un canal, por turnos. */
+typedef struct {
+    u8  ram[128], addr;                         /* $F800: dirección (bit 7 = autoincremento); $4800: dato */
+    u8  ch, cnt;                                /* canal que toca y ciclos hasta su actualización */
+    u8  off;                                    /* $E000 bit 6: audio apagado (los canales no se actualizan) */
+    int out[8];                                 /* última salida de cada canal: (muestra - 8) x volumen */
+} N163;
+
 #define APU_BUF 16384
 typedef struct {
     Pulse p[4]; Triangle t; Noise nz; Dmc d;   /* p[2] y p[3]: pulsos del MMC5 (sin barrido) */
@@ -169,6 +178,7 @@ typedef struct {
     u8   dmc_implicit;          /* $4015 encendió el DMC justo antes de su reloj: en el próximo byte sale una DMA de un ciclo */
     u8   vrc6;                  /* el cartucho tiene el audio del VRC6 (estado en NES.vrc6) */
     u8   s5b;                   /* el cartucho tiene el audio del Sunsoft 5B (estado en NES.s5b) */
+    u8   n163;                  /* el cartucho tiene el audio del Namco 163 (estado en NES.n163) */
     double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
@@ -212,6 +222,7 @@ typedef struct NES {
                                    guardado aquí) si el strobe sigue en 1; 0 = nada pendiente */
     Vrc6 vrc6;                  /* audio del VRC6 (al final: en medio desplazaría campos de cada ciclo) */
     S5b  s5b;                   /* audio del Sunsoft 5B (también al final) */
+    N163 n163;                  /* audio del Namco 163 (también al final) */
 } NES;
 
 /* iNES: 0 si todo bien; mensaje en *err si falla */
@@ -284,6 +295,9 @@ void apu_dmc_dma_done(NES *n, u8 v);             /* el DMA del DMC entregó su b
 u16  apu_dmc_addr(const NES *n);                 /* dirección que el DMC va a leer */
 void apu_vrc6_write(NES *n, u16 reg, u8 v);      /* $9000-$9003, $A000-$A002, $B000-$B002 (ya decodificados) */
 void apu_5b_write(NES *n, int data, u8 v);       /* Sunsoft 5B: data = 0 elige registro ($C000), 1 lo escribe ($E000) */
+void apu_n163_addr(NES *n, u8 v);                /* Namco 163: $F800 */
+void apu_n163_off(NES *n, int off);              /* Namco 163: $E000 bit 6 apaga el audio */
+u8   apu_n163_data(NES *n, int write, u8 v);     /* Namco 163: $4800 (lee o escribe la RAM interna) */
 int  apu_dmc_dma_live(NES *n);                   /* ¿sigue en pie la DMA del DMC? (no la abortó $4015) */
 void apu_check(NES *n);                          /* al final de cada ciclo de CPU: avanza solo si hay un evento visible */
 u8   apu_read(NES *n, u16 addr);                 /* $4015 */

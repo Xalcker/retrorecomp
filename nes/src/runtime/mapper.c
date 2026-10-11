@@ -3,7 +3,7 @@
  * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés), 206 (DxROM), 9 (MMC2), 10 (MMC4),
  * 69 (FME-7, con el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
  * 13 (CPROM), 75 (VRC1), 95 (Namcot 3425), 115 (Kasheng), 184 (Sunsoft 1), 210 (Namco 175/340), 18 (Jaleco SS88006),
- * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4), 24 y 26 (VRC6, con su audio) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
+ * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4), 24 y 26 (VRC6, con su audio) y 19 (Namco 163, con su audio; sin CHR ROM como nametable).
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
@@ -532,6 +532,7 @@ u8 mapper_cpu_read(NES *n, u16 a)
             return v;
         }
     }
+    if (MAPPER(c) == 19 && a >= 0x4800 && a < 0x5000) return apu_n163_data(n, 0, 0);     /* Namco 163: RAM del audio */
     if (MAPPER(c) == 19 && a >= 0x5000 && a < 0x6000) {         /* Namco 163: contador del IRQ */
         u32 cur = n163_count(c, n->cyc);
         return a < 0x5800 ? (u8)cur : (u8)((cur >> 8) | (c->reg[16] << 7));
@@ -657,6 +658,7 @@ static int low_write(NES *n, u16 a, u8 v)
     case 115: if (a >= 0x6000) { c->reg[15 + (a & 1)] = v; return 1; } break;
     case 19:
         if (a >= 0x5000 && a < 0x6000) { n163_irq_write(n, a >= 0x5800, v); return 1; }
+        if (a >= 0x4800 && a < 0x5000) { apu_n163_data(n, 1, v); return 1; }
         break;
     case 79:  if (a >= 0x4100 && a < 0x6000 && (a & 0xE100) == 0x4100) { c->reg[0] = (v >> 3) & 1; c->reg[1] = v & 7; return 1; } break;
     case 87:  if (a >= 0x6000 && a < 0x8000) { c->reg[1] = ((v & 1) << 1) | ((v >> 1) & 1); return 1; } break;
@@ -784,9 +786,10 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
         case 0x8000: case 0x8800: case 0x9000: case 0x9800: case 0xA000: case 0xA800: case 0xB000: case 0xB800:
             c->reg[3 + ((a >> 11) & 7)] = v; break;
         case 0xC000: case 0xC800: case 0xD000: case 0xD800: c->reg[11 + ((a >> 11) & 3)] = v; n163_nt(c); break;
-        case 0xE000: c->reg[0] = v & 0x3F; break;
+        case 0xE000: c->reg[0] = v & 0x3F; apu_n163_off(n, (v >> 6) & 1); break;
         case 0xE800: c->reg[1] = v & 0x3F; break;
         case 0xF000: c->reg[2] = v & 0x3F; break;
+        case 0xF800: apu_n163_addr(n, v); break;
         }
         break;
     case 24: case 26: {                          /* VRC6: el 26 cruza A0 y A1 */

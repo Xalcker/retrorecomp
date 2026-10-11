@@ -33,7 +33,7 @@ uint8_t  m68k_rd8(struct Gen *g, uint32_t addr);
 uint16_t m68k_rd16(struct Gen *g, uint32_t addr);
 void     m68k_wr8(struct Gen *g, uint32_t addr, uint8_t v);
 void     m68k_wr16(struct Gen *g, uint32_t addr, uint16_t v);
-void     m68k_idle(struct Gen *g, uint32_t cycles);         /* ciclos sin acceso al bus */
+/* m68k_idle (ciclos sin acceso al bus) está en gen.h, en línea: g->cyc += ciclos */
 uint16_t m68k_peek16(struct Gen *g, uint32_t addr);         /* sin efectos ni ciclos (prefetch al salir del código generado) */
 void     m68k_reset_line(struct Gen *g);                    /* instrucción RESET: reinicia los periféricos */
 void     m68k_int_ack(struct Gen *g, int level);            /* el CPU atiende una interrupción de ese nivel */

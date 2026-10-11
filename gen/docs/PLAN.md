@@ -77,7 +77,13 @@ mismo contrato de línea de comandos.
   `--dis`, `--no-tables`, `--no-spec`; `tests/coverage.sh`. Sin traza, 93-100 % de lo que ejecutan
   los 23 juegos de `roms/` (Sonic 1: de 25 a 100 %). Pendiente: compilar menos código de más (Sonic &
   Knuckles descubre 130 000 instrucciones y tarda ~1 minuto con 8 núcleos).
-- [ ] **8. Rendimiento.** Vida de los flags del CCR, `-DGEN_MAPPER`, VDP y audio perezosos, `golden.sh`.
+- [x] **8. Rendimiento.** `tests/golden.sh` (hash de cuadros y audio por ROM: nada cambia un bit).
+  Perfilado: el 68000 recompilado ya era una parte chica; el tiempo estaba en el dibujo del VDP, el
+  Z80 y el YM2612. VDP de a un mosaico y mezcla sin ramas, lecturas de ROM de 16 bits, canales del
+  YM2612 callados y frecuencias guardadas, HALT del Z80 de una vez, `gen_after_step` y `m68k_idle` en
+  línea. Sonic 1: intérprete de 11.6x a 20.3x, recompilado de 14.9x a 28.2x; los demás juegos medidos,
+  28-31x. No se hizo (no pesa): vida de los flags del CCR, encadenar funciones sin el despachador,
+  `-DGEN_MAPPER`, saltar los bucles de espera del VBLANK.
 - [ ] **9. Compatibilidad y documentación.** `tools/compat` con el set No-Intro, `COMPATIBILIDAD.md`,
   oráculos (BlastEm y/o Genesis Plus GX) en `tools/oracles/`.
 

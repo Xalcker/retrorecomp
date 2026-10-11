@@ -10,8 +10,8 @@ intérprete.
 Por ahora solo NTSC (el Genesis de EE. UU., 60 Hz): los juegos y demos que exigen PAL esperan a
 que esté hecho.
 
-**Estado: fase 7 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas,
-el recompilador y la cobertura sin traza). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 8 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas,
+el recompilador, la cobertura sin traza y el rendimiento). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -27,8 +27,10 @@ el recompilador y la cobertura sin traza). El plan completo está en [docs/PLAN.
   intérprete. Los 23 juegos de `roms/` dan 1800 cuadros idénticos al intérprete en `difftest`.
 - **Cobertura:** sin traza, el análisis encuentra las tablas de saltos y los punteros a código: entre
   el 93 y el 100 % de lo que ejecutan los juegos de `roms/` (Sonic 1: 100 %). `--why`, `--viz`,
-  `--html` y `--coverage` muestran qué se encontró y por qué. Aún no es mucho más rápido que el
-  intérprete (fase 8).
+  `--html` y `--coverage` muestran qué se encontró y por qué.
+- **Velocidad:** recompilado, de 28 a 31 veces el tiempo real (el intérprete, de 20 a 23); lo que más
+  pesa ahora es el dibujo del VDP, el Z80 y el YM2612. `sh tests/golden.sh` comprueba que una
+  optimización no cambie ni un bit de la imagen ni del sonido.
 
 ## Compilar
 

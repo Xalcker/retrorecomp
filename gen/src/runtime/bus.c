@@ -265,7 +265,6 @@ void m68k_wr8(Gen *g, uint32_t a, uint8_t v)
     g->cyc += 4;
 }
 
-void m68k_idle(Gen *g, uint32_t n) { g->cyc += n; }
 
 /* Sin efectos: solo ROM, SRAM y RAM (lo que puede ser código) */
 uint16_t m68k_peek16(Gen *g, uint32_t a)

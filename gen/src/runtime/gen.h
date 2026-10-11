@@ -317,7 +317,16 @@ const char *cart_vector_name(int n);            /* "reset", "VINT"...; NULL si n
 
 /* gen_after_step en línea, para el intérprete y el código generado: el VDP solo cuando empieza una
  * línea nueva y el Z80 solo si quedó atrás */
-static inline void gen_after_step_inline(Gen *g)
+#if defined(__GNUC__) || defined(__clang__)
+#define GEN_INL static inline __attribute__((always_inline))
+#else
+#define GEN_INL static inline
+#endif
+
+/* Ciclos del 68000 sin acceso al bus */
+GEN_INL void m68k_idle(Gen *g, uint32_t n) { g->cyc += n; }
+
+GEN_INL void gen_after_step_inline(Gen *g)
 {
     u64 m = g->cyc * MCLK_PER_M68K;
     if (m >= g->vdp.next_line) vdp_sync(g);

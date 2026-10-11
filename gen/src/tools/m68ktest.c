@@ -68,7 +68,6 @@ void m68k_wr8(Gen *g, uint32_t a, uint8_t v)
     mem[a] = v;
     if (ntouched < 4095) touched[ntouched++] = a;
 }
-void m68k_idle(Gen *g, uint32_t n) { g->cyc += n; }
 uint16_t m68k_peek16(Gen *g, uint32_t a) { (void)g; return (u16)(mem[a] << 8 | mem[(a + 1) & 0xFFFFFF]); }
 void m68k_reset_line(Gen *g) { (void)g; }
 void m68k_int_ack(Gen *g, int level) { (void)g; (void)level; }

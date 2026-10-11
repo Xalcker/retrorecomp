@@ -186,6 +186,24 @@ void vdp_render_line(Gen *g, int y)
 
     int sh = v->reg[12] & 0x08;
     int blank_left = v->reg[0] & 0x20;
+    u16 pal9[64];                                   /* la CRAM en color de 9 bits, una vez por línea */
+    for (int i = 0; i < 64; i++) pal9[i] = color9(v->cram[i]);
+    if (!sh) {
+        /* Sin sombra ni resalte: el primer pixel opaco en el orden de prioridad (sprites, A, B con
+         * prioridad; sprites, A, B sin ella; fondo). Se pinta de atrás hacia adelante, sin ramas. */
+        for (int x = 0; x < W; x++) {
+            u8 s = cs[x], a = ca[x], b = cb[x], c = bgi;
+            c = b ? b : c;
+            c = a ? a : c;
+            c = s ? s : c;
+            c = (b && pb[x]) ? b : c;
+            c = (a && pa[x]) ? a : c;
+            c = (s && ps[x]) ? s : c;
+            out[x] = pal9[c];
+        }
+        if (blank_left) for (int x = 0; x < 8; x++) out[x] = pal9[bgi];
+        return;
+    }
     for (int x = 0; x < W; x++) {
         u8 s = cs[x], a = ca[x], b = cb[x], c;
         int mode = 0, op = 0;
@@ -206,6 +224,6 @@ void vdp_render_line(Gen *g, int y)
             if (op && (ps[x] || !((a && pa[x]) || (b && pb[x])))) mode = op == 1 ? 1 : (mode == 1 ? 0 : 2);
         }
         if (blank_left && x < 8) { c = bgi; mode = 0; }
-        out[x] = (u16)(color9(v->cram[c]) | mode << 9);
+        out[x] = (u16)(pal9[c] | mode << 9);
     }
 }

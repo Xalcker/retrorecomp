@@ -222,6 +222,46 @@ audio, el bus abierto y las excepciones atendidas; al final de cada cuadro, tamb
 audio listo. `--uncovered` escribe en formato de traza lo que B tuvo que interpretar, para volver a
 recompilar con `--trace`.
 
+### Rendimiento
+
+Medido con `bench`/`genbench` (3600 cuadros, sin ventana) en un Mac con Apple Silicon:
+
+| Juego | Intérprete | Recompilado |
+|---|---|---|
+| Sonic 1 | 20.3x | 28.2x |
+| Sonic 2 | 21.8x | 30.8x |
+| Streets of Rage 2 | 21.2x | 29.4x |
+| Gunstar Heroes | 23.1x | 30.6x |
+| Mortal Kombat 3 | 20.9x | 29.1x |
+| Ecco the Dolphin | 19.9x | 27.6x |
+
+(x = veces el tiempo real.) Antes de la fase 8, Sonic 1 iba a 11.6x y 14.9x. El 68000 recompilado
+ya es una parte chica del tiempo (~13 % en Sonic 1); el resto se va en los periféricos, que hacen
+trabajo real en cada línea o muestra: dibujar el VDP, el Z80 (que corre detrás del 68000 y se pone al
+día tras cada instrucción) y el YM2612. Lo que se hizo, sin cambiar un bit de la imagen ni del sonido
+(`tests/golden.sh`):
+
+- VDP: los planos y la ventana de a un mosaico (la fila de 32 bits de una vez, las transparentes de
+  un golpe); la paleta en color de 9 bits una vez por línea; la mezcla de capas sin sombra ni
+  resalte pintando de atrás hacia adelante, sin ramas.
+- Bus: las lecturas de 16 bits de la ROM sin pasar byte por byte por la SRAM y la EEPROM.
+- YM2612: los canales callados (teclas sueltas, envolvente al mínimo) no se sintetizan; el código de
+  tecla y el incremento de fase se guardan y se recalculan solo al escribir un registro.
+- Audio: los tramos en silencio no se suman a la mezcla.
+- Z80: un `HALT` sin interrupción que atender se salta de una vez hasta el destino o hasta que
+  empieza la interrupción (sube R como lo haría paso a paso).
+- Tras cada instrucción (`gen_after_step_inline`, en línea en el intérprete y en el código
+  generado): el VDP solo si empezó una línea y el Z80 solo si quedó atrás; `m68k_idle` en línea.
+
+Lo que se probó y no convino: compilar el código generado con `-O1` (tarda más, ocupa más y corre
+más lento que con `-O2`). Lo que no se hizo, porque el 68000 ya no es lo que pesa: llevar las
+banderas del CCR en variables locales con análisis de vida, encadenar funciones sin volver al
+despachador en cada `RTS`, y saltar los bucles de espera del VBLANK (con el Z80 detrás, solo sería
+exacto si el Z80 no puede escribir la RAM del 68000).
+
+Tiempo de compilación del proyecto generado (`make -j8`): de 10 a 68 s según cuánto código se
+descubra (Sonic 1, 12 s; Sonic & Knuckles, 68 s).
+
 ## Bancos, mappers y guardado
 
 ### Mapa de memoria del 68000
@@ -423,6 +463,10 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   negro). El 240p Test Suite (GPL) no se baja solo: su ROM compilada está en itch.io y compilarla pide
   SGDK; se pone a mano en `testroms/240p/`. La versión 1.21 corre: menú principal, submenús y detecta
   "NTSC VDP 320x224p".
+- **`tests/golden.sh`:** hash de todos los cuadros y de todo el audio (`genshot --hash`, 1800 cuadros
+  con un mando aleatorio) de cada ROM de `roms/` y de las pruebas libres, identificadas por su SHA1;
+  `--update` reescribe `tests/golden.txt`. Una optimización no debe cambiar ni un bit. No va en
+  `make test` (tarda ~80 s y depende de tus ROMs).
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
   ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, EEPROM serie (escritura,

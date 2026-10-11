@@ -70,7 +70,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
  <span id="gitchips"></span>
  <button id="bSync" title="git fetch + fast-forward de los repos de los recompiladores">Sincronizar repos</button>
  <button id="bBuild" title="make -j8 en cada recompilador">Compilar herramientas</button>
- <button id="bTest" title="make test (NES) y tests/run_tests.sh (GB); necesitan testroms/">Pruebas</button>
+ <button id="bTest" title="make test en cada recompilador; necesitan las ROMs de prueba (make testroms)">Pruebas</button>
  <span id="tools" class="mut"></span>
 </header>
 <aside>
@@ -99,7 +99,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
       <label class="f">Cobertura (en rojo lo que el juego ejecutó y no se halló)
        <select id="cov"><option value="">— ninguna —</option></select></label>
       <button id="bMap">Actualizar</button>
-      <button id="bEvents" title="visor del recompilador: HTML en NES; eventos para arrastrar al visor en Game Boy">Visor</button>
+      <button id="bEvents" title="visor del recompilador: una página HTML (--html)">Visor</button>
      </div>
      <div id="mapmsg" class="msg"></div>
      <div style="max-height:62vh;overflow:auto"><canvas id="map"></canvas></div>
@@ -150,7 +150,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
     </div>
    </div>
    <div class="card">
-    <h3>Entradas (guion de botones para <code>--input</code> / <code>--play</code>; en NES, una segunda columna para el jugador 2)</h3>
+    <h3>Entradas (guion de botones para <code>--input</code> / <code>--play</code>; en NES y Genesis, una segunda columna para el jugador 2)</h3>
     <div class="row">
      <label class="f">Ver o editar<select id="iSel"></select></label>
      <label class="f">Plantilla<select id="iTpl"></select></label>
@@ -158,7 +158,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
      <button id="iSave">Guardar</button><button id="iDel">Borrar</button>
     </div>
     <textarea id="iText" placeholder="0 -&#10;122 START&#10;129 -&#10;300 RIGHT+A"></textarea>
-    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
+    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +; en Genesis también C X Y Z MODE y sin SELECT) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
    </div>
   </div>
 
@@ -232,7 +232,7 @@ async function refresh(){
   $("#romsdir").textContent=Object.values(st.systems).map(x=>x.root).join("\n");
   applyCaps();
   renderRoms();
-  if(S.rom){S.traces=st.traces||[];renderTraces();renderInputs();renderSteps();$("#rDir").textContent=(S.sys==="nes"?"build/out/":"out/")+(st.project?.name||"")}
+  if(S.rom){S.traces=st.traces||[];renderTraces();renderInputs();renderSteps();$("#rDir").textContent=(S.sys==="gb"?"out/":"build/out/")+(st.project?.name||"")}
   renderJobs();
   const running=st.jobs.some(j=>j.status==="running");
   if(S.lastRunning&&!running&&S.rom){loadMap().catch(()=>{})}
@@ -243,7 +243,7 @@ function renderRoms(){
   const p=S.state.progress, q=S.romq.toLowerCase();
   $("#roms").innerHTML=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)).map(r=>{
     const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"";
-    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${r.system==="nes"?"NES":"GB"}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`}).join("");
+    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`}).join("");
 }
 $("#roms").onclick=e=>{const li=e.target.closest("li");if(li)selectRom(li.dataset.r)};
 $("#q").oninput=e=>{S.romq=e.target.value;renderRoms()};
@@ -276,7 +276,7 @@ function renderSteps(){
   const cv=an?.cov_pct;
   st_.push(["Cobertura",cv!=null?`${cv}%`:"sin medir",cv==null?"todo":(cv>=99?"ok":"bad"),cv||0,cv!=null?`${an.cov_total-an.cov_missing} de ${an.cov_total} direcciones halladas`:"elige una traza en «Cobertura»"]);
   st_.push(["Trazas",`${S.traces.length}`,S.traces.length?"ok":"todo",0,S.traces.reduce((a,t)=>a+t.lines,0)+" direcciones"]);
-  st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,(S.sys==="nes"?"build/out/":"out/")+(pj.name||"")]);
+  st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,(S.sys==="gb"?"out/":"build/out/")+(pj.name||"")]);
   st_.push(["Compilado",pj.built?"sí":"no",pj.built?"ok":"todo",0,""]);
   const d=pr.difftest;
   st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_recomp??"?"}% recompilado`:""]);

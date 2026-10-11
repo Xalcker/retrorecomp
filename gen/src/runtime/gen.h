@@ -142,8 +142,9 @@ typedef struct Gen {
     u16  pad[2];                /* botones apretados (GEN_*) de los mandos 1 y 2 */
     u8   pad6;                  /* bit 0/1: el mando 1/2 es de 6 botones */
     u8   version;               /* registro de versión ($A10001): $80 extranjero, $40 PAL, $20 sin Mega CD, bits 0-3 versión */
-    u8   tmss;                  /* 1: consola con TMSS (versión 1) */
-    u32  tmss_reg;              /* lo escrito en $A14000 ("SEGA") */
+    u8   tmss;                  /* 1: consola con TMSS (versión 1; apagado por omisión) */
+    u32  tmss_reg;              /* lo escrito en $A14000: con TMSS, el VDP solo responde si es "SEGA" */
+    u8   tmss_locked;           /* el 68000 tocó el VDP sin "SEGA" en $A14000 y quedó colgado */
     u8   z80_busreq;            /* el 68000 pidió el bus del Z80 ($A11100) */
     u8   z80_reset;             /* el Z80 está en reset ($A11200 = 0) */
     u16  z80_bank;              /* banco de 32 KB que ve el Z80 en $8000 (9 bits, $A06000) */

@@ -7,7 +7,8 @@
  *   $A00000-$A0FFFF  bus del Z80 (con el bus pedido): su RAM, el YM2612, el registro de banco
  *   $A10000-$A1001F  E/S: versión, mandos, serie (io.c)
  *   $A11100 / $A11200  pedido del bus del Z80 / reset del Z80
- *   $A130F1-$A130FF  control de la SRAM y bancos de SSF2;  $A14000 TMSS
+ *   $A130F1-$A130FF  control de la SRAM y bancos de SSF2;  $A14000 TMSS (con gen.tmss, el VDP solo
+ *                    responde después de escribir "SEGA" ahí; si no, el 68000 se cuelga como en la consola)
  *   $C00000-$DFFFFF  VDP (vdp.c), con sus espejos;  $E00000-$FFFFFF RAM de 64 KB, con espejos
  *
  * Cada acceso son 4 ciclos del 68000. Lo que no responde devuelve el último valor del bus de datos
@@ -95,7 +96,14 @@ static void z80area_wr8(Gen *g, u32 a, u8 v)
 
 /* --- Lectura y escritura --- */
 
-static inline int vdp_addr(u32 a) { return (a & 0xE700E0) == 0xC00000; }
+/* Una dirección del VDP que responde. Con TMSS y sin "SEGA" en $A14000 el VDP no contesta y el
+ * 68000 espera para siempre: se detiene el CPU. */
+static inline int vdp_addr(Gen *g, u32 a)
+{
+    if ((a & 0xE700E0) != 0xC00000) return 0;
+    if (g->tmss && g->tmss_reg != 0x53454741u) { g->tmss_locked = 1; g->cpu.halted = 1; return 0; }
+    return 1;
+}
 
 static u16 read16(Gen *g, u32 a)
 {
@@ -105,7 +113,7 @@ static u16 read16(Gen *g, u32 a)
     case 0xE: case 0xF:
         return rd16(g->ram + (a & 0xFFFF));
     case 0xC: case 0xD:
-        return vdp_addr(a) ? vdp_read(g, a & 0x1E) : g->open_bus;
+        return vdp_addr(g, a) ? vdp_read(g, a & 0x1E) : g->open_bus;
     case 0xA:
         if (a < 0xA10000) { u8 v = z80area_rd8(g, a); return (u16)(v << 8 | v); }
         if (a < 0xA10020) { u8 v = io_read(g, a >> 1 & 0xF); return (u16)(v << 8 | v); }
@@ -145,7 +153,7 @@ static void write16(Gen *g, u32 a, u16 v)
         g->ram[a & 0xFFFF] = (u8)(v >> 8); g->ram[(a & 0xFFFF) + 1] = (u8)v;
         return;
     case 0xC: case 0xD:
-        if (vdp_addr(a)) vdp_write(g, a & 0x1E, v);
+        if (vdp_addr(g, a)) vdp_write(g, a & 0x1E, v);
         return;
     case 0xA:
         if (a < 0xA10000) { z80area_wr8(g, a, (u8)(v >> 8)); return; }
@@ -173,7 +181,7 @@ static void write8(Gen *g, u32 a, u8 v)
         g->ram[a & 0xFFFF] = v;
         return;
     case 0xC: case 0xD:
-        if (!vdp_addr(a)) return;
+        if (!vdp_addr(g, a)) return;
         if ((a & 0x1F) >= 0x10) return;                     /* $C00011-$C00017: PSG (fase 4) */
         vdp_write(g, a & 0x1E, (u16)(v << 8 | v));          /* el byte va en las dos mitades */
         return;

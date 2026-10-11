@@ -10,7 +10,7 @@ corre() {   # descripción comando...
 
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
 mkdir -p build/tests
-corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, SSF2, VINT/HINT)" "$(exe bustest)"
+corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, SSF2, VINT/HINT)" "$(exe bustest)"
 
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then

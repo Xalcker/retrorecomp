@@ -8,6 +8,7 @@
  * Botones: up down left right a b c start x y z mode (los cuadros en que se mantienen).
  * --watch DIR (hexadecimal, en la RAM: $FF0000-$FFFFFF) imprime el byte cada vez que cambia.
  * --sram ARCHIVO carga la SRAM o EEPROM del cartucho al empezar (si existe) y la guarda al terminar.
+ * --tmss: consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,10 +63,12 @@ int main(int argc, char **argv)
     Hold h[32]; int nh = 0;
     u32 watch[16]; int nw = 0; int wlast[16];
     const char *sram = NULL;
+    int tmss = 0;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--sram") && i + 1 < argc) sram = argv[++i];
+        else if (!strcmp(argv[i], "--tmss")) tmss = 1;
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
             if (*a == '$') a++;
@@ -79,7 +82,7 @@ int main(int argc, char **argv)
         else rom = argv[i];
     }
     if (!rom || frames <= 0) {
-        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [boton:desde-hasta ...]\n"
+        fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [--tmss] [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c start x y z mode\n");
         return 2;
     }
@@ -90,6 +93,7 @@ int main(int argc, char **argv)
     const char *err = NULL;
     if (gen_load(g, data, len, &err)) { fprintf(stderr, "%s: %s\n", rom, err); return 1; }
     free(data);
+    if (tmss) { g->tmss = 1; gen_reset(g); }
     if (sram && gen_sram_load(g, sram)) printf("partida cargada de %s\n", sram);
 
     for (long f = 0; f < frames; f++) {
@@ -104,7 +108,11 @@ int main(int argc, char **argv)
                 wlast[i] = g->ram[watch[i]];
                 printf("cuadro %5ld: [$FF%04X] = $%02X\n", f, watch[i], wlast[i]);
             }
-        if (g->cpu.halted) { printf("el CPU se detuvo (doble falta) en el cuadro %ld\n", f); break; }
+        if (g->cpu.halted) {
+            printf(g->tmss_locked ? "el 68000 tocó el VDP sin \"SEGA\" en $A14000 (TMSS) y se colgó en el cuadro %ld\n"
+                                  : "el CPU se detuvo (doble falta) en el cuadro %ld\n", f);
+            break;
+        }
     }
 
     M68k *c = &g->cpu;

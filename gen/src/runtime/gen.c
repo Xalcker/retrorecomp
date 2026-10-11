@@ -60,6 +60,7 @@ void gen_reset(Gen *g)
     g->z80_bank = 0;
     g->open_bus = 0;
     g->tmss_reg = 0;
+    g->tmss_locked = 0;
     g->version = (u8)((g->version & 0xF0) | (g->tmss ? 1 : 0));
     cart_map_reset(&g->cart);
     io_reset(g);

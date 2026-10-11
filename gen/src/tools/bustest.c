@@ -2,7 +2,7 @@
  * Prueba sintética del bus (make test): con ROMs armadas en memoria comprueba la RAM y sus
  * espejos, los espejos de la ROM, el registro de versión, el bus del Z80 (pedido, reset, acceso de
  * 8 bits), los mandos de 3 y 6 botones, la SRAM de bytes impares (y guardarla), la EEPROM serie
- * (I2C, con el mapeo de NBA Jam), el mapper de SSF2 y las interrupciones VINT/HINT del esqueleto del
+ * (I2C, con el mapeo de NBA Jam), el TMSS, el mapper de SSF2 y las interrupciones VINT/HINT del esqueleto del
  * VDP con un programa de 68000.
  */
 #include <stdio.h>
@@ -182,6 +182,40 @@ static void test_eeprom(void)
     gen_free(eg); free(eg); free(rom);
 }
 
+/* TMSS: con "SEGA" en $A14000 el VDP responde; sin él, el 68000 se cuelga. Apagado, da igual. */
+static Gen *tmss_run(int sega, int tmss)
+{
+    u8 *r = make_rom(0x40000, 0);
+    static const u16 prog[] = {
+        0x23FC, 0x5345, 0x4741, 0x00A1, 0x4000,     /* move.l #'SEGA',($A14000).l */
+        0x33FC, 0x8164, 0x00C0, 0x0004,             /* reg 1 = $64 */
+        0x60FE,
+    };
+    int skip = sega ? 0 : 5;
+    for (int i = skip; i < 10; i++) wr16(r + 0x200 + (i - skip) * 2, prog[i]);
+    Gen *g = malloc(sizeof *g);
+    const char *err = NULL;
+    if (gen_load(g, r, 0x40000, &err)) { printf("FALLA: no carga: %s\n", err); exit(1); }
+    g->tmss = (u8)tmss;
+    gen_reset(g);
+    gen_run_frame(g);
+    free(r);
+    return g;
+}
+
+static void test_tmss(void)
+{
+    Gen *g = tmss_run(0, 0);
+    CHECK(!g->cpu.halted && g->vdp.reg[1] == 0x64 && (g->version & 0x0F) == 0, "sin TMSS (omisión): el VDP responde sin \"SEGA\"");
+    gen_free(g); free(g);
+    g = tmss_run(1, 1);
+    CHECK(!g->cpu.halted && g->vdp.reg[1] == 0x64 && (g->version & 0x0F) == 1, "TMSS con \"SEGA\": responde y la versión es 1");
+    gen_free(g); free(g);
+    g = tmss_run(0, 1);
+    CHECK(g->cpu.halted && g->tmss_locked && g->vdp.reg[1] == 0, "TMSS sin \"SEGA\": el 68000 se cuelga");
+    gen_free(g); free(g);
+}
+
 static void test_ssf2(void)
 {
     size_t size = 0x500000;     /* 5 MB: más de 4, necesita el mapper */
@@ -248,6 +282,7 @@ int main(void)
     test_mandos();
     test_sram();
     test_eeprom();
+    test_tmss();
     test_ssf2();
     test_interrupciones();
     if (!fallas) printf("bustest: todo bien\n");

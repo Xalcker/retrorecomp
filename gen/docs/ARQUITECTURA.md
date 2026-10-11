@@ -163,8 +163,13 @@ Fase 4.
 
 Solo NTSC (262 líneas, 3420 ciclos maestros por línea; el 68000 a 1/7 del maestro). El registro de
 versión (`$A10001`) sale de la región de la cabecera: se prefiere EE. UU. (`$A0`); si el juego solo
-dice Japón, `$20`; si solo Europa, `$E0` (PAL, aunque el ritmo siga siendo NTSC por ahora). TMSS
-opcional (`gen.tmss`): solo el bit de versión y el registro `$A14000`; no se bloquea el VDP.
+dice Japón, `$20`; si solo Europa, `$E0` (PAL, aunque el ritmo siga siendo NTSC por ahora).
+
+**TMSS** (apagado por omisión; `gen.tmss`, `genrun --tmss`): la versión dice 1 y el VDP solo
+responde después de escribir "SEGA" en `$A14000`. Si el 68000 lo toca antes, se cuelga como en la
+consola (`cpu.halted` y `tmss_locked`). No hay ROM de arranque de TMSS (es de Sega y no se incluye),
+así que no aparece su pantalla de licencia. Sonic 1, NBA Jam y Super Street Fighter II escriben
+"SEGA" y corren igual con él.
 
 - **Mandos** (`io.c`): 3 botones (con TH = 1 lee C B Der Izq Abajo Arriba; con TH = 0, Start A 0 0 Abajo
   Arriba) y 6 botones, si la cabecera dice `6` en los periféricos: cuenta las bajadas de TH seguidas
@@ -184,7 +189,7 @@ Fase 3.
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
   ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, EEPROM serie (escritura,
-  lectura aleatoria con START repetido, ACK, página), SSF2, y un programa de 68000
+  lectura aleatoria con START repetido, ACK, página), TMSS (con y sin "SEGA"), SSF2, y un programa de 68000
   que cuenta VINT y HINT, también con la máscara), las SingleStepTests del 68000 por el intérprete y
   por el camino del código generado (~9 s cada una), `genrecomp --info` con cada ROM de `roms/` y, si
   están: Sonic 1 (USA/Europa), que con Start en el título el intérprete llegue a jugar el nivel; NBA

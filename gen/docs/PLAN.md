@@ -29,8 +29,8 @@ mismo contrato de línea de comandos.
   para la fase 3: el orden exacto de los accesos dentro de una instrucción (78 % con `--bus`).
   Sin probar todavía con hardware: interrupciones, traza y reset (llegan con el bus y el VDP).
 - [x] **2. Bus y cartucho.** Mapa de memoria (`bus.c`), RAM, E/S y mandos de 3 y 6 botones (`io.c`),
-  pedido y reset del bus del Z80, SRAM de la cabecera (y guardarla), mapper de SSF2, TMSS (solo el
-  registro y la versión). Más el esqueleto del VDP (registros, memorias sin DMA, estado, líneas,
+  pedido y reset del bus del Z80, SRAM de la cabecera (y guardarla), mapper de SSF2, TMSS (apagado
+  por omisión: sin "SEGA" en `$A14000`, tocar el VDP cuelga el 68000). Más el esqueleto del VDP (registros, memorias sin DMA, estado, líneas,
   VINT/HINT) para correr juegos reales: Sonic 1 llega a jugar el nivel con el intérprete y Super
   Street Fighter II corre con su mapper. EEPROM serie I2C con base de datos por juego (por ahora NBA
   Jam, comprobado: guarda y acepta su partida). `bustest` y `genrun` (con `--watch` y `--sram`).

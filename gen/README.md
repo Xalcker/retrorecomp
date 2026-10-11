@@ -53,7 +53,8 @@ Corre la ROM sin ventana con el intérprete (los botones `up down left right a b
 se mantienen en esos cuadros) y resume instrucciones, ciclos, excepciones por vector y en qué PC se le
 fue el tiempo al CPU en el último cuadro. `--watch DIR` imprime un byte de la RAM cada vez que cambia
 (en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel). `--sram ARCHIVO` carga la
-SRAM o EEPROM del cartucho al empezar y la guarda al terminar.
+SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula una consola con TMSS
+(apagado por omisión).
 
 ## Estructura
 

@@ -1,16 +1,18 @@
 # retrorecomp
 
-Una sola interfaz local para los recompiladores estáticos de Nintendo de esta serie:
-[NESRecomp](https://github.com/Xalcker/NESRecomp) (NES) y [GBRecomp](https://github.com/Xalcker/GBRecomp)
-(Game Boy, Game Boy Color y Super Game Boy). Detecta el sistema de cada ROM por su cabecera y llama a las
-herramientas del recompilador que corresponda; cada uno sigue siendo su propio repositorio.
+Una sola interfaz local para los recompiladores estáticos de esta serie:
+[NESRecomp](https://github.com/Xalcker/NESRecomp) (NES), [GBRecomp](https://github.com/Xalcker/GBRecomp)
+(Game Boy, Game Boy Color y Super Game Boy) y [GENRecomp](https://github.com/Xalcker/GENRecomp) (Sega Genesis).
+Detecta el sistema de cada ROM por su cabecera y llama a las herramientas del recompilador que corresponda;
+cada uno sigue siendo su propio repositorio.
 
 ```
 python3 retrorecomp_gui.py            # abre el navegador; solo Python 3, sin dependencias
 ```
 
-Busca los repositorios en `--nes DIR` / `--gb DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR`, en la carpeta que
-contiene a este (si va como submódulo de uno de ellos) o en las hermanas `NESRecomp` y `GBRecomp` (si es submódulo de uno, el otro se busca junto a ese).
+Busca los repositorios en `--nes DIR` / `--gb DIR` / `--gen DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR` / `GENRECOMP_DIR`,
+en la carpeta que contiene a este (si va como submódulo de uno de ellos) o en las hermanas `NESRecomp`, `GBRecomp` y
+`GENRecomp` (si es submódulo de uno, los otros se buscan junto a ese). Los que no encuentre no aparecen.
 Como submódulo: `git submodule update --init` y `python3 tools/retrorecomp/retrorecomp_gui.py`. Las ROMs salen
 de la carpeta `roms/` de cada uno y de las que se pasen con `--roms DIR`. Compila las herramientas desde la
 propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
@@ -21,13 +23,13 @@ propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
 - **Mapa del descubrimiento** (como `--viz`): una fila por banco de 16 KB, celdas de 256 bytes coloreadas por cómo se
   halló el código; en rojo lo que el juego ejecutó y no se halló. Clic en una celda lista sus instrucciones y clic en
   una instrucción muestra la cadena de «por qué» (`--why`).
-- **Trazas:** grabar sin ventana (`nestrace` / `gbtrace`) con un guion de entradas o una semilla, jugar grabando, con
+- **Trazas:** grabar sin ventana (`nestrace` / `gbtrace` / `gentrace`) con un guion de entradas o una semilla, jugar grabando, con
   `difftest --uncovered`, unir y borrar; las marcadas se suman al análisis. Captura PNG y audio WAV.
 - **Entradas:** editor de guiones `--input` / `--play` / `--record` (`cuadro BOTONES`), con plantillas y las del
   repositorio (`tests/inputs`).
 - **Recompilar y probar:** recompilar y compilar el proyecto generado, `difftest`, `bench` del intérprete y del
   recompilado, y el ciclo completo (`tests/recomp_game.sh`).
-- **Repos:** sincronizar (`git fetch` y fast-forward) y compilar los dos, y la salida de cada trabajo en vivo.
+- **Repos:** sincronizar (`git fetch` y fast-forward) y compilar cada uno, y la salida de cada trabajo en vivo.
 
 Escucha solo en `127.0.0.1` con un token en la URL, valida que las ROMs estén en las carpetas configuradas y arma
 cada comando como una lista de argumentos (sin shell).
@@ -36,42 +38,42 @@ cada comando como una lista de argumentos (sin shell).
 
 La interfaz no conoce el interior de los recompiladores, solo esta línea de comandos común:
 
-| Herramienta (NES / GB) | Uso |
+| Herramienta (NES / GB / Genesis) | Uso |
 |---|---|
-| `nestrace` / `gbtrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
-| `nesshot` / `gbshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
-| `nesaudio` / `gbaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
-| `nesbench` / `gbbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
-| `ramdump` / `gbramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
+| `nestrace` / `gbtrace` / `gentrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
+| `nesshot` / `gbshot` / `genshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
+| `nesaudio` / `gbaudio` / `genaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
+| `nesbench` / `gbbench` / `genbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
+| `ramdump` / `gbramdump` / `ramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
 | `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` |
-| `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
+| `nesrecomp` / `gbrecomp` / `genrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
-token.) Cuando la tabla de arriba cambie, actualiza las listas de `tests/contract.sh` en los dos y la de este repo.
+token.) Cuando la tabla de arriba cambie, actualiza `tests/contract.sh` (el mismo archivo en los tres) y `tests/contract.py` de este repo.
 
-Los dos se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo bloque común al principio del
+Los tres se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo bloque común al principio del
 `Makefile` y los mismos objetivos, `make`, `make testroms` (ROMs de prueba libres), `make test` y `make dist`. El
-`.github/workflows/ci.yml` también es el mismo en los dos y corre esos pasos en Linux, macOS y Windows. Lo que cambia
+`.github/workflows/ci.yml` también es el mismo en los tres y corre esos pasos en Linux, macOS y Windows. Lo que cambia
 entre consolas queda dentro de esos objetivos.
 
-El mando aleatorio de `--seed` es el mismo en los dos: `src/platform/random_pad.h` es idéntico en ambos repositorios
+El mando aleatorio de `--seed` es el mismo en los tres: `src/platform/random_pad.h` es idéntico en todos los repositorios
 (`tests/contract.py` lo comprueba), así que la misma semilla da la misma secuencia de botones.
 
-`python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los dos mencionan esas opciones, mirando los dos repositorios a la vez.
-Si cambias una opción en un recompilador, cámbiala también en el otro y aquí.
+`python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los tres mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
+mirando todos los repositorios que encuentre. Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
 
 ## Diferencias que la interfaz esconde
 
-| | NES | Game Boy |
-|---|---|---|
-| Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) |
-| Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` |
-| Proyecto generado | `build/out/NOMBRE` | `out/NOMBRE` |
-| Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` |
-| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro |
-| Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` |
+| | NES | Game Boy | Genesis |
+|---|---|---|---|
+| Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) |
+| Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` | desplazamiento en la ROM |
+| Proyecto generado | `build/out/NOMBRE` | `out/NOMBRE` | `build/out/NOMBRE` |
+| Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` |
+| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM |
+| Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) |
 
 ## Licencia
 
-retrorecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp y GBRecomp.
+retrorecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp y GENRecomp.

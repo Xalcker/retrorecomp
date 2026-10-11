@@ -53,11 +53,12 @@ if [ -x ./nesrecomp ]; then
         && grep -q C build/dt_exec.txt; then echo "ok   difftest --bench/--screens/--executed"
     else echo "FALLA difftest --bench/--screens/--executed"; fail=1; fi
 fi
-# Descubrimiento: --why, --viz y --events
+# Descubrimiento: --why, --viz, --events, --html y --codemap
 if [ -x ./nesrecomp ]; then
     ./nesrecomp $T/other/nestest.nes --why 4 --viz --events build/ev.txt 2>&1 | grep -q "punto de entrada: vector" \
         && ./nesrecomp $T/other/nestest.nes --html build/ev.html >/dev/null && grep -q 'const D=' build/ev.html \
-        && [ -s build/ev.txt ] && echo "ok   why/viz/events/html" || { echo "FALLA why/viz/events"; fail=1; }
+        && ./nesrecomp $T/other/nestest.nes --codemap build/cm.txt >/dev/null && grep -q C build/cm.txt \
+        && [ -s build/ev.txt ] && echo "ok   why/viz/events/html/codemap" || { echo "FALLA why/viz/events/html/codemap"; fail=1; }
 fi
 # Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
 if [ -x ./nes ]; then

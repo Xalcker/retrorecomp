@@ -207,7 +207,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nesshot rom salida.png [--frames N] [--input archivo] [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. |
 | `nesaudio rom salida.wav [--frames N] [--input archivo] [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
-| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta) o vuelca cada instrucción con su origen. |
+| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` / `--codemap archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta), vuelca cada instrucción con su origen o escribe qué bytes se tomaron como código (el formato de `difftest --executed`, para compararlos). |
 | `ramdump rom cuadros [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |

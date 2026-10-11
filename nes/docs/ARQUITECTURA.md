@@ -127,6 +127,9 @@ solo el flujo constante. `--no-tables` y `--no-spec` apagan las heurísticas par
 
 `--why`, `--viz`, `--html` (visor interactivo de una sola página) y `--events` explican el resultado: cada instrucción guarda de
 qué instrucción se llegó (`parent`), cómo (`how`) y su origen (flujo, traza, tabla, especulativo).
+`--codemap` escribe qué bytes del PRG se tomaron como código, una letra por byte (`C`), 64 por línea:
+el mismo formato que `difftest --executed` y que `gbrecomp --codemap`, para comparar lo descubierto
+con lo que el juego ejecutó.
 
 `--trace` agrega las instrucciones que ejecutó el juego (`OFFSET:DIRECCION`, que escribe `nestrace`, la
 ventana con `--trace`/`--uncovered`, o `nes` con `NES_TRACE`) como puntos de entrada: es lo que falta

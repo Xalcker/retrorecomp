@@ -71,6 +71,8 @@ static const char usage_text[] =
     "                     celda y la cadena de \"por qué\" al hacer clic (con --coverage marca lo que falta)\n"
     "  --events archivo   cada instrucción descubierta con su origen (texto: desplazamiento, dirección,\n"
     "                     cómo se llegó, de dónde, origen, desensamblado)\n"
+    "  --codemap archivo  qué bytes del PRG se tomaron como código: una letra por byte (C = código),\n"
+    "                     64 por línea; el mismo formato que difftest --executed y gbrecomp --codemap\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
     "  --no-spec          sin el descubrimiento especulativo en todos los bancos (para comparar)\n"
     "  --dis OFFSET:DIR:N desensambla N instrucciones desde ese byte de PRG\n"
@@ -1277,6 +1279,26 @@ static const char html_tail[] =     ";\n"
     "draw();\n"
     "</script></body></html>\n";
 
+/* --codemap: qué bytes del PRG se tomaron como código (C) y cuáles no (.), 64 por línea. El mismo
+ * formato que difftest --executed y gbrecomp --codemap, para comparar lo descubierto con lo ejecutado */
+static void write_codemap(const char *path)
+{
+    u8 *code = calloc(prg_size ? prg_size : 1, 1);
+    FILE *f = fopen(path, "w");
+    if (!code || !f) die("no se pudo crear %s", path);
+    for (size_t i = 0; i < prg_size; i++) {
+        if (!site[i].state) continue;
+        int len = mode_len[ins_tab[site[i].opc].mode];
+        for (int k = 0; k < len && i + k < prg_size; k++) code[i + k] = 1;
+    }
+    for (size_t i = 0; i < prg_size; i++) {
+        fputc(code[i] ? 'C' : '.', f);
+        if (i % 64 == 63) fputc('\n', f);
+    }
+    free(code);
+    if (fclose(f)) die("no se pudo escribir %s", path);
+}
+
 static void write_html(const char *path, const char *rom_name)
 {
     FILE *f = fopen(path, "w");
@@ -1329,7 +1351,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
     const char *traces[32]; int ntraces = 0;
-    const char *coverage = NULL, *events_path = NULL, *html_path = NULL;
+    const char *coverage = NULL, *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
     size_t why_list[32]; int nwhy = 0, viz = 0, force_color = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
@@ -1342,6 +1364,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--color")) force_color = 1;
         else if (!strcmp(argv[i], "--html") && i + 1 < argc) html_path = argv[++i];
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events_path = argv[++i];
+        else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap_path = argv[++i];
         else if (!strcmp(argv[i], "--no-tables")) use_tables = 0;
         else if (!strcmp(argv[i], "--no-spec")) use_spec = 0;
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
@@ -1351,7 +1374,7 @@ int main(int argc, char **argv)
         else die("argumento desconocido: %s (ver --help)", argv[i]);
     }
     if (!in_path) { fputs(usage_text, stderr); return 2; }
-    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path) die("falta -o carpeta");
+    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path && !codemap_path) die("falta -o carpeta");
 
     rom_file = slurp(in_path, &rom_file_size);
     if (!rom_file) die("no se pudo leer %s", in_path);
@@ -1368,7 +1391,7 @@ int main(int argc, char **argv)
 
     seed_vectors();
     discover();
-    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz && !nwhy && !events_path && !html_path) return 0; }
+    if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz && !nwhy && !events_path && !html_path && !codemap_path) return 0; }
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
     discover();
@@ -1384,6 +1407,7 @@ int main(int argc, char **argv)
     }
 
     if (events_path) write_events(events_path);
+    if (codemap_path) write_codemap(codemap_path);
     if (html_path) {
         const char *b = strrchr(in_path, '/'); b = b ? b + 1 : in_path;
         write_html(html_path, b);
@@ -1391,7 +1415,7 @@ int main(int argc, char **argv)
     }
     if (viz) viz_map(force_color || isatty(1));
     for (int i = 0; i < nwhy; i++) explain(why_list[i]);
-    if (!out_dir && !dis_arg && (viz || nwhy || events_path || html_path)) return 0;
+    if (!out_dir && !dis_arg && (viz || nwhy || events_path || html_path || codemap_path)) return 0;
 
     if (dis_arg) {
         unsigned long off, addr, cnt;

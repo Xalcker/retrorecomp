@@ -11,3 +11,4 @@ juegos/
 /carttest
 .DS_Store
 *.exe
+/m68ktest

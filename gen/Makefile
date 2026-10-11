@@ -31,7 +31,7 @@ PLATFORM := linux
 endif
 # --- Fin del bloque común ---
 
-RUNTIME := cart.c sha1.c
+RUNTIME := cart.c cpu68k.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 
@@ -40,7 +40,7 @@ RT := $(BUILD)/libgenrt.a
 PLAT := png.c files.c export.c
 PLAT_OBJ := $(PLAT:%.c=$(BUILD)/plat_%.o)
 
-PROGS := genrecomp carttest
+PROGS := genrecomp carttest m68ktest
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
@@ -48,8 +48,12 @@ all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
 carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
 
+# m68ktest pone su propio bus (memoria plana): no usa bus.c
+m68ktest$(EXE): src/tools/m68ktest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c sha1.c sha1.h console.h
+EMBED_RUNTIME  := gen.h cart.c m68k.h m68k_ops.h cpu68k.c sha1.c sha1.h console.h
 EMBED_PLATFORM := random_pad.h png.c png.h files.c files.h export.c export.h
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
@@ -79,7 +83,7 @@ dist: genrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILD)/plat_%.o: src/platform/%.c $(wildcard src/platform/*.h) | $(BUILD)
@@ -94,10 +98,14 @@ $(BUILD):
 test: all
 	sh tests/run_tests.sh
 
-# ROMs de prueba libres en testroms/ (no se versionan). Se definen en la fase 1 (las
-# SingleStepTests del 68000) y la fase 4 (zexdoc/zexall del Z80): ver docs/PLAN.md.
+# Pruebas libres en testroms/ (no se versionan). Por ahora las SingleStepTests del 68000
+# (~200 MB comprimidas; se quedan comprimidas y m68ktest las lee con gunzip -c) en un commit fijo.
+SST68K_URL := https://codeload.github.com/SingleStepTests/680x0/tar.gz/e0d5ece9670205cc84a0101081837deb446f86a3
 testroms:
-	@mkdir -p testroms && echo "testroms/: todavía no hay ROMs de prueba que bajar (fase 1)"
+	@if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then echo "testroms/680x0 ya tiene las SingleStepTests del 68000"; else \
+		mkdir -p testroms/680x0 $(BUILD) && curl -fsSL -o $(BUILD)/680x0.tar.gz $(SST68K_URL) && \
+		tar -xzf $(BUILD)/680x0.tar.gz -C testroms/680x0 --strip-components=1 && rm -f $(BUILD)/680x0.tar.gz && \
+		echo "SingleStepTests del 68000 en testroms/680x0"; fi
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

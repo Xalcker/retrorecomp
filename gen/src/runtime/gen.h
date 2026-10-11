@@ -1,13 +1,15 @@
 /*
  * GENRecomp: estado completo de la consola y su interfaz.
- * Fase 0: cartucho (formatos, cabecera, vectores). El 68000, el VDP, el Z80 y
- * el audio se agregan en las fases siguientes (ver docs/PLAN.md).
+ * Fase 1: cartucho (formatos, cabecera, vectores) y 68000. El bus, el VDP, el
+ * Z80 y el audio se agregan en las fases siguientes (ver docs/PLAN.md).
  */
 #ifndef GEN_H
 #define GEN_H
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "m68k.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -59,6 +61,9 @@ typedef struct {
 } Cart;
 
 typedef struct Gen {
+    M68k cpu;
+    u64  cyc;                   /* ciclos del 68000 desde el reset */
+    void *jb;                   /* jmp_buf del paso actual (el error de dirección vuelve ahí) */
     Cart cart;
     u8   ram[0x10000];          /* RAM del 68000: $FF0000-$FFFFFF (y sus espejos desde $E00000) */
     u8   zram[0x2000];          /* RAM del Z80 */

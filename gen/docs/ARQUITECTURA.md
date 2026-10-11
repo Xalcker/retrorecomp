@@ -12,22 +12,56 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `cart.c` (formatos, cabecera, vectores); `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `cart.c` (formatos, cabecera, vectores), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | Por ahora las partes sin SDL (`png`, `files`, `export`, `random_pad.h`). Se copian a cada proyecto generado. |
-| `src/tools/` | `carttest`, `embed`. |
-| `tests/` | `run_tests.sh` (`make test`), `contract.sh` (contrato común). |
+| `src/tools/` | `carttest`, `m68ktest` (SingleStepTests del 68000), `embed`. |
+| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo). |
 
 ## Una sola fuente de verdad para el CPU
 
-Fase 1: `m68k_ops.h` tendrá la semántica de cada operación y de cada modo de direccionamiento; el
-intérprete la usa con valores de tiempo de ejecución y el código generado con constantes.
+`m68k_ops.h` tiene la semántica de cada familia de instrucciones como una función
+`k_NOMBRE(g, op, ext, pc)` que ejecuta la instrucción `op` que está en `pc` y devuelve la dirección
+de la siguiente (la que sigue, el destino de un salto o el manejador de una excepción):
+
+- El **intérprete** (`cpu68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
+  cola de prefetch (`ir`, `irc`) y cada una que se consume pide la siguiente al bus, como el 68000.
+- El **código generado** las llamará con `op`, `pc` y `ext` constantes (las palabras de extensión,
+  leídas de la ROM al recompilar). Las lecturas de programa se vuelven ciclos sin acceso al bus y
+  `ir`/`irc` se rehacen de la memoria al salir del código generado. El compilador pliega todo: `ADD.w
+  #$1234,D0` queda en unas 20 instrucciones de máquina (las banderas en línea y el siguiente PC como
+  constante).
+
+`m68k_decode` dice a qué familia pertenece cada opcode (o `K_ILLEGAL`, validando los modos de
+direccionamiento) y `m68k_ext_words` cuántas palabras de extensión lleva: es lo que usará el
+descubrimiento para recorrer el código y rechazar datos.
+
+**Validación:** las [SingleStepTests del 68000](https://github.com/SingleStepTests/680x0) (`make
+testroms`, un commit fijo; ~1 millón de casos, uno por instrucción, con el estado del CPU, la cola de
+prefetch, la RAM y los ciclos antes y después). `m68ktest` las corre **por los dos caminos**: el
+intérprete y el del código generado (`--recomp`). Pasan las 1 000 058 por los dos; se omiten 2 de
+ASL.b con datos malos conocidos ([issue #4](https://github.com/SingleStepTests/680x0/issues/4)). En
+`--recomp` no se compara la cola de prefetch cuando la instrucción escribe sobre ella (código que se
+modifica a sí mismo: en ROM no pasa y el código en RAM lo corre el intérprete).
+
+Comportamientos poco documentados que siguen a las pruebas: banderas N/V de ABCD/SBCD/NBCD; CHK
+compara primero con el límite (38 ciclos, N = signo) y luego el signo (40 ciclos, N = 1), y si no
+atrapa N no cambia; DIVU/DIVS con desborde no tocan N ni Z, y DIVS termina antes (16/18 ciclos); la
+división entre cero apila la dirección de la instrucción (solo un caso lo cubre); ASR con más pasos que
+bits deja C = X = 0; ADDQ.l a An tarda 6 ciclos. El error de dirección apila el IR, el estado (R/W,
+I/N, código de función), la dirección y como PC la última palabra de programa leída menos 2 (al saltar a
+una dirección impar, el destino menos 4); MOVE a `-(An)` hace el prefetch antes de escribir y un long
+se escribe en dos pasos (la palabra baja primero), igual que MOVEM a `-(An)` y ADDX/SUBX con `-(An)`.
 
 ## Temporización
 
-Fase 1-3: ciclos del 68000 por acceso al bus (4 relojes por acceso) más los internos; VDP y audio
-perezosos.
+Cada acceso del 68000 al bus son 4 ciclos (`m68k_fetch`, `m68k_rd*`, `m68k_wr*`); los ciclos
+internos van con `m68k_idle`. Los totales por instrucción coinciden con las SingleStepTests en todos
+los casos. El orden de los accesos dentro de una instrucción coincide en el 78 % de los casos
+(`m68ktest --bus`); lo que falta es sobre todo si una escritura va antes o después del último prefetch
+(4 ciclos dentro de la misma instrucción), que se afinará cuando el VDP lo haga visible (fase 3).
+El VDP y el audio serán perezosos.
 
 ## Interrupciones y despachador
 
@@ -83,5 +117,6 @@ Fase 3.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp y GBRecomp),
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
-  con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera) y `genrecomp --info` con cada
+  con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), las SingleStepTests del 68000
+  por el intérprete y por el camino del código generado (~9 s cada una) y `genrecomp --info` con cada
   ROM de `roms/`.

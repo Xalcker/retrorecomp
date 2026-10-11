@@ -22,10 +22,12 @@ mismo contrato de línea de comandos.
   submódulo `retrorecomp`, partes de la plataforma sin SDL (`png`, `files`, `export`, `random_pad.h`),
   `embed`, `sha1`. Cartucho: `.bin`/`.md`/`.gen`/`.smd` (normalizado; el SHA1 es de la imagen
   normalizada), cabecera, suma, SRAM declarada y vectores. `genrecomp --info` y `carttest`.
-- [ ] **1. CPU 68000.** `m68k_ops.h` como única fuente de verdad (intérprete y emisor), `cpu68k.c`,
-  excepciones (dirección, ilegal, línea A/F, TRAP, privilegio, traza) e interrupciones por nivel.
-  Ciclos por acceso al bus (4 relojes) más los internos. Validación con las
-  [SingleStepTests 680x0](https://github.com/SingleStepTests/680x0) (`m68ktest` en `make test`).
+- [x] **1. CPU 68000.** `m68k_ops.h` como única fuente de verdad (intérprete y código generado),
+  `cpu68k.c` (decodificador con validación de modos, excepciones, error de dirección, interrupciones
+  por nivel, traza). Ciclos por acceso al bus más los internos. Las 1 000 058 SingleStepTests pasan por
+  el intérprete y por el camino del código generado (`m68ktest`, `--recomp`; en `make test`). Pendiente
+  para la fase 3: el orden exacto de los accesos dentro de una instrucción (78 % con `--bus`).
+  Sin probar todavía con hardware: interrupciones, traza y reset (llegan con el bus y el VDP).
 - [ ] **2. Bus y cartucho.** Mapa de memoria, RAM, I/O (`$A10000`), arbitraje del Z80 (BUSREQ/RESET),
   SRAM/EEPROM con batería, mapper de SSF2, TMSS opcional, mandos de 3 y 6 botones.
 - [ ] **3. VDP.** Puerto de control, VRAM/CRAM/VSRAM, FIFO, DMA (68k→VRAM con pausa del 68k, relleno,
@@ -46,6 +48,18 @@ mismo contrato de línea de comandos.
 - [ ] **8. Rendimiento.** Vida de los flags del CCR, `-DGEN_MAPPER`, VDP y audio perezosos, `golden.sh`.
 - [ ] **9. Compatibilidad y documentación.** `tools/compat` con el set No-Intro, `COMPATIBILIDAD.md`,
   oráculos (BlastEm y/o Genesis Plus GX) en `tools/oracles/`.
+
+## Comparación con SonicTheHedgehogRecomp (mstan/segagenesisrecomp)
+
+Mismo objetivo, decisiones casi opuestas en lo central: ellos recompilan un juego a la vez guiados
+por su desensamblado (`game.toml`, `s1disasm`), mapean `jsr`/`rts` a llamadas de C (con parches para
+`addq.l #4,sp` y similares), corren el código en un *fiber* que cede en puntos de sondeo con ciclos de
+una tabla medida, y tratan lo que no encuentran como un fallo grave. Nosotros: cualquier ROM sin
+configuración, pila emulada, ciclos por acceso al bus e interrupciones tras cada instrucción, y el
+intérprete por instrucción cubre lo que falte. Coincidimos en ymfm para el YM2612 y en la
+cosimulación contra el intérprete propio. Su licencia es PolyForm Noncommercial: no se copia código.
+Ideas que tomamos: detectar los bucles de espera del VBlank (fase 8) y usar Sonic 1 como primer juego
+comercial de referencia.
 
 ## Decisiones
 

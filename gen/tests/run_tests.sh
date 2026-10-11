@@ -1,5 +1,5 @@
 #!/bin/sh
-# Batería de make test. Crece con cada fase (docs/PLAN.md); por ahora, el cartucho.
+# Batería de make test. Crece con cada fase (docs/PLAN.md): cartucho y 68000.
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -9,6 +9,16 @@ corre() {   # descripción comando...
 }
 
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
+
+# 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
+if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
+    for modo in "" --recomp; do
+        r=$(SST_OPTS=$modo sh tests/sst68k.sh | tail -1)
+        case "$r" in *"(0 familias con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    done
+else
+    echo "(sin testroms/680x0 se omiten las SingleStepTests del 68000: make testroms)"
+fi
 
 # genrecomp: --info con una ROM que no es de Mega Drive debe fallar sin caerse, y sin ROM, dar el uso
 D=build/tests; mkdir -p "$D"

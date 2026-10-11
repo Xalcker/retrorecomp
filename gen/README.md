@@ -7,7 +7,11 @@ Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin 
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
 
-**Estado: fase 0 de 9** (esqueleto y cartucho). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 1 de 9** (esqueleto, cartucho y 68000). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+
+- **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
+  generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
+  prefetch, RAM y ciclos) por los dos caminos: el intérprete y el del código generado.
 
 ## Compilar
 
@@ -21,7 +25,8 @@ Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-co
 
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
-make            # genrecomp y carttest
+make            # genrecomp, carttest y m68ktest
+make testroms   # una sola vez: las SingleStepTests del 68000 (~200 MB, comprimidas) en testroms/
 make test       # pruebas
 make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ```
@@ -41,13 +46,14 @@ excepción, que serán las semillas del descubrimiento.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `cart.c`; `sha1`, `console.h` (de GBRecomp). |
+| `src/runtime/` | La consola: `gen.h`, `cart.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | Partes de la plataforma sin SDL (`png`, `files`, `export`, `random_pad.h`); el resto llega con la ventana. |
-| `src/tools/` | `carttest`, `embed`. |
+| `src/tools/` | `carttest`, `m68ktest`, `embed`. |
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
-| `tests/` | `run_tests.sh` (`make test`), `contract.sh` (el mismo archivo en los tres repos). |
+| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |
+| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Licencia

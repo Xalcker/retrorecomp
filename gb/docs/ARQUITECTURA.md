@@ -4,6 +4,9 @@ GBRecomp toma una ROM de Game Boy (DMG, Game Boy Color o con Super Game Boy) y
 genera un proyecto C99 que se compila en un ejecutable nativo. El ejecutable carga la ROM del usuario en tiempo de
 ejecución (validando su SHA1): nunca se distribuyen datos de la ROM.
 
+Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md`
+de NESRecomp: lo que cambia entre las dos consolas queda dentro de cada una.
+
 ## Piezas
 
 ```
@@ -86,9 +89,9 @@ despierta al terminar ese M-ciclo. El bug de HALT (IME=0 con
 interrupción pendiente) hace que la siguiente instrucción se ejecute en el
 intérprete con el PC sin avanzar.
 
-## Código recompilado (fase 2)
+## Recompilador
 
-### Descubrimiento y funciones
+### Descubrimiento
 
 `gbrecomp` decodifica recursivamente desde `$0100` y los vectores de
 interrupción, siguiendo saltos, llamadas y `rst` con destino constante (las
@@ -118,166 +121,6 @@ direcciones: se corta cuando hay más de 32 bytes sin código o al llegar a 1,50
 instrucciones. Cada instrucción pertenece a una sola función. Si dos
 decodificaciones se traslapan (saltos a mitad de instrucción), ambas existen,
 cada una con su etiqueta.
-
-### Formato
-
-```c
-/* Banco 00, $14E0-$1530 (25 instrucciones) */
-void f00_14E0(GB *g)
-{
-    Cpu *c = &g->cpu;
-    switch (c->pc) {                 /* se puede entrar en cualquier instrucción */
-    case 0x14E0: goto L_14E0;
-    ...
-    default: gb_interp_step(g); return;
-    }
-L_14F3: /* cp $1D */
-    CHECK(0x14F3);                   /* ¿evento de hardware? → al despachador */
-    {
-        TICK();                      /* lectura del opcode */
-        TICK();                      /* lectura del operando */
-        op_cp(c, 0x1D);
-    }
-L_14F5: /* jr nz, $1500 */
-    ...
-}
-```
-
-- `CHECK` al inicio de cada instrucción revisa `g->cyc >= g->next_event`. Si
-  hay que atender una interrupción o terminar la corrida, regresa con
-  `c->pc` apuntando a esa instrucción, todavía sin ejecutar.
-- Un salto con destino constante a una instrucción de la misma función se
-  vuelve `goto`. Cualquier otro (`call`, `ret`, `jp hl`, `rst`, fuera de la
-  función) asigna `c->pc` y regresa al despachador. CALL y RET usan la **pila
-  emulada**, así que los trucos de pila funcionan.
-- En funciones de bancos ≥ 1, después de cada instrucción que puede escribir en
-  `$0000-$7FFF` se comprueba que el banco siga siendo el mismo. Si el código
-  cambió su propio banco, regresa al despachador.
-- `gen/dispatch.c` tiene tablas banco → página de 256 bytes → función. El
-  código del banco 0 solo se usa si está mapeado en `$0000` y el de los demás
-  bancos solo en `$4000`. Cualquier otra combinación va al intérprete.
-
-### Proyecto generado
-
-```
-gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre] [--viz] [--events archivo]
-         [--coverage archivo] [--why BB:AAAA]
-cd salida && make
-./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
-./difftest rom.gb        # prueba diferencial
-```
-
-`salida/` trae `gen/` (código generado), `runtime/` (copia del runtime),
-`platform/` (SDL2 y difftest), un `Makefile` y `LEEME.txt` (cómo compilar en
-cada sistema). No contiene datos de la ROM.
-
-## Interfaz del ejecutable
-
-`platform/main_sdl.c` usa la barra de menús y los diálogos de Moskva 89
-(`ui_menu.c`, `ui_font.c`: fuente de mapa de bits propia, sin depender de las
-del sistema), con textos en `i18n.c` (español e inglés) y preferencias en
-`settings.c`. Los menús se arman según la consola encendida: la paleta solo
-aparece en DMG y en compatibilidad GBC, y el borde solo en SGB. Un
-desplegable que no cabe a la derecha de la ventana se corre a la izquierda
-(`MenuBar.width`); con el tamaño ×1 los últimos títulos todavía no caben en la
-barra (issue #54). Con un menú o
-un diálogo abierto el juego se pausa, y al cerrarlo los botones se ignoran
-hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Start).
-
-- **Estados guardados** (`gb_state_save` / `gb_state_load` en `save.c`): el
-  struct GB completo más la RAM del cartucho, con un encabezado que lleva
-  `sizeof(GB)` y la cabecera de la ROM. Solo los lee el mismo ejecutable con la
-  misma ROM. Los punteros se reemplazan con los de la máquina actual al cargar
-  (como en `gb_copy_state`).
-- **Cambio de consola:** reinicia con otro modelo (guarda antes el `.sav`).
-  Solo se ofrecen las que admite la cabecera.
-- **Grabaciones:** mientras se graba o reproduce, se desactiva lo que
-  desfasaría los botones (reiniciar, cargar estado, cambiar de consola).
-- **Exportar** (`platform/export.c`):
-  - **Música:** el runtime tiene un gancho, `g->apu_log`, que avisa de cada
-    escritura del juego a `$FF10-$FF3F`. Se graba en VGM 1.71 con el tiempo de
-    `g->rt` convertido a muestras de 44.1 kHz. Al empezar se escribe el estado
-    actual del chip, sin disparar canales. Al mismo tiempo se graba un WAV con
-    las muestras mezcladas.
-  - **Verificación:** `vgmcheck` reproduce el VGM en el APU del runtime, con su
-    propio reloj de 512 Hz, y compara la envolvente contra el WAV. Pokémon Rojo
-    (60 s): correlación 0.94, sin desfase. Super Mario Land: 1.00.
-  - **Gráficos:** después de cada cuadro se revisan los 384 mosaicos de VRAM
-    (768 en modo color). Los nuevos se guardan, sin repetir, con una tabla
-    hash. Al detener se escriben hojas PNG de 16 × 64 mosaicos en gris.
-    También entran los mosaicos que el juego usa para mandar datos a la SNES
-    en SGB (parecen ruido).
-- **Audio:** callback de SDL con búfer circular (como gb-recompiled). Espera a
-  juntar 50 ms antes de sonar, también después de quedarse sin muestras, y
-  descarta lo que pase de 200 ms.
-- **Pruebas sin ventana:** `--ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
-  [--ui-action N] [--ui-export]` corre N cuadros con la ventana oculta (con
-  `--ui-export`, exportando música y gráficos), abre un menú o hace
-  una acción y guarda la imagen.
-
-## Empaquetado (fase 6)
-
-- **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y
-  el intérprete generado. `src/tools/embed.c` los convierte en arreglos de C
-  (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
-  `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
-- **Versión:** sale de `git describe` (`gbrecomp --version`).
-- **`make dist`:** deja `dist/gbrecomp-<versión>-<sistema>.tar.gz` con `gbrecomp`, el
-  README, la licencia y este documento. La versión sale de `git describe`.
-- **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2,
-  enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
-- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en
-  NESRecomp), en Linux, macOS y Windows:
-  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
-  - `make testroms` (las ROMs de prueba libres, c-sp/game-boy-test-roms v7.0)
-    y `make test`, que también recompila `cpu_instrs` de Blargg, compila el
-    proyecto generado y corre `difftest`.
-  - `make dist` y publica el paquete como artefacto; con una etiqueta `vX.Y.Z`,
-    además crea el release con los paquetes de los tres sistemas.
-
-Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 132, con `sgb_controles` y el proyecto generado), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
-compilan sin advertencias y corren sin diferencias.
-
-### Prueba diferencial
-
-`difftest` corre la misma ROM con código recompilado y con el intérprete, con
-las mismas entradas pseudoaleatorias (`--seed`), y compara el estado completo al
-final de cada cuadro: registros, ciclos, WRAM, HRAM, VRAM, OAM, I/O, timer,
-PPU, banco y RAM del cartucho. Si hay diferencia, repite el cuadro instrucción
-por instrucción y reporta la primera, con banco, dirección, opcode y el campo
-que difiere:
-
-```
-Primera diferencia en el cuadro 401, instrucción 2943 del cuadro,
-  tras ejecutar 00:14F3 (opcode $FE, recompilada)
-  A: recompilado=FF intérprete=1C
-```
-
-Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecutó
-el intérprete (para `gbrecomp --trace`), `--screens carpeta --every N` guarda
-capturas y `--bench` mide la velocidad de cada máquina.
-
-### Resultados con Tetris (JUE) (V1.1)
-
-| | Solo estático | Con trazas de 7 sesiones |
-|---|---|---|
-| Instrucciones recompiladas | 2,189 | 4,321 |
-| Ejecutado en código recompilado | 96.6 % | 98.9 % |
-| Direcciones de ROM interpretadas | 1,239 | 0 a 99 según la semilla |
-
-- **Sin diferencias** en más de 160,000 cuadros (13 sesiones de 3,000 a 20,000
-  cuadros con semillas distintas). Las capturas confirman partidas reales.
-- El 1.1 % que queda en el intérprete es la rutina de DMA que Tetris copia a
-  HRAM: el código en RAM siempre va al intérprete.
-- Se comprobó el localizador inyectando un error a mano (`cp` → `sub`):
-  reportó la instrucción y el registro exactos.
-- Velocidad (sin audio): recompilado 47x tiempo real, intérprete 44x. Casi
-  todo el tiempo se va en el hardware, que se simula punto por punto. Optimizar
-  `gb_sync` es lo que más rendiría (se hizo después; ver "Línea base para
-  optimizar el runtime").
-
-## Descubrimiento de código (fase 3)
 
 ### Heurísticas genéricas
 
@@ -449,7 +292,59 @@ de victoria. El código no ejecutado se generó con el mismo emisor que
 el intérprete, así que sus instrucciones son confiables; lo que no se ha
 probado es su flujo de control (etiquetas, cortes de función).
 
-## Bancos, guardado y reloj (fase 4)
+### Código generado
+
+```c
+/* Banco 00, $14E0-$1530 (25 instrucciones) */
+void f00_14E0(GB *g)
+{
+    Cpu *c = &g->cpu;
+    switch (c->pc) {                 /* se puede entrar en cualquier instrucción */
+    case 0x14E0: goto L_14E0;
+    ...
+    default: gb_interp_step(g); return;
+    }
+L_14F3: /* cp $1D */
+    CHECK(0x14F3);                   /* ¿evento de hardware? → al despachador */
+    {
+        TICK();                      /* lectura del opcode */
+        TICK();                      /* lectura del operando */
+        op_cp(c, 0x1D);
+    }
+L_14F5: /* jr nz, $1500 */
+    ...
+}
+```
+
+- `CHECK` al inicio de cada instrucción revisa `g->cyc >= g->next_event`. Si
+  hay que atender una interrupción o terminar la corrida, regresa con
+  `c->pc` apuntando a esa instrucción, todavía sin ejecutar.
+- Un salto con destino constante a una instrucción de la misma función se
+  vuelve `goto`. Cualquier otro (`call`, `ret`, `jp hl`, `rst`, fuera de la
+  función) asigna `c->pc` y regresa al despachador. CALL y RET usan la **pila
+  emulada**, así que los trucos de pila funcionan.
+- En funciones de bancos ≥ 1, después de cada instrucción que puede escribir en
+  `$0000-$7FFF` se comprueba que el banco siga siendo el mismo. Si el código
+  cambió su propio banco, regresa al despachador.
+- `gen/dispatch.c` tiene tablas banco → página de 256 bytes → función. El
+  código del banco 0 solo se usa si está mapeado en `$0000` y el de los demás
+  bancos solo en `$4000`. Cualquier otra combinación va al intérprete.
+
+### Proyecto generado
+
+```
+gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre] [--viz] [--events archivo]
+         [--coverage archivo] [--why BB:AAAA]
+cd salida && make
+./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
+./difftest rom.gb        # prueba diferencial
+```
+
+`salida/` trae `gen/` (código generado), `runtime/` (copia del runtime),
+`platform/` (SDL2 y difftest), un `Makefile` y `LEEME.txt` (cómo compilar en
+cada sistema). No contiene datos de la ROM.
+
+## Bancos, mappers y guardado
 
 ### Saltos entre bancos
 
@@ -556,7 +451,9 @@ CONTINUAR: aparece PLAYER AAAAAAA.
   que cayeron al intérprete durante la partida (para `gbrecomp --trace`).
 - `gbtest --input` reproduce entradas grabadas (lo usa `rtc3test`).
 
-## PPU precisa (fase 5)
+## Video y audio
+
+### PPU
 
 `runtime/ppu.c` es una PPU con FIFO de píxeles que avanza punto por punto. La
 línea de tiempo de cada línea (cuándo cambian LY, STAT y la comparación con
@@ -597,7 +494,21 @@ Velocidad: con la PPU por punto, Tetris corre a unas 27 veces el tiempo real
 (antes 47). Las optimizaciones posteriores, sin cambiar la salida, están en
 "Línea base para optimizar el runtime".
 
-## Game Boy Color
+### APU
+
+Dos canales de pulso (el primero con sweep), uno de onda y uno de ruido
+(`src/runtime/apu.c`). El secuenciador de 512 Hz lo marca el flanco de bajada
+del bit 4 de DIV (`apu_div_event`), así que escribir en DIV lo afecta igual
+que en el hardware. Sale en estéreo a 48 kHz con un filtro pasa-altos, como el
+capacitor de salida de la consola. Avanza de forma perezosa (`apu_flush`; ver
+"Línea base para optimizar el runtime").
+
+## Variantes de la consola y accesorios
+
+Lo que cambia según el modelo (Game Boy Color, Super Game Boy) y lo que se
+conecta a la consola (cable link, en la sección del GBC).
+
+### Game Boy Color
 
 El modelo se elige según la cabecera (`$143`, bit 7): los juegos que admiten
 color corren como CGB y los demás como DMG (`gb_init_model` permite forzarlo).
@@ -669,7 +580,7 @@ Validación:
 - Pokémon Oro, Plata y Amarillo corren en color, sin diferencias en
   `difftest`.
 
-### Modo de compatibilidad
+#### Modo de compatibilidad
 
 Un juego de DMG en un Game Boy Color (`cgb_hw` = 1, `cgb` = 0). La boot ROM
 del GBC le elige colores (`src/runtime/compat.c`):
@@ -703,7 +614,7 @@ Validación: pasan `boot_regs-cgb`, `boot_div-cgbABCDE`, `boot_hwio-C`,
 Super Mario Land (cielo azul claro) corren sin diferencias en `difftest`, en
 DMG y en compatibilidad.
 
-## Super Game Boy
+### Super Game Boy
 
 Si el juego no admite color pero sí SGB (`$146` = 3 con el licenciatario viejo
 `$33`), corre como Super Game Boy: un DMG más lo que hace la SNES
@@ -757,7 +668,113 @@ Validación:
   se grabaron en DMG y lo dicen con una línea `modelo dmg`. En SGB el juego
   tarda distinto y la grabación se desfasaría.
 
-## Estado de la validación del runtime
+## Interfaz del ejecutable
+
+`platform/main_sdl.c` usa la barra de menús y los diálogos de Moskva 89
+(`ui_menu.c`, `ui_font.c`: fuente de mapa de bits propia, sin depender de las
+del sistema), con textos en `i18n.c` (español e inglés) y preferencias en
+`settings.c`. Los menús se arman según la consola encendida: la paleta solo
+aparece en DMG y en compatibilidad GBC, y el borde solo en SGB. Un
+desplegable que no cabe a la derecha de la ventana se corre a la izquierda
+(`MenuBar.width`); con el tamaño ×1 los últimos títulos todavía no caben en la
+barra (issue #54). Con un menú o
+un diálogo abierto el juego se pausa, y al cerrarlo los botones se ignoran
+hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Start).
+
+- **Estados guardados** (`gb_state_save` / `gb_state_load` en `save.c`): el
+  struct GB completo más la RAM del cartucho, con un encabezado que lleva
+  `sizeof(GB)` y la cabecera de la ROM. Solo los lee el mismo ejecutable con la
+  misma ROM. Los punteros se reemplazan con los de la máquina actual al cargar
+  (como en `gb_copy_state`).
+- **Cambio de consola:** reinicia con otro modelo (guarda antes el `.sav`).
+  Solo se ofrecen las que admite la cabecera.
+- **Grabaciones:** mientras se graba o reproduce, se desactiva lo que
+  desfasaría los botones (reiniciar, cargar estado, cambiar de consola).
+- **Exportar** (`platform/export.c`):
+  - **Música:** el runtime tiene un gancho, `g->apu_log`, que avisa de cada
+    escritura del juego a `$FF10-$FF3F`. Se graba en VGM 1.71 con el tiempo de
+    `g->rt` convertido a muestras de 44.1 kHz. Al empezar se escribe el estado
+    actual del chip, sin disparar canales. Al mismo tiempo se graba un WAV con
+    las muestras mezcladas.
+  - **Verificación:** `vgmcheck` reproduce el VGM en el APU del runtime, con su
+    propio reloj de 512 Hz, y compara la envolvente contra el WAV. Pokémon Rojo
+    (60 s): correlación 0.94, sin desfase. Super Mario Land: 1.00.
+  - **Gráficos:** después de cada cuadro se revisan los 384 mosaicos de VRAM
+    (768 en modo color). Los nuevos se guardan, sin repetir, con una tabla
+    hash. Al detener se escriben hojas PNG de 16 × 64 mosaicos en gris.
+    También entran los mosaicos que el juego usa para mandar datos a la SNES
+    en SGB (parecen ruido).
+- **Audio:** callback de SDL con búfer circular (como gb-recompiled). Espera a
+  juntar 50 ms antes de sonar, también después de quedarse sin muestras, y
+  descarta lo que pase de 200 ms.
+- **Pruebas sin ventana:** `--ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
+  [--ui-action N] [--ui-export]` corre N cuadros con la ventana oculta (con
+  `--ui-export`, exportando música y gráficos), abre un menú o hace
+  una acción y guarda la imagen.
+
+## Empaquetado y pruebas
+
+- **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y
+  el intérprete generado. `src/tools/embed.c` los convierte en arreglos de C
+  (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
+  `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
+- **Versión:** sale de `git describe` (`gbrecomp --version`).
+- **`make dist`:** deja `dist/gbrecomp-<versión>-<sistema>.tar.gz` con `gbrecomp`, el
+  README, la licencia y este documento. La versión sale de `git describe`.
+- **Proyecto generado:** compila con el mismo Makefile en Windows (MSYS2,
+  enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
+- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en
+  NESRecomp), en Linux, macOS y Windows:
+  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
+  - `make testroms` (las ROMs de prueba libres, c-sp/game-boy-test-roms v7.0)
+    y `make test`, que también recompila `cpu_instrs` de Blargg, compila el
+    proyecto generado y corre `difftest`.
+  - `make dist` y publica el paquete como artefacto; con una etiqueta `vX.Y.Z`,
+    además crea el release con los paquetes de los tres sistemas.
+
+Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
+de 130 en ambos (hoy son 132, con `sgb_controles` y el proyecto generado), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+compilan sin advertencias y corren sin diferencias.
+
+### Prueba diferencial
+
+`difftest` corre la misma ROM con código recompilado y con el intérprete, con
+las mismas entradas pseudoaleatorias (`--seed`), y compara el estado completo al
+final de cada cuadro: registros, ciclos, WRAM, HRAM, VRAM, OAM, I/O, timer,
+PPU, banco y RAM del cartucho. Si hay diferencia, repite el cuadro instrucción
+por instrucción y reporta la primera, con banco, dirección, opcode y el campo
+que difiere:
+
+```
+Primera diferencia en el cuadro 401, instrucción 2943 del cuadro,
+  tras ejecutar 00:14F3 (opcode $FE, recompilada)
+  A: recompilado=FF intérprete=1C
+```
+
+Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecutó
+el intérprete (para `gbrecomp --trace`), `--screens carpeta --every N` guarda
+capturas y `--bench` mide la velocidad de cada máquina.
+
+### Resultados con Tetris (JUE) (V1.1)
+
+| | Solo estático | Con trazas de 7 sesiones |
+|---|---|---|
+| Instrucciones recompiladas | 2,189 | 4,321 |
+| Ejecutado en código recompilado | 96.6 % | 98.9 % |
+| Direcciones de ROM interpretadas | 1,239 | 0 a 99 según la semilla |
+
+- **Sin diferencias** en más de 160,000 cuadros (13 sesiones de 3,000 a 20,000
+  cuadros con semillas distintas). Las capturas confirman partidas reales.
+- El 1.1 % que queda en el intérprete es la rutina de DMA que Tetris copia a
+  HRAM: el código en RAM siempre va al intérprete.
+- Se comprobó el localizador inyectando un error a mano (`cp` → `sub`):
+  reportó la instrucción y el registro exactos.
+- Velocidad (sin audio): recompilado 47x tiempo real, intérprete 44x. Casi
+  todo el tiempo se va en el hardware, que se simula punto por punto. Optimizar
+  `gb_sync` es lo que más rendiría (se hizo después; ver "Línea base para
+  optimizar el runtime").
+
+## Estado de la validación
 
 `sh tests/run_tests.sh`: **132 de 132** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`

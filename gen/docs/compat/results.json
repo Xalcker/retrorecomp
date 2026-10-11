@@ -1,0 +1,2420 @@
+{
+ "fecha": "2026-10-11",
+ "roms": [
+  {
+   "juego": "Comix Zone (USA).md",
+   "sha1": "e8747eefdf61172be9da8787ba5be447ec73180f",
+   "nombre": "COMIX ZONE",
+   "serie": "GM MK-1569 -00",
+   "region": "4",
+   "perifericos": "J6",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.7,
+   "colores": 42,
+   "dominante": 0.26,
+   "thumb": "gcomixzone2e0b41.png",
+   "capturas": [
+    23,
+    27,
+    42
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 11984,
+      "pct_rom": 1.77,
+      "funciones": 41,
+      "compilacion_s": 30.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 36.8,
+        "ciclos_recompilados_pct": 97.6,
+        "interpretadas": 160
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 31.4,
+        "ciclos_recompilados_pct": 97.3,
+        "interpretadas": 1
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 17233,
+      "pct_rom": 2.72,
+      "funciones": 55,
+      "compilacion_s": 16.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 35.6,
+        "ciclos_recompilados_pct": 97.6,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 37.2,
+        "ciclos_recompilados_pct": 97.3,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 24.4,
+    "velocidad_interprete_x": 19.4,
+    "total_s": 191.3
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.998565673828125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9989013671875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9995269775390625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.981353759765625,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9773406982421875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.980072021484375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Contra - Hard Corps (USA, Korea).md",
+   "sha1": "68ea84146105bda91f6056932ff4fb42aa3eb4a7",
+   "nombre": "CONTRA HARDCORPS",
+   "serie": "GM T-95106-00",
+   "region": "UJ",
+   "perifericos": "J6",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.1,
+   "colores": 27,
+   "dominante": 0.286,
+   "thumb": "gcontrahardcorpscd0cfa.png",
+   "capturas": [
+    10,
+    25,
+    27
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 103629,
+      "pct_rom": 19.67,
+      "funciones": 524,
+      "compilacion_s": 86.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 11.8,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 14.6,
+        "ciclos_recompilados_pct": 95.7,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 103629,
+      "pct_rom": 19.67,
+      "funciones": 524,
+      "compilacion_s": 77.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 11.4,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.4,
+        "ciclos_recompilados_pct": 95.7,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 32.3,
+    "velocidad_interprete_x": 23.9,
+    "total_s": 220.6
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9997711181640625,
+      "img": 0.8610665457589286
+     },
+     "genrecomp-blastem": {
+      "ram": 0.99981689453125,
+      "img": 0.8610665457589286
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998931884765625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9980316162109375,
+      "img": 0.73779296875
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9980621337890625,
+      "img": 0.70087890625
+     },
+     "gpgx-blastem": {
+      "ram": 0.999908447265625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Earthworm Jim (USA).md",
+   "sha1": "a544211d1ebab1f096f6e72a0d724f74f9ddbce8",
+   "nombre": "EARTHWORM JIM",
+   "serie": "GM T-132036-00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 3072,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.5,
+   "colores": 46,
+   "dominante": 0.387,
+   "thumb": "gearthwormjim949bba.png",
+   "capturas": [
+    1,
+    46,
+    44
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 18278,
+      "pct_rom": 2.44,
+      "funciones": 61,
+      "compilacion_s": 39.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.2,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 25
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.6,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 25
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 18750,
+      "pct_rom": 2.52,
+      "funciones": 63,
+      "compilacion_s": 36.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.8,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.5,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 23.6,
+    "velocidad_interprete_x": 17.8,
+    "total_s": 134.4
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.997528076171875,
+      "img": 0.9887834821428572
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9974212646484375,
+      "img": 0.9887834821428572
+     },
+     "gpgx-blastem": {
+      "ram": 0.9997711181640625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9974212646484375,
+      "img": 0.9632254464285714
+     },
+     "genrecomp-blastem": {
+      "ram": 0.997314453125,
+      "img": 0.9632254464285714
+     },
+     "gpgx-blastem": {
+      "ram": 0.9997711181640625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Ecco the Dolphin (USA, Europe, Korea).md",
+   "sha1": "2cad130f3118c189d39fd1d46c5c31a5060ce894",
+   "nombre": "ECCO",
+   "serie": "GM MK-1042 -00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 1024,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.2,
+   "colores": 47,
+   "dominante": 0.45,
+   "thumb": "geccothedolphinf48176.png",
+   "capturas": [
+    40,
+    35,
+    47
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 42847,
+      "pct_rom": 13.72,
+      "funciones": 130,
+      "compilacion_s": 72.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.9,
+        "ciclos_recompilados_pct": 99.2,
+        "interpretadas": 149
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.7,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 208
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 43871,
+      "pct_rom": 14.04,
+      "funciones": 134,
+      "compilacion_s": 104.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.7,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.6,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 27.3,
+    "velocidad_interprete_x": 20.4,
+    "total_s": 229.9
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.996673583984375,
+      "img": 0.5130161830357143
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9986419677734375,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9977874755859375,
+      "img": 0.5130161830357143
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9981231689453125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9979248046875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9983673095703125,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Gunstar Heroes (USA).md",
+   "sha1": "7721e302555f16e3242ad4a47ed87a1de1882122",
+   "nombre": "GUNSTAR HEROES",
+   "serie": "GM MK-01077-00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 1024,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.5,
+   "colores": 44,
+   "dominante": 0.204,
+   "thumb": "ggunstarheroes854974.png",
+   "capturas": [
+    16,
+    1,
+    44
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 76990,
+      "pct_rom": 31.82,
+      "funciones": 325,
+      "compilacion_s": 76.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 32.3,
+        "ciclos_recompilados_pct": 92.3,
+        "interpretadas": 3
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 39.6,
+        "ciclos_recompilados_pct": 92.8,
+        "interpretadas": 86
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 77270,
+      "pct_rom": 31.95,
+      "funciones": 326,
+      "compilacion_s": 117.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 32.8,
+        "ciclos_recompilados_pct": 92.3,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 46.4,
+        "ciclos_recompilados_pct": 92.8,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 28.0,
+    "velocidad_interprete_x": 22.2,
+    "total_s": 349.8
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9987030029296875,
+      "img": 0.9973214285714286
+     },
+     "genrecomp-blastem": {
+      "ram": 0.99761962890625,
+      "img": 0.9973214285714286
+     },
+     "gpgx-blastem": {
+      "ram": 0.99859619140625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.998992919921875,
+      "img": 0.9482421875
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9984893798828125,
+      "img": 0.9482421875
+     },
+     "gpgx-blastem": {
+      "ram": 0.999114990234375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Mega_Man_The_Wily_Wars_USA_Genesis_Mini.md",
+   "sha1": "26ad72719991e94dbe477c78e65d68f4a4fe51e6",
+   "nombre": "MEGAMAN THE WILY WARS",
+   "serie": "GM T-12053 -00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.6,
+   "colores": 43,
+   "dominante": 0.274,
+   "thumb": "gmegamanthewilywars2e793e.png",
+   "capturas": [
+    2,
+    43,
+    43
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 116873,
+      "pct_rom": 18.46,
+      "funciones": 321,
+      "compilacion_s": 151.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.6,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 217
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.9,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 217
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 117090,
+      "pct_rom": 18.5,
+      "funciones": 322,
+      "compilacion_s": 115.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.5,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 31.2,
+    "velocidad_interprete_x": 17.9,
+    "total_s": 324.1
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9991455078125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9991455078125,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 1.0,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9999847412109375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9999847412109375,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 1.0,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Mickey Mania - The Timeless Adventures of Mickey Mouse (USA).md",
+   "sha1": "20779867821bab019f63ce42e3067ffafb4fe480",
+   "nombre": "MICKEY MANIA",
+   "serie": "GM T-93156 -00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.9,
+   "colores": 30,
+   "dominante": 0.794,
+   "thumb": "gmickeymaniathetime3bf240.png",
+   "capturas": [
+    29,
+    30,
+    5
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 31957,
+      "pct_rom": 6.49,
+      "funciones": 148,
+      "compilacion_s": 52.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.4,
+        "ciclos_recompilados_pct": 98.8,
+        "interpretadas": 139
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.4,
+        "ciclos_recompilados_pct": 98.8,
+        "interpretadas": 125
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 32096,
+      "pct_rom": 6.51,
+      "funciones": 148,
+      "compilacion_s": 40.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 11.4,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 10.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 24.8,
+    "velocidad_interprete_x": 18.8,
+    "total_s": 143.1
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.999237060546875,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999755859375,
+      "img": 0.19182477678571427
+     },
+     "gpgx-blastem": {
+      "ram": 0.9994049072265625,
+      "img": 0.27445591517857143
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9980621337890625,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9991607666015625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9983367919921875,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Mortal Kombat (World).md",
+   "sha1": "c098bf38ddd755ab7caa4612d025be2039009eb2",
+   "nombre": "MORTAL KOMBAT",
+   "serie": "GM T-81186  00",
+   "region": "JUE",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 3.0,
+   "colores": 5,
+   "dominante": 0.501,
+   "thumb": "gmortalkombat0b6490.png",
+   "capturas": [
+    3,
+    1,
+    5
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 23800,
+      "pct_rom": 4.07,
+      "funciones": 106,
+      "compilacion_s": 22.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 10.5,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 10.0,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 23800,
+      "pct_rom": 4.07,
+      "funciones": 106,
+      "compilacion_s": 16.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.8,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 25.9,
+    "velocidad_interprete_x": 20.9,
+    "total_s": 91.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9997100830078125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9998779296875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.999664306640625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99951171875,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.998870849609375,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9990386962890625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Mortal Kombat 3 (USA).md",
+   "sha1": "55cdcba77f7fcd9994e748524d40c98089344160",
+   "nombre": "MORTAL KOMBAT 3",
+   "serie": "GM T-097116 00",
+   "region": "4",
+   "perifericos": "J64",
+   "kb": 4096,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.0,
+   "colores": 30,
+   "dominante": 0.918,
+   "thumb": "gmortalkombat3c86979.png",
+   "capturas": [
+    5,
+    2,
+    30
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 55529,
+      "pct_rom": 5.2,
+      "funciones": 233,
+      "compilacion_s": 40.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 16.9,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 519
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.4,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 512
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 56110,
+      "pct_rom": 5.23,
+      "funciones": 232,
+      "compilacion_s": 51.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.6,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 36.4,
+    "velocidad_interprete_x": 25.6,
+    "total_s": 150.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.99908447265625,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9994049072265625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9994049072265625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9987030029296875,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9986419677734375,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9996490478515625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "NBA Jam (USA, Europe).md",
+   "sha1": "99c5bc57fdea7f9df0cd8dec54160b162342344d",
+   "nombre": "NBA JAM",
+   "serie": "GM T-081326 00",
+   "region": "EU",
+   "perifericos": "J4",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.7,
+   "colores": 43,
+   "dominante": 0.849,
+   "thumb": "gnbajamc2f6ab.png",
+   "capturas": [
+    6,
+    1,
+    43
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 27265,
+      "pct_rom": 5.22,
+      "funciones": 123,
+      "compilacion_s": 26.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 15.3,
+        "ciclos_recompilados_pct": 99.5,
+        "interpretadas": 88
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 16.6,
+        "ciclos_recompilados_pct": 99.6,
+        "interpretadas": 88
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 27369,
+      "pct_rom": 5.24,
+      "funciones": 123,
+      "compilacion_s": 30.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 11.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.6,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 32.8,
+    "velocidad_interprete_x": 18.6,
+    "total_s": 115.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.999542236328125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999542236328125,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.999847412109375,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99993896484375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9999847412109375,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.99993896484375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "NBA Jam - Tournament Edition (World).md",
+   "sha1": "ddbf09c5e6ed5d528ef5ec816129a332c685f103",
+   "nombre": "NBA JAM TOURNAMENT EDITION",
+   "serie": "GM T-81406 -00",
+   "region": "JUE",
+   "perifericos": "J4",
+   "kb": 3072,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.8,
+   "colores": 6,
+   "dominante": 0.774,
+   "thumb": "gnbajamtournamented2a9349.png",
+   "capturas": [
+    6,
+    1,
+    1
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 34448,
+      "pct_rom": 4.45,
+      "funciones": 165,
+      "compilacion_s": 57.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.7,
+        "ciclos_recompilados_pct": 99.4,
+        "interpretadas": 263
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 14.1,
+        "ciclos_recompilados_pct": 99.4,
+        "interpretadas": 265
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 34899,
+      "pct_rom": 4.51,
+      "funciones": 167,
+      "compilacion_s": 36.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.1,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 16.4,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 27.8,
+    "velocidad_interprete_x": 16.4,
+    "total_s": 164.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9992828369140625,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9993133544921875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9997711181640625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99957275390625,
+      "img": 0.9994559151785715
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9995574951171875,
+      "img": 0.9994001116071428
+     },
+     "gpgx-blastem": {
+      "ram": 0.999786376953125,
+      "img": 0.9992466517857143
+     }
+    }
+   }
+  },
+  {
+   "juego": "Phantasy Star IV (USA).md",
+   "sha1": "bc7ff6d6a8408f38562bc610f24645cad6c42629",
+   "nombre": "PHANTASY STAR The end of the millennium",
+   "serie": "GM MK-1307 -00",
+   "region": "4",
+   "perifericos": "J",
+   "kb": 3072,
+   "sram": "$200001-$203FFF (tipo $F8, con batería)",
+   "ssf2": false,
+   "interprete_s": 2.4,
+   "colores": 26,
+   "dominante": 0.147,
+   "thumb": "gphantasystariv5cf725.png",
+   "capturas": [
+    23,
+    5,
+    26
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 86167,
+      "pct_rom": 11.27,
+      "funciones": 441,
+      "compilacion_s": 82.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 16.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.2,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 86167,
+      "pct_rom": 11.27,
+      "funciones": 441,
+      "compilacion_s": 75.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 16.2,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.4,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 29.1,
+    "velocidad_interprete_x": 22.0,
+    "total_s": 222.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9998626708984375,
+      "img": 0.9996791294642857
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999847412109375,
+      "img": 0.9996791294642857
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998779296875,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.999298095703125,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999298095703125,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998931884765625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Ristar (USA, Europe).md",
+   "sha1": "1d15ff596dd4f3b2c1212a2e0c6e2b72f62c001e",
+   "nombre": "* RISTAR *",
+   "serie": "GM MK-1555 -00",
+   "region": "UE",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.6,
+   "colores": 46,
+   "dominante": 0.396,
+   "thumb": "gristare42bdc.png",
+   "capturas": [
+    17,
+    1,
+    46
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 74556,
+      "pct_rom": 14.94,
+      "funciones": 382,
+      "compilacion_s": 52.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.2,
+        "ciclos_recompilados_pct": 99.6,
+        "interpretadas": 402
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.1,
+        "ciclos_recompilados_pct": 99.6,
+        "interpretadas": 402
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 75151,
+      "pct_rom": 15.05,
+      "funciones": 386,
+      "compilacion_s": 56.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.1,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 14.5,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 27.5,
+    "velocidad_interprete_x": 20.5,
+    "total_s": 180.9
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.99420166015625,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9675445556640625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.96453857421875,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9883880615234375,
+      "img": 0.9636858258928571
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9882965087890625,
+      "img": 0.9636858258928571
+     },
+     "gpgx-blastem": {
+      "ram": 0.9997100830078125,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Road Rash II (USA, Europe) (RR206).md",
+   "sha1": "9afea43ed627671b50dd4a2abdd043b235414b91",
+   "nombre": "ROAD RASH II",
+   "serie": "GM T-50496 -02",
+   "region": "UEJ",
+   "perifericos": "J",
+   "kb": 1024,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.1,
+   "colores": 39,
+   "dominante": 0.224,
+   "thumb": "groadrashii2cbab0.png",
+   "capturas": [
+    1,
+    39,
+    31
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 25984,
+      "pct_rom": 10.77,
+      "funciones": 85,
+      "compilacion_s": 33.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.1,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 20.0,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 25984,
+      "pct_rom": 10.77,
+      "funciones": 85,
+      "compilacion_s": 37.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 8.5,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 14.6,
+        "ciclos_recompilados_pct": 99.8,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 34.1,
+    "velocidad_interprete_x": 23.1,
+    "total_s": 128.7
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.994842529296875,
+      "img": 0.9897600446428572
+     },
+     "genrecomp-blastem": {
+      "ram": 0.99493408203125,
+      "img": 0.9897600446428572
+     },
+     "gpgx-blastem": {
+      "ram": 0.9995269775390625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.8505096435546875,
+      "img": 0.7283342633928571
+     },
+     "genrecomp-blastem": {
+      "ram": 0.8489990234375,
+      "img": 0.7176060267857143
+     },
+     "gpgx-blastem": {
+      "ram": 0.9968414306640625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Sonic & Knuckles + Sonic The Hedgehog 3 (USA).md",
+   "sha1": "cfbf98c36c776677290a872547ac47c53d2761d6",
+   "nombre": "SONIC & KNUCKLES",
+   "serie": "GM MK-1563 -00",
+   "region": "JUE",
+   "perifericos": "J",
+   "kb": 4096,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.3,
+   "colores": 44,
+   "dominante": 0.358,
+   "thumb": "gsonicknucklessonicffc5e8.png",
+   "capturas": [
+    44,
+    8,
+    8
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 129209,
+      "pct_rom": 12.05,
+      "funciones": 621,
+      "compilacion_s": 124.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 6
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.5,
+        "ciclos_recompilados_pct": 99.4,
+        "interpretadas": 345
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 129881,
+      "pct_rom": 12.12,
+      "funciones": 626,
+      "compilacion_s": 130.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.2,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.2,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 25.5,
+    "velocidad_interprete_x": 19.6,
+    "total_s": 316.1
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.999237060546875,
+      "img": 0.9996930803571429
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999053955078125,
+      "img": 0.9890066964285714
+     },
+     "gpgx-blastem": {
+      "ram": 0.99896240234375,
+      "img": 0.9888113839285714
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.999603271484375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9995574951171875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.999603271484375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Sonic The Hedgehog (USA, Europe).md",
+   "sha1": "6ddb7de1e17e7f6cdb88927bd906352030daa194",
+   "nombre": "SONIC THE               HEDGEHOG",
+   "serie": "GM 00001009-00",
+   "region": "JUE",
+   "perifericos": "J",
+   "kb": 512,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.7,
+   "colores": 41,
+   "dominante": 0.195,
+   "thumb": "gsonicthehedgehog0cb3b2.png",
+   "capturas": [
+    2,
+    41,
+    37
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 24409,
+      "pct_rom": 17.37,
+      "funciones": 147,
+      "compilacion_s": 34.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 19.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.4,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 24409,
+      "pct_rom": 17.37,
+      "funciones": 147,
+      "compilacion_s": 31.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.4,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 28.0,
+    "velocidad_interprete_x": 20.7,
+    "total_s": 134.3
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.996124267578125,
+      "img": 0.8115373883928572
+     },
+     "genrecomp-blastem": {
+      "ram": 0.996124267578125,
+      "img": 0.8089146205357143
+     },
+     "gpgx-blastem": {
+      "ram": 0.9999847412109375,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9893798828125,
+      "img": 0.4304827008928571
+     },
+     "genrecomp-blastem": {
+      "ram": 0.989501953125,
+      "img": 0.42518136160714287
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998779296875,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Sonic The Hedgehog 2 (World) (Rev A).md",
+   "sha1": "8bca5dcef1af3e00098666fd892dc1c2a76333f9",
+   "nombre": "SONIC THE             HEDGEHOG 2",
+   "serie": "GM 00001051-01",
+   "region": "JUE",
+   "perifericos": "J",
+   "kb": 1024,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.7,
+   "colores": 39,
+   "dominante": 0.212,
+   "thumb": "gsonicthehedgehog2240fb7.png",
+   "capturas": [
+    1,
+    8,
+    39
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 49380,
+      "pct_rom": 17.73,
+      "funciones": 279,
+      "compilacion_s": 71.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.5,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 17.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 49380,
+      "pct_rom": 17.73,
+      "funciones": 279,
+      "compilacion_s": 40.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.8,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 28.6,
+    "velocidad_interprete_x": 20.8,
+    "total_s": 180.6
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.998687744140625,
+      "img": 0.9998186383928571
+     },
+     "genrecomp-blastem": {
+      "ram": 0.998687744140625,
+      "img": 0.9998186383928571
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998779296875,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.993621826171875,
+      "img": 0.4978097098214286
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9923095703125,
+      "img": 0.4827845982142857
+     },
+     "gpgx-blastem": {
+      "ram": 0.998504638671875,
+      "img": 0.9977120535714286
+     }
+    }
+   }
+  },
+  {
+   "juego": "Sonic The Hedgehog 3 (USA).md",
+   "sha1": "75e9c4705259d84112b3e697a6c00a0813d47d71",
+   "nombre": "SONIC THE             HEDGEHOG 3",
+   "serie": "GM MK-1079 -00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "$200001-$2003FF (tipo $F8, con batería)",
+   "ssf2": false,
+   "interprete_s": 2.3,
+   "colores": 44,
+   "dominante": 0.381,
+   "thumb": "gsonicthehedgehog3d34533.png",
+   "capturas": [
+    44,
+    8,
+    8
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 66253,
+      "pct_rom": 12.17,
+      "funciones": 345,
+      "compilacion_s": 65.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 22
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.4,
+        "ciclos_recompilados_pct": 99.5,
+        "interpretadas": 345
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 66947,
+      "pct_rom": 12.3,
+      "funciones": 350,
+      "compilacion_s": 62.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 10.1,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.3,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 27.0,
+    "velocidad_interprete_x": 21.9,
+    "total_s": 180.7
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.999053955078125,
+      "img": 0.9986746651785714
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9990234375,
+      "img": 0.98857421875
+     },
+     "gpgx-blastem": {
+      "ram": 0.999267578125,
+      "img": 0.9883091517857143
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99395751953125,
+      "img": 0.8660853794642858
+     },
+     "genrecomp-blastem": {
+      "ram": 0.99969482421875,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9939422607421875,
+      "img": 0.8660853794642858
+     }
+    }
+   }
+  },
+  {
+   "juego": "Street_Fighter_II_Special_Champion_Edition_USA.md",
+   "sha1": "a5aad1d108046d9388e33247610dafb4c6516e0b",
+   "nombre": "STREET FIGHTER U'SPECIAL CHAMPION EDITION",
+   "serie": "GM T-12016,0.0",
+   "region": "U",
+   "perifericos": "J6",
+   "kb": 3072,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.5,
+   "colores": 33,
+   "dominante": 0.74,
+   "thumb": "gstreetfighteriispe698e53.png",
+   "capturas": [
+    24,
+    33,
+    33
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 36925,
+      "pct_rom": 4.12,
+      "funciones": 173,
+      "compilacion_s": 44.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 36925,
+      "pct_rom": 4.12,
+      "funciones": 173,
+      "compilacion_s": 48.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 9.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 43.2,
+    "velocidad_interprete_x": 31.2,
+    "total_s": 141.4
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.99969482421875,
+      "img": 0.9181256975446429
+     },
+     "genrecomp-blastem": {
+      "ram": 0.99969482421875,
+      "img": 0.9137137276785714
+     },
+     "gpgx-blastem": {
+      "ram": 0.9999237060546875,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99993896484375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999908447265625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.999908447265625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Streets of Rage 2 (USA).md",
+   "sha1": "8b656eec9692d88bbbb84787142aa732b44ce0be",
+   "nombre": "STREETS OF RAGE 2",
+   "serie": "GM MK-1054 -00",
+   "region": "U",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 1.6,
+   "colores": 41,
+   "dominante": 0.108,
+   "thumb": "gstreetsofrage25cbd19.png",
+   "capturas": [
+    9,
+    8,
+    41
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 29111,
+      "pct_rom": 5.65,
+      "funciones": 147,
+      "compilacion_s": 30.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 14
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.2,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 14
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 29156,
+      "pct_rom": 5.66,
+      "funciones": 147,
+      "compilacion_s": 25.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.8,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 45.9,
+    "velocidad_interprete_x": 32.6,
+    "total_s": 117.5
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.99993896484375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9998931884765625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.9999542236328125,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.997406005859375,
+      "img": 0.9834681919642857
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9973907470703125,
+      "img": 0.9834263392857143
+     },
+     "gpgx-blastem": {
+      "ram": 0.9999847412109375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Super Street Fighter II (USA).md",
+   "sha1": "9ce6e69db9d28386f7542dacd3e3ead28eacf2a4",
+   "nombre": "SUPER STREET FIGHTER2 The New Challengers",
+   "serie": "GM T-12056 -00",
+   "region": "U",
+   "perifericos": "J6",
+   "kb": 5120,
+   "sram": "no",
+   "ssf2": true,
+   "interprete_s": 1.6,
+   "colores": 38,
+   "dominante": 0.548,
+   "thumb": "gsuperstreetfightere074fd.png",
+   "capturas": [
+    5,
+    38,
+    36
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 48848,
+      "pct_rom": 3.32,
+      "funciones": 228,
+      "compilacion_s": 37.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 14.5,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 10.9,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 48848,
+      "pct_rom": 3.32,
+      "funciones": 228,
+      "compilacion_s": 35.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 9.8,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.3,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 33.2,
+    "velocidad_interprete_x": 26.0,
+    "total_s": 127.4
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.998779296875,
+      "img": 0.8892299107142857
+     },
+     "genrecomp-blastem": {
+      "ram": 0.998779296875,
+      "img": 0.8694545200892857
+     },
+     "gpgx-blastem": {
+      "ram": 0.9999237060546875,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.99993896484375,
+      "img": 1.0
+     },
+     "genrecomp-blastem": {
+      "ram": 0.999908447265625,
+      "img": 1.0
+     },
+     "gpgx-blastem": {
+      "ram": 0.999908447265625,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Vectorman (USA, Europe).md",
+   "sha1": "57a64d08028b539dc236a693d383f2e1269a5dd4",
+   "nombre": "VECTORMAN",
+   "serie": "GM MK-1577 -00",
+   "region": "F",
+   "perifericos": "J",
+   "kb": 2048,
+   "sram": "no",
+   "ssf2": false,
+   "interprete_s": 2.0,
+   "colores": 70,
+   "dominante": 0.109,
+   "thumb": "gvectormanfb3648.png",
+   "capturas": [
+    17,
+    70,
+    18
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 59953,
+      "pct_rom": 11.39,
+      "funciones": 286,
+      "compilacion_s": 51.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 14.7,
+        "ciclos_recompilados_pct": 93.7,
+        "interpretadas": 557
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.6,
+        "ciclos_recompilados_pct": 96.3,
+        "interpretadas": 389
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 60831,
+      "pct_rom": 11.57,
+      "funciones": 290,
+      "compilacion_s": 51.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 14.3,
+        "ciclos_recompilados_pct": 93.9,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.3,
+        "ciclos_recompilados_pct": 96.5,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 28.8,
+    "velocidad_interprete_x": 23.4,
+    "total_s": 160.7
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.9956207275390625,
+      "img": 0.9614676339285714
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9953765869140625,
+      "img": 0.9614676339285714
+     },
+     "gpgx-blastem": {
+      "ram": 0.9965972900390625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.995361328125,
+      "img": 0.9198660714285715
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9951934814453125,
+      "img": 0.9148716517857143
+     },
+     "gpgx-blastem": {
+      "ram": 0.996673583984375,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "juego": "Wonder Boy in Monster World (USA, Europe).md",
+   "sha1": "87a968f773c7e807e647c0737132457b06b78276",
+   "nombre": "WONDER BOY in Monster world",
+   "serie": "GM G-4060  -00",
+   "region": "UE",
+   "perifericos": "J",
+   "kb": 768,
+   "sram": "$200001-$200001 (tipo $E8, con batería)",
+   "ssf2": false,
+   "interprete_s": 2.7,
+   "colores": 42,
+   "dominante": 0.518,
+   "thumb": "gwonderboyinmonster49c454.png",
+   "capturas": [
+    42,
+    42,
+    42
+   ],
+   "interprete": "ok",
+   "etapa2": {
+    "fases": [
+     {
+      "ronda": 1,
+      "instrucciones": 23040,
+      "pct_rom": 9.8,
+      "funciones": 113,
+      "compilacion_s": 21.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 11.7,
+        "ciclos_recompilados_pct": 99.9,
+        "interpretadas": 131
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.6,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 131
+       }
+      ]
+     },
+     {
+      "ronda": 2,
+      "instrucciones": 23291,
+      "pct_rom": 9.92,
+      "funciones": 117,
+      "compilacion_s": 30.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.8,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 11.7,
+        "ciclos_recompilados_pct": 100.0,
+        "interpretadas": 0
+       }
+      ]
+     }
+    ],
+    "resultado": "ok",
+    "velocidad_x": 35.3,
+    "velocidad_interprete_x": 25.9,
+    "total_s": 108.0
+   },
+   "oraculos": {
+    "600": {
+     "genrecomp-gpgx": {
+      "ram": 0.955291748046875,
+      "img": 0.22954450334821427
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9552459716796875,
+      "img": 0.22862025669642858
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998931884765625,
+      "img": 1.0
+     }
+    },
+    "1200": {
+     "genrecomp-gpgx": {
+      "ram": 0.9545135498046875,
+      "img": 0.22576032366071427
+     },
+     "genrecomp-blastem": {
+      "ram": 0.9544677734375,
+      "img": 0.22483607700892858
+     },
+     "gpgx-blastem": {
+      "ram": 0.9998931884765625,
+      "img": 1.0
+     }
+    }
+   }
+  }
+ ]
+}

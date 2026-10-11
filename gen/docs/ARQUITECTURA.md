@@ -66,8 +66,15 @@ Cada acceso del 68000 al bus son 4 ciclos (`m68k_fetch`, `m68k_rd*`, `m68k_wr*`)
 internos van con `m68k_idle`. Los totales por instrucción coinciden con las SingleStepTests en todos
 los casos. El orden de los accesos dentro de una instrucción coincide en el 78 % de los casos
 (`m68ktest --bus`); lo que falta es sobre todo si una escritura va antes o después del último prefetch
-(4 ciclos dentro de la misma instrucción), que se afinará cuando el VDP lo haga visible (fase 3).
-El VDP y el audio serán perezosos.
+(4 ciclos dentro de la misma instrucción).
+
+El 68000 además espera al VDP (la FIFO llena, ver VDP) y al refresco de la DRAM: 2 ciclos cada 128,
+cobrados en el límite de instrucción (`gen_after_step_inline`), para que el intérprete y el código
+generado cuenten igual. Las dos cosas se ajustaron contra los oráculos (`tools/oracles/`): en los
+23 juegos de `roms/` y Overdrive, cuadros 600 y 1200, el parecido medio con Genesis Plus GX pasó de
+98,84 a 99,75 % de la RAM y de 89,6 a 95,6 % de la imagen; con BlastEm, de 98,89 a 99,69 % y de 85,3 a
+90,4 % (los dos emuladores entre sí: 99,86 % y 92,7 %). La proporción del refresco se eligió entre 1/256
+y 3/128 por ese mismo número; lo que importa es la proporción (64:1 da lo mismo que 128:2).
 
 ## Interrupciones y despachador
 
@@ -275,7 +282,8 @@ espejos; un byte escrito va en las dos mitades) y RAM en `$E00000-$FFFFFF`. Cada
 Lo que no responde devuelve el último valor del bus de **datos**: no el del prefetch, para que el
 intérprete y el código generado (que no lee programa del bus) lean lo mismo.
 
-Sin emular todavía: los ciclos de espera al tocar el bus del Z80 y el refresco de la DRAM.
+El refresco de la DRAM le quita al 68000 2 ciclos cada 128 (ver Temporización). Sin emular todavía:
+los ciclos de espera al tocar el bus del Z80.
 
 ### Mappers
 
@@ -337,7 +345,10 @@ bytes; CRAM; VSRAM; lecturas con los bits sin usar del bus) con el incremento de
 DMA: desde el bus del 68000 (la fuente da la vuelta en 128 KB; el 68000 queda detenido lo que dura,
 según los accesos por línea: 18/205 en H40 y 16/167 en H32, con imagen o en el VBLANK), relleno (tras la
 escritura en el puerto de datos, el byte alto en VRAM o la palabra en CRAM/VSRAM) y copia de VRAM; los
-dos últimos dejan el bit de DMA del estado mientras duran. Estado (FIFO vacía, F, desborde y colisión
+dos últimos dejan el bit de DMA del estado mientras duran. FIFO de 4 escrituras: el VDP las atiende en
+sus ranuras de acceso (las mismas 18/205 y 16/167 por línea; una escritura en VRAM ocupa dos, va de a
+byte); con las 4 ocupadas el 68000 espera, y antes de leer el puerto de datos espera a que se vacíe (la
+memoria se escribe en el momento: solo se emula la espera). Estado (FIFO vacía y llena, F, desborde y colisión
 de sprites, cuadro impar, VBLANK, HBLANK, DMA, PAL), contador HV (la V salta de `$EA` a `$E5`; la H
 recorre los valores de H40 o H32 repartidos parejo en la línea) y el reloj de líneas: VINT al empezar la
 línea 224 y HINT por el contador del registro 10 (baja en las líneas 0-224 y se recarga en las demás).
@@ -352,8 +363,7 @@ ella; luego el fondo), sombra y resalte (operadores con los colores 14 y 15 de l
 izquierda en blanco y pantalla apagada. `fb` guarda por pixel el color de 9 bits y el modo (normal,
 sombra, resalte); `vdp_argb` lo pasa a ARGB con los niveles no lineales de la consola.
 
-Sin emular todavía: la FIFO (las escrituras del 68000 no esperan y el estado dice siempre "vacía"),
-el orden exacto de los accesos del 68000 dentro de una instrucción (78 % con `m68ktest --bus`), el
+Sin emular todavía: el orden exacto de los accesos del 68000 dentro de una instrucción (78 % con `m68ktest --bus`), el
 modo 2 de entrelazado (doble resolución, como el 2 jugadores de Sonic 2), el modo 4 (SMS) y la
 posición exacta de HINT/VINT y del HBLANK dentro de la línea. Las orillas del DMA de relleno (qué pasa
 con el primer y el último byte) no están confirmadas con hardware.
@@ -482,6 +492,34 @@ prueba, con la demo Overdrive (600 cuadros) y con Sonic 1 si está (1200 cuadros
 traza: 100 % de los ciclos en código recompilado, y la cobertura sin traza de lo que ejecuta debe ser
 de 99 % o más). Y las herramientas de análisis de `genrecomp` con la ROM mínima (`--why`, `--viz`,
 `--codemap`, `--events`, `--html`, `--dis`).
+
+### Oráculos y compatibilidad
+
+`tools/oracles/` compara contra dos emuladores de referencia, Genesis Plus GX y BlastEm, como núcleos
+libretro. No van en el repositorio (Genesis Plus GX tiene una licencia no comercial; BlastEm es GPL-3):
+`oracle.py` los baja la primera vez de la compilación nocturna de buildbot.libretro.com a
+`build/oracles/` y anota el SHA-256 de lo que bajó. `retro_run` (C, `make build/retro_run`) es un
+frontend libretro mínimo sin ventana: declara solo la parte pública de la API que usa
+(`libretro_min.h`), toma las entradas de `cli.h` (`--frames`, `--input`, `--seed`, `boton:desde-hasta`)
+y asigna los botones por las descripciones que publica cada núcleo ("A", "Start", "Mode"...: cada uno
+los acomoda distinto en el mando de libretro). Da la misma salida que `ramdump` (con `--swap16`: los dos
+guardan la RAM en palabras de 16 bits de la máquina) o una captura (`--shot`).
+
+```
+python3 tools/oracles/oracle.py compare rom.bin --frames 1200 start:120-125 [--png carpeta]
+python3 tools/oracles/oracle.py ramdump gpgx rom.bin --frames 600
+```
+
+`compare` da el parecido de la RAM del 68000 y de la imagen del último cuadro entre GENRecomp y cada
+oráculo, y entre ellos (con tolerancia por canal en la imagen: cada emulador convierte el color de 9 bits
+a 8 bits a su manera). No se espera igualdad exacta: los dos emuladores difieren entre sí en la
+temporización fina, y en un juego con entradas en cuadros fijos eso cambia en qué momento cae cada
+botón. Sirven para medir si un cambio de temporización acerca o aleja (así se ajustaron la FIFO del VDP y
+el refresco de la DRAM) y para encontrar diferencias grandes que no son de tiempos.
+
+`tools/compat/run.py [carpeta] [--oraculos]` corre la prueba de compatibilidad (etapa 1 con el
+intérprete y capturas; etapa 2 recompilando sin traza con `difftest` y `bench`; los oráculos) y
+`tools/compat/report.py` arma `docs/compat/index.html`. El resumen está en `docs/COMPATIBILIDAD.md`.
 
 ### Resultados con juegos
 

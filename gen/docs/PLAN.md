@@ -34,13 +34,14 @@ mismo contrato de línea de comandos.
   VINT/HINT) para correr juegos reales: Sonic 1 llega a jugar el nivel con el intérprete y Super
   Street Fighter II corre con su mapper. EEPROM serie I2C con base de datos por juego (por ahora NBA
   Jam, comprobado: guarda y acepta su partida). `bustest` y `genrun` (con `--watch` y `--sram`).
-  Pendiente: más juegos con EEPROM, mappers sin licencia, esperas del bus del Z80 y refresco de la
-  DRAM.
+  Pendiente: más juegos con EEPROM, mappers sin licencia y esperas del bus del Z80 (el refresco de la
+  DRAM llegó en la fase 9).
 - [x] **3. VDP.** Puertos, los tres DMA (el del 68000 lo detiene lo que dura), estado, contador HV,
   dibujo por línea (planos con todos los scrolls, ventana, sprites con sus límites, máscara y colisión,
   prioridades, sombra y resalte), perezoso. Ventana `gen` (menús, controles de 6 botones, aspecto 4:3,
   capturas; icono `MD.png` de KyleBing, CC BY 4.0). `vdptest`, `genrun --shot/--shots`. Sonic 1, SSF2 y
-  NBA Jam se ven bien. Pendiente: FIFO, orden exacto de los accesos del 68000, entrelazado doble,
+  NBA Jam se ven bien. Pendiente: orden exacto de los accesos del 68000, entrelazado doble (la FIFO
+  llegó en la fase 9),
   posición exacta de HINT/VINT/HBLANK en la línea.
 - [ ] **PAL**: 312 líneas y 50 Hz. Lo piden los juegos solo europeos (Street Fighter II' de Europa) y
   las demos Overdrive.
@@ -84,8 +85,12 @@ mismo contrato de línea de comandos.
   línea. Sonic 1: intérprete de 11.6x a 20.3x, recompilado de 14.9x a 28.2x; los demás juegos medidos,
   28-31x. No se hizo (no pesa): vida de los flags del CCR, encadenar funciones sin el despachador,
   `-DGEN_MAPPER`, saltar los bucles de espera del VBLANK.
-- [ ] **9. Compatibilidad y documentación.** `tools/compat` con el set No-Intro, `COMPATIBILIDAD.md`,
-  oráculos (BlastEm y/o Genesis Plus GX) en `tools/oracles/`.
+- [x] **9. Compatibilidad y documentación.** Oráculos: Genesis Plus GX y BlastEm como núcleos libretro
+  (`tools/oracles/`: `retro_run`, frontend sin ventana con las entradas de las herramientas; `oracle.py`
+  los baja y compara RAM e imagen). Con ellos se encontró que el 68000 corría algo rápido y se
+  agregaron la FIFO del VDP y el refresco de la DRAM (más parecido con los dos). `tools/compat/` (etapa 1
+  con el intérprete, etapa 2 recompilando sin traza, oráculos) y `docs/COMPATIBILIDAD.md` con
+  `docs/compat/index.html`. Pendiente: una colección grande (No-Intro) cuando la haya; PAL.
 
 ## Comparación con SonicTheHedgehogRecomp (mstan/segagenesisrecomp)
 

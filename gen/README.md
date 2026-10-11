@@ -10,8 +10,8 @@ intérprete.
 Por ahora solo NTSC (el Genesis de EE. UU., 60 Hz): los juegos y demos que exigen PAL esperan a
 que esté hecho.
 
-**Estado: fase 8 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas,
-el recompilador, la cobertura sin traza y el rendimiento). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: las 9 fases del plan están hechas** (falta PAL). Los 23 juegos probados corren en el intérprete
+y recompilados sin traza, sin diferencias con el intérprete: ver [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -28,9 +28,12 @@ el recompilador, la cobertura sin traza y el rendimiento). El plan completo est�
 - **Cobertura:** sin traza, el análisis encuentra las tablas de saltos y los punteros a código: entre
   el 93 y el 100 % de lo que ejecutan los juegos de `roms/` (Sonic 1: 100 %). `--why`, `--viz`,
   `--html` y `--coverage` muestran qué se encontró y por qué.
-- **Velocidad:** recompilado, de 28 a 31 veces el tiempo real (el intérprete, de 20 a 23); lo que más
-  pesa ahora es el dibujo del VDP, el Z80 y el YM2612. `sh tests/golden.sh` comprueba que una
+- **Velocidad:** recompilado, de 24 a 46 veces el tiempo real, 30 de media (el intérprete, de 16 a 33);
+  lo que más pesa ahora es el dibujo del VDP, el Z80 y el YM2612. `sh tests/golden.sh` comprueba que una
   optimización no cambie ni un bit de la imagen ni del sonido.
+- **Oráculos:** `tools/oracles/` compara la RAM y la imagen contra Genesis Plus GX y BlastEm (núcleos
+  libretro que se bajan a `build/oracles/`, no van en el repo); con ellos se ajustaron la FIFO del VDP y el
+  refresco de la DRAM. `tools/compat/run.py` corre la prueba de compatibilidad con una carpeta de ROMs.
 
 ## Compilar
 
@@ -127,8 +130,8 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `ramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
-| `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
-| `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
+| `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
+| `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |

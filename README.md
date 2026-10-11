@@ -42,7 +42,7 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `nesshot` / `gbshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
 | `nesaudio` / `gbaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
 | `nesbench` / `gbbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
-| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo]` |
+| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` |
 | `nesrecomp` / `gbrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz`, `--events`, `--why`, `--coverage` |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre

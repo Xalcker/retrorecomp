@@ -242,7 +242,8 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las
   demos son la meta más exigente (Overdrive 1 corre pero avisa que necesita PAL; Overdrive 2 queda en
   negro). El 240p Test Suite (GPL) no se baja solo: su ROM compilada está en itch.io y compilarla pide
-  SGDK; se puede poner a mano en `testroms/`.
+  SGDK; se pone a mano en `testroms/240p/`. La versión 1.21 corre: menú principal, submenús y detecta
+  "NTSC VDP 320x224p".
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
   ROM, versión, bus del Z80, mandos de 3 y 6 botones, SRAM y guardarla, EEPROM serie (escritura,

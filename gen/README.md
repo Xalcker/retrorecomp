@@ -79,7 +79,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `contract.sh` (el mismo archivo en los tres repos). |
-| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y las demos Overdrive 1 y 2 de Titan (scene.org). No se versionan. |
+| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
 ## Créditos

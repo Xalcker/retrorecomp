@@ -263,7 +263,8 @@ function applyCaps(){
   const sy=S.state.systems[S.sys]; if(!sy) return;
   const c=sy.caps; ORG=sy.legend;
   const show=(sel,on)=>$$(sel).forEach(e=>e.classList.toggle("cap-hide",!on));
-  show(".cap-model",c.model);show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);show(".cap-frames",!c.notrace);
+  show(".cap-model",c.model);show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);
+  if($("#gFrames").dataset.sys!==S.sys){$("#gFrames").value=c.game_frames||6000;$("#gFrames").dataset.sys=S.sys}
   legend();
 }
 

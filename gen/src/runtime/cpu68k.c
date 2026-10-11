@@ -322,6 +322,30 @@ out:
     g->jb = prev;
 }
 
+/* Como m68k_run, pero antes de cada instrucción prueba native(): el código recompilado. native()
+ * devuelve 0 si no tiene esa instrucción (la ejecuta el intérprete), 1 si corrió (y ya puso al día
+ * VDP y Z80 tras cada instrucción) y 2 si además terminó el cuadro. Solo se llama sin interrupción
+ * pendiente, sin traza, sin STOP y con el CPU andando: eso lo atiende el intérprete. */
+void m68k_run_hybrid(struct Gen *g, int (*after)(struct Gen *), int (*native)(struct Gen *))
+{
+    if (!kind_ready) kinds_init();
+    jmp_buf jb;
+    void *prev = g->jb;
+    g->jb = &jb;
+    if (setjmp(jb) && after(g)) goto out;
+    for (;;) {
+        if (m68k_native_ok(&g->cpu)) {
+            int r = native(g);
+            if (r == 2) break;
+            if (r) continue;
+        }
+        step_body(g);
+        if (after(g)) break;
+    }
+out:
+    g->jb = prev;
+}
+
 void m68k_reset(struct Gen *g)
 {
     M68k *c = &g->cpu;

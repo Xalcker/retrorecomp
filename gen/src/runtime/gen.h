@@ -226,6 +226,8 @@ typedef struct Gen {
     Audio audio;
     u16  open_bus;              /* último valor en el bus de datos (lo que leen las direcciones sin nada) */
     u32  exc_count[64];         /* excepciones atendidas por vector (estadística) */
+    u64  cyc_recomp;            /* ciclos del 68000 en código recompilado (estadística) */
+    u64  recomp_calls;          /* entradas al código recompilado (estadística) */
     u32 *trace;                 /* NULL, o por cada palabra de ROM: 0 = no ejecutada; si no, $80000000 | dirección */
     u8   ram[0x10000];          /* RAM del 68000: $FF0000-$FFFFFF (y sus espejos desde $E00000) */
     u8   zram[0x2000];          /* RAM del Z80 */
@@ -235,7 +237,9 @@ typedef struct Gen {
 int  gen_load(Gen *g, const u8 *data, size_t len, const char **err);
 void gen_free(Gen *g);
 void gen_reset(Gen *g);                 /* reset de la consola */
-void gen_run_frame(Gen *g);             /* corre hasta terminar el cuadro (con el intérprete) */
+void gen_run_frame(Gen *g);             /* corre hasta terminar el cuadro (con GEN_RECOMP, con el código recompilado) */
+extern int gen_force_interp;            /* con GEN_RECOMP: 1 = solo el intérprete */
+long gen_code_offset(const Gen *g, u32 pc);     /* desplazamiento en la ROM del código en pc, o -1 */
 void gen_after_step(Gen *g);            /* VDP y Z80 al ciclo del 68000 (tras cada instrucción) */
 int  gen_sram_load(Gen *g, const char *path);  /* 1 si se cargó; 0 si no aplica o falló */
 int  gen_sram_save(Gen *g, const char *path);

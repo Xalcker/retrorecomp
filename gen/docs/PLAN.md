@@ -58,10 +58,17 @@ mismo contrato de línea de comandos.
   decía el plan: `gentrace`, `genshot` (`--expect`, `--hash`), `genaudio`,
   `genbench`, `ramdump`, `statetest`, `sramtest`, `inputtest`; `cli.h` e `inputs.h` con 8 botones
   (A B C X Y Z START MODE) sin romper el formato común. `contract.sh` con sus comprobaciones.
-- [ ] **6. Recompilador v1.** Descubrimiento desde los vectores siguiendo `bra/bsr/Bcc/DBcc/jmp/jsr`
-  constantes; emisión por instrucción (`FRAME`, `ICHK`, `LEAVE`, `MAPCHK` solo con SSF2); despacho por
-  desplazamiento de ROM; el código en RAM lo corre el intérprete; `difftest` (68k, RAM, VDP, Z80,
-  YM, PSG, imagen y audio).
+- [x] **6. Recompilador v1.** `genrecomp juego.bin -o carpeta [--name] [--trace] [--coverage]`:
+  descubrimiento desde los vectores siguiendo `BRA/BSR/Bcc/DBcc` y `JMP/JSR` constantes, más las
+  trazas; funciones por tramos de ROM dentro de un banco de 512 KB; emisión por instrucción con los
+  `k_*` de `m68k_ops.h` (`AFTER`, `LEAVE`, `MAPCHK` con SSF2 o SRAM encima de la ROM); despacho por
+  desplazamiento de ROM (`recomp_lookup`, `gen_code_offset`); el código en RAM y las interrupciones
+  los atiende el intérprete (`m68k_run_hybrid`). Proyecto generado sin datos de la ROM (SHA1), con la
+  ventana, `difftest` (68000, RAM, VDP, Z80, YM2612, PSG, imagen y audio, `--uncovered`, `--bench`,
+  `--screens`, `--executed`) y `bench`. Los 23 juegos de `roms/` dan 1800 cuadros iguales al
+  intérprete (con traza de otras entradas) y Sonic 1 corre el 100 % de los ciclos en código
+  recompilado. Pendiente: encontrar sin traza lo que se alcanza por saltos indirectos (fase 7) y la
+  velocidad (fase 8: Sonic 1, 14.9x contra 11.7x del intérprete).
 - [ ] **7. Heurísticas de cobertura.** Tablas `move.w tbl(pc,d0.w)` + `jmp tbl(pc,d1.w)`, tablas de
   `bra.w`, tablas de punteros de 32 bits, trampolines `jmp` en RAM; plausibilidad por opcodes
   ilegales; `--trace`, `--coverage`, `--why`, `--viz`, `--html`, `--codemap`, `coverage.sh`.

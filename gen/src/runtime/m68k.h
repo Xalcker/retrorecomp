@@ -38,10 +38,18 @@ uint16_t m68k_peek16(struct Gen *g, uint32_t addr);         /* sin efectos ni ci
 void     m68k_reset_line(struct Gen *g);                    /* instrucción RESET: reinicia los periféricos */
 void     m68k_int_ack(struct Gen *g, int level);            /* el CPU atiende una interrupción de ese nivel */
 
+/* ¿Puede seguir el código recompilado? No con una interrupción pendiente, el modo traza, STOP o el
+ * CPU detenido: eso lo atiende el intérprete */
+static inline int m68k_native_ok(const M68k *c)
+{
+    return !(c->halted | c->stopped | c->t | c->nmi_edge) && c->ipl <= c->ipm;
+}
+
 /* Intérprete (cpu68k.c) */
 void     m68k_reset(struct Gen *g);                         /* reset del CPU: SSP y PC de los vectores 0 y 1 */
 int      m68k_step(struct Gen *g);                          /* una instrucción (o la interrupción pendiente); ciclos */
 void     m68k_run(struct Gen *g, int (*after)(struct Gen *));   /* instrucciones hasta que after() devuelva != 0 */
+void     m68k_run_hybrid(struct Gen *g, int (*after)(struct Gen *), int (*native)(struct Gen *));   /* con código recompilado */
 uint16_t m68k_get_sr(const M68k *c);
 void     m68k_set_sr(M68k *c, uint16_t sr);
 int      m68k_decode(uint16_t op);                          /* K_* de la instrucción (K_ILLEGAL si no es válida) */

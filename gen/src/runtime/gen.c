@@ -90,12 +90,36 @@ static int frame_after(Gen *g)
     return g->vdp.frame_done;
 }
 
+int gen_force_interp;
+
+#ifdef GEN_RECOMP
+#include "recomp.h"
+/* Código recompilado donde lo hay; el intérprete en el resto (RAM, lo no descubierto) */
+static int native(Gen *g)
+{
+    if (gen_force_interp) return 0;
+    RecompFn fn = recomp_lookup(g, g->cpu.pc);
+    if (!fn) return 0;
+    u64 c0 = g->cyc;
+    int r = fn(g);
+    if (r) { g->cyc_recomp += g->cyc - c0; g->recomp_calls++; }
+    return r;
+}
+
+void gen_run_frame(Gen *g)
+{
+    g->vdp.frame_done = 0;
+    m68k_run_hybrid(g, frame_after, native);
+    audio_end_frame(g);
+}
+#else
 void gen_run_frame(Gen *g)
 {
     g->vdp.frame_done = 0;
     m68k_run(g, frame_after);
     audio_end_frame(g);
 }
+#endif
 
 int gen_sram_load(Gen *g, const char *path)
 {

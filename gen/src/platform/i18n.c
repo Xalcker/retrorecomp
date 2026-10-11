@@ -116,12 +116,23 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "Your %s ROM is needed to play.\n"
         "Drag it onto the window (or close it to quit).",
     },
+    [T_ROM_WRONG_FMT] = {
+        "\"%s\" no es la ROM de %s que se recompiló.\n"
+        "Se necesita la que tiene SHA1 %s.",
+        "\"%s\" is not the %s ROM that was recompiled.\n"
+        "The one with SHA1 %s is needed.",
+    },
     [T_ROM_UNREADABLE_FMT] = { "No se pudo leer \"%s\".", "Could not read \"%s\"." },
     [T_ROM_BAD_FMT]  = { "\"%s\": %s", "\"%s\": %s" },
     [T_NO_DATA_DIR]   = { "No se pudo crear la carpeta de datos del juego.",
                           "Could not create the game's data folder." },
     [T_SAVE_FAILED_FMT] = { "No se pudo guardar la partida en\n%s", "Could not save the game to\n%s" },
     [T_RECORD_FAILED] = { "No se pudo crear el archivo de grabación.", "Could not create the recording file." },
+    [T_RECOMP_STATS_FMT] = {
+        "\n\nCódigo recompilado: %u instrucciones, %.1f%% de los ciclos",
+        "\n\nRecompiled code: %u instructions, %.1f%% of cycles",
+    },
+    [T_RECOMP_OFF] = { "Solo el intérprete (--interp u otra ROM)", "Interpreter only (--interp or another ROM)" },
 };
 
 static const char *const names[LANG_COUNT] = { "Español", "English" };

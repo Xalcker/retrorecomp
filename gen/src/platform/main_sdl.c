@@ -1,9 +1,15 @@
 /*
  * Capa de plataforma con SDL2 para GENRecomp: ventana con barra de menús, controles (teclado y
- * mandos), sonido estéreo a 44 100 Hz, estados guardados y ritmo de 59.92 cuadros por segundo. Por
- * ahora la usa el intérprete (`gen`); los juegos recompilados llegan en la fase 6.
+ * mandos), sonido estéreo a 44 100 Hz, estados guardados y ritmo de 59.92 cuadros por segundo. La
+ * usan el intérprete (`gen`) y los juegos que genera genrecomp (con -DGEN_RECOMP).
  *
  * Uso: gen [rom.bin] [--scale N] [--tmss] [--record archivo | --play archivo] [--trace archivo]
+ * Recompilado: juego [rom.bin] [--interp] [--force] [--uncovered archivo] y las mismas opciones. La
+ *   ROM se busca en el argumento, en la copia que se guarda la primera vez, en rom.bin junto al
+ *   ejecutable o en la carpeta actual, y si no, se pide; debe tener el SHA1 que se recompiló.
+ *   --interp     solo el intérprete (para comparar)
+ *   --force      acepta otra ROM (corre con el intérprete)
+ *   --uncovered  como --trace: lo que el intérprete tuvo que ejecutar (para genrecomp --trace)
  *   --tmss    consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP)
  *   --record  graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
  *   --play    reproduce un archivo grabado (el teclado se ignora)
@@ -24,6 +30,11 @@
  */
 #include <SDL.h>
 
+#ifdef GEN_RECOMP
+#include <dirent.h>
+#include "recomp.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +48,7 @@
 #include "inputs.h"
 #include "png.h"
 #include "settings.h"
+#include "sha1.h"
 #include "ui_font.h"
 #include "ui_menu.h"
 
@@ -70,6 +82,7 @@ typedef struct {
     Rom rom;                /* se conserva para reiniciar */
     int loaded;
     int tmss;
+    int interp_only;        /* recompilado: solo el intérprete (--interp, o la ROM es otra) */
 
     char name[96];          /* nombre del juego (archivos y título) */
     char title[96];         /* nombre para mostrar */
@@ -147,17 +160,36 @@ static void set_game(App *app, const char *path)
 /* ROM                                                                 */
 /* ------------------------------------------------------------------ */
 
-/* 1: ROM buena; -1: ilegible; -2: no es una ROM que sepamos correr (el motivo en *why) */
+/* 1: ROM buena; 0: (recompilado) es otra ROM; -1: ilegible; -2: no es una ROM que sepamos correr
+ * (el motivo en *why). El SHA1 es el de la ROM ya normalizada: .bin y .smd del mismo juego sirven. */
 static int load_rom(const char *path, Rom *rom, const char **why)
 {
+    const char *unused;
+    if (!why) why = &unused;
     rom->data = u8_read_file(path, &rom->size);
     if (!rom->data) return -1;
     size_t n;
     int fmt;
     u8 *img = cart_normalize(rom->data, rom->size, &n, &fmt, why);
     if (!img) return -2;
+#ifdef GEN_RECOMP
+    char sha1[41];
+    sha1_hex(img, n, sha1);
+    free(img);
+    return strcmp(sha1, recomp_rom_sha1) == 0;
+#else
     free(img);
     return 1;
+#endif
+}
+
+static void wrong_rom_message(const char *path, char *msg, size_t size)
+{
+#ifdef GEN_RECOMP
+    snprintf(msg, size, tr(T_ROM_WRONG_FMT), path, recomp_name, recomp_rom_sha1);
+#else
+    snprintf(msg, size, tr(T_ROM_UNREADABLE_FMT), path);
+#endif
 }
 
 /* Espera a que arrastren un archivo a la ventana (o a que la cierren) */
@@ -195,6 +227,7 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
         if (r == 1) return 1;
         free(rom->data);
         if (r == -2) snprintf(msg, sizeof msg, tr(T_ROM_BAD_FMT), path_out, why);
+        else if (r == 0) wrong_rom_message(path_out, msg, sizeof msg);
         else snprintf(msg, sizeof msg, tr(T_ROM_UNREADABLE_FMT), path_out);
         inform(msg);
     }
@@ -253,6 +286,7 @@ static int switch_rom(App *app, const char *path)
     int r = load_rom(path, &rom, &why);
     if (r != 1) {
         if (r == -2) snprintf(msg, sizeof msg, tr(T_ROM_BAD_FMT), path, why);
+        else if (r == 0) wrong_rom_message(path, msg, sizeof msg);
         else snprintf(msg, sizeof msg, tr(T_ROM_UNREADABLE_FMT), path);
         if (r != -1) free(rom.data);
         menubar_close(&app->bar);
@@ -264,7 +298,9 @@ static int switch_rom(App *app, const char *path)
     free(app->rom.data);
     app->rom = rom;
     snprintf(app->rom_path, sizeof app->rom_path, "%s", path);
+#ifndef GEN_RECOMP
     set_game(app, path);
+#endif
     power_on(app);
     app->win_title[0] = 0;
     return 1;
@@ -424,8 +460,10 @@ static char size_labels[6][40], volume_labels[4][40], chan_labels[6][40], slot_l
 static void build_menus(App *app)
 {
     int n = 0, k = 0;
+#ifndef GEN_RECOMP
     ITEM(menu_game, n, tr(T_OPEN_ROM), "Ctrl+O", A_OPEN_ROM, ITEM_ACTION);
     SEPARATOR(menu_game, n);
+#endif
     ITEM(menu_game, n, tr(T_RESET), "Ctrl+R", A_RESET, ITEM_ACTION);
     ITEM(menu_game, n, tr(T_PAUSE), "P", A_PAUSE, ITEM_CHECK);
     SEPARATOR(menu_game, n);
@@ -558,6 +596,13 @@ static void game_info(App *app)
     snprintf(text, sizeof text, tr(T_GAME_TEXT_FMT), c->hdr.name_int[0] ? c->hdr.name_int : app->title,
              c->hdr.serial, c->hdr.region, (int)(c->rom_size / 1024), c->mapper == MAPPER_SSF2 ? ", SSF2" : "",
              saves, c->sha1, folder);
+#ifdef GEN_RECOMP
+    size_t tl = strlen(text);
+    const Gen *g = app->gen;
+    if (app->interp_only) snprintf(text + tl, sizeof text - tl, "\n\n%s", tr(T_RECOMP_OFF));
+    else snprintf(text + tl, sizeof text - tl, tr(T_RECOMP_STATS_FMT), recomp_instructions,
+                  g->cyc ? 100.0 * (double)g->cyc_recomp / (double)g->cyc : 0.0);
+#endif
     message(app, tr(T_GAME_TITLE), text);
 }
 
@@ -624,7 +669,9 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     int replay = app->play || app->record;
     switch (k->keysym.sym) {
     case SDLK_r:      if (ctrl && !replay) { do_action(app, A_RESET); return 1; } break;
+#ifndef GEN_RECOMP
     case SDLK_o:      if (ctrl && !replay) { do_action(app, A_OPEN_ROM); return 1; } break;
+#endif
     case SDLK_F5:     do_action(app, A_SAVE_STATE); return 1;
     case SDLK_F8:     if (!replay) { do_action(app, A_LOAD_STATE); return 1; } break;
     case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
@@ -922,6 +969,28 @@ static Language detect_language(void)
     return found;
 }
 
+#ifdef GEN_RECOMP
+/* Una ROM de la carpeta actual con el SHA1 esperado */
+static int find_rom_here(Rom *rom, char *path_out, size_t size)
+{
+    DIR *d = opendir(".");
+    if (!d) return 0;
+    struct dirent *e;
+    int found = 0;
+    while (!found && (e = readdir(d))) {
+        const char *dot = strrchr(e->d_name, '.');
+        if (!dot || (SDL_strcasecmp(dot, ".bin") && SDL_strcasecmp(dot, ".md") && SDL_strcasecmp(dot, ".gen") &&
+                     SDL_strcasecmp(dot, ".smd"))) continue;
+        const char *why;
+        int r = load_rom(e->d_name, rom, &why);
+        if (r == 1) { snprintf(path_out, size, "%s", e->d_name); found = 1; }
+        else if (r != -1) free(rom->data);
+    }
+    closedir(d);
+    return found;
+}
+#endif
+
 /* ------------------------------------------------------------------ */
 
 int main(int argc, char *argv[])
@@ -929,7 +998,7 @@ int main(int argc, char *argv[])
     static App app_storage;
     App *app = &app_storage;
     const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
-    int scale_arg = 0, shot_menu = -1, shot_action = 0;
+    int scale_arg = 0, shot_menu = -1, shot_action = 0, force = 0;
     long shot_frames = 300;
     char msg[4096];
     the_app = app;
@@ -939,21 +1008,31 @@ int main(int argc, char *argv[])
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 
     /* Carpeta de datos: partida y preferencias */
+#ifdef GEN_RECOMP
+    app->pref = SDL_GetPrefPath("GENRecomp", recomp_name);
+#else
     app->pref = SDL_GetPrefPath("GENRecomp", "interprete");
+#endif
     if (!app->pref) fail(tr(T_NO_DATA_DIR));
     snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
     snprintf(app->export_dir, sizeof app->export_dir, "%sexportado%c", app->pref, app->pref[strlen(app->pref) - 1]);
     settings_load(&app->cfg, app->settings_path);
     Language lang = i18n_from_code(app->cfg.language);
     i18n_set(lang < LANG_COUNT ? lang : detect_language());
+#ifdef GEN_RECOMP
+    set_game(app, recomp_name);
+#else
     set_game(app, "gen");
+#endif
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--tmss")) app->tmss = 1;
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
-        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) app->trace_path = argv[++i];
+        else if ((!strcmp(argv[i], "--trace") || !strcmp(argv[i], "--uncovered")) && i + 1 < argc) app->trace_path = argv[++i];
+        else if (!strcmp(argv[i], "--interp")) app->interp_only = 1;
+        else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);
@@ -987,18 +1066,54 @@ int main(int argc, char *argv[])
     SDL_RenderClear(app->ren);
     SDL_RenderPresent(app->ren);
 
-    /* ROM: el argumento o pedirla */
+    /* ROM: el argumento; recompilado: la copia guardada, rom.bin junto al ejecutable o aquí, o una
+     * ROM con el SHA1 correcto en esta carpeta; si no, pedirla */
     Rom *rom = &app->rom;
     char found_path[1024] = "";
+    int have = 0, from_cache = 0;
+    (void)from_cache;
     if (rom_arg) {
         const char *why = NULL;
         int r = load_rom(rom_arg, rom, &why);
         if (r == -1) { snprintf(msg, sizeof msg, tr(T_ROM_UNREADABLE_FMT), rom_arg); fail(msg); }
         if (r == -2) { snprintf(msg, sizeof msg, tr(T_ROM_BAD_FMT), rom_arg, why); fail(msg); }
+        if (r == 0) {
+            if (!force) { wrong_rom_message(rom_arg, msg, sizeof msg); fail(msg); }
+            app->interp_only = 1;       /* el código recompilado es de otra ROM */
+        }
         snprintf(found_path, sizeof found_path, "%s", rom_arg);
-    } else if (!ask_for_rom(app, rom, found_path, sizeof found_path)) return 0;
+        have = 1;
+    }
+#ifdef GEN_RECOMP
+    char cache_path[1100];
+    snprintf(cache_path, sizeof cache_path, "%srom.bin", app->pref);
+    if (!have) {
+        if (load_rom(cache_path, rom, NULL) == 1) { have = from_cache = 1; snprintf(found_path, sizeof found_path, "%s", cache_path); }
+        else free(rom->data);
+    }
+    if (!have) {
+        char *base = SDL_GetBasePath();
+        char path[1100];
+        snprintf(path, sizeof path, "%srom.bin", base ? base : "");
+        SDL_free(base);
+        const char *cands[2] = { path, "rom.bin" };
+        for (int k = 0; k < 2 && !have; k++) {
+            if (load_rom(cands[k], rom, NULL) == 1) { have = 1; snprintf(found_path, sizeof found_path, "%s", cands[k]); }
+            else free(rom->data);
+        }
+    }
+    if (!have) have = find_rom_here(rom, found_path, sizeof found_path);
+#endif
+    if (!have && !ask_for_rom(app, rom, found_path, sizeof found_path)) return 0;
     snprintf(app->rom_path, sizeof app->rom_path, "%s", found_path);
+#ifdef GEN_RECOMP
+    /* Copia para las siguientes veces (solo la ROM correcta) */
+    if (!from_cache && !app->interp_only && !u8_write_file(cache_path, rom->data, rom->size))
+        fprintf(stderr, "no se pudo guardar la copia de la ROM en %s\n", cache_path);
+    gen_force_interp = app->interp_only;
+#else
     set_game(app, found_path);
+#endif
     SDL_SetWindowTitle(app->win, app->title);
 
     if (play_path) {

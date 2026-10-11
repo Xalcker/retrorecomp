@@ -115,8 +115,10 @@ z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT)
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h
-EMBED_PLATFORM := random_pad.h png.c png.h files.c files.h export.c export.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h recomp.h
+EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
+                  files.c files.h export.c export.h png.c png.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  random_pad.h difftest.c bench.c
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))

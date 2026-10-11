@@ -38,13 +38,14 @@ else
     echo "(sin testroms/680x0 se omiten las SingleStepTests del 68000: make testroms)"
 fi
 
-# Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana), con una ROM
-# mínima hecha aquí (vectores, "SEGA" en $100 y un bucle en $200)
+# Una ROM mínima hecha aquí (vectores, "SEGA" en $100 y un bucle en $200)
+R=build/tests/minima.bin
+mkdir -p build/tests build/shots
+{ printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '
+  head -c 240 /dev/zero; printf '\140\376'; head -c 510 /dev/zero; } > "$R"
+
+# Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
 if [ -x "$(exe gen)" ]; then
-    R=build/tests/minima.bin
-    mkdir -p build/tests build/shots
-    { printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '
-      head -c 240 /dev/zero; printf '\140\376'; head -c 510 /dev/zero; } > "$R"
     ui=0
     for m in 0 1 2 3 4 5 6; do
         "$(exe gen)" "$R" --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
@@ -64,6 +65,24 @@ if "$(exe genrecomp)" "$D/chica.bin" >/dev/null 2>&1; then echo "FALLA genrecomp
 else echo "ok    genrecomp rechaza un archivo que no es ROM"; fi
 if "$(exe genrecomp)" 2>&1 | grep -q "uso:"; then echo "ok    genrecomp sin argumentos da el uso"
 else echo "FALLA genrecomp sin argumentos"; fallas=$((fallas + 1)); fi
+
+# Recompilar: proyecto generado, compilado (difftest, sin SDL2) y comparado contra el intérprete.
+# Con la ROM mínima siempre; con la demo Overdrive (make testroms) y con Sonic 1 (roms/, con una
+# traza de gentrace para llegar a lo que solo se alcanza por saltos indirectos) si están.
+recompila() {   # nombre rom cuadros [traza]
+    n=$1; rom=$2; nf=$3; tr=$4
+    d=build/tests/proy_$n
+    rm -rf "$d"
+    if [ -n "$tr" ]; then "$(exe gentrace)" "$rom" "$tr" --frames "$nf" --seed 1 start:120-125 start:300-305 >/dev/null 2>&1; set -- --trace "$tr"; else set --; fi
+    if ! "$(exe genrecomp)" "$rom" -o "$d" --name "$n" "$@" >/dev/null 2>&1; then echo "FALLA genrecomp -o con $n"; fallas=$((fallas + 1)); return; fi
+    if ! make -C "$d" -j4 -s difftest >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
+    dt="$d/difftest"; [ -x "$dt.exe" ] && dt="$dt.exe"
+    r=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | tail -1)
+    case "$r" in *"cuadros iguales"*) echo "ok    recompilado $n: $r";; *) echo "FALLA recompilado $n: $r"; fallas=$((fallas + 1));; esac
+}
+recompila minima "$R" 60
+[ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
+for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do [ -f "$r" ] && recompila sonic1 "$r" 1200 build/tests/sonic1_traza.txt; done
 
 # Las ROMs de roms/ (tuyas, no se versionan): genrecomp --info no debe fallar con ninguna
 for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do

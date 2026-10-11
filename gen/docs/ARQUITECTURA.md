@@ -76,28 +76,96 @@ bajo un solo `setjmp` (el error de dirección vuelve ahí; en macOS `setjmp` hac
 y uno por instrucción costaba casi 10 veces el tiempo) y después de cada una llama a `vdp_sync`, que pone las líneas al día y fija el nivel de interrupción del 68000
 (`cpu.ipl`): 6 si hay VINT pendiente y habilitada (registro 1, bit 5), 4 si hay HINT (registro 0, bit
 4). El 68000 la atiende al empezar la instrucción siguiente si el nivel pasa su máscara (autovector,
-como en el Genesis) y avisa con `m68k_int_ack`, que la borra en el VDP. El despachador del código
-generado llega en la fase 6.
+como en el Genesis) y avisa con `m68k_int_ack`, que la borra en el VDP.
+
+En los proyectos generados (`-DGEN_RECOMP`), `gen_run_frame` usa `m68k_run_hybrid`: antes de cada
+instrucción, si el 68000 puede seguir sin el intérprete (`m68k_native_ok`: sin interrupción pendiente,
+sin traza, sin STOP, sin estar detenido), busca código recompilado para el PC (`recomp_lookup`); si no
+lo hay, ejecuta una instrucción con el intérprete. Las interrupciones las atiende siempre el
+intérprete, y el código recompilado sale apenas hay una que atender.
 
 ## Recompilador
 
 ```
+genrecomp juego.bin -o carpeta [--name nombre] [--trace traza.txt ...] [--coverage traza.txt]
 genrecomp juego.bin [--info]
 ```
 
-`--trace` (fase 6) leerá las trazas de `gentrace` o de `gen --trace`: una línea `OFFSET:DIRECCION` en
-hexadecimal por instrucción de ROM ejecutada (el desplazamiento en la ROM normalizada y la dirección
-del 68000 con la que se ejecutó; con SSF2 pueden no coincidir). Las marca el intérprete (`g->trace`).
+`--trace` lee las trazas de `gentrace`, de la ventana con `--trace` y de `difftest --uncovered`: una
+línea `OFFSET:DIRECCION` en hexadecimal por instrucción de ROM ejecutada (el desplazamiento en la ROM
+normalizada y la dirección del 68000 con la que se ejecutó; con SSF2 pueden no coincidir). Las marca
+el intérprete (`g->trace`). `--coverage` dice cuántas instrucciones de una traza se encontraron.
 
 ### Identidad de las instrucciones
 
-Una instrucción se identificará por su desplazamiento en la ROM normalizada. Sin mapper coincide
-con su dirección (`$000000-$3FFFFF`); con el de SSF2, la dirección se traduce con los 8 bancos de 512 KB.
+Una instrucción se identifica por su desplazamiento en la ROM normalizada. Sin mapper coincide con su
+dirección (`$000000-$3FFFFF`, con los espejos de las ROM chicas); con el de SSF2, la dirección se
+traduce con los 8 bancos de 512 KB. `gen_code_offset` hace esa traducción en tiempo de ejecución y
+devuelve -1 si en esa dirección no se lee la ROM (la SRAM encima de la ROM, la EEPROM, la RAM).
 
 ### Descubrimiento
 
-Fase 6. Las semillas son los 64 vectores de `$000000` (`cart_vector`), que `genrecomp --info` ya
-muestra.
+Las semillas son los vectores de `$000000` (`cart_vector`) que apuntan a la ROM, desde `$200` (los
+que valen 0 son de los que no se usan). Desde cada una se siguen las instrucciones hasta un salto sin
+vuelta (`BRA`, `JMP`, `RTS`, `RTE`, `RTR`, `ILLEGAL`, línea A/F), con los destinos constantes de
+`Bcc`, `BRA`, `BSR`, `DBcc` y `JMP`/`JSR` absolutos o relativos al PC. Dentro de un banco de 512 KB el
+destino está en el mismo banco; fuera, se usa el mapeo del arranque. Las instrucciones de las trazas
+se agregan como semillas: así llegan los saltos indirectos (tablas de saltos, punteros en RAM) y los
+bancos de SSF2. Las heurísticas para encontrarlos sin traza son la fase 7.
+
+### Funciones y emisión
+
+Las instrucciones descubiertas se agrupan en funciones: tramos contiguos de ROM (con huecos de hasta
+32 bytes) que no cruzan un banco de 512 KB y de hasta 400 instrucciones. Cada función empieza con un
+`switch` sobre el PC (se puede entrar en cualquiera de sus instrucciones; si el PC no es suyo devuelve
+0) y tiene una etiqueta por instrucción, que llama a su `k_*` de `m68k_ops.h` con el opcode, las
+palabras de extensión (un `static const` por instrucción) y el PC constantes:
+
+```c
+L_000214: /* $000214: 4A79 00C0 0004 */
+    { static const u16 e[2] = { 0x00C0, 0x0004 };
+      npc = k_TST(g, 0x4A79, e, 0x000214); }
+    AFTER(npc);
+    if (npc == 0x00021A) goto L_00021A;
+    LEAVE(npc);
+```
+
+`AFTER` pone al día el VDP y el Z80 (como el intérprete tras cada instrucción) y sale si terminó el
+cuadro o si hay que volver al intérprete (interrupción, traza, STOP). Después se sigue con un `goto`
+si el destino (la siguiente, el de un salto o un `DBcc`) es de la misma función con el mismo mapeo;
+si no, `LEAVE` rehace el PC y la cola de prefetch (`ir`, `irc`, leídas sin efectos con
+`m68k_peek16`) y vuelve al despachador. En los cartuchos que cambian de banco (SSF2, o SRAM encima de
+la ROM) `MAPCHK` sale también si cambió el mapeo (`cart.map_ver`). El error de dirección sale con
+`longjmp`, igual que en el intérprete. El compilador pliega los `switch` de `k_*` sobre el opcode
+constante: queda la instrucción sola.
+
+`gen/dispatch.c` tiene las funciones ordenadas por desplazamiento y una tabla por KB de ROM con la
+primera candidata; `recomp_lookup` traduce el PC con `gen_code_offset` y busca la función que lo
+contiene.
+
+### El proyecto generado
+
+`genrecomp -o carpeta` escribe `runtime/` (el runtime de este repo, que va dentro de `genrecomp`),
+`platform/` (la ventana, `difftest`, `bench`), `gen/` (`code_NNN.c` de unas 3000 instrucciones cada
+uno, para compilar en paralelo, `dispatch.c`, `info.c` con el SHA1 y el nombre, `gen.h`), un
+`Makefile` (con `-DGEN_RECOMP`) y `LEEME.txt`. No lleva datos de la ROM: el ejecutable la busca (el
+argumento, la copia que guarda la primera vez en su carpeta de datos, `rom.bin` junto al ejecutable o
+en la carpeta actual, o cualquier `.bin/.md/.gen/.smd` de la carpeta actual con el SHA1 correcto) o la
+pide, y comprueba el SHA1 de la imagen normalizada. `--interp` corre solo el intérprete, `--force`
+acepta otra ROM (con el intérprete) y `--uncovered archivo` guarda lo que el intérprete tuvo que
+ejecutar. Ayuda → Este juego dice cuántas instrucciones se recompilaron y qué parte de los ciclos
+corrió en código recompilado.
+
+### difftest
+
+`difftest rom.bin [cuadros] [--seed S] [--input archivo] [--uncovered archivo] [--screens carpeta]
+[--bench] [--executed archivo]`, las mismas opciones que en NESRecomp y GBRecomp. La máquina B corre
+función por función (recompilada, o el intérprete donde no hay código); tras cada función la A (solo
+intérprete) avanza hasta el mismo ciclo y se comparan el 68000, los ciclos, la RAM, el VDP (sin la
+imagen), la E/S, la EEPROM, los bancos y la SRAM, el Z80 y su RAM, el PSG, el YM2612, la mezcla de
+audio, el bus abierto y las excepciones atendidas; al final de cada cuadro, también la imagen y el
+audio listo. `--uncovered` escribe en formato de traza lo que B tuvo que interpretar, para volver a
+recompilar con `--trace`.
 
 ## Bancos, mappers y guardado
 
@@ -309,9 +377,22 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   están: Sonic 1 (USA/Europa), que con Start en el título el intérprete llegue a jugar el nivel; NBA
   Jam (USA/Europa), que guarde su EEPROM y la acepte al volver a arrancar. También `vdptest` (puertos,
   los tres DMA, estado, contador V, planos, ventana, sprites con su límite, máscara y desborde,
-  sombra y resalte) y que `gen` dibuje cada menú y cada diálogo sin ventana (`--ui-shot`).
+  sombra y resalte) y que `gen` dibuje cada menú y cada diálogo sin ventana (`--ui-shot`). Y el
+recompilador: generar, compilar (`make difftest`) y pasar `difftest` con una ROM mínima hecha en la
+prueba, con la demo Overdrive (600 cuadros) y con Sonic 1 si está (1200 cuadros, recompilado con una
+traza de `gentrace` y comparado con otras entradas: 100 % de los ciclos en código recompilado).
 
 ### Resultados con juegos
+
+**Recompilado (fase 6).** Con una traza de `gentrace` de 1800 cuadros (semilla 1, Start a los 2 y a
+los 5 s), cada juego de `roms/` se recompila, compila en 5-13 s (`make -j8`) y da 1800 cuadros
+idénticos al intérprete en `difftest` con otra semilla: los 23 (Comix Zone, Contra Hard Corps,
+Earthworm Jim, Ecco, Gunstar Heroes, Wily Wars, Mickey Mania, MK1, MK3, NBA Jam y TE, Phantasy Star IV,
+Ristar, Road Rash II, Sonic 1, 2, 3 y 3 & Knuckles, SF2CE, Streets of Rage 2, SSF2, Vectorman y
+Wonder Boy in Monster World). La parte de los ciclos que corre en código recompilado va del 93 al
+100 %, salvo Road Rash II (75 %: corre código desde la RAM). Sonic 1 con una traza de 3600 cuadros:
+100 % y 14.9 veces el tiempo real contra 11.7 del intérprete (el costo está en poner al día el VDP y
+el Z80 tras cada instrucción y en volver al despachador en cada `RTS`: fase 8).
 
 Con el intérprete, el bus y el VDP: Sonic 1 se ve bien en la pantalla de SEGA, "SONIC TEAM
 PRESENTS", el título (con el emblema y Sonic) y Green Hill (HUD, scroll por capas, agua, enemigos);

@@ -2,15 +2,16 @@
 
 Recompilador estático de juegos de Sega Genesis, con la misma arquitectura que
 [NESRecomp](https://github.com/Xalcker/NESrecomp) y [GBRecomp](https://github.com/Xalcker/GBRecomp):
-toma una ROM y generará un proyecto C99 portable que se compila en un ejecutable nativo con SDL2.
-Será híbrido (código recompilado más un intérprete 68000 de respaldo), sin datos de la ROM en el
+toma una ROM y genera un proyecto C99 portable que se compila en un ejecutable nativo con SDL2.
+Es híbrido (código recompilado más un intérprete 68000 de respaldo), sin datos de la ROM en el
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
 intérprete.
 
 Por ahora solo NTSC (el Genesis de EE. UU., 60 Hz): los juegos y demos que exigen PAL esperan a
 que esté hecho.
 
-**Estado: fase 5 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido y herramientas). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fase 6 de 9** (esqueleto, cartucho, 68000, bus, VDP con ventana, Z80, sonido, herramientas y
+el recompilador). El plan completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **68000:** intérprete con la semántica en un solo lugar (`m68k_ops.h`), que también usará el código
   generado. Pasa las 1 000 058 [SingleStepTests](https://github.com/SingleStepTests/680x0) (estado,
@@ -22,6 +23,11 @@ que esté hecho.
   y resalte. Sonic 1, Super Street Fighter II y NBA Jam se ven bien en la ventana `gen`.
 - **Z80 y sonido:** el Z80 pasa las 1 604 000 SingleStepTests; PSG y YM2612 propios, mezclados a
   44 100 Hz. Se oyen la voz "SEGA" de Sonic 1 y la música de los juegos de `roms/`.
+- **Recompilador:** `genrecomp -o` genera el proyecto; cada instrucción usa la misma semántica que el
+  intérprete. Con una traza del juego, los 23 juegos de `roms/` dan 1800 cuadros idénticos al
+  intérprete en `difftest` (con otras entradas que las de la traza); Sonic 1 corre el 100 % de los
+  ciclos en código recompilado. Sin traza todavía se encuentra poco (Sonic 1: 2081 instrucciones; las
+  tablas de saltos son la fase 7) y aún no es mucho más rápido que el intérprete (fase 8).
 
 ## Compilar
 
@@ -54,10 +60,24 @@ botones), captura (F12) e idioma. `--record`/`--play archivo` graban y reproduce
 flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```
+./gentrace "roms/juego.bin" traza.txt --frames 3600 --seed 1 start:120-125
+./genrecomp "roms/juego.bin" -o juego/ --trace traza.txt
+make -C juego -j
+./juego/juego "roms/juego.bin"
+./juego/difftest "roms/juego.bin" 3600 --seed 2 --uncovered faltante.txt
+```
+
+El recompilador: descubre el código desde los vectores (y la traza, para lo que solo se alcanza por
+saltos indirectos) y escribe un proyecto con el código recompilado, el runtime, la ventana, `difftest`
+y `bench`. El ejecutable no lleva la ROM: la busca o la pide una vez y comprueba su SHA1. `difftest`
+corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
+`--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
+
+```
 ./genrecomp "roms/juego.bin"
 ```
 
-Lee `.bin`, `.md`, `.gen` y `.smd` (deshace el entrelazado; el SHA1 es el de la imagen normalizada,
+Sin `-o` (o con `--info`), lee `.bin`, `.md`, `.gen` y `.smd` (deshace el entrelazado; el SHA1 es el de la imagen normalizada,
 igual para los dos formatos) y muestra el formato, el SHA1, la cabecera de `$100` (nombres, serie,
 región, periféricos), la suma declarada y la calculada, la RAM del cartucho y los vectores de
 excepción, que serán las semillas del descubrimiento.
@@ -79,7 +99,8 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | Comando | Qué hace |
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
-| `genrecomp juego.bin` | El recompilador (por ahora, `--info`). |
+| `genrecomp juego.bin -o carpeta [--name n] [--trace traza] [--coverage traza]` | El recompilador (sin `-o`, `--info`). |
+| `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `OFFSET:DIRECCION`). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
 | `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
@@ -98,9 +119,9 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `recomp.h`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
-| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y `png`, `files`, `export`, `random_pad.h`. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `ramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |

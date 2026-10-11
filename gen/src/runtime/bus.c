@@ -263,6 +263,18 @@ uint16_t m68k_peek16(Gen *g, uint32_t a)
     return 0xFFFF;
 }
 
+/* Desplazamiento en la ROM de la instrucción en `pc`, si se lee de la ROM (no de la SRAM, la EEPROM
+ * ni la RAM); -1 si no. Lo usa el despachador del código generado. */
+long gen_code_offset(const Gen *g, u32 pc)
+{
+    const Cart *c = &g->cart;
+    if (pc >= 0x400000 || sram_window(c, pc) || (c->has_eeprom && (eeprom_owns(c, pc) || eeprom_owns(c, pc + 1))))
+        return -1;
+    u32 o = cart_rom_offset(c, pc);
+    if (c->mapper == MAPPER_NONE) o &= c->rom_mask;
+    return o < c->rom_size ? (long)o : -1;
+}
+
 /* RESET del 68000: en el Genesis no llega a los periféricos que se emulan */
 void m68k_reset_line(Gen *g) { (void)g; }
 

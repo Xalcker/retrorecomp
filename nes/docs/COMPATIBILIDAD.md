@@ -67,11 +67,12 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   se ven bien). Desde entonces la RAM con batería sin estrenar se inicializa a `$FF` (`nes_load`). Efecto en el resto: de las 60 ROMs con batería,
   4 cambian su captura (Pirates!, StarTropics, Zoda's Revenge, Ultima: Warriors of Destiny) y en las que revisé es solo otro estado de partida
   (por ejemplo StarTropics ya no muestra una ranura de guardado ocupada). En el nivel de Kid Dracula queda una franja con ruido en el borde
-  inferior en una de las capturas; no lo investigué (el VRC4 no tiene IRQ implementado, pero este juego no debería usarlo).
+  inferior en una de las capturas. Era la barra de estado: esta versión (Castlevania Anniversary Collection, cabecera VRC4e)
+  sí usa el IRQ del VRC4, que ahora está implementado.
 - **Ninja JaJaMaru: The Ninja Skill Book** usa mapper 75 con 256 KB de PRG, más de lo que direcciona un VRC1 real (4 bits de banco);
   se aceptan 5 bits y con eso funciona.
 - **Aproximaciones en los mappers nuevos** (documentadas en `mapper.c`): Namco 163 sin audio de ondas y sin CHR ROM como
-  nametable; VRC2/4 sin el IRQ del VRC4; Jaleco SS88006 e IRQ de Namco 163 con la temporización por ciclos aproximada
+  nametable; Jaleco SS88006 e IRQ de Namco 163 con la temporización por ciclos aproximada
   (un ciclo de más o de menos); el espejado de `$E000` del Namco 340 (mapper 210) está tomado de memoria de la documentación.
 - **Limitaciones conocidas que aparecen en la lista:** mappers 105, 268 y 446 sin soporte.
 - La opción de la etapa 2 de elegir ROMs por mapper no mide fidelidad de audio o video: `difftest` solo prueba que el

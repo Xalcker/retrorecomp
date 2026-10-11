@@ -16,6 +16,7 @@ int nes_load(NES *n, const u8 *d, size_t len, const char **err)
     if (c->nes2) {
         /* NES 2.0: bits altos del mapper y tamaños con MSB (o, si el nibble es $F, en notación exponente-multiplicador) */
         c->mapper |= (d[8] & 0x0F) << 8;
+        c->submapper = d[8] >> 4;
         int pm = d[9] & 0x0F, cm = d[9] >> 4;
         prg = pm == 0x0F ? ((size_t)1 << (d[4] >> 2)) * ((d[4] & 3) * 2 + 1) : ((size_t)pm << 8 | d[4]) * 0x4000;
         chr = cm == 0x0F ? ((size_t)1 << (d[5] >> 2)) * ((d[5] & 3) * 2 + 1) : ((size_t)cm << 8 | d[5]) * 0x2000;

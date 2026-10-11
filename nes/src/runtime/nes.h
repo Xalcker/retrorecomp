@@ -82,9 +82,11 @@ typedef struct {
     u8   nt_map[4];             /* MIRROR_CUSTOM: página de CIRAM (0 o 1) de cada nametable */
     u64  irq_t0, irq_cycle;     /* FME-7: IRQ por ciclos de CPU (irq_cycle = ciclo en que se levanta, o ~0) */
     u8   low_regs;              /* el mapper tiene registros por debajo de $8000 (la PPU debe ir al día al escribirlos) */
+    u8   submapper;             /* NES 2.0 (0 si la cabecera no lo dice) */
     u32  map_ver;               /* sube con cada escritura a $8000-$FFFF (¿cambió el mapeo?) */
     u64  a12_low;               /* MMC3: reloj de la PPU cuando A12 pasó a 0 */
 } Cart;
+#define CART_VRC(c) (MAPPER(c) == 21 || MAPPER(c) == 22 || MAPPER(c) == 23 || MAPPER(c) == 25)
 
 typedef struct {
     u8  spr_y, spr_tile, spr_attr, spr_x;      /* (sin uso: la OAM se lee cruda) */

@@ -197,6 +197,33 @@ int main(void)
     W(0xB000, 7); W(0xB001, 1); W(0xB008, 1); EXPECT_CHR(0x0000, 23); EXPECT_CHR(0x0400, 1);   /* $B008: A2/A3 en vez de A0/A1 */
     W(0x9000, 1); if (n.cart.mirroring != MIRROR_HORIZONTAL) { puts("FALLA mapper 23: espejado"); fails++; }
 
+    /* IRQ del VRC4 (mismos ciclos que Mesen2 con una ROM sintética): el contador empieza en el ciclo siguiente a la
+     * escritura de $F002 y el IRQ sale al pasar de $FF */
+#define EXPECT_IRQ(m, want) do { if (n.cart.irq_cycle != (want)) { printf("FALLA mapper %d: IRQ en %llu, esperaba %llu (línea %d)\n", \
+    (m), (unsigned long long)n.cart.irq_cycle, (unsigned long long)(want), __LINE__); fails++; } } while (0)
+    n.cyc = 1000; W(0xF000, 0x0); W(0xF001, 0xF); W(0xF002, 6);   /* modo ciclos, latch $F0: 16 relojes */
+    EXPECT_IRQ(23, 1001 + 16);
+    W(0xF001, 0xF); W(0xF000, 0xF); W(0xF002, 2);                  /* modo línea, latch $FF: un reloj a los 114 ciclos */
+    EXPECT_IRQ(23, 1001 + 114);
+    W(0xF000, 0xD); W(0xF002, 2);                                  /* latch $FD: tres relojes en 341 ciclos */
+    EXPECT_IRQ(23, 1001 + 341);
+    W(0xF000, 0x0); W(0xF002, 7);                                  /* modo ciclos con "habilitar al reconocer" */
+    n.cyc = 1100; W(0xF003, 0);                                    /* a los 100 ciclos: el contador pasó de $FF y va en $F4 */
+    EXPECT_IRQ(23, 1101 + 12);
+
+    /* 21 (VRC4a/c), 25 (VRC4b/d) y 22 (VRC2a): las líneas de registro llegan por otras patas */
+    make(21, 128, 128, MIRROR_VERTICAL);
+    W(0xB000, 5); W(0xB002, 1); EXPECT_CHR(0x0000, 21);            /* VRC4a: A1 */
+    W(0xB040, 0); W(0xB080, 7); EXPECT_CHR(0x0000, 5); EXPECT_CHR(0x0400, 7);   /* VRC4c: A6 y A7 */
+    n.cyc = 50; W(0xF000, 0x0); W(0xF040, 0xF); W(0xF080, 6); EXPECT_IRQ(21, 51 + 16);
+    make(25, 128, 128, MIRROR_VERTICAL);
+    W(0xB000, 5); W(0xB002, 1); EXPECT_CHR(0x0000, 21);            /* VRC4b: A1 = bit 0 */
+    W(0xB001, 9); EXPECT_CHR(0x0400, 9);                           /* A0 = bit 1: el segundo banco */
+    n.cyc = 50; W(0xF000, 0x0); W(0xF008, 0xF); W(0xF004, 6); EXPECT_IRQ(25, 51 + 16);   /* VRC4d: A3 y A2 */
+    make(22, 128, 128, MIRROR_VERTICAL);
+    W(0xB000, 6); EXPECT_CHR(0x0000, 3);                           /* VRC2a: el bit 0 del banco de CHR no se conecta */
+    n.cyc = 50; W(0xF002, 6); EXPECT_IRQ(22, ~0ull);              /* sin IRQ */
+
     /* 19 Namco 163: PRG/CHR, nametables en CIRAM y contador de IRQ de 15 bits */
     make(19, 128, 128, MIRROR_VERTICAL);
     W(0xE000, 3); W(0xE800, 4); W(0xF000, 5);

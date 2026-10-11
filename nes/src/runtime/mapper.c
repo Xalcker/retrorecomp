@@ -3,7 +3,7 @@
  * 66 GxROM, 71 Camerica, 79 NINA-03/06, 87, 140, 180 (UNROM al revés), 206 (DxROM), 9 (MMC2), 10 (MMC4),
  * 69 (FME-7, sin el audio 5B) 118 (TxSROM) y 119 (TQROM). 9, 10, 69 y 118 se probaron solo con cartuchos sintéticos o un juego.
  * 13 (CPROM), 75 (VRC1), 95 (Namcot 3425), 115 (Kasheng), 184 (Sunsoft 1), 210 (Namco 175/340), 18 (Jaleco SS88006),
- * 23 (VRC2/VRC4, sin el IRQ del VRC4) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
+ * 21, 22, 23 y 25 (VRC2/VRC4, con el IRQ del VRC4) y 19 (Namco 163, sin audio y sin CHR ROM como nametable).
  * Cada mapper guarda su estado en cart.reg[] y puede cambiar cart.mirroring.
  * Agregar uno nuevo = un caso en cada función (y en mapper_supported).
  */
@@ -16,7 +16,8 @@ int mapper_supported(int id)
     switch (id) {
     case 0: case 1: case 2: case 3: case 4: case 7: case 11: case 34: case 66: case 71: case 79:
     case 87: case 140: case 180: case 206: case 9: case 10: case 69: case 118: case 119: case 5:
-    case 13: case 75: case 95: case 115: case 184: case 210: case 18: case 23: case 19: return 1;
+    case 13: case 75: case 95: case 115: case 184: case 210: case 18: case 23: case 19:
+    case 21: case 22: case 25: return 1;
     }
     return 0;
 }
@@ -60,7 +61,7 @@ void mapper_reset(NES *n)
     if (MAPPER(c) == 19 || MAPPER(c) == 95) nt_from_header(c);
     if (MAPPER(c) == 75 || MAPPER(c) == 18 || MAPPER(c) == 19) { c->reg[1] = 1; c->reg[2] = 2; }
     if (MAPPER(c) == 210) { c->reg[9] = 1; c->reg[10] = 2; }
-    if (MAPPER(c) == 23) c->reg[1] = 1;
+    if (CART_VRC(c)) { c->reg[1] = 1; c->reg[14] = 341; }
     if (MAPPER(c) == 4 || MAPPER(c) == 206 || MAPPER(c) == 118 || MAPPER(c) == 119 || MAPPER(c) == 95 || MAPPER(c) == 115) {
         /* reg[0]=selección, [1..8]=R0..R7, [9]=latch IRQ, [10]=contador, [11]=recarga,
          * [12]=IRQ activo, [13]=nivel de A12, [14]=protección de RAM */
@@ -192,6 +193,65 @@ static void jaleco_arm(Cart *c, u64 now)
 {
     c->irq_t0 = now;
     c->irq_cycle = (c->reg[12] & 1) ? now + (c->reg[13] & jaleco_mask(c)) + 1 : ~0ull;
+}
+
+/* VRC4: contador de 8 bits que sube con cada reloj; al pasar de $FF se recarga con el latch y levanta el IRQ. En modo
+ * ciclos el reloj es cada ciclo de CPU; en modo línea, un prescaler baja 3 por ciclo y da un reloj (y suma 341) al llegar
+ * a 0 o menos: 3 relojes cada 341 ciclos, uno por línea de PPU. reg[11] = latch, reg[12] = control (bit 0 = habilitar al
+ * reconocer, bit 1 = habilitado, bit 2 = modo ciclos), reg[13] = contador y reg[14] = prescaler en irq_t0. */
+static u64 vrc_clocks(Cart *c, u64 k)              /* relojes en k ciclos desde irq_t0; deja el prescaler al día */
+{
+    if (c->reg[12] & 4) return k;
+    u64 n = 3 * (k / 341);                          /* cada 341 ciclos el prescaler vuelve al mismo valor */
+    int p = (int)c->reg[14];
+    for (u64 i = k % 341; i > 0; i--) { p -= 3; if (p <= 0) { p += 341; n++; } }
+    c->reg[14] = (u32)p;
+    return n;
+}
+
+static void vrc_sync(Cart *c, u64 now)
+{
+    if (c->reg[12] & 2) {
+        u64 n = vrc_clocks(c, now - c->irq_t0);
+        u32 cnt = c->reg[13], to_wrap = 0x100 - cnt;
+        if (n < to_wrap) cnt += (u32)n;
+        else cnt = c->reg[11] + (u32)((n - to_wrap) % (0x100 - c->reg[11]));
+        c->reg[13] = cnt;
+    }
+    c->irq_t0 = now;
+}
+
+static void vrc_arm(Cart *c, u64 now)              /* irq_cycle: el ciclo siguiente al del reloj que pasa de $FF */
+{
+    c->irq_t0 = now;
+    if (!(c->reg[12] & 2)) { c->irq_cycle = ~0ull; return; }
+    u32 need = 0x100 - c->reg[13];
+    u64 cyc;
+    if (c->reg[12] & 4) cyc = need;
+    else {                                          /* hasta el reloj número need (a lo más 256 vueltas) */
+        int p = (int)c->reg[14];
+        cyc = 0;
+        for (u32 i = 0; i < need; i++) { u64 d = (u64)(p + 2) / 3; cyc += d; p = p - 3 * (int)d + 341; }
+    }
+    c->irq_cycle = now + cyc;
+}
+
+static void vrc_irq_write(NES *n, int sel, u8 v)
+{
+    Cart *c = &n->cart;
+    u64 t = n->cyc + 1;                             /* el reloj del ciclo de la escritura va antes de ella */
+    vrc_sync(c, t);
+    switch (sel) {
+    case 0: c->reg[11] = (c->reg[11] & 0xF0) | (v & 15); break;
+    case 1: c->reg[11] = (c->reg[11] & 0x0F) | ((u32)(v & 15) << 4); break;
+    case 2:
+        c->reg[12] = v & 7;
+        if (v & 2) { c->reg[13] = c->reg[11]; c->reg[14] = 341; }
+        n->irq_line &= ~1;
+        break;
+    case 3: c->reg[12] = (c->reg[12] & ~2u) | ((c->reg[12] & 1) << 1); n->irq_line &= ~1; break;
+    }
+    vrc_arm(c, t);
 }
 
 /* ---- MMC5 ---- */
@@ -381,7 +441,7 @@ static long prg_offset_slow(const Cart *c, u16 a)
                     : MAPPER(c) == 18 ? c->reg[slot] : c->reg[slot] & 0x3F;
         return (long)prg8(c, bank, a);
     }
-    case 23: {                                   /* VRC2/4: el bit 1 de $9002 intercambia $8000 y $C000 */
+    case 21: case 22: case 23: case 25: {        /* VRC2/4: el bit 1 de $9002 intercambia $8000 y $C000 */
         int slot = (a >> 13) & 3, swap = c->reg[2] & 1;
         size_t nb = banks8(c);
         size_t bank = slot == 3 ? nb - 1 : slot == 1 ? c->reg[1] & 0x1F
@@ -676,8 +736,17 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
         }
         break;
     }
-    case 23: {                                   /* VRC2/VRC4: las líneas A0/A1 llegan por A0/A1 o por A2/A3 según el cartucho */
-        int sel = (a & 3) | ((a >> 2) & 3);
+    case 21: case 22: case 23: case 25: {
+        /* VRC2/VRC4: las dos líneas de registro llegan por distintas patas según el cartucho (bit 0, bit 1):
+         * 21 = A1,A2 (VRC4a, submapper 1) o A6,A7 (VRC4c, 2); 22 = A1,A0 (VRC2a); 23 = A0,A1 (VRC4f, 1; VRC2b, 3) o
+         * A2,A3 (VRC4e, 2); 25 = A1,A0 (VRC4b, 1; VRC2c, 3) o A3,A2 (VRC4d, 2). Sin submapper se juntan las dos con un
+         * OR (una escritura que solo es de una variante cae también en otro registro de la otra). */
+        int s = c->submapper;
+        int sel = MAPPER(c) == 21 ? ((s == 2 ? 0 : a >> 1) | (s == 1 ? 0 : a >> 6)) & 3
+                : MAPPER(c) == 23 ? ((s == 2 ? 0 : a) | (s == 1 || s == 3 ? 0 : a >> 2)) & 3
+                : MAPPER(c) == 22 ? ((a >> 1) & 1) | ((a & 1) << 1)
+                : ((s == 2 ? 0 : (a >> 1) & 1) | (s == 2 ? 0 : (a & 1) << 1))
+                  | ((s == 1 || s == 3 ? 0 : (a >> 3) & 1) | (s == 1 || s == 3 ? 0 : ((a >> 2) & 1) << 1));
         switch (a & 0xF000) {
         case 0x8000: c->reg[0] = v & 0x1F; break;
         case 0xA000: c->reg[1] = v & 0x1F; break;
@@ -692,6 +761,7 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
             else c->reg[r] = (c->reg[r] & 0x1F0) | (v & 0x0F);
             break;
         }
+        case 0xF000: if (MAPPER(c) != 22 && c->submapper != 3) vrc_irq_write(n, sel, v); break;   /* el VRC2 no tiene IRQ */
         }
         break;
     }
@@ -769,9 +839,12 @@ static size_t chr_off(const Cart *c, u16 a)
         u32 b = a < 0x1000 ? c->reg[0] & 7 : ((c->reg[0] >> 4) & 7) | 4;
         size_t x = (size_t)b << 12 | (a & 0xFFF); return WRAP(c, x);
     }
-    case 210: case 18: case 23: case 19: {
+    case 210: case 18: case 23: case 19: case 21: case 25: {
         int base = MAPPER(c) == 210 ? 0 : 3;
         size_t x = ((size_t)c->reg[base + ((a >> 10) & 7)] << 10) | (a & 0x3FF); return WRAP(c, x);
+    }
+    case 22: {                                   /* VRC2a: el bit 0 del banco de CHR no se conecta */
+        size_t x = ((size_t)(c->reg[3 + ((a >> 10) & 7)] >> 1) << 10) | (a & 0x3FF); return WRAP(c, x);
     }
     default:
         { size_t x = a; return WRAP(c, x); }
@@ -826,7 +899,7 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         default: *w = (PrgWin){ 0xE000, 0x2000, ps - 0x2000, 1 }; break;
         }
         return 1;
-    case 23:
+    case 21: case 22: case 23: case 25:
         switch ((addr >> 13) & 3) {
         case 0: *w = (PrgWin){ 0x8000, 0x2000, 0, 0 }; break;
         case 1: *w = (PrgWin){ 0xA000, 0x2000, 0x2000, 0 }; break;
@@ -876,7 +949,7 @@ size_t mapper_prg_granule(const Cart *c)
 {
     switch (MAPPER(c)) {
     case 4: case 206: case 118: case 119: case 9: case 69: case 5:
-    case 95: case 115: case 75: case 210: case 18: case 23: case 19: return 0x2000;
+    case 95: case 115: case 75: case 210: case 18: case 23: case 19: case 21: case 22: case 25: return 0x2000;
     case 1: case 2: case 71: case 180: case 10: return 0x4000;
     case 7: case 11: case 34: case 66: case 79: case 140: return 0x8000;
     default: return c->prg_size >= 0x8000 ? 0x8000 : 0x4000;

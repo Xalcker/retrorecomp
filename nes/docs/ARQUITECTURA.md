@@ -201,11 +201,17 @@ El proyecto generado se compila con `-DNES_MAPPER=<n>`: `MAPPER(c)` y las macros
 a ser constantes y el compilador descarta el resto. `nes_load` rechaza una ROM con otro mapper.
 
 0 NROM, 1 MMC1, 2 UxROM, 3 CNROM, 4 MMC3 (IRQ por flanco de A12 con filtro), 7 AxROM, 11, 34, 66, 71, 79, 87, 140, 180, 206, 9, 10, 69, 118, 119, 5,
-13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 23 VRC2/VRC4 (sin IRQ), 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
+13 CPROM, 18 Jaleco SS88006, 19 Namco 163 (sin audio), 21, 22, 23 y 25 VRC2/VRC4, 75 VRC1, 95, 115 Kasheng, 184 Sunsoft 1 y 210 Namco 175/340.
 
 Un mapper nuevo es un caso en `mapper_supported`, `mapper_reset`, `prg_offset_slow` (de donde sale `prg_map`), `mapper_cpu_write` (y `low_write`
 si tiene registros por debajo de `$8000`, con `low_regs` y `CART_LOWREGS`), `chr_off` y las consultas del recompilador (`mapper_prg_window`,
 `mapper_prg_granule`), más una prueba sintética en `src/tools/mappertest.c`.
+
+**VRC2/VRC4** (21, 22, 23, 25): las dos líneas de registro llegan por patas distintas según el cartucho; con el
+submapper de NES 2.0 se decodifica la variante exacta y sin él se juntan las dos del mapper con un OR. El IRQ del
+VRC4 (`vrc_sync`/`vrc_arm`, con `irq_cycle` como el FME-7) cuenta por ciclos o por líneas (prescaler de 341/3) y
+empieza en el ciclo siguiente a la escritura de `$F002`. Coincide ciclo a ciclo con Mesen2 en una ROM sintética
+con las seis variantes de cableado, y Gradius II, TMNT y Parodius Da! (Japan) dan la misma imagen que Mesen2.
 
 ### Cartucho
 

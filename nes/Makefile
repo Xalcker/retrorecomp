@@ -44,7 +44,7 @@ RUNTIME := nes.c cpu6502.c ppu.c apu.c mapper.c sha1.c vrc7.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libnesrt.a
 
-PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest ramdump nesbench nes nesrecomp
+PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest nesramdump nesbench nes nesrecomp
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE))
@@ -93,8 +93,8 @@ dist: nesrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-ramdump$(EXE): src/tools/ramdump.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/ramdump.c $(RT)
+nesramdump$(EXE): src/tools/nesramdump.c src/platform/cli.h src/platform/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesramdump.c $(RT)
 
 inputtest$(EXE): src/tools/inputtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^

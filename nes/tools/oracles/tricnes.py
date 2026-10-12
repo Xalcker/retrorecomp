@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Oráculo TriCNES: el emulador de referencia del autor de AccuracyCoin, ciclo por ciclo. Se usa su núcleo
-(Emulator.cs y mappers/, licencia MIT) sin su ventana, con tricnes_ramdump.cs, y da la misma salida que ramdump.
+(Emulator.cs y mappers/, licencia MIT) sin su ventana, con tricnes_ramdump.cs, y da la misma salida que nesramdump.
 
-  tools/oracles/tricnes.py ramdump rom.nes cuadros [boton:desde-hasta ...]   (salida idéntica a ./ramdump)
+  tools/oracles/tricnes.py ramdump rom.nes cuadros [boton:desde-hasta ...]   (salida idéntica a ./nesramdump)
 
 La primera vez clona TriCNES en un commit fijo a build/oracles/ y lo compila. Si no hay un SDK de .NET instalado,
 baja uno portátil con el instalador oficial (dotnet-install) a build/oracles/dotnet, sin tocar el sistema."""

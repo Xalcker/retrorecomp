@@ -16,6 +16,6 @@ dist/
 /statetest
 /nestrace
 /mappertest
-/ramdump
+/nesramdump
 /inputtest
 *.exe

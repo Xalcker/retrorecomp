@@ -5,7 +5,7 @@
 #   sh tests/contract.sh
 #
 # 1. Opciones: las herramientas sin ventana aceptan las mismas (--frames, --input, --seed,
-#    --repeat); se ejecuta cada una sin argumentos y su ayuda debe mencionarlas.
+#    --repeat; --seed también en bench); se ejecuta cada una sin argumentos y su ayuda debe mencionarlas.
 # 2. Comportamiento (con las ROMs de prueba de `make testroms`; sin ellas se omite): la traza, la
 #    captura y el audio salen iguales con la misma entrada (--seed, y --input con --seed, que se
 #    suman), con un mismo guion para todas las consolas; en NES y Genesis, --input da lo mismo que
@@ -13,17 +13,17 @@
 cd "$(dirname "$0")/.." || exit 2
 if [ -f src/gbrecomp/gbrecomp.c ]; then
     P=gb
-    CHECKS="gbtrace:--frames,--input,--seed gbshot:--frames,--input,--seed gbaudio:--frames,--input,--seed gbbench:--frames,--input,--repeat"
+    CHECKS="gbtrace:--frames,--input,--seed gbshot:--frames,--input,--seed gbaudio:--frames,--input,--seed gbbench:--frames,--input,--repeat,--seed"
     ROM=testroms/blargg/cpu_instrs/cpu_instrs.gb
     TOOLS="gbtrace:txt gbshot:png gbaudio:wav"
 elif [ -f src/nesrecomp/nesrecomp.c ]; then
     P=nes
-    CHECKS="nestrace:--frames,--input,--seed nesshot:--frames,--input,--seed nesaudio:--frames,--input,--seed nesbench:--frames,--input,--repeat"
+    CHECKS="nestrace:--frames,--input,--seed nesshot:--frames,--input,--seed nesaudio:--frames,--input,--seed nesbench:--frames,--input,--repeat,--seed"
     ROM=testroms/nes-test-roms/other/nestest.nes
     TOOLS="nestrace:txt nesshot:png nesaudio:wav"
 elif [ -f src/genrecomp/genrecomp.c ]; then
     P=gen
-    CHECKS="gentrace:--frames,--input,--seed genshot:--frames,--input,--seed genaudio:--frames,--input,--seed genbench:--frames,--input,--repeat"
+    CHECKS="gentrace:--frames,--input,--seed genshot:--frames,--input,--seed genaudio:--frames,--input,--seed genbench:--frames,--input,--repeat,--seed"
     ROM=testroms/demos/overdrive.bin
     TOOLS="gentrace:txt genshot:png genaudio:wav"
 else

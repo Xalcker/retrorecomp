@@ -1,7 +1,7 @@
 /*
- * ramdump: corre una ROM sin ventana y vuelca los 2 KB de RAM (una línea "DIRECCION VALOR" por byte).
- *   ramdump rom.nes [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
- * (también vale la sintaxis de antes: ramdump rom.nes cuadros [boton:desde-hasta ...])
+ * nesramdump: corre una ROM sin ventana y vuelca los 2 KB de RAM (una línea "DIRECCION VALOR" por byte).
+ *   nesramdump rom.nes [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
+ * (también vale la sintaxis de antes: nesramdump rom.nes cuadros [boton:desde-hasta ...])
  * Lo usa tests/accuracycoin.py. En GBRecomp, gbramdump hace lo mismo con la WRAM y la HRAM.
  */
 #include <stdio.h>
@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 {
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 60)) {
-        fprintf(stderr, "uso: ramdump rom.nes [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]\n");
+        fprintf(stderr, "uso: nesramdump rom.nes [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]\n");
         return 2;
     }
     FILE *f = fopen(c.pos[0], "rb");

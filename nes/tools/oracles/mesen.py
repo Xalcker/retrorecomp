@@ -3,7 +3,7 @@
 herramientas, para comparar contra una referencia. Mesen2 es GPL-3: no va en el repo; se descarga al usarlo
 (versión fija, con su SHA-256) a build/oracles/.
 
-  tools/oracles/mesen.py ramdump rom.nes cuadros [boton:desde-hasta ...]   (salida idéntica a ./ramdump)
+  tools/oracles/mesen.py ramdump rom.nes cuadros [boton:desde-hasta ...]   (salida idéntica a ./nesramdump)
   tools/oracles/mesen.py shot rom.nes salida.png cuadros [boton:desde-hasta ...]   (captura al terminar ese cuadro)
 
 Los cuadros de Mesen2 van uno adelante de los nuestros: su cuadro N corresponde a nuestro N - 1, con las entradas también

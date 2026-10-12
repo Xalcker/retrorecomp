@@ -17,7 +17,7 @@ for l in open(f"{root}/testroms/accuracycoin/AccuracyCoin.asm", errors="replace"
 rom = f"{root}/testroms/accuracycoin/AccuracyCoin.nes"
 
 def run(oracle):
-    cmd = [sys.executable, f"{root}/tools/oracles/{oracle}.py", "ramdump"] if oracle else [f"{root}/ramdump"]
+    cmd = [sys.executable, f"{root}/tools/oracles/{oracle}.py", "ramdump"] if oracle else [f"{root}/nesramdump"]
     out = subprocess.run(cmd + [rom, frames, "start:100-103"], capture_output=True, text=True).stdout
     return {int(a, 16): int(v, 16) for a, v in (l.split() for l in out.splitlines())}
 

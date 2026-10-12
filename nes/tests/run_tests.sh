@@ -35,16 +35,16 @@ for f in $T/ppu_vbl_nmi/rom_singles/*.nes $T/instr_misc/instr_misc.nes $T/instr_
     if ./nesshot "$f" build/shots/t.png 4000 >/dev/null; then echo "ok   $(basename "$f")"
     else echo "FALLA $(basename "$f")"; fail=1; fi
 done
-# nesshot --expect y --hash (como gbtest) y ramdump con las opciones comunes
+# nesshot --expect y --hash (como gbtest) y nesramdump con las opciones comunes
 R=$T/ppu_vbl_nmi/rom_singles/01-vbl_basics.nes
 h1=$(./nesshot $R build/shots/h1.png --frames 120 --hash | sed -n 's/^hash //p')
 h2=$(./nesshot $R build/shots/h2.png 120 --hash | sed -n 's/^hash //p')
 if [ -n "$h1" ] && [ "$h1" = "$h2" ] \
     && ./nesshot $R build/shots/e.png --frames 120 --expect build/shots/h1.png >/dev/null \
     && ! ./nesshot $R build/shots/e.png --frames 2 --expect build/shots/h1.png >/dev/null \
-    && [ "$(./ramdump $R --frames 60 | wc -l)" -eq 2048 ] \
-    && [ "$(./ramdump $R 60)" = "$(./ramdump $R --frames 60)" ]; then echo "ok   nesshot --expect/--hash, ramdump"
-else echo "FALLA nesshot --expect/--hash, ramdump"; fail=1; fi
+    && [ "$(./nesramdump $R --frames 60 | wc -l)" -eq 2048 ] \
+    && [ "$(./nesramdump $R 60)" = "$(./nesramdump $R --frames 60)" ]; then echo "ok   nesshot --expect/--hash, nesramdump"
+else echo "FALLA nesshot --expect/--hash, nesramdump"; fail=1; fi
 # Recompilador: recompila con traza y compara contra el intérprete (mapper 0 y MMC1)
 if [ -x ./nesrecomp ]; then
     for f in $T/other/nestest.nes $T/instr_test-v5/rom_singles/01-basics.nes $T/ppu_vbl_nmi/rom_singles/01-vbl_basics.nes; do

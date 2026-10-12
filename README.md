@@ -24,6 +24,8 @@ recompiladores y `git` se lanzan directo.
 
 ## Qué hace
 
+- **Lista de ROMs:** búsqueda por nombre y filtro por consola; primero las que ya tienen su proyecto compilado
+  (`build/out/NOMBRE`) y luego las demás.
 - **Avance por ROM:** análisis estático, cobertura, trazas, proyecto generado, compilado, `difftest` y velocidad.
 - **Mapa del descubrimiento** (como `--viz`): una fila por banco de 16 KB, celdas de 256 bytes coloreadas por cómo se
   halló el código; en rojo lo que el juego ejecutó y no se halló. Clic en una celda lista sus instrucciones y clic en

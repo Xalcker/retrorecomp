@@ -387,6 +387,7 @@ class GEN(NES):
 class GB(System):
     id, label, exts = "gb", "Game Boy", (".gb", ".gbc", ".sgb")
     recomp = "gbrecomp"
+    bench_tool = "gbbench"
     tools = ("gbrecomp", "gb", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "gbramdump", "linktest", "vgmcheck")
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
     caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
@@ -524,7 +525,7 @@ class GB(System):
     def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
         if recompiled:
             return [os.path.join(pdir, "difftest" + EXE), rp, "--frames", str(frames), "--bench"]
-        argv = [self.tool("gbbench"), rp, "--frames", str(frames), "--repeat", str(repeat)]
+        argv = [self.tool(self.bench_tool), rp, "--frames", str(frames), "--repeat", str(repeat)]
         return argv + (["--input", inp] if inp else []) + (["--model", model] if model else [])
 
     def visor(self, rp, tflags, cov):
@@ -615,7 +616,9 @@ def list_roms():
                     found[f"{sysm.id}:{os.path.basename(p)}"] = (sysm, p)
     ROMS.clear()
     ROMS.update(found)
-    return [{"id": i, "system": s.id, "label": s.label, "name": os.path.basename(p), "size": os.path.getsize(p)}
+    # built: el proyecto generado de esa ROM (build/out/NOMBRE) ya tiene su ejecutable
+    return [{"id": i, "system": s.id, "label": s.label, "name": os.path.basename(p), "size": os.path.getsize(p),
+             "built": s.project(os.path.basename(p))["built"]}
             for i, (s, p) in sorted(found.items(), key=lambda x: x[1][1].lower())]
 
 
@@ -980,7 +983,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             rid = one("rom") or None
             st = {"systems": {s.id: {"label": s.label, "root": s.root, "git": s.git(), "tools": s.tools_status(), "caps": s.caps,
-                                     "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
+                                     "bench_tool": s.bench_tool, "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
                   "roms": list_roms(), "progress": load_state(),
                   "jobs": [j.info() for j in sorted(jobs.values(), key=lambda j: -j.id)[:30]]}
             if rid:

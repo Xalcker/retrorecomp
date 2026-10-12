@@ -21,6 +21,8 @@ button.pri{background:var(--sel);color:#fff;border-color:var(--sel)}
 input[type=text],input[type=number],select,textarea{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
 textarea{font:12.5px ui-monospace,Menlo,monospace;width:100%;min-height:4.2em;resize:vertical}
 input.mono{font:12.5px ui-monospace,Menlo,monospace}
+#roms li.grp{cursor:default;padding:8px 8px 2px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+#roms li.grp:hover{background:none}
 .sys{font-size:10px;padding:0 5px;border-radius:8px;background:var(--line);color:var(--mut);margin-right:5px;flex:none}
 .chip{font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);background:var(--card);white-space:nowrap}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:3px}
@@ -75,6 +77,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
 </header>
 <aside>
  <input type="text" id="q" placeholder="Buscar ROM…" style="width:100%">
+ <select id="qsys" style="width:100%;margin-top:6px" title="Consola"><option value="">Todas las consolas</option></select>
  <ul id="roms"></ul>
  <p class="mut" style="font-size:12px" id="romsdir"></p>
 </aside>
@@ -191,7 +194,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
       <label class="f">Cuadros<input type="number" id="bFrames" value="3000" min="1" style="width:7em"></label>
       <label class="f">Repeticiones<input type="number" id="bRepeat" value="3" min="1" style="width:5em"></label>
      </div>
-     <div class="row"><button id="bBench">Intérprete (gbbench)</button><button id="bBenchRc">Recompilado (difftest --bench)</button><button id="bPlayRc">Jugar el recompilado</button></div>
+     <div class="row"><button id="bBench">Intérprete (bench)</button><button id="bBenchRc">Recompilado (difftest --bench)</button><button id="bPlayRc">Jugar el recompilado</button></div>
     </div>
    </div>
   </div>
@@ -207,7 +210,8 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
 const TOKEN="__TOKEN__";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let ORG=[];
-const S={rom:null,sys:null,state:null,traces:[],checked:new Set(),map:null,cellsel:null,job:null,jobpos:0,lastRunning:false,romq:""};
+const S={rom:null,sys:null,state:null,traces:[],checked:new Set(),map:null,cellsel:null,job:null,jobpos:0,lastRunning:false,romq:"",romsys:""};
+try{S.romsys=localStorage.getItem("romsys")||""}catch(e){}
 
 async function api(path,body){
   const o={headers:{"X-Token":TOKEN}};
@@ -240,12 +244,24 @@ async function refresh(){
   for(const id of ["bSync","bBuild","bTest"]) $("#"+id).disabled=running;
 }
 function renderRoms(){
-  const p=S.state.progress, q=S.romq.toLowerCase();
-  $("#roms").innerHTML=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)).map(r=>{
+  const p=S.state.progress, q=S.romq.toLowerCase(), sys=S.state.systems;
+  // Filtro por consola: solo las que se encontraron; si la elegida ya no está, todas
+  const opts=[["","Todas las consolas"],...Object.entries(sys).map(([id,x])=>[id,x.label])];
+  if(!sys[S.romsys]) S.romsys="";
+  const sel=$("#qsys"), html=opts.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("");
+  if(sel.dataset.h!==html){sel.innerHTML=html;sel.dataset.h=html}
+  sel.value=S.romsys;
+  const item=r=>{
     const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"";
-    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`}).join("");
+    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
+  const roms=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)&&(!S.romsys||r.system===S.romsys));
+  // Primero las que ya tienen su proyecto compilado (build/out/NOMBRE), luego las demás
+  const built=roms.filter(r=>r.built), rest=roms.filter(r=>!r.built);
+  const grp=(t,l)=>l.length?`<li class="grp">${t} (${l.length})</li>`+l.map(item).join(""):"";
+  $("#roms").innerHTML=grp("Compiladas",built)+grp("Sin compilar",rest)||`<li class="grp">Ninguna ROM</li>`;
 }
-$("#roms").onclick=e=>{const li=e.target.closest("li");if(li)selectRom(li.dataset.r)};
+$("#roms").onclick=e=>{const li=e.target.closest("li[data-r]");if(li)selectRom(li.dataset.r)};
+$("#qsys").onchange=e=>{S.romsys=e.target.value;try{localStorage.setItem("romsys",S.romsys)}catch(err){}renderRoms()};
 $("#q").oninput=e=>{S.romq=e.target.value;renderRoms()};
 
 const guessName=n=>(n.replace(/\(.*?\)|\[.*?\]/g,"").replace(/\.[^.]*$/,"").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,16))||"juego";
@@ -262,6 +278,7 @@ async function selectRom(r){
 function applyCaps(){
   const sy=S.state.systems[S.sys]; if(!sy) return;
   const c=sy.caps; ORG=sy.legend;
+  $("#bBench").textContent=`Intérprete (${sy.bench_tool})`;
   const show=(sel,on)=>$$(sel).forEach(e=>e.classList.toggle("cap-hide",!on));
   show(".cap-model",c.model);show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);
   if($("#gFrames").dataset.sys!==S.sys){$("#gFrames").value=c.game_frames||6000;$("#gFrames").dataset.sys=S.sys}

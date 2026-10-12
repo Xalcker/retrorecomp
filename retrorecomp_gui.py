@@ -186,7 +186,7 @@ class System:
 class NES(System):
     id, label, exts = "nes", "NES", (".nes",)
     recomp = "nesrecomp"
-    tools = ("nesrecomp", "nes", "nestrace", "nesshot", "nesaudio", "nesbench", "nestest", "ramdump")
+    tools = ("nesrecomp", "nes", "nestrace", "nesshot", "nesaudio", "nesbench", "nestest", "nesramdump")
     legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (todos los bancos)")
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
             "game_frames": 1500}
@@ -347,7 +347,7 @@ class GEN(NES):
     la cabecera de la ROM y cómo graba trazas la ventana."""
     id, label, exts = "gen", "Genesis", (".md", ".gen", ".bin", ".smd")
     recomp = "genrecomp"
-    tools = ("genrecomp", "gen", "gentrace", "genshot", "genaudio", "genbench", "genrun", "ramdump")
+    tools = ("genrecomp", "gen", "gentrace", "genshot", "genaudio", "genbench", "genrun", "genramdump")
     legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (punteros sueltos)")
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
             "game_frames": 1500}
@@ -393,7 +393,7 @@ class GB(System):
            0x22: "MBC7", 0xFC: "Pocket Camera", 0xFD: "TAMA5", 0xFE: "HuC3", 0xFF: "HuC1"}
 
     def project_dir(self, name):
-        return os.path.join(self.root, "out", name)
+        return os.path.join(self.root, "build", "out", name)
 
     def info(self, path):
         try:

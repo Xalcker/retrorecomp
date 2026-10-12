@@ -48,9 +48,9 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `nestrace` / `gbtrace` / `gentrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
 | `nesshot` / `gbshot` / `genshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
 | `nesaudio` / `gbaudio` / `genaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
-| `nesbench` / `gbbench` / `genbench` | `rom [--frames N] [--repeat N] [--input archivo]` |
-| `ramdump` / `gbramdump` / `ramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
-| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` |
+| `nesbench` / `gbbench` / `genbench` | `rom [--frames N] [--repeat N] [--input archivo] [--seed S]` (sin entradas: Start y luego la derecha) |
+| `nesramdump` / `gbramdump` / `genramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
+| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` (sin `--input` ni `--seed` no pulsa nada; el nombre es el mismo en los tres porque va dentro del proyecto generado, que ya es de una consola) |
 | `nesrecomp` / `gbrecomp` / `genrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
@@ -74,7 +74,6 @@ mirando todos los repositorios que encuentre. Si cambias una opción en un recom
 |---|---|---|---|
 | Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) |
 | Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` | desplazamiento en la ROM |
-| Proyecto generado | `build/out/NOMBRE` | `out/NOMBRE` | `build/out/NOMBRE` |
 | Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` |
 | Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) |

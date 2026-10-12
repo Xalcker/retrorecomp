@@ -53,6 +53,10 @@ make test       # pruebas
 make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 ```
 
+**Versiones.** La versión es la etiqueta de git más cercana (`git describe`: `v0.1.0`, o `v0.1.0-3-gabc1234` con
+commits después de ella). Al subir una etiqueta `vX.Y.Z` de `main` (`git tag v0.2.0 && git push origin v0.2.0`), el CI
+publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual que en NESRecomp y GBRecomp.
+
 ## Lo que hace hoy
 
 ```

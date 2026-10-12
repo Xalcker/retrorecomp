@@ -1,7 +1,7 @@
 # Arquitectura de GENRecomp
 
-GENRecomp toma una ROM de Sega Genesis y generará un proyecto C99 que se compila en un
-ejecutable nativo. El ejecutable cargará la ROM del usuario en tiempo de ejecución y validará su
+GENRecomp toma una ROM de Sega Genesis y genera un proyecto C99 que se compila en un
+ejecutable nativo. El ejecutable carga la ROM del usuario en tiempo de ejecución y valida su
 SHA1: nunca se distribuyen datos de la ROM.
 
 Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de NESRecomp y
@@ -548,3 +548,39 @@ vida contra un enemigo), a ~60 veces el tiempo real. Super Street Fighter II cor
 SSF2 (155 cambios de banco en 1200 cuadros) y muestra el logo de SEGA, la intro y el título. NBA Jam guarda su EEPROM y la acepta al volver a
 arrancar. `genrun rom --watch DIR` muestra cuándo cambia un byte de la RAM (en Sonic 1, el modo de
 juego está en `$FFF600`) y `--sram ARCHIVO` carga y guarda la SRAM o EEPROM.
+
+## Estado de la validación
+
+`make test` (`tests/run_tests.sh`; con las ROMs de prueba de `make testroms`, y algunas más si están los
+juegos en `roms/`), en Linux, macOS y Windows en cada PR:
+
+- **CPU:** las 1 000 058 SingleStepTests del 68000 por el intérprete y por el camino del código generado
+  (`m68ktest`, `--recomp`), y las 1 604 000 del Z80 (`z80test`).
+- **Pruebas unitarias:** `carttest` (formatos `.bin`/`.smd`, cabecera, suma, SRAM, vectores), `bustest`
+  (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, mapper de SSF2, VINT/HINT), `vdptest`
+  (puertos, DMA, estado, planos, ventana, sprites, sombra y resalte), `audiotest` (PSG y YM2612) e
+  `inputtest` (entradas grabadas, 12 botones, `--seed`, `boton:desde-hasta`).
+- **Estados guardados:** `statetest` con la demo Overdrive (y con Sonic 1 si está).
+- **Recompilador:** el proyecto generado de una ROM mínima y de Overdrive (y de Sonic 1 sin traza, con
+  su cobertura del 99 % o más) se compila y `difftest` lo compara contra el intérprete; `--why`,
+  `--viz`, `--codemap`, `--events`, `--html` y `--dis`; `genrecomp` rechaza lo que no es una ROM.
+- **Interfaz:** cada menú y cada diálogo de `gen` se dibuja sin ventana (`--ui-shot`).
+- **Contrato común** con NESRecomp y GBRecomp (`tests/contract.sh`, el mismo archivo en los tres).
+- Con los juegos de `roms/`: `genrecomp --info` con cada uno, Sonic 1 llega al nivel con el intérprete
+  y NBA Jam, NBA Jam TE y Mega Man: The Wily Wars guardan su EEPROM y la aceptan al volver a arrancar.
+
+`make test` imprime cuánto tarda cada sección; en el CI, lo más largo es compilar el proyecto generado
+de Overdrive y las SingleStepTests del Z80.
+
+**Todavía no:** PAL (312 líneas, 50 Hz; lo piden Overdrive 2 y los juegos solo europeos), el orden
+exacto de los accesos del 68000 dentro de una instrucción (78 % con `m68ktest --bus`), el entrelazado
+doble del VDP, la posición exacta de HINT/VINT/HBLANK en la línea, y el CSM del YM2612. La lista de
+cada fase está en [PLAN.md](PLAN.md).
+
+### Línea base para optimizar el runtime
+
+`tests/golden.sh` corre cada ROM de `roms/` y de las pruebas libres 1800 cuadros con entradas fijas y
+una semilla, y compara el hash de **todos los cuadros y de todo el audio** (`genshot --hash`) con
+`tests/golden.txt`: una optimización no debe cambiar ni un bit (`--update` reescribe la línea base). Los
+casos se nombran por el SHA1 de la ROM. `GOLDEN_SHOT=ruta` usa otro `genshot`, por ejemplo el de un
+proyecto generado, para comparar el código recompilado con la misma línea base.

@@ -1,14 +1,15 @@
 #!/bin/sh
 # Contrato de línea de comandos común con NESRecomp/GBRecomp/GENRecomp. Es el mismo archivo en los
-# tres repositorios (y retrorecomp/tests/contract.py mira los dos a la vez). Necesita `make` hecho.
+# tres repositorios (y retrorecomp/tests/contract.py los mira todos a la vez y comprueba que este
+# archivo sea idéntico en cada uno). Necesita `make` hecho.
 #   sh tests/contract.sh
 #
 # 1. Opciones: las herramientas sin ventana aceptan las mismas (--frames, --input, --seed,
 #    --repeat); se ejecuta cada una sin argumentos y su ayuda debe mencionarlas.
 # 2. Comportamiento (con las ROMs de prueba de `make testroms`; sin ellas se omite): la traza, la
 #    captura y el audio salen iguales con la misma entrada (--seed, y --input con --seed, que se
-#    suman), con un mismo guion para las dos consolas; en NES, --input da lo mismo que la
-#    sintaxis de antes (boton:desde-hasta).
+#    suman), con un mismo guion para todas las consolas; en NES y Genesis, --input da lo mismo que
+#    la sintaxis de antes (boton:desde-hasta).
 cd "$(dirname "$0")/.." || exit 2
 if [ -f src/gbrecomp/gbrecomp.c ]; then
     P=gb

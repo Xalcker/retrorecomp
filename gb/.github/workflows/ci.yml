@@ -66,6 +66,15 @@ jobs:
       - name: Compilar
         run: make -j4
 
+      # Las ROMs de prueba tienen versiones fijas (Makefile / tests/testroms.sh): se guardan entre corridas en
+      # vez de bajarlas cada vez. Sin restore-keys a propósito: un caché de otra versión haría que make testroms
+      # creyera que ya están.
+      - name: Caché de las ROMs de prueba
+        uses: actions/cache@v4
+        with:
+          path: testroms
+          key: testroms-${{ runner.os }}-${{ hashFiles('Makefile', 'tests/testroms.sh') }}
+
       - name: ROMs de prueba
         run: make testroms
 

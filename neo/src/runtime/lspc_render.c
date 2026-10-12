@@ -187,12 +187,13 @@ void lspc_render_line(Neo *g, int sy)
         u64 bits = g->spr[(tile % g->spr_tiles) * 16 + (u32)row];
         if (!bits) continue;
         u16 pal = (u16)((w1 >> 8) << 4);
+        /* Quedan los pixeles src[0..hz] del mosaico, en orden; volteado, los mismos de derecha a izquierda */
         const u8 *src = hshrink[hz];
         int flip = w1 & 1;
         for (int k = 0; k <= hz; k++) {
             int px = (x + k) & 0x1FF;
             if (px >= SCREEN_W) continue;
-            int sx = flip ? 15 - src[hz - k] : src[k];
+            int sx = flip ? src[hz - k] : src[k];
             int c = (int)(bits >> (4 * sx)) & 15;
             if (c) buf[px] = (u16)(pal | c);
         }

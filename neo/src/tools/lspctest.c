@@ -133,7 +133,14 @@ int main(void)
     /* Volteos */
     sprite(g, 1, 1, 1, 1, 10, 1, 16, 15, 0xFF, 0);
     lspc_render_line(g, 10);
-    CHECK(px(g, 16, 10) == col(g, 1, 15 % 15 + 1) && px(g, 31, 10) == col(g, 1, 1), "volteo horizontal");
+    /* (los extremos de la fila 0 valen lo mismo: el pixel 1 del mosaico es el color 2, el 14 el 15) */
+    CHECK(px(g, 16, 10) == col(g, 1, 15 % 15 + 1) && px(g, 17, 10) == col(g, 1, 15) && px(g, 30, 10) == col(g, 1, 2),
+          "volteo horizontal");
+    /* Volteado y reducido a 8: quedan los pixeles pares (0, 2 ... 14), de derecha a izquierda */
+    sprite(g, 1, 1, 1, 1, 10, 1, 16, 7, 0xFF, 0);
+    lspc_render_line(g, 10);
+    CHECK(px(g, 16, 10) == col(g, 1, 15) && px(g, 17, 10) == col(g, 1, 13) && px(g, 23, 10) == col(g, 1, 1) &&
+          px(g, 24, 10) == back, "volteo con reducción horizontal");
     sprite(g, 1, 2, 1, 2, 10, 1, 16, 15, 0xFF, 0);
     lspc_render_line(g, 10);
     CHECK(px(g, 20, 10) == col(g, 1, 15 % 15 + 1), "volteo vertical: la fila 15 arriba");

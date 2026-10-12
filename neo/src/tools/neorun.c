@@ -84,7 +84,7 @@ int main(int argc, char **argv)
     static const char *names[] = { "up", "down", "left", "right", "a", "b", "c", "d", "start", "select" };
     const char *rom = NULL, *bios = NULL, *card = NULL;
     long frames = 600;
-    Hold h[32]; int nh = 0;
+    Hold h[64]; int nh = 0;          /* como cli.h */
     u32 watch[16]; int nw = 0; int wlast[16];
     int fix = 0;
     const char *shot = NULL, *shots = NULL, *wav = NULL;
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
         }
         else if (sscanf(argv[i], "%15[a-z]:%ld-%ld", name, &f0, &f1) == 3) {
             int ok = 0;
-            for (int k = 0; k < 10 && nh < 32; k++) if (!strcmp(name, names[k])) { h[nh++] = (Hold){ 1 << k, f0, f1 }; ok = 1; }
+            for (int k = 0; k < 10 && nh < 64; k++) if (!strcmp(name, names[k])) { h[nh++] = (Hold){ 1 << k, f0, f1 }; ok = 1; }
             if (!ok) { fprintf(stderr, "botón desconocido: %s\n", name); return 2; }
         } else if (argv[i][0] == '-') { fprintf(stderr, "opción desconocida: %s\n", argv[i]); return 2; }
         else rom = argv[i];

@@ -215,12 +215,16 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     mezcla de audio y bus abierto tras cada función; imagen y audio al final de cada cuadro.
     `--uncovered`, `--screens`, `--bench`, `--executed`.
   - Meta: los juegos de validación dan 1800 cuadros idénticos al intérprete (con traza).
-  - Prueba de los bancos de P2 (antes de la fase 7): **Shock Troopers** (solo MVS) arranca con la BIOS del
-    AES, se juega y da 4800 cuadros idénticos al intérprete con juego real (17 872 cambios de banco, 100 %
-    de los ciclos recompilados, ninguna instrucción en el intérprete). Pero el juego solo **lee datos** de
-    P2: no ejecuta código ahí, así que `MAPCHK` y los saltos a todos los bancos siguen sin probarse con un
-    juego real. El `kof98` de MVS (P1 cifrado, 6 MB de programa) se rechaza con un mensaje que pide el
-    `kof98h`.
+  - Prueba de los bancos de P2 (antes de la fase 7), con juego real en todos:
+    - **Metal Slug 2** (2 bancos) es el único que **ejecuta código en P2** (el segundo banco): 3 funciones
+      ahí con `MAPCHK`; 8000 cuadros de una partida idénticos al intérprete, ninguna instrucción de ROM en
+      el intérprete (99,3 % de los ciclos recompilados; el resto no es de la ROM).
+    - **Shock Troopers** (solo MVS; corre con la BIOS del AES), **KOF '97** (el de MVS) y **The Last
+      Blade**: 4 bancos de 1 MB, solo de datos (decenas de miles de cambios de banco por partida).
+      Shock Troopers: 4800 cuadros idénticos al intérprete.
+    - El `kof98` de MVS (P1 cifrado, 6 MB de programa) se rechaza con un mensaje que pide el `kof98h`.
+    - Encontrado al mirar estos juegos: los sprites volteados en horizontal se dibujaban sin voltear (cada
+      columna de 16 pixeles al revés; se veía en todos los juegos). Corregido, con su prueba en `lspctest`.
 - [ ] **7. Heurísticas de cobertura.**
   - Copiadas ya en la fase 6 (con el mapa del Neo Geo en `sane_abs`); falta medirlas y ajustarlas.
   - De GENRecomp: todas las (tablas de desplazamientos, de instrucciones, de punteros de 32 bits,
@@ -282,6 +286,9 @@ PCM2, PVC ni protección del P.
 | Fatal Fury Special (`fatfursp`) | 058 | 1 MB + 512 KB | 12 MB | 5 MB | Sí | P2 fijo y chico. |
 | Neo Turf Masters (`turfmast`) | 200 | 2 MB | 8 MB | 8 MB | Sí | Efectos de trama a mitad de cuadro (temporizador). |
 | Shock Troopers (`shocktro`) | 238 | 1 MB + 4 MB | 32 MB | 6 MB | **No, solo MVS** | Bancos P2 de datos (no ejecuta código ahí); corre con la BIOS del AES. |
+| Metal Slug 2 (`mslug2`) | 241 | 1 MB + 2 MB | 32 MB | 8 MB | Sí | Ejecuta código en el segundo banco de P2 (`MAPCHK`). |
+| KOF '97 (`kof97`, MVS) | 232 | 1 MB + 4 MB | 40 MB | 12 MB | Sí (`kof97h`) | Bancos P2 de datos; sprites volteados. |
+| The Last Blade (`lastblad`) | 234 | 1 MB + 4 MB | 40 MB | 16 MB | Sí | Bancos P2 de datos. |
 
 Para completar, todos sin cifrar: **Super Sidekicks 2** (`ssideki2`, temporizador), **Spin Master**
 (`spinmast`, trama en el agua), **Samurai Shodown IV** (`samsho4`, P de 5 MB) o **The King of Fighters

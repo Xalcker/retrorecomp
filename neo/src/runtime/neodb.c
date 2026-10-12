@@ -63,6 +63,49 @@ const NeoDbGame neodb_games[] = {
         { 0xA72CE7ED, 0x400000, PART_C, 7 },        /* 238-c7.c7 */
         { 0x1C7C2EFB, 0x400000, PART_C, 8 },        /* 238-c8.c8 */
         { 0, 0, 0, 0 } } },
+    { "mslug2", "Metal Slug 2 - Super Vehicle-001/II", "SNK", 1998, 0x0241, 1, 0, "f0549c1556470ffc828f9d4e8c4e91b2d202a2bb", {
+        { 0x2A53C5DA, 0x100000, PART_P, 1 },        /* 241-p1.p1 */
+        { 0x38883F44, 0x200000, PART_P, 2 },        /* 241-p2.sp2: 2 bancos de 1 MB en $200000; corre código del segundo */
+        { 0xF3D32F0F, 0x020000, PART_S, 1 },        /* 241-s1.s1 */
+        { 0x94520EBD, 0x020000, PART_M, 1 },        /* 241-m1.m1 */
+        { 0x99EC20E8, 0x400000, PART_VA, 1 },       /* 241-v1.v1 */
+        { 0xECB16799, 0x400000, PART_VA, 2 },       /* 241-v2.v2 */
+        { 0x394B5E0D, 0x800000, PART_C, 1 },        /* 241-c1.c1 */
+        { 0xE5806221, 0x800000, PART_C, 2 },        /* 241-c2.c2 */
+        { 0x9F6BFA6F, 0x800000, PART_C, 3 },        /* 241-c3.c3 */
+        { 0x7D3E306F, 0x800000, PART_C, 4 },        /* 241-c4.c4 */
+        { 0, 0, 0, 0 } } },
+    { "kof97", "The King of Fighters '97 (MVS)", "SNK", 1997, 0x0232, 9, 0, "843642a9e5e75b49f066b79a8f61d37f3b214a48", {
+        { 0x7DB81AD9, 0x100000, PART_P, 1 },        /* 232-p1.p1 */
+        { 0x158B23F6, 0x400000, PART_P, 2 },        /* 232-p2.sp2: 4 bancos de 1 MB en $200000 (solo datos) */
+        { 0x8514ECF5, 0x020000, PART_S, 1 },        /* 232-s1.s1 */
+        { 0x45348747, 0x020000, PART_M, 1 },        /* 232-m1.m1 */
+        { 0x22A2B5B5, 0x400000, PART_VA, 1 },       /* 232-v1.v1 */
+        { 0x2304E744, 0x400000, PART_VA, 2 },       /* 232-v2.v2 */
+        { 0x759EB954, 0x400000, PART_VA, 3 },       /* 232-v3.v3 */
+        { 0x5F8BF0A1, 0x800000, PART_C, 1 },        /* 232-c1.c1 */
+        { 0xE4D45C81, 0x800000, PART_C, 2 },        /* 232-c2.c2 */
+        { 0x581D6618, 0x800000, PART_C, 3 },        /* 232-c3.c3 */
+        { 0x49BB1E68, 0x800000, PART_C, 4 },        /* 232-c4.c4 */
+        { 0x34FC4E51, 0x400000, PART_C, 5 },        /* 232-c5.c5 */
+        { 0x4FF4D47B, 0x400000, PART_C, 6 },        /* 232-c6.c6 */
+        { 0, 0, 0, 0 } } },
+    { "lastblad", "The Last Blade / Bakumatsu Roman - Gekka no Kenshi", "SNK", 1997, 0x0234, 9, 0, "7d1074ed50af973bc5df98b0b5d541372ae7c03d", {
+        { 0xE123A5A3, 0x100000, PART_P, 1 },        /* 234-p1.p1 */
+        { 0x0FDC289E, 0x400000, PART_P, 2 },        /* 234-p2.sp2: 4 bancos de 1 MB en $200000 (solo datos) */
+        { 0x95561412, 0x020000, PART_S, 1 },        /* 234-s1.s1 */
+        { 0x087628EA, 0x020000, PART_M, 1 },        /* 234-m1.m1 */
+        { 0xED66B76F, 0x400000, PART_VA, 1 },       /* 234-v1.v1 */
+        { 0xA0E7F6E2, 0x400000, PART_VA, 2 },       /* 234-v2.v2 */
+        { 0xA506E1E2, 0x400000, PART_VA, 3 },       /* 234-v3.v3 */
+        { 0x0E34157F, 0x400000, PART_VA, 4 },       /* 234-v4.v4 */
+        { 0x9F7E2BD3, 0x800000, PART_C, 1 },        /* 234-c1.c1 */
+        { 0x80623D3C, 0x800000, PART_C, 2 },        /* 234-c2.c2 */
+        { 0x91AB1A30, 0x800000, PART_C, 3 },        /* 234-c3.c3 */
+        { 0x3D60B037, 0x800000, PART_C, 4 },        /* 234-c4.c4 */
+        { 0x1BA80CEE, 0x400000, PART_C, 5 },        /* 234-c5.c5 */
+        { 0xBEAFD091, 0x400000, PART_C, 6 },        /* 234-c6.c6 */
+        { 0, 0, 0, 0 } } },
 };
 const int neodb_count = (int)(sizeof neodb_games / sizeof neodb_games[0]);
 

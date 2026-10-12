@@ -415,9 +415,14 @@ typedef struct {
     u8    *data;
     size_t size;
     u32    crc;
+    char   dir[64];                 /* la carpeta dentro del zip ("" en la raíz): la de un clon en los zips
+                                       "merged" de MAME (kof98.zip con kof98h/242-pn1.p1) */
 } RomPart;
 
-/* El juego desde un archivo .neo o .zip o una carpeta con los chips. 0 si todo bien; si no, *err */
+/* El juego desde un archivo .neo o .zip o una carpeta con los chips. 0 si todo bien; si no, *err.
+ * Un zip "merged" de MAME trae el juego padre en la raíz y cada clon en su carpeta, solo con los
+ * archivos que cambian: se usa el padre y, si no se puede correr (cifrado, protegido), el primer clon
+ * que sí (primero los del AES, que en MAME terminan en "h"). */
 int  cart_load_path(Cart *c, const char *path, const char **err);
 /* Desde un .neo en memoria */
 int  cart_load_neo(Cart *c, const u8 *data, size_t len, const char **err);

@@ -264,6 +264,39 @@ int main(void)
     CHECK(!cart_load_parts(&e, g, 9, ROMFMT_ZIP, &err) && !e.p1_swapped, "sin cabecera: %s", err);
     CHECK(cart_unsupported(&e, &fatal) && fatal, "sin NEO-GEO no se puede correr");
     cart_free(&e);
+    /* Zip "merged" de MAME: el padre en la carpeta del juego y cada clon en una subcarpeta, solo con lo
+     * que cambia. Con el padre cifrado se usa el clon (su P1 en lugar del del padre); si el padre se
+     * puede correr, el padre */
+    {
+        RomPart m[10];
+        for (int i = 1; i < 9; i++) m[i] = g[i];
+        m[0] = part("999-p1.p1", PSZ);
+        m[9] = part("juegoh/999-pn1.p1", PSZ);
+        for (int k = 0; k < 2; k++) {
+            make_program(cpu, PSZ, k ? 0x0999 : 0x0253);
+            to_chip(m[k ? 9 : 0].data, cpu + 0x100000, 0x100000);
+            to_chip(m[k ? 9 : 0].data + 0x100000, cpu, 0x100000);
+        }
+        crcs(m, 10);
+        size_t ml;
+        u8 *mz = make_zip(m, 10, &ml);
+        static Cart mc;
+        CHECK(write_file("build/tests/merged.zip", mz, ml) && !cart_load_path(&mc, "build/tests/merged.zip", &err), "merged: %s", err);
+        CHECK(mc.hdr.ngh == 0x0999 && !strcmp(mc.set, "juegoh") && strstr(mc.files[REG_P], "999-pn1.p1"),
+              "merged: no usó el clon (NGH $%04X, set %s, P %s)", mc.hdr.ngh, mc.set, mc.files[REG_P]);
+        cart_free(&mc);
+        free(mz);
+        /* El padre bueno y el clon cifrado: el padre */
+        RomPart t = m[0]; m[0] = m[9]; m[9] = t;
+        snprintf(m[0].name, sizeof m[0].name, "999-p1.p1");
+        snprintf(m[9].name, sizeof m[9].name, "juegoh/999-pn1.p1");
+        mz = make_zip(m, 10, &ml);
+        CHECK(write_file("build/tests/merged.zip", mz, ml) && !cart_load_path(&mc, "build/tests/merged.zip", &err), "merged: %s", err);
+        CHECK(mc.hdr.ngh == 0x0999 && strcmp(mc.set, "juegoh"), "merged: con el padre bueno debe usar el padre");
+        cart_free(&mc);
+        free(mz);
+        free(m[0].data); free(m[9].data);
+    }
     /* KOF '98: el set de MVS (6 MB de programa, P1 cifrado) no se corre; el del AES (5 MB) sí */
     {
         Cart k;

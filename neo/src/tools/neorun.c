@@ -187,6 +187,8 @@ int main(int argc, char **argv)
     printf("Z80:           PC $%04X, %u comandos, último $%02X, respuesta $%02X, NMI %s, YM2610: temporizadores %s%s, banderas %u\n",
            g->z80.pc, g->sound_cmds, g->sound_cmd, g->sound_reply, g->nmi_enabled ? "habilitada" : "deshabilitada",
            g->ym.ta_at != NEVER ? "A" : "", g->ym.tb_at != NEVER ? "B" : (g->ym.ta_at != NEVER ? "" : "parados"), g->ym.flags);
+    printf("bancos Z80:    $%02X $%02X $%02X $%02X (ventanas de 2, 4, 8 y 16 KB; M1 de %zu KB)\n",
+           g->z80_bank[0], g->z80_bank[1], g->z80_bank[2], g->z80_bank[3], g->cart.len[REG_M] / 1024);
     printf("excepciones:\n");
     for (int n = 0; n < 64; n++)
         if (g->exc_count[n]) {

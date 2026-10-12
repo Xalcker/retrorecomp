@@ -106,7 +106,7 @@ int main(void)
     memset(v1, 0x77, 0x100);                    /* $000000: 256 bytes de nibbles 7 (ADPCM-A) */
     memset(v1 + 0x100, 0x08, 0x100);            /* $000100 */
     for (int i = 0x10000; i < 0x20000; i++) v1[i] = (u8)(i & 0x80 ? 0x99 : 0x11);   /* $010000: ADPCM-B, 64 KB */
-    RomPart q[3] = { { "t-p1.p1", p1, sizeof p1, 0 }, { "t-m1.m1", m1, sizeof m1, 0 }, { "t-v1.v1", v1, sizeof v1, 0 } };
+    RomPart q[3] = { { "t-p1.p1", p1, sizeof p1, 0, "" }, { "t-m1.m1", m1, sizeof m1, 0, "" }, { "t-v1.v1", v1, sizeof v1, 0, "" } };
     for (int i = 0; i < 3; i++) q[i].crc = crc32_buf(0, q[i].data, q[i].size);
     const char *err = NULL;
     if (cart_load_parts(&n.cart, q, 3, ROMFMT_ZIP, &err)) { printf("FALLA: juego de prueba: %s\n", err); return 1; }

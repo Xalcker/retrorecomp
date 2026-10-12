@@ -357,6 +357,71 @@ static int load_dir(Cart *c, const char *path, const char **err)
     return res;
 }
 
+/* Los archivos de un juego de un zip "merged": los de la carpeta del padre (root: la más corta, "" si
+ * están en la raíz) y, con un clon, los de su carpeta en lugar de los del mismo papel (los nombres
+ * dicen el papel: 242-pn1.p1 reemplaza a 242-p1.p1). Devuelve cuántos quedan en sel (que comparte los
+ * datos con parts). */
+static int merged_pick(const RomPart *parts, int n, const char *root, const char *clone, RomPart *sel)
+{
+    int m = 0;
+    for (int i = 0; i < n; i++) if (!strcmp(parts[i].dir, root)) sel[m++] = parts[i];
+    if (!clone) return m;
+    for (int i = 0; i < n; i++) {
+        if (strcmp(parts[i].dir, clone)) continue;
+        u8 role, idx, r2, i2;
+        int known = classify(parts[i].name, &role, &idx), k;
+        for (k = 0; known && k < m; k++)
+            if (classify(sel[k].name, &r2, &i2) && r2 == role && i2 == idx) break;
+        if (known && k < m) sel[k] = parts[i];
+        else sel[m++] = parts[i];
+    }
+    return m;
+}
+
+/* El nombre del set de una carpeta (lo que sigue a la última barra) */
+static const char *dir_set(const char *d)
+{
+    const char *s = strrchr(d, '/');
+    return s ? s + 1 : d;
+}
+
+/* Primero los clones del AES (en MAME su nombre termina en "h") */
+static int clone_rank(const char *d) { size_t l = strlen(d); return l && d[l - 1] == 'h' ? 0 : 1; }
+
+/* Un juego de un zip: si tiene carpetas de clones, el padre o el primer clon que se pueda correr */
+static int load_zip_parts(Cart *c, RomPart *parts, int n, const char **err)
+{
+    const char *root = parts[0].dir;
+    for (int i = 1; i < n; i++) if (strlen(parts[i].dir) < strlen(root)) root = parts[i].dir;
+    int merged = 0;
+    for (int i = 0; i < n; i++) if (strcmp(parts[i].dir, root)) merged = 1;
+    if (!merged) return cart_load_parts(c, parts, n, ROMFMT_ZIP, err);
+    RomPart *sel = malloc((size_t)n * sizeof *sel);
+    if (!sel) { *err = "sin memoria"; return -1; }
+    int fatal = 0;
+    int res = cart_load_parts(c, sel, merged_pick(parts, n, root, NULL, sel), ROMFMT_ZIP, err);
+    if (!res && !(cart_unsupported(c, &fatal) && fatal)) { free(sel); return 0; }
+    for (int rank = 0; rank < 2; rank++)
+        for (int i = 0; i < n; i++) {
+            const char *d = parts[i].dir;
+            if (!strcmp(d, root) || clone_rank(d) != rank) continue;
+            int seen = 0;
+            for (int j = 0; j < i && !seen; j++) seen = !strcmp(parts[j].dir, d);
+            if (seen) continue;
+            Cart t;
+            const char *e2 = NULL;
+            if (cart_load_parts(&t, sel, merged_pick(parts, n, root, d, sel), ROMFMT_ZIP, &e2)) continue;
+            if (cart_unsupported(&t, &fatal) && fatal) { cart_free(&t); continue; }
+            if (!res) cart_free(c);
+            *c = t;
+            if (!c->db) snprintf(c->set, sizeof c->set, "%s", dir_set(d));
+            free(sel);
+            return 0;
+        }
+    free(sel);
+    return res;     /* ningún clon: lo del padre (el error, o el juego con su aviso de que no se puede correr) */
+}
+
 int cart_load_path(Cart *c, const char *path, const char **err)
 {
     memset(c, 0, sizeof *c);
@@ -370,7 +435,7 @@ int cart_load_path(Cart *c, const char *path, const char **err)
     else if (len >= 4 && !memcmp(data, "PK\3\4", 4)) {
         RomPart *parts;
         int n = zip_read_all(data, len, &parts, err);
-        res = n < 0 ? -1 : cart_load_parts(c, parts, n, ROMFMT_ZIP, err);
+        res = n < 0 ? -1 : load_zip_parts(c, parts, n, err);
         if (n >= 0) parts_free(parts, n);
     } else {
         *err = "no es un .neo, un .zip ni una carpeta con los chips del juego";

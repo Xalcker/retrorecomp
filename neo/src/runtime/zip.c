@@ -259,12 +259,16 @@ int zip_read_all(const u8 *zip, size_t len, RomPart **out, const char **err)
         size_t data = (size_t)local + 30 + le16(zip + local + 26) + le16(zip + local + 28);
         if (data + csize > len) { *err = "zip dañado (datos)"; goto fail; }
         RomPart *r = &parts[n];
-        /* Sin la carpeta */
+        /* El nombre sin la carpeta, y la carpeta aparte */
         u32 start = 0;
         for (u32 i = 0; i < nlen; i++) if (name[i] == '/' || name[i] == '\\') start = i + 1;
         u32 l = nlen - start < sizeof r->name - 1 ? nlen - start : (u32)sizeof r->name - 1;
         memcpy(r->name, name + start, l);
         r->name[l] = 0;
+        u32 dl = start ? start - 1 : 0;
+        if (dl > sizeof r->dir - 1) dl = (u32)sizeof r->dir - 1;
+        memcpy(r->dir, name, dl);
+        r->dir[dl] = 0;
         r->size = usize;
         r->data = malloc(usize ? usize : 1);
         if (!r->data) { *err = "sin memoria"; goto fail; }

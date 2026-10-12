@@ -223,6 +223,12 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
       Blade**: 4 bancos de 1 MB, solo de datos (decenas de miles de cambios de banco por partida).
       Shock Troopers: 4800 cuadros idénticos al intérprete.
     - El `kof98` de MVS (P1 cifrado, 6 MB de programa) se rechaza con un mensaje que pide el `kof98h`.
+    - Zips "merged" de MAME (el padre en la raíz y cada clon en su carpeta, solo con lo que cambia): se
+      usa el padre y, si no se puede correr, el primer clon que sí (primero los del AES, terminados en
+      "h"). Así `kof98.zip` merged da el **kof98h**: 4 bancos de P2 solo de datos y la M1 de 256 KB con
+      bancos del Z80 (llega hasta 156 KB); 6000 cuadros de una partida idénticos al intérprete, ninguna
+      instrucción de ROM en el intérprete. El 7,6 % de ciclos que no es recompilado es un bucle de espera
+      en la RAM (`$1008AC`): candidato para la fase 8.
     - Encontrado al mirar estos juegos: los sprites volteados en horizontal se dibujaban sin voltear (cada
       columna de 16 pixeles al revés; se veía en todos los juegos). Corregido, con su prueba en `lspctest`.
 - [ ] **7. Heurísticas de cobertura.**
@@ -289,6 +295,7 @@ PCM2, PVC ni protección del P.
 | Metal Slug 2 (`mslug2`) | 241 | 1 MB + 2 MB | 32 MB | 8 MB | Sí | Ejecuta código en el segundo banco de P2 (`MAPCHK`). |
 | KOF '97 (`kof97`, MVS) | 232 | 1 MB + 4 MB | 40 MB | 12 MB | Sí (`kof97h`) | Bancos P2 de datos; sprites volteados. |
 | The Last Blade (`lastblad`) | 234 | 1 MB + 4 MB | 40 MB | 16 MB | Sí | Bancos P2 de datos. |
+| KOF '98 del AES (`kof98h`) | 242 | 1 MB + 4 MB | 64 MB | 16 MB | Sí | Bancos P2 de datos; M1 de 256 KB con bancos del Z80; zip "merged". |
 
 Para completar, todos sin cifrar: **Super Sidekicks 2** (`ssideki2`, temporizador), **Spin Master**
 (`spinmast`, trama en el agua), **Samurai Shodown IV** (`samsho4`, P de 5 MB) o **The King of Fighters

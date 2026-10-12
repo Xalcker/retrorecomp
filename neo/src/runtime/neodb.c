@@ -106,6 +106,24 @@ const NeoDbGame neodb_games[] = {
         { 0x1BA80CEE, 0x400000, PART_C, 5 },        /* 234-c5.c5 */
         { 0xBEAFD091, 0x400000, PART_C, 6 },        /* 234-c6.c6 */
         { 0, 0, 0, 0 } } },
+    { "kof98h", "The King of Fighters '98 - The Slugfest (AES)", "SNK", 1998, 0x0242, 9, 0, "e920d771c7df9248de2090e3e43bff68e9cd4623", {
+        { 0x61AC868A, 0x100000, PART_P, 1 },        /* 242-pn1.p1: sin cifrar (el del MVS, 242-p1.p1, está cifrado) */
+        { 0x980ABA4C, 0x400000, PART_P, 2 },        /* 242-p2.sp2: 4 bancos de 1 MB en $200000 (solo datos) */
+        { 0x7F7B4805, 0x020000, PART_S, 1 },        /* 242-s1.s1 */
+        { 0x4E7A6B1B, 0x040000, PART_M, 1 },        /* 242-mg1.m1: 256 KB, con bancos del Z80 */
+        { 0xB9EA8051, 0x400000, PART_VA, 1 },       /* 242-v1.v1 */
+        { 0xCC11106E, 0x400000, PART_VA, 2 },       /* 242-v2.v2 */
+        { 0x044EA4E1, 0x400000, PART_VA, 3 },       /* 242-v3.v3 */
+        { 0x7985EA30, 0x400000, PART_VA, 4 },       /* 242-v4.v4 */
+        { 0xE564ECD6, 0x800000, PART_C, 1 },        /* 242-c1.c1 */
+        { 0xBD959B60, 0x800000, PART_C, 2 },        /* 242-c2.c2 */
+        { 0x22127B4F, 0x800000, PART_C, 3 },        /* 242-c3.c3 */
+        { 0x0B4FA044, 0x800000, PART_C, 4 },        /* 242-c4.c4 */
+        { 0x9D10BED3, 0x800000, PART_C, 5 },        /* 242-c5.c5 */
+        { 0xDA07B6A2, 0x800000, PART_C, 6 },        /* 242-c6.c6 */
+        { 0xF6D7A38A, 0x800000, PART_C, 7 },        /* 242-c7.c7 */
+        { 0xC823E045, 0x800000, PART_C, 8 },        /* 242-c8.c8 */
+        { 0, 0, 0, 0 } } },
 };
 const int neodb_count = (int)(sizeof neodb_games / sizeof neodb_games[0]);
 

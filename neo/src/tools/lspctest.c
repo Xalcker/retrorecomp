@@ -63,8 +63,8 @@ static void build(Neo *g)
     static u8 c1[C_SIZE / 2], c2[C_SIZE / 2], m1[0x10000];
     for (int i = 0; i < C_SIZE / 2; i++) { c1[i] = cdata[2 * i]; c2[i] = cdata[2 * i + 1]; }
     RomPart q[5] = {
-        { "t-p1.p1", p1, sizeof p1, 0 }, { "t-s1.s1", sdata, S_SIZE, 0 }, { "t-m1.m1", m1, sizeof m1, 0 },
-        { "t-c1.c1", c1, sizeof c1, 0 }, { "t-c2.c2", c2, sizeof c2, 0 },
+        { "t-p1.p1", p1, sizeof p1, 0, "" }, { "t-s1.s1", sdata, S_SIZE, 0, "" }, { "t-m1.m1", m1, sizeof m1, 0, "" },
+        { "t-c1.c1", c1, sizeof c1, 0, "" }, { "t-c2.c2", c2, sizeof c2, 0, "" },
     };
     for (int i = 0; i < 5; i++) q[i].crc = crc32_buf(0, q[i].data, q[i].size);
     const char *err = NULL;

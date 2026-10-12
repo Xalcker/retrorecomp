@@ -1,6 +1,6 @@
 #!/bin/sh
-# Batería de make test. Crece con cada fase (docs/PLAN.md); por ahora, la fase 0: el cartucho, la
-# BIOS y neorecomp --info.
+# Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
+# (fase 0); el 68000 y el Z80 (fase 1).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -17,10 +17,31 @@ T0=$(date +%s); TS=$T0
 tiempo() { t=$(date +%s); echo "      ($1: $((t - TS)) s)"; TS=$t; }
 mkdir -p build/tests
 
-corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS)" "$(exe carttest)"
+corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
+corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/basura.bin
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
 tiempo "pruebas unitarias"
+
+# Z80: SingleStepTests (make testroms)
+if [ -f testroms/z80/v1/00.json.gz ]; then
+    r=$(sh tests/sstz80.sh | tail -1)
+    case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+else
+    echo "(sin testroms/z80 se omiten las SingleStepTests del Z80: make testroms)"
+fi
+tiempo "SingleStepTests del Z80"
+
+# 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
+if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
+    for modo in "" --recomp; do
+        r=$(SST_OPTS=$modo sh tests/sst68k.sh | tail -1)
+        case "$r" in *"(0 familias con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    done
+else
+    echo "(sin testroms/680x0 se omiten las SingleStepTests del 68000: make testroms)"
+fi
+tiempo "SingleStepTests del 68000 (intérprete y --recomp)"
 
 # El contrato común (tests/contract.sh) necesita neotrace, neoshot, neoaudio y neobench: llegan en la
 # fase 5.

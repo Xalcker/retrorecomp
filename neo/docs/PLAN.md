@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fase 0 hecha.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 y 1 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -123,7 +123,12 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     `--neo`. `carttest`: el mismo juego sintético como `.neo`, zip y carpeta da la misma imagen y el mismo
     SHA1; la L0 calculada da su SHA1.
   - ROMs del autor: `mslug.zip`, `aes.zip` y `neogeo.zip` de MAME.
-- [ ] **1. CPU.**
+- [x] **1. CPU.** Hecho: el 68000 y el Z80 de GENRecomp sin cambios de semántica (solo los nombres y la
+  traza); pasan las 1 000 058 SingleStepTests del 68000 por los dos caminos y las 1 604 000 del Z80. Al Z80
+  se le agregó la NMI (`z80test --nmi`), y esa prueba encontró un error que viene de GENRecomp: al
+  atender una interrupción en un `HALT` se apilaba una dirección de más (se volvía una instrucción más
+  adelante). Corregido aquí; **falta corregirlo en GENRecomp**. La identidad del código
+  (`neo_code_offset`: P1, bancos de P2, la BIOS en el banco `FF`) con su prueba en `carttest`.
   - Copia: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `m68ktest`, `z80test`, `json.h`,
     `sst68k.sh`, `sstz80.sh`, y la parte de `tests/testroms.sh` que baja las SingleStepTests (los mismos
     commits fijos). Sin cambios de semántica: las 1 000 058 del 68000 por los dos caminos (con las mismas

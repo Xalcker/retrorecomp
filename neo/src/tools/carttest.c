@@ -3,7 +3,8 @@
  * MAME, con el P1 de 2 MB de mitades cambiadas), lo carga desde los chips, como .neo, como zip
  * (guardado) y como carpeta, y comprueba que los cuatro dan la misma imagen normalizada, el mismo
  * SHA1 y la misma cabecera. Además: el inflate con códigos fijos y dinámicos, los sufijos de los
- * archivos (P2, buses de V separados), los errores, los juegos cifrados, la tabla L0 y la BIOS.
+ * archivos (P2, buses de V separados), los errores, los juegos cifrados, la tabla L0, la BIOS y la
+ * identidad del código (neo_code_offset) con su ida y vuelta por el formato de traza.
  */
 #ifndef _WIN32
 #define _DEFAULT_SOURCE
@@ -24,6 +25,7 @@
 #include "neodb.h"
 #include "sha1.h"
 #include "console.h"
+#include "trace_line.h"
 #include "inflate_vectors.h"
 
 static int fallas;
@@ -288,6 +290,47 @@ int main(void)
         cart_free(&f);
         for (int i = 0; i < 8; i++) free(q[i].data);
         free(c2);
+    }
+
+    /* --- Identidad del código: P1, la ventana P2 con sus bancos, la BIOS con sus espejos --- */
+    {
+        static Neo n;
+        static u8 big[0x500000];                        /* P de 5 MB: P1 de 1 MB y cuatro bancos */
+        make_program(big, sizeof big, 0x0997);
+        RomPart q[4];
+        q[0] = part("997-p1.p1", 0x100000); to_chip(q[0].data, big, 0x100000);
+        q[1] = part("997-p2.sp2", 0x400000); to_chip(q[1].data, big + 0x100000, 0x400000);
+        q[2] = part("997-m1.m1", 0x10000); fill(q[2].data, q[2].size);
+        q[3] = part("997-s1.s1", 0x20000); fill(q[3].data, q[3].size);
+        crcs(q, 4);
+        CHECK(!cart_load_parts(&n.cart, q, 4, ROMFMT_ZIP, &err), "P de 5 MB: %s", err);
+        CHECK(n.cart.p_banks == 4, "P de 5 MB: %d bancos", n.cart.p_banks);
+        CHECK(neo_code_offset(&n, 0x000100) == 0x100 && neo_code_offset(&n, 0x0FFFFE) == 0xFFFFE, "P1");
+        CHECK(neo_code_offset(&n, 0x200000) == 0x100000, "banco 0");
+        n.p2_bank = 2;
+        CHECK(neo_code_offset(&n, 0x212344) == 0x312344, "banco 2: $%lX", neo_code_offset(&n, 0x212344));
+        CHECK(neo_code_offset(&n, 0xC00402) == (long)BIOS_SPACE + 0x402 && neo_code_offset(&n, 0xC20402) == (long)BIOS_SPACE + 0x402
+              && neo_code_offset(&n, 0xCFFFFE) == (long)BIOS_SPACE + 0x1FFFE, "BIOS y sus espejos");
+        CHECK(neo_code_offset(&n, 0x100000) < 0 && neo_code_offset(&n, 0x3C0000) < 0 && neo_code_offset(&n, 0x400000) < 0, "RAM y registros no son código");
+        CHECK(neo_trace_index(&n, 0x312344) == 0x312344 / 2 && neo_trace_index(&n, (long)BIOS_SPACE + 0x402) == (0x500000 + 0x402) / 2
+              && neo_trace_words(&n) == (0x500000 + BIOS_SIZE) / 2, "posiciones en la traza");
+        /* Ida y vuelta por una línea de traza (BANCO:DIRECCION, bancos de 1 MB; la BIOS en el FF) */
+        static const u32 pcs[] = { 0x000100, 0x212344, 0xC00402, 0xC20402 };
+        for (int i = 0; i < 4; i++) {
+            long off = neo_code_offset(&n, pcs[i]);
+            char line[64];
+            FILE *f = fopen("build/tests/traza.txt", "w+");
+            trace_line_write(f, TRACE_SHIFT, 6, (unsigned long)off, pcs[i]);
+            rewind(f);
+            if (!fgets(line, sizeof line, f)) line[0] = 0;
+            fclose(f);
+            unsigned long o2, a2;
+            CHECK(trace_line_read(line, TRACE_SHIFT, &o2, &a2) && o2 == (unsigned long)off && a2 == pcs[i], "traza de $%06X: %s", pcs[i], line);
+            if (i == 2) CHECK(!strcmp(line, "FF:C00402\n"), "la BIOS va en el banco FF: %s", line);
+            if (i == 1) CHECK(!strcmp(line, "03:212344\n"), "el banco 2 de P2 es el MB 3: %s", line);
+        }
+        cart_free(&n.cart);
+        for (int i = 0; i < 4; i++) free(q[i].data);
     }
 
     /* --- Tabla L0 y BIOS --- */

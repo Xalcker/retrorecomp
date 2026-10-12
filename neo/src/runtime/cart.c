@@ -423,3 +423,26 @@ const char *cart_vector_name(int n)
     if (n < 0 || n >= (int)(sizeof names / sizeof names[0])) return NULL;
     return names[n];
 }
+
+/* ------------------------------------------------------------------ */
+/* Identidad del código                                                */
+/* ------------------------------------------------------------------ */
+
+long neo_code_offset(const Neo *g, u32 pc)
+{
+    const Cart *c = &g->cart;
+    pc &= 0xFFFFFF;
+    size_t plen = c->len[REG_P];
+    if (pc < 0x100000) {
+        size_t p1 = plen < P_BANK_SIZE ? plen : P_BANK_SIZE;
+        return p1 ? (long)(pc % p1) : -1;
+    }
+    if (pc >= 0x200000 && pc < 0x300000) {
+        if (!c->p_banks) return -1;
+        size_t base = P_BANK_SIZE * (1 + (size_t)(g->p2_bank % c->p_banks));
+        size_t n = plen - base < P_BANK_SIZE ? plen - base : P_BANK_SIZE;       /* un P2 chico se repite */
+        return (long)(base + (pc & 0xFFFFF) % n);
+    }
+    if (pc >= 0xC00000 && pc < 0xD00000) return (long)(BIOS_SPACE + (pc & (BIOS_SIZE - 1)));
+    return -1;
+}

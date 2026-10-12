@@ -12,17 +12,72 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `cart.c` (formatos, imagen normalizada, cabecera, vectores), `bios.c` (BIOS del AES y tabla L0), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
 | `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
 | `src/platform/` | Lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). La ventana llega en la fase 3. |
-| `src/tools/` | `carttest` (con `inflate_vectors.h`), `embed`. |
-| `tests/` | `run_tests.sh` (`make test`), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh`. |
+| `src/tools/` | `carttest` (con `inflate_vectors.h`), `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `embed`. |
+| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo). |
 
 ## Una sola fuente de verdad para el CPU
 
-Llega en la fase 1: `m68k_ops.h` y `cpu68k.c` de GENRecomp sin cambios de semántica, validados con las
-SingleStepTests del 68000 por el intérprete y por el camino del código generado, y el Z80 con las suyas.
+El 68000 y el Z80 son los de GENRecomp (`m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`), sin
+cambios de semántica: solo cambian los nombres (`struct Neo`), la traza (`neo_trace_mark`, ver
+Recompilador) y, en el Z80, la NMI y la vuelta de un `HALT` (abajo).
+
+`m68k_ops.h` tiene la semántica de cada familia de instrucciones como una función
+`k_NOMBRE(g, op, ext, pc)` que ejecuta la instrucción `op` que está en `pc` y devuelve la dirección
+de la siguiente (la que sigue, el destino de un salto o el manejador de una excepción):
+
+- El **intérprete** (`cpu68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
+  cola de prefetch (`ir`, `irc`) y cada una que se consume pide la siguiente al bus, como el 68000.
+- El **código generado** las llamará con `op`, `pc` y `ext` constantes (las palabras de extensión,
+  leídas de la ROM al recompilar). Las lecturas de programa se vuelven ciclos sin acceso al bus y
+  `ir`/`irc` se rehacen de la memoria al salir del código generado. El compilador pliega todo: `ADD.w
+  #$1234,D0` queda en unas 20 instrucciones de máquina (las banderas en línea y el siguiente PC como
+  constante).
+
+`m68k_decode` dice a qué familia pertenece cada opcode (o `K_ILLEGAL`, validando los modos de
+direccionamiento) y `m68k_ext_words` cuántas palabras de extensión lleva: es lo que usará el
+descubrimiento para recorrer el código y rechazar datos.
+
+**Validación:** las [SingleStepTests del 68000](https://github.com/SingleStepTests/680x0) (`make
+testroms`, un commit fijo; ~1 millón de casos, uno por instrucción, con el estado del CPU, la cola de
+prefetch, la RAM y los ciclos antes y después). `m68ktest` las corre **por los dos caminos**: el
+intérprete y el del código generado (`--recomp`). Pasan las 1 000 058 por los dos; se omiten 2 de
+ASL.b con datos malos conocidos ([issue #4](https://github.com/SingleStepTests/680x0/issues/4)). En
+`--recomp` no se compara la cola de prefetch cuando la instrucción escribe sobre ella (código que se
+modifica a sí mismo: en ROM no pasa y el código en RAM lo corre el intérprete).
+
+Comportamientos poco documentados que siguen a las pruebas: banderas N/V de ABCD/SBCD/NBCD; CHK
+compara primero con el límite (38 ciclos, N = signo) y luego el signo (40 ciclos, N = 1), y si no
+atrapa N no cambia; DIVS con desborde termina antes (16/18 ciclos); la
+división entre cero apila la dirección de la instrucción (solo un caso lo cubre); ASR con más pasos que
+bits deja C = X = 0; ADDQ.l a An tarda 6 ciclos. El error de dirección apila el IR, el estado (R/W,
+I/N, código de función), la dirección y como PC la última palabra de programa leída menos 2 (al saltar a
+una dirección impar, el destino menos 4); MOVE a `-(An)` hace el prefetch antes de escribir y un long
+se escribe en dos pasos (la palabra baja primero), igual que MOVEM a `-(An)` y ADDX/SUBX con `-(An)`.
+
+**Donde no seguimos a las pruebas:** DIVU/DIVS con desborde dejan N = 1 y Z = 0 (las SingleStepTests
+dejan N y Z sin cambiar). NBA Jam Tournament Edition lo demuestra: tras un `divu.w #4` que se desborda
+decide con `beq` cómo escribir su EEPROM, y solo con Z = 0 escribe páginas de 4 bytes y reconoce su
+partida al volver a arrancar; Genesis Plus GX hace lo mismo. `m68ktest` compara esos casos sin N ni Z
+y los cuenta aparte (1854 de DIVU y 2839 de DIVS).
+
+La escritura de TAS (`cpu.tas`) la decide el bus: el Genesis la ignora en la RAM; el Neo Geo la hace.
+
+**El Z80** (`z80.c`): completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades
+de IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
+bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80 (`z80test`,
+`tests/sstz80.sh`). Dos cosas nuevas respecto a GENRecomp, que las SingleStepTests no cubren (no tienen
+interrupciones) y prueba `z80test --nmi`:
+
+- **NMI** (`z80.nmi`, por flanco): el Neo Geo la usa para avisar de cada comando del 68000. Se atiende
+  tras cualquier instrucción (también la que sigue a EI), sale del `HALT`, borra IFF1 y deja IFF2 (RETN lo
+  devuelve a IFF1), apila el PC y salta a `$0066`; 11 ciclos T.
+- **Vuelta de un `HALT`:** después de ejecutar `HALT` el PC ya apunta a la instrucción siguiente (así lo
+  piden las SingleStepTests), y esa es la que se apila al atender una interrupción. En GENRecomp la
+  interrupción le sumaba 1 otra vez (se volvía una instrucción más adelante); aquí está corregido.
 
 ## Temporización
 
@@ -43,10 +98,14 @@ Llega en las fases 6 y 7.
 ### Identidad de las instrucciones
 
 Una instrucción del juego se identifica por su desplazamiento en la imagen P normalizada (ver Cartucho):
-el primer MB es `$000000-$0FFFFF` y el MB n + 1 es el banco n de la ventana `$200000-$2FFFFF`. Las de la
-BIOS, por su desplazamiento dentro de la BIOS, en un espacio aparte. En las trazas (`trace_line.h`, el
-formato común `BANCO:DIRECCION`) el banco es el desplazamiento dividido entre 1 MB, y la BIOS va en el banco
-`FF`: `FF:C00402` es la instrucción de `$00402` de la BIOS.
+el primer MB es `$000000-$0FFFFF` (con espejos si P1 es más chico) y el MB n + 1 es el banco n de la
+ventana `$200000-$2FFFFF` (un P2 más chico que 1 MB se repite). Las de la BIOS, por su desplazamiento
+dentro de la BIOS, en un espacio aparte: `BIOS_SPACE` (`$FF00000`) más el desplazamiento, con los espejos
+de `$C00000-$CFFFFF`. `neo_code_offset` hace esa traducción con el banco actual (`p2_bank`) y devuelve -1
+donde no hay ROM. En las trazas (`trace_line.h`, el formato común `BANCO:DIRECCION`) el banco es el
+desplazamiento dividido entre 1 MB: `03:212344` es el banco 2 de P2 y la BIOS va en el banco `FF`
+(`FF:C00402`). La traza del intérprete (`g->trace`) tiene una entrada por palabra de P y luego las de la
+BIOS (`neo_trace_index`).
 
 ## Bancos, mappers y guardado
 
@@ -132,18 +191,24 @@ Llega en la fase 3.
 - **Contrato común** (`tests/contract.sh`, el mismo archivo en los cuatro repos; si cambia, se copia a los
   otros tres): ya tiene la rama `neo`; se cumple cuando existan `neotrace`, `neoshot`, `neoaudio` y
   `neobench` (fase 5).
-- **`make test`:** `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
+- **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
+  fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona).
+- **`make test`:** las SingleStepTests del 68000 por el intérprete y por el camino del código generado
+  (~8 s cada una) y las del Z80 (~24 s); `z80test --nmi`; `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
   SHA1, cabecera y vectores desde los chips, como `.neo`, como zip guardado dentro de una carpeta y como
   carpeta; el inflate con códigos fijos y dinámicos, cortado y con salida chica; un zip dañado; los sufijos
   con P2 y buses de V separados; los errores; un juego cifrado y uno sin `NEO-GEO`; la tabla L0 y su SHA1;
-  una BIOS desconocida o de otro tamaño). Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
+  una BIOS desconocida o de otro tamaño; la identidad del código en P1, en los bancos de un P de 5 MB y en
+la BIOS con sus espejos, con la ida y vuelta por una línea de traza). Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
   mismo SHA1; con Metal Slug, la base de datos, el SHA1, el P1 y las entradas; con `aes.zip`, que se acepte
   `neo-epo.bin` y que su `000-lo.lo` sea la tabla calculada; `neogeo.zip` (MVS) no se acepta.
 
 ## Estado de la validación
 
-Fase 0: la carga de juegos (`.neo`, zip, carpeta) y de la BIOS, con `make test`. Probado con Metal Slug
-(`mslug.zip` de MAME) y las BIOS del `aes.zip` y del `neogeo.zip` de MAME.
+- **CPU:** las 1 000 058 SingleStepTests del 68000 por el intérprete y por el camino del código generado
+  (`m68ktest`, `--recomp`), y las 1 604 000 del Z80 (`z80test`), más la NMI (`z80test --nmi`).
+- **Carga:** juegos (`.neo`, zip, carpeta) y BIOS, con `make test`. Probado con Metal Slug (`mslug.zip` de
+  MAME) y las BIOS del `aes.zip` y del `neogeo.zip` de MAME.
 
 ### Línea base para optimizar el runtime
 

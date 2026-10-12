@@ -10,7 +10,7 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fase 0 de 10** (carga de juegos y BIOS). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 y 1 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar
@@ -27,6 +27,7 @@ Los mismos paquetes que en GENRecomp, NESRecomp y GBRecomp: compilador C99, `mak
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
 make            # neorecomp y las pruebas
+make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas)
 make test       # pruebas
 make dist       # dist/neorecomp-<versión>-<sistema>.tar.gz
 ```
@@ -50,7 +51,7 @@ vectores. Busca la BIOS del AES junto al juego o en `roms/` (`aes.zip` de MAME, 
 | Comando | Qué hace |
 |---|---|
 | `neorecomp juego [--info] [--bios archivo] [--neo salida.neo]` | Información del juego y de la BIOS; exportar a `.neo`. El recompilador (`-o`) llega en la fase 6. |
-| `carttest` | Prueba de la carga (`make test`). |
+| `carttest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
 
 ## Juegos y BIOS
 
@@ -65,12 +66,13 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos); `sha1`, `console.h`, `trace_line.h` (común con los otros recompiladores). |
+| `src/runtime/` | La consola: `neo.h`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_ops.h`/`cpu68k.c` (el 68000) y `z80.c` (el Z80), los de GENRecomp; `sha1`, `console.h`, `trace_line.h` (común con los otros recompiladores). |
 | `src/neorecomp/` | El recompilador. |
 | `src/platform/` | Lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
-| `src/tools/` | `carttest`, `embed`. |
+| `src/tools/` | `carttest`, `m68ktest`, `z80test`, `embed`. |
 | `tools/retrorecomp/` | La GUI común con los otros recompiladores (submódulo). |
-| `tests/` | `run_tests.sh` (`make test`), `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos). |
+| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80. No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 
 ## Licencia

@@ -34,8 +34,8 @@ endif
 # Lo que hace `make` a secas (las reglas de abajo no siguen el orden en que se usan)
 .DEFAULT_GOAL := all
 
-# Fase 0: cartucho, BIOS y zip. Crece con cada fase de docs/PLAN.md.
-RUNTIME := cart.c bios.c zip.c neodb.c sha1.c
+# Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1)
+RUNTIME := cart.c bios.c zip.c neodb.c cpu68k.c z80.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 
@@ -43,13 +43,20 @@ RT := $(BUILD)/libneort.a
 PLAT := png.c files.c export.c
 PLAT_OBJ := $(PLAT:%.c=$(BUILD)/plat_%.o)
 
-PROGS := neorecomp carttest
+PROGS := neorecomp carttest m68ktest z80test
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+# m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola
+m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT) -lm
+
+z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT) -lm
 
 # embed mete el runtime y la plataforma dentro de neorecomp (lo usará desde la fase 6)
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
@@ -70,7 +77,7 @@ dist: neorecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)
@@ -85,7 +92,8 @@ $(BUILD):
 test: all
 	sh tests/run_tests.sh
 
-# Pruebas libres en testroms/ (no se versionan), en versiones fijas (llegan en la fase 1)
+# Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del 68000 y
+# del Z80 (ver tests/testroms.sh)
 testroms:
 	sh tests/testroms.sh
 

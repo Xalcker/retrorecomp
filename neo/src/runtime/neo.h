@@ -1,13 +1,16 @@
 /*
  * NEORecomp: estado completo de la consola y su interfaz.
- * Por ahora (fase 0): el cartucho (formatos, imagen normalizada, cabecera, vectores) y la BIOS
- * (validación por SHA1, tabla L0). Crece con cada fase de docs/PLAN.md.
+ * Por ahora: el cartucho (formatos, imagen normalizada, cabecera, vectores), la BIOS (validación por
+ * SHA1, tabla L0), el 68000 y el Z80. Crece con cada fase de docs/PLAN.md.
  */
 #ifndef NEO_H
 #define NEO_H
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "m68k.h"
+#include "z80.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -102,10 +105,47 @@ typedef struct {
 } Bios;
 
 typedef struct Neo {
+    M68k cpu;
+    u64  cyc;                       /* ciclos del 68000 desde el reset */
+    void *jb;                       /* jmp_buf del paso actual (el error de dirección vuelve ahí) */
     Cart cart;
     Bios bios;
+    u8   p2_bank;                   /* banco de P2 que se ve en $200000 */
+    Z80  z80;
+    u32  exc_count[64];             /* excepciones atendidas por vector (estadística) */
+    u32 *trace;                     /* NULL, o por cada palabra de P y de la BIOS (neo_trace_index): 0 = no
+                                       ejecutada; si no, $80000000 | dirección */
     u8   l0[L0_SIZE];
 } Neo;
+
+#if defined(__GNUC__) || defined(__clang__)
+#define NEO_INL static inline __attribute__((always_inline))
+#else
+#define NEO_INL static inline
+#endif
+
+/* Ciclos del 68000 sin acceso al bus */
+NEO_INL void m68k_idle(Neo *g, uint32_t n) { g->cyc += n; }
+
+/*
+ * Identidad del código: el desplazamiento en la imagen P de lo que se ve en pc ($000000-$0FFFFF,
+ * con espejos si P1 es más chico; el banco actual de $200000-$2FFFFF), o BIOS_SPACE más el
+ * desplazamiento en la BIOS ($C00000-$CFFFFF). -1 si ahí no hay ROM (RAM, registros).
+ */
+long neo_code_offset(const Neo *g, u32 pc);
+/* Posición en g->trace de un desplazamiento de neo_code_offset: las palabras de P y después las de la BIOS */
+NEO_INL size_t neo_trace_index(const Neo *g, long off)
+{
+    return (size_t)(off < (long)BIOS_SPACE ? off : (long)g->cart.len[REG_P] + (off - (long)BIOS_SPACE)) >> 1;
+}
+NEO_INL size_t neo_trace_words(const Neo *g) { return (g->cart.len[REG_P] + BIOS_SIZE) >> 1; }
+NEO_INL void neo_trace_mark(Neo *g, u32 pc)
+{
+    long off = neo_code_offset(g, pc);
+    if (off < 0) return;
+    size_t i = neo_trace_index(g, off);
+    if (!g->trace[i]) g->trace[i] = 0x80000000u | pc;
+}
 
 /* Lectura de 16 bits del programa o de la BIOS (palabras con los bytes invertidos) */
 static inline u16 rdw_le(const u8 *p) { return (u16)(p[1] << 8 | p[0]); }

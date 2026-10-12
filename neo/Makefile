@@ -36,7 +36,7 @@ endif
 
 # Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1), la
 # consola, el bus, el LSPC sin imagen, el mapa del Z80 y los temporizadores del YM2610 (fase 2)
-RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c cpu68k.c z80.c z80bus.c ym2610.c sha1.c
+RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c z80.c z80bus.c ym2610.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 
@@ -44,7 +44,28 @@ RT := $(BUILD)/libneort.a
 PLAT := png.c files.c export.c
 PLAT_OBJ := $(PLAT:%.c=$(BUILD)/plat_%.o)
 
-PROGS := neorecomp neorun carttest m68ktest z80test bustest
+# La ventana: el intérprete con menús (neo)
+NEO_SRC := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
+# Windows: el icono del .exe sale de un recurso (windres)
+ifeq ($(OS),Windows_NT)
+WINRES := $(BUILD)/icono_res.o
+$(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
+	windres -I src/platform -i $< -o $@ -O coff
+endif
+
+neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+
+PROGS := neorecomp neorun neo carttest m68ktest z80test bustest lspctest
+
+# SDL2 para el intérprete con ventana (neo). En Windows, enlazado de forma
+# estática para que el .exe no pida SDL2.dll.
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdlg32
+else
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+endif
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
@@ -55,8 +76,11 @@ carttest$(EXE): src/tools/carttest.c $(RT)
 bustest$(EXE): src/tools/bustest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
-neorun$(EXE): src/tools/neorun.c $(RT)
+lspctest$(EXE): src/tools/lspctest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+neorun$(EXE): src/tools/neorun.c src/platform/png.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola
 m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)

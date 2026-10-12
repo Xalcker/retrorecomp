@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fases 0 a 2 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 3 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -153,7 +153,13 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     tiempo) y `bustest` (con programas de 68000 hechos en la prueba: VBLANK y temporizador, `IRQACK`,
     banco P2, comando y respuesta del Z80).
   - Meta: con la BIOS original, Metal Slug pasa el arranque y llega a la demo (se ve en la RAM).
-- [ ] **3. LSPC (video) y la ventana.**
+- [x] **3. LSPC (video) y la ventana.** Hecho: el dibujo de a una línea (sprites con cadenas, las dos
+  reducciones, volteos, autoanimación, 96 por línea; capa fija; paleta con el bit de oscurecido y la
+  sombra), con la C y la S convertidas al cargar; la ventana `neo` (menús de Moskva 89 en español e
+  inglés, tamaños, pantalla completa, aspecto, captura, tarjeta de memoria, la BIOS buscada o pedida y
+  guardada en la carpeta de datos, `--ui-shot`); el icono `NEOGEO.png` de KyleBing (CC BY 4.0); `lspctest`;
+  `neorun --shot/--shots`. **Meta cumplida:** Metal Slug, Samurai Shodown II y Neo Turf Masters se ven bien
+  (también los efectos de trama del hoyo de Neo Turf Masters). Sin comprobar: cuánto oscurece la sombra.
   - Copia: la ventana (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`; la barra de menús de
     Moskva 89, en español e inglés) y el modo perezoso del VDP de GENRecomp (dibujar una línea al terminar o
     cuando el CPU va a cambiar algo que la afecta).

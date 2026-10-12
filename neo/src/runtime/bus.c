@@ -129,6 +129,13 @@ static void io_wr16(Neo *g, u32 a, u16 v)
 
 static inline u16 *pal_ptr(Neo *g, u32 a) { return &g->pal[(g->latch & LATCH_PALBANK1) ? 1 : 0][(a & 0x1FFF) >> 1]; }
 
+static inline void pal_write(Neo *g, u32 a, u16 v)
+{
+    int b = (g->latch & LATCH_PALBANK1) ? 1 : 0, i = (int)((a & 0x1FFF) >> 1);
+    g->pal[b][i] = v;
+    g->pal_argb[b][i] = neo_color(v);
+}
+
 /* --- Lo que pide el 68000 --- */
 
 uint16_t m68k_rd16(Neo *g, uint32_t a)
@@ -194,7 +201,7 @@ void m68k_wr16(Neo *g, uint32_t a, uint16_t v)
     case 0x1: g->ram[a & 0xFFFF] = (u8)(v >> 8); g->ram[(a + 1) & 0xFFFF] = (u8)v; break;
     case 0x2: p2_write(g, a, v); break;
     case 0x3: io_wr16(g, a, v); break;
-    case 0x4: case 0x5: case 0x6: case 0x7: *pal_ptr(g, a) = v; break;
+    case 0x4: case 0x5: case 0x6: case 0x7: pal_write(g, a, v); break;
     case 0x8: case 0x9: case 0xA: case 0xB: {
         u32 i;
         g->cyc += CARD_WAIT;
@@ -213,7 +220,7 @@ void m68k_wr8(Neo *g, uint32_t a, uint8_t v)
     case 0x1: g->ram[a & 0xFFFF] = v; break;       /* TAS también escribe (en el Genesis no) */
     case 0x2: p2_write(g, a, (u16)(v << 8 | v)); break;
     case 0x3: io_wr8(g, a, v); break;
-    case 0x4: case 0x5: case 0x6: case 0x7: *pal_ptr(g, a) = (u16)(v << 8 | v); break;
+    case 0x4: case 0x5: case 0x6: case 0x7: pal_write(g, a, (u16)(v << 8 | v)); break;
     case 0x8: case 0x9: case 0xA: case 0xB: {
         u32 i;
         g->cyc += CARD_WAIT;

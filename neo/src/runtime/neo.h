@@ -125,6 +125,7 @@ typedef struct {
  *   ($100-$10F), 40-263 las 224 líneas visibles ($110-$1EF)
  */
 #define FIRST_VISIBLE_LINE 40
+#define SCREEN_W           320
 #define SCREEN_H           224
 #define VBL_IRQ_AT         85         /* ciclo de la línea 0 en que se pide el VBLANK (168 + 2 maestros) */
 #define TIMER_VBL_AT       573        /* ... y en que se recarga el temporizador si así se pidió (1146 maestros) */
@@ -205,6 +206,12 @@ typedef struct Neo {
                                        ejecutada; si no, $80000000 | dirección */
     u8   ram[0x10000];              /* RAM del 68000: $100000-$10FFFF (con espejos hasta $1FFFFF) */
     u16  pal[2][0x1000];            /* paleta: dos bancos de 256 paletas de 16 colores */
+    u32  pal_argb[2][0x1000];       /* la misma, ya en ARGB (se pone al día en cada escritura) */
+    u32  fb[SCREEN_W * SCREEN_H];   /* la imagen del cuadro en ARGB */
+    u64 *spr;                       /* C convertida (lspc_render.c): 16 filas de 64 bits por mosaico */
+    size_t spr_tiles;
+    u32 *fix;                       /* S convertida: 8 filas de 32 bits por mosaico */
+    size_t fix_tiles;
     u8   zram[0x800];               /* RAM del Z80: $F800-$FFFF */
     u8   l0[L0_SIZE];
 } Neo;
@@ -250,6 +257,8 @@ static inline u32 cart_p32(const Cart *c, u32 off) { return (u32)cart_p16(c, off
 /* Carga el juego y la BIOS (la busca si bios_path es NULL), calcula la tabla L0 y enciende. 0 si todo
  * bien; si no, *err */
 int  neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err);
+/* Arma la consola con un cartucho (pasa a ser suyo: lo libera neo_free) y una BIOS ya cargados, y enciende */
+void neo_assemble(Neo *g, const Cart *cart, const Bios *bios);
 void neo_free(Neo *g);
 void neo_power_on(Neo *g);              /* encendido: todo a cero, la interrupción de arranque pendiente */
 void neo_reset(Neo *g);                 /* botón de reset */
@@ -268,6 +277,13 @@ NEO_INL u16 lspc_counter(const Lspc *l)    /* contador de líneas del LSPC ($0F8
     int v = 0x1F0 + l->line;
     return (u16)(v > 0x1FF ? v - 0x200 + 0xF8 : v);
 }
+
+/* --- Dibujo (lspc_render.c) --- */
+void gfx_init(Neo *g);                  /* convierte la C y la S del cartucho para dibujar */
+void gfx_free(Neo *g);
+u32  neo_color(u16 c);                  /* un color de la paleta en ARGB */
+void pal_refresh(Neo *g);               /* toda la paleta a ARGB (tras cargar un estado, por ejemplo) */
+void lspc_render_line(Neo *g, int sy);  /* dibuja la línea sy (0-223) de la pantalla */
 
 /* --- Z80 y YM2610 (z80bus.c, ym2610.c) --- */
 void z80_run_until(Neo *g, u64 mclk);   /* el Z80 corre hasta ese ciclo maestro */

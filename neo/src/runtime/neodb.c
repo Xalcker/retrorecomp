@@ -19,6 +19,34 @@ const NeoDbGame neodb_games[] = {
         { 0x5121456A, 0x400000, PART_C, 3 },        /* 201-c3.c3 */
         { 0xF4AD59A3, 0x400000, PART_C, 4 },        /* 201-c4.c4 */
         { 0, 0, 0, 0 } } },
+    { "samsho2", "Samurai Shodown II / Shin Samurai Spirits", "SNK", 1994, 0x0063, 9, 0, "83af9153f655527de0f24c9bd1fa1543cb4d68c3", {
+        { 0x22368892, 0x200000, PART_P, 1 },        /* 063-p1.p1, 2 MB, mitades cambiadas */
+        { 0x64A5CD66, 0x020000, PART_S, 1 },        /* 063-s1.s1 */
+        { 0x56675098, 0x020000, PART_M, 1 },        /* 063-m1.m1 */
+        { 0x37703F91, 0x200000, PART_VA, 1 },       /* 063-v1.v1 */
+        { 0x0142BDE8, 0x200000, PART_VA, 2 },       /* 063-v2.v2 */
+        { 0xD07FA5CA, 0x200000, PART_VA, 3 },       /* 063-v3.v3 */
+        { 0x24AAB4BB, 0x100000, PART_VA, 4 },       /* 063-v4.v4 */
+        { 0x86CD307C, 0x200000, PART_C, 1 },        /* 063-c1.c1 */
+        { 0xCDFCC4CA, 0x200000, PART_C, 2 },        /* 063-c2.c2 */
+        { 0x7A63CCC7, 0x200000, PART_C, 3 },        /* 063-c3.c3 */
+        { 0x751025CE, 0x200000, PART_C, 4 },        /* 063-c4.c4 */
+        { 0x20D3A475, 0x200000, PART_C, 5 },        /* 063-c5.c5 */
+        { 0xAE4C0A88, 0x200000, PART_C, 6 },        /* 063-c6.c6 */
+        { 0x2DF3CBCF, 0x200000, PART_C, 7 },        /* 063-c7.c7 */
+        { 0x1FFC6DFA, 0x200000, PART_C, 8 },        /* 063-c8.c8 */
+        { 0, 0, 0, 0 } } },
+    { "turfmast", "Neo Turf Masters / Big Tournament Golf", "Nazca", 1996, 0x0200, 3, 0, "6383d852c17c0eb770cd51c4fa8cb9b29874bbb2", {
+        { 0x28C83048, 0x200000, PART_P, 1 },        /* 200-p1.p1, 2 MB, mitades cambiadas */
+        { 0x9A5402B2, 0x020000, PART_S, 1 },        /* 200-s1.s1 */
+        { 0x9994AC00, 0x020000, PART_M, 1 },        /* 200-m1.m1 */
+        { 0x00FD48D2, 0x200000, PART_VA, 1 },       /* 200-v1.v1 */
+        { 0x082ACB31, 0x200000, PART_VA, 2 },       /* 200-v2.v2 */
+        { 0x7ABCA053, 0x200000, PART_VA, 3 },       /* 200-v3.v3 */
+        { 0x6C7B4902, 0x200000, PART_VA, 4 },       /* 200-v4.v4 */
+        { 0x8E7BF41A, 0x400000, PART_C, 1 },        /* 200-c1.c1 */
+        { 0x5A65A8CE, 0x400000, PART_C, 2 },        /* 200-c2.c2 */
+        { 0, 0, 0, 0 } } },
 };
 const int neodb_count = (int)(sizeof neodb_games / sizeof neodb_games[0]);
 

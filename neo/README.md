@@ -10,13 +10,13 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fases 0 a 2 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones: Metal Slug arranca con la BIOS y llega a la demo, todavía sin imagen). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 a 3 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven bien en la ventana `neo`, todavía sin sonido). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar
 
 Los mismos paquetes que en GENRecomp, NESRecomp y GBRecomp: compilador C99, `make`, `pkg-config` y SDL2
-(la ventana llega en la fase 3).
+(para la ventana `neo`).
 
 | Sistema | Paquetes |
 |---|---|
@@ -26,13 +26,22 @@ Los mismos paquetes que en GENRecomp, NESRecomp y GBRecomp: compilador C99, `mak
 
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
-make            # neorecomp y las pruebas
+make            # neo (la ventana), neorecomp, neorun y las pruebas
 make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas)
 make test       # pruebas
 make dist       # dist/neorecomp-<versión>-<sistema>.tar.gz
 ```
 
 ## Lo que hace hoy
+
+```
+./neo roms/mslug.zip
+```
+
+El intérprete con ventana: menús de juego (abrir, reiniciar, pausa, tarjeta de memoria), video (tamaño,
+pantalla completa, escala entera, aspecto 4:3), captura (F12) e idioma. Teclado: flechas, Z X C V =
+A B C D, Enter = Start, Mayús = Select (Ayuda → Controles). La BIOS se busca junto al juego y en `roms/`
+(o `--bios archivo`); si no está, la pide una vez y guarda una copia en la carpeta de datos.
 
 ```
 ./neorecomp roms/mslug.zip
@@ -51,8 +60,9 @@ vectores. Busca la BIOS del AES junto al juego o en `roms/` (`aes.zip` de MAME, 
 | Comando | Qué hace |
 |---|---|
 | `neorecomp juego [--info] [--bios archivo] [--neo salida.neo]` | Información del juego y de la BIOS; exportar a `.neo`. El recompilador (`-o`) llega en la fase 6. |
-| `neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [boton:desde-hasta]` | Corre sin ventana con el intérprete y resume lo que pasó: instrucciones, excepciones, el Z80, las variables de la BIOS, dónde se va el tiempo y (`--fix`) la capa fija como texto. Botones: `up down left right a b c d start select`. |
-| `carttest`, `bustest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
+| `neo juego [--bios archivo] [--scale N]` | Ventana SDL2 con el intérprete (ver arriba). |
+| `neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot archivo.png] [--shots carpeta --every N] [boton:desde-hasta]` | Corre sin ventana con el intérprete y resume lo que pasó: instrucciones, excepciones, el Z80, las variables de la BIOS, dónde se va el tiempo, (`--fix`) la capa fija como texto y (`--shot`) la imagen. Botones: `up down left right a b c d start select`. |
+| `carttest`, `bustest`, `lspctest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
 
 ## Juegos y BIOS
 
@@ -67,14 +77,23 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` (LSPC sin imagen), `z80bus.c`, `ym2610.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_ops.h`/`cpu68k.c` (el 68000) y `z80.c` (el Z80), los de GENRecomp; `sha1`, `console.h`, `trace_line.h` (común con los otros recompiladores). |
+| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `z80bus.c`, `ym2610.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_ops.h`/`cpu68k.c` (el 68000) y `z80.c` (el Z80), los de GENRecomp; `sha1`, `console.h`, `trace_line.h` (común con los otros recompiladores). |
 | `src/neorecomp/` | El recompilador. |
-| `src/platform/` | Lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
-| `src/tools/` | `neorun`, `carttest`, `bustest`, `m68ktest`, `z80test`, `embed`. |
-| `tools/retrorecomp/` | La GUI común con los otros recompiladores (submódulo). |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
+| `src/tools/` | `neorun`, `carttest`, `bustest`, `lspctest`, `m68ktest`, `z80test`, `embed`. |
+| `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores (submódulo); `make_icon.py` (los iconos). |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80. No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
+
+## Créditos
+
+- Interfaz basada en Moskva 89, GBRecomp, NESRecomp y GENRecomp (MIT).
+- Icono: `NEOGEO.png` (mando del Neo Geo AES, serie TriMui) de
+  [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), con licencia
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Se incluye tal cual en `src/platform/icono.h`;
+  `src/platform/icono.ico` es un recorte llevado a 256x256 (`tools/make_icon.py`).
+- Los formatos y el comportamiento del hardware salen de la [NeoGeo Development Wiki](https://wiki.neogeodev.org).
 
 ## Licencia
 

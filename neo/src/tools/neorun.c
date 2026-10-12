@@ -10,6 +10,7 @@
  * Botones: up down left right a b c d start select (los cuadros en que se mantienen).
  * --watch DIR (hexadecimal, en la RAM: $100000-$10FFFF) imprime el byte cada vez que cambia.
  * --card ARCHIVO mete una tarjeta de memoria (la carga si existe) y la guarda al terminar.
+ * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
  * --fix muestra la capa fija al final como texto: muchos juegos ponen su fuente en el código ASCII
  *       dentro de un bloque de 256 mosaicos (Metal Slug, en $300 + ASCII), así que se mira el byte bajo.
  */
@@ -19,6 +20,21 @@
 
 #include "neo.h"
 #include "console.h"
+#include "png.h"
+
+/* La imagen del cuadro (320 × 224) como PNG */
+static int save_frame(const Neo *g, const char *path)
+{
+    unsigned char *rgb = malloc(SCREEN_W * SCREEN_H * 3);
+    if (!rgb) return 0;
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        u32 c = g->fb[i];
+        rgb[i * 3] = (unsigned char)(c >> 16); rgb[i * 3 + 1] = (unsigned char)(c >> 8); rgb[i * 3 + 2] = (unsigned char)c;
+    }
+    int ok = png_write_rgb(path, rgb, SCREEN_W, SCREEN_H);
+    free(rgb);
+    return ok;
+}
 
 typedef struct { int btn; long from, to; } Hold;
 
@@ -68,12 +84,17 @@ int main(int argc, char **argv)
     Hold h[32]; int nh = 0;
     u32 watch[16]; int nw = 0; int wlast[16];
     int fix = 0;
+    const char *shot = NULL, *shots = NULL;
+    long every = 60;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--bios") && i + 1 < argc) bios = argv[++i];
         else if (!strcmp(argv[i], "--card") && i + 1 < argc) card = argv[++i];
         else if (!strcmp(argv[i], "--fix")) fix = 1;
+        else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
             if (*a == '$') a++;
@@ -88,6 +109,7 @@ int main(int argc, char **argv)
     }
     if (!rom || frames <= 0) {
         fprintf(stderr, "uso: neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR ...] [--fix]\n"
+                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]]\n"
                         "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c d start select\n");
         return 2;
@@ -107,6 +129,11 @@ int main(int argc, char **argv)
         last_frame = f == frames - 1;
         g->lspc.frame_done = 0;
         m68k_run(g, after);
+        if (shots && every > 0 && (f + 1) % every == 0) {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/%06ld.png", shots, f + 1);
+            if (!save_frame(g, path)) fprintf(stderr, "no se pudo escribir %s\n", path);
+        }
         for (int i = 0; i < nw; i++)
             if (g->ram[watch[i]] != wlast[i]) {
                 wlast[i] = g->ram[watch[i]];
@@ -146,6 +173,21 @@ int main(int argc, char **argv)
         hcount[bi] = 0;
     }
     if (fix) print_fix(g);
+    {
+        /* Colores distintos en la imagen del último cuadro (para ver de un vistazo si dibuja algo) */
+        static u32 seen[SCREEN_W * SCREEN_H];
+        int n = 0;
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+            int k = 0;
+            while (k < n && seen[k] != g->fb[i]) k++;
+            if (k == n && n < 4096) seen[n++] = g->fb[i];
+        }
+        printf("imagen:        %d colores distintos\n", n);
+    }
+    if (shot) {
+        if (save_frame(g, shot)) printf("imagen en %s (%dx%d)\n", shot, SCREEN_W, SCREEN_H);
+        else printf("no se pudo escribir %s\n", shot);
+    }
     if (card && g->card.dirty) {
         if (neo_card_save(g, card)) printf("tarjeta guardada en %s\n", card);
         else printf("no se pudo guardar la tarjeta en %s\n", card);

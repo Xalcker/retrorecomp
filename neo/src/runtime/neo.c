@@ -9,20 +9,32 @@
 
 int neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err)
 {
-    memset(g, 0, sizeof *g);
-    if (cart_load_path(&g->cart, rom_path, err)) return -1;
-    l0_generate(g->l0);
-    if (bios_path ? bios_load(&g->bios, bios_path, g->l0, err) : bios_find(&g->bios, rom_path, g->l0, err)) {
-        cart_free(&g->cart);
+    static Cart cart;
+    static Bios bios;
+    static u8 l0[L0_SIZE];
+    if (cart_load_path(&cart, rom_path, err)) return -1;
+    l0_generate(l0);
+    if (bios_path ? bios_load(&bios, bios_path, l0, err) : bios_find(&bios, rom_path, l0, err)) {
+        cart_free(&cart);
         return -1;
     }
-    neo_power_on(g);
+    neo_assemble(g, &cart, &bios);
     return 0;
+}
+
+void neo_assemble(Neo *g, const Cart *cart, const Bios *bios)
+{
+    memset(g, 0, sizeof *g);
+    g->cart = *cart;
+    g->bios = *bios;
+    l0_generate(g->l0);
+    neo_power_on(g);
 }
 
 void neo_free(Neo *g)
 {
     cart_free(&g->cart);
+    gfx_free(g);
     free(g->card.data);
     free(g->trace);
     g->card.data = NULL;
@@ -55,7 +67,10 @@ void neo_power_on(Neo *g)
 {
     memset(g->ram, 0, sizeof g->ram);
     memset(g->pal, 0, sizeof g->pal);
+    pal_refresh(g);
+    memset(g->fb, 0, sizeof g->fb);
     memset(g->zram, 0, sizeof g->zram);
+    if (!g->spr && !g->fix) gfx_init(g);
     reset_common(g);
     /* La interrupción de nivel 3 queda pendiente al encender (no con el botón de reset) */
     g->lspc.irq |= IRQ_COLD;

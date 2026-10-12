@@ -12,12 +12,12 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (temporizadores del YM2610), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (temporizadores del YM2610), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
 | `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
-| `src/platform/` | Lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). La ventana llega en la fase 3. |
-| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
+| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
-| `tools/` | `retrorecomp/` (la GUI común, submódulo). |
+| `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
 
@@ -229,7 +229,31 @@ ejemplo de la wiki con Neo Turf Masters y la cuenta de MAME coinciden). Se carga
 `LSPCMODE` tiene el bit 5), al empezar el cuadro (bit 6) y al llegar a 0 (bit 7); al llegar a 0 pide la
 interrupción de nivel 2 si el bit 4 lo permite.
 
-El dibujo llega en la fase 3.
+**El dibujo** (`lspc_render.c`) es de a una línea, al empezar cada línea visible (como los búferes de
+línea de la consola, que llenan la línea siguiente mientras se muestra la actual): así lo que cambia una
+interrupción del temporizador sale desde la línea que sigue. La imagen queda en `fb` (320 × 224 en ARGB).
+
+- **Gráficos convertidos al cargar** (`gfx_init`): la C ROM a 16 filas de 64 bits por mosaico (el pixel x
+  en los bits 4x a 4x+3) y la S ROM a 8 filas de 32 bits. En la C cada mosaico de 128 bytes son cuatro
+  bloques de 8 × 8 (arriba a la derecha, abajo a la derecha, arriba a la izquierda, abajo a la izquierda);
+  cada fila, dos bytes por chip (planos 0 y 1 en el impar, 2 y 3 en el par) con el pixel de la izquierda
+  en el bit 0. En la S, columnas de dos pixeles (el de la izquierda en el nibble bajo): los bytes
+  `$00-$07` son los pixeles 4-5, `$08-$0F` los 6-7, `$10-$17` los 0-1 y `$18-$1F` los 2-3. Los dos
+  formatos son los de la wiki de NeoGeoDev y se comprobaron con los juegos (los textos se leen).
+- **Sprites:** se recorren los 381 (del 1 al 381; el último queda encima) con sus SCB. Un sprite pegajoso
+  (bit 6 de SCB3) toma Y, alto y reducción vertical del anterior y va a su derecha (la X del anterior más
+  su ancho reducido). La línea dentro del sprite es `(línea + 16 - (512 - Y)) mod 512` (arriba de la
+  pantalla está en 496 - Y). Se dibujan los primeros 96 que tocan la línea. Qué mosaico (de los 32) y qué
+  fila sale de la tabla L0 con la reducción vertical: la mitad de arriba directo y la de abajo al revés; con
+  alto 33 el sprite se repite cada 2 × (reducción + 1) líneas. Después: autoanimación (el contador
+  reemplaza los 3 o 2 bits bajos del mosaico), volteo vertical, la máscara de la reducción horizontal
+  (qué pixeles de los 16 se dibujan, la tabla de la wiki) y el volteo horizontal.
+- **Capa fija:** encima de los sprites; la fila de mosaicos es línea / 8 + 2.
+- **Color:** el 0 de cada paleta es transparente; el fondo es el color `$0FFF` del banco actual. Cada
+  componente tiene 5 bits y el bit de oscurecido es un sexto, común y al revés (con él, más oscuro): 6
+  bits que se llevan a 8 repitiendo los altos. `pal_argb` guarda la paleta ya en ARGB y se pone al día en
+  cada escritura. El modo sombra (`REG_SHADOW`) oscurece toda la imagen a la mitad (la wiki no dice
+  cuánto: sin comprobar).
 
 ### Z80
 
@@ -257,7 +281,30 @@ Solo el AES, NTSC. El MVS (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots
 
 ## Interfaz del ejecutable
 
-Llega en la fase 3.
+`neo` (`main_sdl.c`): ventana con barra de menús, controles y ritmo de 59,60 cuadros por segundo (el del
+AES). La barra de menús y los diálogos vienen de Moskva 89, GBRecomp, NESRecomp y GENRecomp (`ui_menu.c`,
+`ui_font.c`): se dibujan dentro de la ventana para verse igual en todos los sistemas, en español o inglés
+(`i18n.c`). Con un menú o un diálogo abierto, el juego se pausa.
+
+- **Juego:** abrir (o arrastrar a la ventana un `.neo`, un zip o una carpeta), reiniciar (el botón de reset
+  de la consola), pausa, tarjeta de memoria (ponerla o sacarla; se guarda en `<juego>.tarjeta` al salir, al
+  sacarla y cada 5 segundos si cambió).
+- **Video:** tamaños 1x-6x, pantalla completa, escala entera y aspecto 4:3.
+- **Exportar:** captura PNG (F12). **Idioma** y **Ayuda** (controles, este juego, acerca de).
+- **Controles:** jugador 1 con flechas, Z X C V = A B C D, Enter = Start, Mayús = Select; jugador 2 con
+  I J K L, B N M , = A B C D, H = Start, G = Select; mandos con A B X Y = A B C D (el arco del mando del
+  AES, de abajo hacia arriba), Start y Back = Select.
+- **BIOS:** `--bios archivo`, o la que encuentre el runtime (`NEO_BIOS`, junto al juego, `roms/`), o la copia
+  de la carpeta de datos (`bios.bin`), o se pide (diálogo o arrastrarla). La que no venía de la copia se
+  guarda ahí. Carpeta de datos: `NEORecomp/interprete/` (con las preferencias y lo exportado).
+
+Opciones: `neo [juego] [--bios archivo] [--scale N]`. Para pruebas sin ventana: `--ui-shot archivo.png` con
+`--ui-frames N`, `--ui-menu N` y `--ui-action N`. El sonido llega en la fase 4; los estados guardados, la
+grabación de entradas y la traza, en la 5; el modo recompilado, en la 6.
+
+Icono: `NEOGEO.png` (el mando del AES, serie TriMui) de
+[KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0; la
+ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 256x256 (`tools/make_icon.py`).
 
 ## Empaquetado y pruebas
 
@@ -270,11 +317,12 @@ Llega en la fase 3.
   `neobench` (fase 5).
 - **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
   fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona).
-- **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [boton:desde-hasta]`:**
+- **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot/--shots] [boton:desde-hasta]`:**
   corre sin ventana con el intérprete y resume instrucciones, ciclos, excepciones, el estado del Z80, las
   variables de la BIOS en la RAM (`SYSTEM_MODE`, `USER_REQUEST`, `USER_MODE`...) y los PC más frecuentes del
   último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
-  juegos ponen su fuente así, Metal Slug en `$300` + ASCII).
+  juegos ponen su fuente así, Metal Slug en `$300` + ASCII). `--shot archivo.png` guarda la imagen del
+  último cuadro y `--shots carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
 - **`make test`:** las SingleStepTests del 68000 por el intérprete y por el camino del código generado
   (~8 s cada una) y las del Z80 (~24 s); `z80test --nmi`; `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
   SHA1, cabecera y vectores desde los chips, como `.neo`, como zip guardado dentro de una carpeta y como
@@ -286,10 +334,16 @@ hecha en la prueba y juegos sintéticos: el mapa de memoria (vectores de la BIOS
 abierto, esperas de la tarjeta), los mandos, la paleta, la tarjeta y sus llaves, la VRAM y su incremento, el
 contador de líneas, las interrupciones con un programa de 68000 (la de arranque una vez, 10 VBLANK en 10
 cuadros, el temporizador cada 10 líneas, un VBLANK sin reconocer que vuelve a entrar), los bancos de P2 y un
-programa de Z80 (banco de la M1, INT del temporizador A, NMI con el comando y su respuesta). Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
+programa de Z80 (banco de la M1, INT del temporizador A, NMI con el comando y su respuesta). `lspctest`, con
+mosaicos sintéticos y la VRAM a mano: colores y bit de oscurecido, fondo, capa fija y transparencia,
+sprite entero con volteos, reducción horizontal y pegajosos, prioridad, capa fija encima, reducción vertical
+con la tabla L0, autoanimación, el límite de 96 por línea y que cada línea se dibuje con la VRAM de ese
+momento. Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
   mismo SHA1; con Metal Slug, la base de datos, el SHA1, el P1 y las entradas; con `aes.zip`, que se acepte
   `neo-epo.bin` y que su `000-lo.lo` sea la tabla calculada; `neogeo.zip` (MVS) no se acepta; y que Metal
-Slug arranque con la BIOS, llegue a la demo ("CREDITS 04" en la capa fija) y con Start empiece la partida.
+Slug arranque con la BIOS, llegue a la demo ("CREDITS 04" en la capa fija) y con Start empiece la partida;
+que los tres juegos de validación dibujen (40 colores o más), y que `neo` dibuje cada menú y cada diálogo sin
+ventana (`--ui-shot`).
 
 ## Estado de la validación
 
@@ -298,7 +352,11 @@ Slug arranque con la BIOS, llegue a la demo ("CREDITS 04" en la capa fija) y con
 - **Carga:** juegos (`.neo`, zip, carpeta) y BIOS, con `make test`. Probado con Metal Slug (`mslug.zip` de
   MAME) y las BIOS del `aes.zip` y del `neogeo.zip` de MAME.
 - **Bus, interrupciones y Z80:** `bustest`. Con la BIOS original, Metal Slug pasa la pantalla de SNK, llega
-  a la demo y empieza la partida con Start (`neorun`), a ~14 veces el tiempo real con el intérprete.
+  a la demo y empieza la partida con Start (`neorun`).
+- **Video:** `lspctest`. Metal Slug (pantalla de SNK, demo, título, menú), Samurai Shodown II (intro,
+  selección de personaje, pelea con la cámara reducida) y Neo Turf Masters (título, menús, el hoyo con el
+  campo en perspectiva, que usa el temporizador: unas 13 700 interrupciones en 4200 cuadros) se ven bien.
+  Con el intérprete y el dibujo, 16-20 veces el tiempo real.
 - **Sin comprobar todavía con un oráculo:** la posición del VBLANK y de la recarga del temporizador en la
   línea, lo que leen `$300001` y `$320001` en el AES, el perro guardián (MAME no lo emula en el AES) y la
   dirección exacta del latch de bancos de P2.

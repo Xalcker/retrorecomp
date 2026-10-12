@@ -1,6 +1,7 @@
 #!/bin/sh
 # Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
-# (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2).
+# (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2); el LSPC y la
+# ventana (fase 3).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -19,6 +20,7 @@ mkdir -p build/tests
 
 corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
+corre "lspctest (capa fija, sprites, volteos, reducciones, pegajosos, prioridad, autoanimación, límite de 96, colores, por línea)" "$(exe lspctest)"
 corre "bustest (mapa, vectores, P2, mandos, paleta, tarjeta, VRAM, contador de líneas, interrupciones, Z80, YM2610)" "$(exe bustest)"
 falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/basura.bin
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
@@ -87,6 +89,28 @@ if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
         && echo "$out" | grep -q "CREDITS 04" \
         && echo "ok    Metal Slug arranca con la BIOS, llega a la demo (CREDITS 04) y con Start empieza la partida" \
         || { echo "FALLA Metal Slug con la BIOS (neorun)"; fallas=$((fallas + 1)); }
+fi
+# Imagen: los tres juegos de validación dibujan (40 colores o más en la pantalla) y la ventana dibuja cada
+# menú y cada diálogo sin ventana (--ui-shot)
+mkdir -p build/shots
+for z in mslug:900 samsho2:1200 turfmast:2000; do
+    r=${z%%:*}; f=${z#*:}
+    [ -f "roms/$r.zip" ] && [ -f roms/aes.zip ] || continue
+    c=$("$(exe neorun)" "roms/$r.zip" --frames "$f" --shot "build/shots/$r.png" 2>/dev/null | awk '/^imagen:/ {print $2}')
+    if [ "${c:-0}" -ge 40 ]; then echo "ok    $r dibuja (cuadro $f: $c colores, build/shots/$r.png)"
+    else echo "FALLA $r no dibuja (cuadro $f: ${c:-?} colores)"; fallas=$((fallas + 1)); fi
+done
+if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
+    ui=0
+    for m in 0 1 2 3 4; do
+        "$(exe neo)" roms/mslug.zip --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
+            && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
+    done
+    for a in 17 18 19; do          # Controles, Este juego, Acerca de
+        "$(exe neo)" roms/mslug.zip --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
+            && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui acción $a"; ui=1; }
+    done
+    if [ $ui = 0 ]; then echo "ok    neo dibuja cada menú y cada diálogo (--ui-shot)"; else fallas=$((fallas + 1)); fi
 fi
 tiempo "juegos de roms/"
 

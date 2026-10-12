@@ -1,6 +1,6 @@
 /*
  * LSPC: los registros de $3C0000, la VRAM, el contador de líneas, el temporizador y las
- * interrupciones del 68000. El dibujo llega en la fase 3.
+ * interrupciones del 68000. El dibujo está en lspc_render.c: cada línea visible se dibuja al empezar.
  *
  *   $3C0000 VRAMADDR   dirección de la VRAM (palabras)
  *   $3C0002 VRAMRW     dato: escribir avanza la dirección VRAMMOD (sin pasar de una mitad a la otra)
@@ -94,7 +94,8 @@ void lspc_sync(Neo *g)
                 l->vbl_done = l->reload_done = 0;
                 l->frame++;
                 l->frame_done = 1;
-            }
+            } else if (l->line >= FIRST_VISIBLE_LINE)
+                lspc_render_line(g, l->line - FIRST_VISIBLE_LINE);
         }
     }
     update_ipl(g);

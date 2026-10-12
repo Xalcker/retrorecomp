@@ -215,6 +215,12 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     mezcla de audio y bus abierto tras cada función; imagen y audio al final de cada cuadro.
     `--uncovered`, `--screens`, `--bench`, `--executed`.
   - Meta: los juegos de validación dan 1800 cuadros idénticos al intérprete (con traza).
+  - Prueba de los bancos de P2 (antes de la fase 7): **Shock Troopers** (solo MVS) arranca con la BIOS del
+    AES, se juega y da 4800 cuadros idénticos al intérprete con juego real (17 872 cambios de banco, 100 %
+    de los ciclos recompilados, ninguna instrucción en el intérprete). Pero el juego solo **lee datos** de
+    P2: no ejecuta código ahí, así que `MAPCHK` y los saltos a todos los bancos siguen sin probarse con un
+    juego real. El `kof98` de MVS (P1 cifrado, 6 MB de programa) se rechaza con un mensaje que pide el
+    `kof98h`.
 - [ ] **7. Heurísticas de cobertura.**
   - Copiadas ya en la fase 6 (con el mapa del Neo Geo en `sane_abs`); falta medirlas y ajustarlas.
   - De GENRecomp: todas las (tablas de desplazamientos, de instrucciones, de punteros de 32 bits,
@@ -275,7 +281,7 @@ PCM2, PVC ni protección del P.
 | Samurai Shodown II (`samsho2`) | 063 | 2 MB | 16 MB | 7 MB | Sí | Zoom de cámara. |
 | Fatal Fury Special (`fatfursp`) | 058 | 1 MB + 512 KB | 12 MB | 5 MB | Sí | P2 fijo y chico. |
 | Neo Turf Masters (`turfmast`) | 200 | 2 MB | 8 MB | 8 MB | Sí | Efectos de trama a mitad de cuadro (temporizador). |
-| Shock Troopers (`shocktro`) | 238 | 1 MB + 4 MB | 32 MB | 6 MB | **No, solo MVS** | Bancos P2 de verdad; probar si corre con la BIOS del AES. |
+| Shock Troopers (`shocktro`) | 238 | 1 MB + 4 MB | 32 MB | 6 MB | **No, solo MVS** | Bancos P2 de datos (no ejecuta código ahí); corre con la BIOS del AES. |
 
 Para completar, todos sin cifrar: **Super Sidekicks 2** (`ssideki2`, temporizador), **Spin Master**
 (`spinmast`, trama en el agua), **Samurai Shodown IV** (`samsho4`, P de 5 MB) o **The King of Fighters

@@ -396,6 +396,12 @@ const char *cart_unsupported(const Cart *c, int *fatal)
         snprintf(msg, sizeof msg, "NGH $%04X: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior", g);
         return msg;
     }
+    /* KOF '98: los sets de MVS (kof98, kof98a, kof98k...) traen un P1 de 2 MB cifrado y protegido; el del
+     * AES (kof98h, 242-pn1.p1) es de 1 MB y va sin cifrar. Con 4 MB de P2, 6 MB de programa = MVS. */
+    if (g == 0x242 && c->len[REG_P] > 0x500000) {
+        snprintf(msg, sizeof msg, "NGH $0242: es el set de MVS de KOF '98 (kof98), con el P1 cifrado; usa el del AES (kof98h, 242-pn1.p1 de 1 MB)");
+        return msg;
+    }
     if (g == 0x047 || g == 0x052 || g == 0x250) {
         snprintf(msg, sizeof msg, "NGH $%04X: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior", g);
         return msg;
@@ -405,7 +411,6 @@ const char *cart_unsupported(const Cart *c, int *fatal)
         return "juego con cable de enlace entre consolas (Riding Hero, League Bowling, Thrash Rally): el enlace no se emula";
     if (g == 0x004 || g == 0x027 || g == 0x036 || g == 0x048) return "juego de mahjong: necesita el mando de mahjong, que no se emula";
     if (g == 0x236) return "The Irritating Maze necesita un trackball, que no se emula";
-    if (g == 0x242) return "KOF '98: el set de MVS (kof98) está cifrado; el del AES (kof98h) no";
     if (c->db && (c->db->flags & DB_MVS_ONLY)) return "salió solo en MVS: puede fallar con la BIOS del AES";
     return NULL;
 }

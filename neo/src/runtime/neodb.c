@@ -47,6 +47,22 @@ const NeoDbGame neodb_games[] = {
         { 0x8E7BF41A, 0x400000, PART_C, 1 },        /* 200-c1.c1 */
         { 0x5A65A8CE, 0x400000, PART_C, 2 },        /* 200-c2.c2 */
         { 0, 0, 0, 0 } } },
+    { "shocktro", "Shock Troopers", "Saurus", 1997, 0x0238, 1, DB_MVS_ONLY, "c06c42f8999fa5c284aa7e728574f15434e2a09a", {
+        { 0xEFEDF8DC, 0x100000, PART_P, 1 },        /* 238-pg1.p1 */
+        { 0x5B4A09C5, 0x400000, PART_P, 2 },        /* 238-p2.sp2: 4 bancos de 1 MB en $200000 */
+        { 0x1F95CEDB, 0x020000, PART_S, 1 },        /* 238-s1.s1 */
+        { 0x075B9518, 0x020000, PART_M, 1 },        /* 238-m1.m1 */
+        { 0x260C0BEF, 0x400000, PART_VA, 1 },       /* 238-v1.v1 */
+        { 0x4AD7D59E, 0x200000, PART_VA, 2 },       /* 238-v2.v2 */
+        { 0x90C6A181, 0x400000, PART_C, 1 },        /* 238-c1.c1 */
+        { 0x888720F0, 0x400000, PART_C, 2 },        /* 238-c2.c2 */
+        { 0x2C393AA3, 0x400000, PART_C, 3 },        /* 238-c3.c3 */
+        { 0xB9E909EB, 0x400000, PART_C, 4 },        /* 238-c4.c4 */
+        { 0xC22C68EB, 0x400000, PART_C, 5 },        /* 238-c5.c5 */
+        { 0x119323CD, 0x400000, PART_C, 6 },        /* 238-c6.c6 */
+        { 0xA72CE7ED, 0x400000, PART_C, 7 },        /* 238-c7.c7 */
+        { 0x1C7C2EFB, 0x400000, PART_C, 8 },        /* 238-c8.c8 */
+        { 0, 0, 0, 0 } } },
 };
 const int neodb_count = (int)(sizeof neodb_games / sizeof neodb_games[0]);
 

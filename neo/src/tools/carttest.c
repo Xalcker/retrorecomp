@@ -264,6 +264,17 @@ int main(void)
     CHECK(!cart_load_parts(&e, g, 9, ROMFMT_ZIP, &err) && !e.p1_swapped, "sin cabecera: %s", err);
     CHECK(cart_unsupported(&e, &fatal) && fatal, "sin NEO-GEO no se puede correr");
     cart_free(&e);
+    /* KOF '98: el set de MVS (6 MB de programa, P1 cifrado) no se corre; el del AES (5 MB) sí */
+    {
+        Cart k;
+        memset(&k, 0, sizeof k);
+        k.hdr.neo = 1;
+        k.hdr.ngh = 0x0242;
+        k.len[REG_P] = 0x600000;
+        CHECK(cart_unsupported(&k, &fatal) && fatal, "kof98 de MVS no se puede correr");
+        k.len[REG_P] = 0x500000;
+        CHECK(!cart_unsupported(&k, &fatal), "kof98h (AES) se debe poder correr");
+    }
 
     /* --- Juego 2: P1 de 1 MB + SP2 de 512 KB, V en dos buses (v11/v21), nombres con '_' --- */
     {

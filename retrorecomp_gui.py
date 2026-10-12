@@ -194,6 +194,7 @@ class NES(System):
     ANSI = re.compile(r"\x1b\[([0-9;]*)m(.)\x1b\[0m|(.)")
     # Lo que cambia en GENRecomp, que copia los formatos de NESRecomp (ver class GEN)
     mem = "PRG"                      # memoria a la que se refieren los desplazamientos
+    trace_shift = 13                 # banco de la traza (trace_line.h): desplazamiento >> 13, ventanas de 8 KB
     window = "nes"                   # el intérprete con ventana
     bench_tool = "nesbench"
     trace_tools = {"trace": "nestrace", "screenshot": "nesshot", "audio": "nesaudio"}
@@ -288,7 +289,9 @@ class NES(System):
         lo = banks[bank_i]["base"] + ci * CELL
         items = sorted((e for e in ev if lo <= e["pos"] < lo + CELL), key=lambda e: e["pos"])
         return {"title": f"{self.mem} ${lo:06X}–${lo + CELL - 1:06X}",
-                "events": [{"addr": "$" + e["addr"], "org": e["org"], "dis": e["dis"], "why": "%X" % e["pos"]} for e in items]}
+                # banco:dirección como en las trazas (y en GB); a --why se le pasa el desplazamiento
+                "events": [{"addr": "%02X:%s" % (e["pos"] >> self.trace_shift, e["addr"]), "org": e["org"], "dis": e["dis"],
+                            "why": "%X" % e["pos"]} for e in items]}
 
     def why(self, rom_path, traces, arg):
         if not re.fullmatch(r"[0-9A-Fa-f]{1,8}", arg or ""):
@@ -343,7 +346,7 @@ class NES(System):
 
 class GEN(NES):
     """GENRecomp copia los formatos de NESRecomp (mapa de --viz --color, --events, --why, --html,
-    trazas por desplazamiento, recomp_game.sh y bench en el proyecto): solo cambian los nombres,
+    trazas BANCO:DIRECCION, recomp_game.sh y bench en el proyecto): solo cambian los nombres,
     la cabecera de la ROM y cómo graba trazas la ventana."""
     id, label, exts = "gen", "Genesis", (".md", ".gen", ".bin", ".smd")
     recomp = "genrecomp"
@@ -352,6 +355,7 @@ class GEN(NES):
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
             "game_frames": 1500}
     mem = "ROM"
+    trace_shift = 19                 # ventanas de 512 KB, las del mapper de SSF2
     window = "gen"
     bench_tool = "genbench"
     trace_tools = {"trace": "gentrace", "screenshot": "genshot", "audio": "genaudio"}

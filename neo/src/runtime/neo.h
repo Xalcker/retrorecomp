@@ -346,6 +346,18 @@ void neo_after_step(Neo *g);            /* LSPC y Z80 al ciclo del 68000 (tras c
 int  neo_card_insert(Neo *g, const char *path);  /* tarjeta de 2 KB (la carga si el archivo existe); 1 si todo bien */
 int  neo_card_save(Neo *g, const char *path);
 
+/* Traza: qué instrucciones de ROM (del juego y de la BIOS) ejecutó el intérprete, en líneas
+ * "BANCO:DIRECCION" de trace_line.h (bancos de 1 MB; la BIOS en el FF), lo que lee neorecomp --trace */
+void   neo_trace_start(Neo *g);
+int    neo_trace_load(Neo *g, const char *path);   /* suma lo de una traza anterior; 1 si se leyó */
+int    neo_trace_write(const Neo *g, const char *path);
+size_t neo_trace_count(const Neo *g);
+
+/* Estados guardados: la consola entera y la tarjeta, sin la BIOS ni la tabla L0 (al cargar se ponen
+ * las de esta corrida). Solo los carga la misma versión con el mismo juego */
+u8  *neo_state_save(const Neo *g, size_t *size);
+int  neo_state_load(Neo *g, const u8 *data, size_t size);
+
 /* --- LSPC (lspc.c) --- */
 void lspc_reset(Neo *g);
 void lspc_sync(Neo *g);                 /* líneas, temporizador e interrupciones hasta g->cyc */

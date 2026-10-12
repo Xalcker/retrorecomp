@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "neo.h"
+#include "trace_line.h"
 
 int neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err)
 {
@@ -131,4 +132,120 @@ int neo_card_save(Neo *g, const char *path)
     ok &= fclose(f) == 0;
     if (ok) g->card.dirty = 0;
     return ok;
+}
+
+/* --- Traza --- */
+
+void neo_trace_start(Neo *g)
+{
+    if (!g->trace) g->trace = calloc(neo_trace_words(g), sizeof *g->trace);
+}
+
+int neo_trace_load(Neo *g, const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    neo_trace_start(g);
+    if (!g->trace) { fclose(f); return 0; }
+    unsigned long off, addr;
+    char line[128];
+    while (fgets(line, sizeof line, f)) {
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr) || (off & 1)) continue;
+        int bios = off >= BIOS_SPACE;
+        if (bios ? off - BIOS_SPACE >= BIOS_SIZE : off >= g->cart.len[REG_P]) continue;
+        size_t i = neo_trace_index(g, (long)off);
+        if (!g->trace[i]) g->trace[i] = 0x80000000u | (u32)(addr & 0xFFFFFF);
+    }
+    fclose(f);
+    return 1;
+}
+
+int neo_trace_write(const Neo *g, const char *path)
+{
+    if (!g->trace) return 0;
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    size_t pw = g->cart.len[REG_P] / 2, n = neo_trace_words(g);
+    for (size_t i = 0; i < n; i++)
+        if (g->trace[i]) {
+            unsigned long off = i < pw ? i * 2 : BIOS_SPACE + (i - pw) * 2;
+            trace_line_write(f, TRACE_SHIFT, 6, off, g->trace[i] & 0xFFFFFF);
+        }
+    return fclose(f) == 0;
+}
+
+size_t neo_trace_count(const Neo *g)
+{
+    size_t n = 0;
+    if (g->trace) for (size_t i = 0; i < neo_trace_words(g); i++) n += g->trace[i] != 0;
+    return n;
+}
+
+/* --- Estados guardados ---
+ * Cabecera (magia, versión, tamaño de Neo, SHA1 del juego, tamaño de la tarjeta), la estructura Neo
+ * sin la BIOS ni la tabla L0, y el contenido de la tarjeta. Al cargar se conservan los punteros, la
+ * BIOS y la tabla L0 de esta corrida. */
+
+#define STATE_MAGIC "NEORSTA1"
+
+typedef struct {
+    char magic[8];
+    u32  neo_size;
+    u32  card_size;
+    char sha1[41];
+} StateHeader;
+
+u8 *neo_state_save(const Neo *g, size_t *size)
+{
+    StateHeader h;
+    memset(&h, 0, sizeof h);
+    memcpy(h.magic, STATE_MAGIC, 8);
+    h.neo_size = (u32)sizeof *g;
+    h.card_size = g->card.data ? g->card.size : 0;
+    memcpy(h.sha1, g->cart.sha1, sizeof h.sha1);
+    *size = sizeof h + sizeof *g + h.card_size;
+    u8 *d = malloc(*size);
+    if (!d) return NULL;
+    memcpy(d, &h, sizeof h);
+    Neo *copy = (Neo *)(d + sizeof h);
+    memcpy(copy, g, sizeof *g);
+    memset(copy->bios.rom, 0, sizeof copy->bios.rom);     /* la BIOS es de SNK: no va en el estado */
+    memset(copy->l0, 0, sizeof copy->l0);
+    if (h.card_size) memcpy(d + sizeof h + sizeof *g, g->card.data, h.card_size);
+    return d;
+}
+
+int neo_state_load(Neo *g, const u8 *data, size_t size)
+{
+    StateHeader h;
+    if (size < sizeof h) return 0;
+    memcpy(&h, data, sizeof h);
+    if (memcmp(h.magic, STATE_MAGIC, 8) || h.neo_size != sizeof *g || memcmp(h.sha1, g->cart.sha1, sizeof h.sha1) ||
+        size != sizeof h + sizeof *g + h.card_size) return 0;
+    /* Lo que es de esta corrida y no del estado: el cartucho, la BIOS, la tabla L0, los punteros */
+    static Cart cart;
+    static Bios bios;
+    static u8 l0[L0_SIZE];
+    cart = g->cart;
+    bios = g->bios;
+    memcpy(l0, g->l0, sizeof l0);
+    Card card = g->card;
+    u64 *spr = g->spr; u32 *fix = g->fix;
+    size_t spr_tiles = g->spr_tiles, fix_tiles = g->fix_tiles;
+    u32 *trace = g->trace;
+    void *jb = g->jb;
+    u8 mute = g->audio.mute;
+    memcpy(g, data + sizeof h, sizeof *g);
+    g->cart = cart; g->bios = bios;
+    memcpy(g->l0, l0, sizeof l0);
+    g->spr = spr; g->fix = fix; g->spr_tiles = spr_tiles; g->fix_tiles = fix_tiles;
+    g->trace = trace; g->jb = jb;
+    g->audio.mute = mute;
+    /* La tarjeta: si había una en el estado y hay una puesta, toma su contenido */
+    g->card = card;
+    if (h.card_size && card.data && card.size == h.card_size) {
+        memcpy(card.data, data + sizeof h + sizeof *g, h.card_size);
+        g->card.dirty = 1;
+    }
+    return 1;
 }

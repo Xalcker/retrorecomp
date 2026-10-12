@@ -10,7 +10,7 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fases 0 a 4 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`, con el intérprete). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 a 5 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`, con el intérprete; las herramientas sin ventana y el contrato común). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar
@@ -27,7 +27,7 @@ Los mismos paquetes que en GENRecomp, NESRecomp y GBRecomp: compilador C99, `mak
 ```
 git submodule update --init     # la GUI común (tools/retrorecomp)
 make            # neo (la ventana), neorecomp, neorun y las pruebas
-make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas)
+make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas) y el juego de prueba
 make test       # pruebas
 make dist       # dist/neorecomp-<versión>-<sistema>.tar.gz
 ```
@@ -40,7 +40,8 @@ make dist       # dist/neorecomp-<versión>-<sistema>.tar.gz
 
 El intérprete con ventana y sonido: menús de juego (abrir, reiniciar, pausa, tarjeta de memoria), video
 (tamaño, pantalla completa, escala entera, aspecto 4:3), audio (volumen y silenciar FM, SSG, ADPCM-A y
-ADPCM-B), captura (F12) e idioma. Teclado: flechas, Z X C V =
+ADPCM-B), estados (F5/F8 en 4 ranuras), captura (F12) e idioma. `--record`/`--play archivo` graban y
+reproducen los botones y `--trace archivo` guarda qué instrucciones de ROM se ejecutaron. Teclado: flechas, Z X C V =
 A B C D, Enter = Start, Mayús = Select (Ayuda → Controles). La BIOS se busca junto al juego y en `roms/`
 (o `--bios archivo`); si no está, la pide una vez y guarda una copia en la carpeta de datos.
 
@@ -58,12 +59,23 @@ vectores. Busca la BIOS del AES junto al juego o en `roms/` (`aes.zip` de MAME, 
 
 ## Herramientas
 
+**Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y
+GENRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
+`src/platform/inputs.h`), `--seed S` (suma el mando aleatorio común) y, en `neobench`, `--repeat N`. También
+valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a b c d start select`).
+`sh tests/contract.sh` lo comprueba.
+
 | Comando | Qué hace |
 |---|---|
 | `neorecomp juego [--info] [--bios archivo] [--neo salida.neo]` | Información del juego y de la BIOS; exportar a `.neo`. El recompilador (`-o`) llega en la fase 6. |
-| `neo juego [--bios archivo] [--scale N]` | Ventana SDL2 con el intérprete (ver arriba). |
+| `neo juego [--bios archivo] [--scale N] [--record/--play archivo] [--trace archivo]` | Ventana SDL2 con el intérprete (ver arriba). |
+| `neotrace juego traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común; la BIOS en el banco `FF`). |
+| `neoshot juego salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
+| `neoaudio juego salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
+| `neobench juego [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
+| `neoramdump juego [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr el juego. |
 | `neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot archivo.png] [--shots carpeta --every N] [--wav archivo.wav [--mute M]] [boton:desde-hasta]` | Corre sin ventana con el intérprete y resume lo que pasó: instrucciones, excepciones, el Z80, las variables de la BIOS, dónde se va el tiempo, (`--fix`) la capa fija como texto, (`--shot`) la imagen y (`--wav`) el sonido con su nivel por segundo. Botones: `up down left right a b c d start select`. |
-| `carttest`, `bustest`, `lspctest`, `audiotest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, el sonido, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
+| `carttest`, `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, el sonido, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
 
 ## Juegos y BIOS
 
@@ -81,10 +93,10 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 | `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `ym2610.c` y `audio.c` (el sonido), `z80bus.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_ops.h`/`cpu68k.c` (el 68000) y `z80.c` (el Z80), los de GENRecomp; `sha1`, `console.h`, `trace_line.h` (común con los otros recompiladores). |
 | `src/neorecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
-| `src/tools/` | `neorun`, `carttest`, `bustest`, `lspctest`, `audiotest`, `m68ktest`, `z80test`, `embed`. |
+| `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
 | `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores (submódulo); `make_icon.py` (los iconos). |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos). |
-| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80. No se versionan. |
+| `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
 
 ## Créditos

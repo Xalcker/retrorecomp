@@ -1,7 +1,8 @@
 #!/bin/sh
 # Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
 # (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2); el LSPC y la
-# ventana (fase 3); el YM2610 y la mezcla (fase 4).
+# ventana (fase 3); el YM2610 y la mezcla (fase 4); las herramientas sin ventana, los estados y el
+# contrato común (fase 5).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -22,6 +23,7 @@ corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla 
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 corre "lspctest (capa fija, sprites, volteos, reducciones, pegajosos, prioridad, autoanimación, límite de 96, colores, por línea)" "$(exe lspctest)"
 corre "audiotest (FM, SSG con ruido y envolvente, ADPCM-A, ADPCM-B, banderas, temporizadores, ocupado)" "$(exe audiotest)"
+corre "inputtest (entradas grabadas, 10 botones, \$hex, --seed, boton:desde-hasta)" "$(exe inputtest)"
 corre "bustest (mapa, vectores, P2, mandos, paleta, tarjeta, VRAM, contador de líneas, interrupciones, Z80, YM2610)" "$(exe bustest)"
 falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/basura.bin
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
@@ -47,8 +49,14 @@ else
 fi
 tiempo "SingleStepTests del 68000 (intérprete y --recomp)"
 
-# El contrato común (tests/contract.sh) necesita neotrace, neoshot, neoaudio y neobench: llegan en la
-# fase 5.
+# Estados guardados: con el juego de prueba del contrato (make testroms) y con Metal Slug si está
+if [ -f testroms/neo/contrato.neo ]; then corre "statetest con el juego de prueba" "$(exe statetest)" testroms/neo/contrato.neo 120 200; fi
+if [ -f roms/mslug.zip ]; then corre "statetest con Metal Slug (CPU, Z80, LSPC, YM2610; sin la BIOS en el estado)" "$(exe statetest)" roms/mslug.zip 700 300; fi
+tiempo "estados guardados"
+# Contrato común con NESRecomp, GBRecomp y GENRecomp (opciones y comportamiento de las herramientas sin ventana)
+r=$(sh tests/contract.sh | tail -1)
+case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+tiempo "contrato"
 
 # Con los juegos y la BIOS de roms/ (no se versionan)
 for r in roms/*.zip roms/*.neo; do

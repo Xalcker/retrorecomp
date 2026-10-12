@@ -57,7 +57,8 @@ endif
 neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := neorecomp neorun neo carttest m68ktest z80test bustest lspctest audiotest
+PROGS := neorecomp neotrace neoshot neoaudio neobench neoramdump neorun neo \
+         carttest m68ktest z80test bustest lspctest audiotest statetest inputtest
 
 # SDL2 para el intérprete con ventana (neo). En Windows, enlazado de forma
 # estática para que el .exe no pida SDL2.dll.
@@ -77,6 +78,29 @@ carttest$(EXE): src/tools/carttest.c $(RT)
 bustest$(EXE): src/tools/bustest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
+# Herramientas sin ventana con las opciones comunes (cli.h)
+TOOL_DEPS := src/platform/cli.h src/platform/inputs.h src/platform/random_pad.h src/tools/romload.h $(RT)
+neotrace$(EXE): src/tools/neotrace.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neotrace.c $(RT) -lm
+
+neoshot$(EXE): src/tools/neoshot.c src/platform/png.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoshot.c src/platform/png.c $(RT) -lm
+
+neoaudio$(EXE): src/tools/neoaudio.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoaudio.c $(RT) -lm
+
+neobench$(EXE): src/platform/bench.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+
+neoramdump$(EXE): src/tools/neoramdump.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoramdump.c $(RT) -lm
+
+statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/statetest.c $(RT) -lm
+
+inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
+
 audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
@@ -92,6 +116,10 @@ m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
 
 z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT) -lm
+
+# El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/neo/contrato.neo)
+$(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/mkcontrato.c $(RT) -lm
 
 # embed mete el runtime y la plataforma dentro de neorecomp (lo usará desde la fase 6)
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)

@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fases 0 a 4 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 5 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -180,7 +180,12 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - Nuevo: SSG, ADPCM-A (tabla de pasos documentada) y ADPCM-B, las V ROM con sus dos buses. Desde el
     principio: canales callados sin sintetizar, ADPCM decodificado de a bloque, frecuencias guardadas.
   - `audiotest` (afinación de cada parte, fin de muestra y sus banderas, temporizadores), `neorun --wav`.
-- [ ] **5. Herramientas sin ventana.**
+- [x] **5. Herramientas sin ventana.** Hecho: `cli.h` e `inputs.h` con los 10 botones, `neotrace`,
+  `neoshot` (`--expect`, `--hash`), `neoaudio`, `neobench`, `neoramdump`, `statetest`, `inputtest`; estados
+  guardados sin la BIOS (F5/F8, 4 ranuras), `--record`/`--play` y `--trace` en `neo`; el contrato común sin
+  fallas con un juego de prueba propio (`mkcontrato`, MIT, en `make testroms`), que encontró una errata del
+  código de seguridad en la wiki de NeoGeoDev. Falta copiar `contract.sh` y `trace_line.h` a los otros tres
+  repos.
   - Copia: `cli.h`, `inputs.h` (10 botones: `UP DOWN LEFT RIGHT A B C D START SELECT`, el mismo formato de
     texto), `neotrace`, `neoshot` (`--expect`, `--hash`), `neoaudio`, `neobench`, `neoramdump`,
     `statetest`, `inputtest`, estados guardados (F5/F8, 4 ranuras), `--record`/`--play`, `--trace` y
@@ -188,7 +193,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - El mando aleatorio: `random_pad.h` sin cambios; en el Neo Geo A es A, B es B y Start es Start. C, D y
     Select no los pulsa (como en el Genesis no pulsa C, X, Y, Z ni Mode), pero existen en los guiones y en
     `boton:desde-hasta`.
-  - `contract.sh` completo con una prueba libre (ver abajo).
+  - `contract.sh` completo con una prueba libre: el juego de prueba propio `testroms/neo/contrato.neo`.
 - [ ] **6. Recompilador v1.**
   - Copia: de `genrecomp.c`, el recorrido, la partición en funciones, la emisión (`AFTER`, `LEAVE`,
     `MAPCHK`), el despacho (`recomp_lookup`), el proyecto generado (`embed`, `Makefile`, `LEEME.txt`),

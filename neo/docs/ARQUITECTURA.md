@@ -14,8 +14,8 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 |---|---|
 | `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `audio.c` (la mezcla), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
 | `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
-| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
-| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`), `bench.c` (también para los proyectos generados), `cli.h` e `inputs.h` (las opciones comunes) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
+| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
@@ -208,6 +208,14 @@ contenido del chip y da su SHA1 (`5992277d...`); si el `aes.zip` trae el chip, `
 
 ### Guardado
 
+- **Estados guardados** (`neo_state_save`/`neo_state_load`, cuatro ranuras en `neo`: `<juego>.estado1-4`):
+  una cabecera (magia, versión, tamaño de `Neo`, SHA1 del juego, tamaño de la tarjeta), la estructura `Neo`
+  entera (68000, Z80, LSPC con la VRAM y la imagen, paleta, YM2610, mezcla, RAM) y el contenido de la
+  tarjeta. **Sin la BIOS ni la tabla L0**: se guardan en cero y al cargar se ponen las de esta corrida (un
+  estado nunca lleva la BIOS de SNK), igual que los punteros. Solo los lee la misma versión con el mismo
+  juego. `statetest` lo prueba: tras cargar, los mismos cuadros dan exactamente lo mismo (imagen, sonido,
+  RAM, VRAM, paleta, CPU, YM2610), un estado de otro juego no se carga y la BIOS no aparece en el estado.
+
 El AES no tiene RAM de respaldo: las partidas van a la **tarjeta de memoria**, que maneja la BIOS
 (`CARD`). Se emula una de 2 KB (`neo_card_insert`/`neo_card_save`, `neorun --card archivo`): sin tarjeta,
 `REG_STATUS_B` dice que no hay; con tarjeta, solo se escribe con las dos llaves abiertas (`CRDUNLOCK1`, que
@@ -336,9 +344,14 @@ AES). La barra de menús y los diálogos vienen de Moskva 89, GBRecomp, NESRecom
   de la carpeta de datos (`bios.bin`), o se pide (diálogo o arrastrarla). La que no venía de la copia se
   guarda ahí. Carpeta de datos: `NEORecomp/interprete/` (con las preferencias y lo exportado).
 
-Opciones: `neo [juego] [--bios archivo] [--scale N]`. Para pruebas sin ventana: `--ui-shot archivo.png` con
-`--ui-frames N`, `--ui-menu N` y `--ui-action N`. Los estados guardados, la grabación de entradas y la traza
-llegan en la fase 5; el modo recompilado, en la 6.
+- **Estados:** guardar (F5) y cargar (F8) en cuatro ranuras.
+
+Opciones: `neo [juego] [--bios archivo] [--scale N] [--record archivo | --play archivo] [--trace archivo]`.
+`--record` y `--play` graban y reproducen los botones (`inputs.h`, el mismo formato que `--input` de las
+herramientas sin ventana); mientras tanto no se puede reiniciar, cargar estados ni cambiar de juego.
+`--trace` agrega al salir las instrucciones de ROM que se ejecutaron (del juego y de la BIOS), como traza
+para `neorecomp`. Para pruebas sin ventana: `--ui-shot archivo.png` con `--ui-frames N`, `--ui-menu N` y
+`--ui-action N`. El modo recompilado llega en la fase 6.
 
 Icono: `NEOGEO.png` (el mando del AES, serie TriMui) de
 [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0; la
@@ -350,18 +363,36 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   y este documento. La versión sale de `git describe`.
 - **Integración continua:** el mismo flujo que en los otros recompiladores (Linux, macOS, MSYS2 UCRT64),
   pendiente.
+- **Herramientas sin ventana** (las mismas opciones que en los otros recompiladores, `cli.h`: `--frames N`,
+  `--input archivo` con el guion de `inputs.h`, `--seed S` con el mando aleatorio común de `random_pad.h`
+  traducido al Neo Geo, `--repeat N` en `neobench`, el número de cuadros suelto y `boton:desde-hasta` con
+  `up down left right a b c d start select`): `neotrace` (traza `BANCO:DIRECCION`), `neoshot` (captura;
+  `--expect` y `--hash` de todos los cuadros y todo el audio), `neoaudio` (WAV y nivel por segundo),
+  `neobench` (velocidad), `neoramdump` (la RAM de `$100000` a `$10FFFF`). La BIOS la buscan como el runtime.
+  El guion de entradas: `cuadro BOTONES [BOTONES]` con `UP DOWN LEFT RIGHT A B C D START SELECT` unidos con
+  `+`, `-` o `$hex` (los bits `NEO_*`). El mando aleatorio pulsa A, B, Start y la cruz (C, D y Select solo en
+  los guiones).
 - **Contrato común** (`tests/contract.sh`, el mismo archivo en los cuatro repos; si cambia, se copia a los
-  otros tres): ya tiene la rama `neo`; se cumple cuando existan `neotrace`, `neoshot`, `neoaudio` y
-  `neobench` (fase 5).
+  otros tres): la rama `neo` con el juego de prueba `testroms/neo/contrato.neo`. Se cumple: las cuatro
+  herramientas aceptan las opciones, la misma entrada da la misma traza, captura y sonido, y `--input` da el
+  mismo `neoshot --hash` que `boton:desde-hasta`.
+- **El juego de prueba del contrato** (`mkcontrato`, en `make testroms`): un programa propio (MIT) hecho en C,
+  que no se baja de ningún lado. Sigue el protocolo de la BIOS (cabecera, USER con `SYSTEM_RETURN`, el
+  VBLANK propio con `SYSTEM_IO`, el código de seguridad de SNK que compara la BIOS) y depende de las entradas
+  en las tres salidas: un mosaico blanco por cada botón apretado y, al cambiar los botones, un comando al
+  Z80, que toca un tono del SSG. La BIOS le da el control en el cuadro 8. Necesita la BIOS del AES (la de la
+  fase 10 servirá para el CI). La wiki de NeoGeoDev tiene una errata en el código de seguridad (la palabra
+  25 es `$6606`, no `$0606`): la delató la comparación de la BIOS contra Metal Slug.
 - **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
-  fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona).
+  fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona), y el juego de prueba del
+  contrato (`testroms/neo/contrato.neo`).
 - **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot/--shots] [boton:desde-hasta]`:**
   corre sin ventana con el intérprete y resume instrucciones, ciclos, excepciones, el estado del Z80, las
   variables de la BIOS en la RAM (`SYSTEM_MODE`, `USER_REQUEST`, `USER_MODE`...) y los PC más frecuentes del
   último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
   juegos ponen su fuente así, Metal Slug en `$300` + ASCII). `--shot archivo.png` guarda la imagen del
   último cuadro y `--shots carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
-- **`make test`:** las SingleStepTests del 68000 por el intérprete y por el camino del código generado
+- **`make test`:** `inputtest`, `statetest` (con el juego de prueba y con Metal Slug), el contrato común; las SingleStepTests del 68000 por el intérprete y por el camino del código generado
   (~8 s cada una) y las del Z80 (~24 s); `z80test --nmi`; `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
   SHA1, cabecera y vectores desde los chips, como `.neo`, como zip guardado dentro de una carpeta y como
   carpeta; el inflate con códigos fijos y dinámicos, cortado y con salida chica; un zip dañado; los sufijos
@@ -395,6 +426,7 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
   selección de personaje, pelea con la cámara reducida) y Neo Turf Masters (título, menús, el hoyo con el
   campo en perspectiva, que usa el temporizador: unas 13 700 interrupciones en 4200 cuadros) se ven bien.
   Con el intérprete y el dibujo, 16-20 veces el tiempo real.
+- **Herramientas, estados y contrato:** `inputtest`, `statetest`, `tests/contract.sh` sin fallas.
 - **Audio:** `audiotest`. Los tres juegos suenan: Metal Slug con FM y ADPCM-A, Samurai Shodown II también con
   ADPCM-B y Neo Turf Masters además con el SSG. Con el sonido, 14-18 veces el tiempo real.
 - **Sin comprobar todavía con un oráculo:** la posición del VBLANK y de la recarga del temporizador en la

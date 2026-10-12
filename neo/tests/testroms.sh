@@ -4,7 +4,10 @@
 #     mismo que GENRecomp; ~200 MB que se quedan comprimidos: m68ktest los lee con gunzip -c)
 #   - testroms/z80: SingleStepTests del Z80 (github.com/SingleStepTests/z80, un commit fijo, el mismo
 #     que GENRecomp; se guardan comprimidas, z80test las lee con gunzip -c)
-# Las pruebas de Neo Geo (ngdevkit, 240p Test Suite) llegan en las fases siguientes (docs/PLAN.md).
+#   - testroms/neo/contrato.neo: el juego de prueba del contrato común, hecho aquí (src/tools/mkcontrato.c,
+#     MIT): no se baja de ningún lado. Necesita la BIOS del AES (la busca junto al juego, en roms/ o en
+#     NEO_BIOS), como cualquier juego
+# Las otras pruebas de Neo Geo (ngdevkit, 240p Test Suite) llegan en las fases siguientes (docs/PLAN.md).
 cd "$(dirname "$0")/.." || exit 2
 mkdir -p testroms build
 
@@ -25,3 +28,6 @@ else
     cp build/z80tests/LICENSE testroms/z80/ && rm -rf build/z80tests && \
     echo "SingleStepTests del Z80 en testroms/z80" || exit 1
 fi
+
+mkdir -p testroms/neo
+make -s build/mkcontrato && build/mkcontrato testroms/neo/contrato.neo || exit 1

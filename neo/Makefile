@@ -121,14 +121,29 @@ z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/mkcontrato.c $(RT) -lm
 
-# embed mete el runtime y la plataforma dentro de neorecomp (lo usará desde la fase 6)
+# Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h trace_line.h sha1.h console.h $(RUNTIME)
+EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
+                  files.c files.h export.c export.h png.c png.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  random_pad.h difftest.c bench.c
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
+EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
+
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
+$(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+
+$(BUILD)/gen:
+	mkdir -p $@
+
 # El recompilador: un solo ejecutable, con el runtime adentro
-neorecomp$(EXE): src/neorecomp/neorecomp.c $(RT)
+neorecomp$(EXE): src/neorecomp/neorecomp.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h src/neorecomp/visor_html.h \
+                 src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -o $@ \
-		src/neorecomp/neorecomp.c $(RT) -lm
+		src/neorecomp/neorecomp.c src/neorecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Paquete para distribuir: neorecomp, la documentación y la licencia
 DIST := dist/neorecomp-$(VERSION)-$(PLATFORM)

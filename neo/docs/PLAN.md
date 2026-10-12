@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fases 0 a 5 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 6 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -194,7 +194,15 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     Select no los pulsa (como en el Genesis no pulsa C, X, Y, Z ni Mode), pero existen en los guiones y en
     `boton:desde-hasta`.
   - `contract.sh` completo con una prueba libre: el juego de prueba propio `testroms/neo/contrato.neo`.
-- [ ] **6. Recompilador v1.**
+- [x] **6. Recompilador v1.** Hecho: `neorecomp juego -o carpeta [--trace] [--bios]` con el juego y la BIOS
+  en sus espacios de identidad (el mismo análisis en los dos; los saltos entre espacios salen al
+  despachador), los bancos de P2 (todos los bancos desde P1, `MAPCHK`), la BIOS una vez por versión en una
+  caché del usuario que crece con las trazas de cada juego, el proyecto generado (ventana en modo
+  recompilado, `difftest`, `bench`, `LEEME.txt`), `tests/recomp_game.sh`. **Meta cumplida:** Metal Slug,
+  Samurai Shodown II y Neo Turf Masters dan 1800 cuadros idénticos al intérprete; con la segunda ronda no
+  queda ninguna instrucción de ROM en el intérprete (99,7-100 % de los ciclos recompilados) y corren a 23-31
+  veces el tiempo real. Se copiaron también las heurísticas de GENRecomp (están en el mismo código): la fase 7
+  es ajustarlas al Neo Geo y medir la cobertura sin traza.
   - Copia: de `genrecomp.c`, el recorrido, la partición en funciones, la emisión (`AFTER`, `LEAVE`,
     `MAPCHK`), el despacho (`recomp_lookup`), el proyecto generado (`embed`, `Makefile`, `LEEME.txt`),
     `difftest.c`, `bench.c`, `recomp.h`; `dis68k.c` tal cual.
@@ -208,7 +216,8 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     `--uncovered`, `--screens`, `--bench`, `--executed`.
   - Meta: los juegos de validación dan 1800 cuadros idénticos al intérprete (con traza).
 - [ ] **7. Heurísticas de cobertura.**
-  - Copia: todas las de GENRecomp (tablas de desplazamientos, de instrucciones, de punteros de 32 bits,
+  - Copiadas ya en la fase 6 (con el mapa del Neo Geo en `sane_abs`); falta medirlas y ajustarlas.
+  - De GENRecomp: todas las (tablas de desplazamientos, de instrucciones, de punteros de 32 bits,
     bases constantes; especulativas aparte: punteros inmediatos, tablas sueltas, tras un final) y su
     plausibilidad, ajustando las direcciones razonables al mapa del Neo Geo. `--coverage`, `--why`,
     `--viz [--color]`, `--html`, `--events`, `--codemap`, `--dis`, `--no-tables`, `--no-spec`;

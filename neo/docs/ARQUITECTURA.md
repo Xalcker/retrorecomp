@@ -12,11 +12,11 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `audio.c` (la mezcla), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
-| `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
-| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`), `bench.c` (también para los proyectos generados), `cli.h` e `inputs.h` (las opciones comunes) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `audio.c` (la mezcla), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
+| `src/neorecomp/` | El recompilador (`neorecomp.c`, `dis68k.c`, `visor_html.h`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `cli.h` e `inputs.h` (las opciones comunes) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
-| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -111,11 +111,22 @@ solo si quedó atrás. `lspc_sync` fija el nivel de interrupción del 68000 (`cp
 arranque, 1 el temporizador, 2 el VBLANK). Si no, al volver con `RTE` la misma interrupción entra otra
 vez. La de arranque queda pendiente al encender (no con el botón de reset).
 
-El despachador del código recompilado llega en la fase 6.
+En los proyectos generados (`-DNEO_RECOMP`), `neo_run_frame` usa `m68k_run_hybrid`, como en GENRecomp:
+antes de cada instrucción, si el 68000 puede seguir sin el intérprete (`m68k_native_ok`: sin
+interrupción pendiente, sin traza, sin STOP, sin estar detenido), busca código recompilado para el PC
+(`recomp_lookup`); si no lo hay, ejecuta una instrucción con el intérprete. Las interrupciones las
+atiende siempre el intérprete, y el código recompilado sale apenas hay una que atender.
 
 ## Recompilador
 
-Llega en las fases 6 y 7.
+```
+neorecomp juego -o carpeta [--name nombre] [--bios archivo ...] [--trace traza.txt ...] [--coverage traza.txt]
+neorecomp juego [--info]
+```
+
+`--trace` lee las trazas de `neotrace`, de la ventana con `--trace` y de `difftest --uncovered`: una línea
+`BANCO:DIRECCION` por instrucción de ROM ejecutada, el formato común (`trace_line.h`). Las del juego se
+agregan como puntos de entrada; las de la BIOS (banco `FF`) van a la caché de la BIOS.
 
 ### Identidad de las instrucciones
 
@@ -128,6 +139,95 @@ donde no hay ROM. En las trazas (`trace_line.h`, el formato común `BANCO:DIRECC
 desplazamiento dividido entre 1 MB: `03:212344` es el banco 2 de P2 y la BIOS va en el banco `FF`
 (`FF:C00402`). La traza del intérprete (`g->trace`) tiene una entrada por palabra de P y luego las de la
 BIOS (`neo_trace_index`).
+
+**Dos espacios, el mismo análisis.** El descubrimiento, la partición y la emisión corren una vez para el
+juego y otra para la BIOS (`space_begin`), con el mismo código. Lo que cambia es el espacio:
+`space_offset` traduce una dirección del CPU al desplazamiento (el juego: P1 en `$000000` y P2 en
+`$200000`; la BIOS: `$C00000-$CFFFFF`) o dice que no es de este espacio. Los saltos de uno al otro (el
+juego llamando a `$C0044A`, la BIOS saltando a `$000122`) no se siguen: en el código generado, salen al
+despachador, que busca en el otro espacio. Las funciones no cruzan una ventana de 1 MB (en la BIOS, sus
+128 KB).
+
+### Descubrimiento
+
+Es el de GENRecomp. Las semillas del juego son sus vectores que apuntan a P (desde `$200`) y los `JMP` de
+la cabecera a los que salta la BIOS (`$122` USER, `$128` PLAYER_START, `$12E` DEMO_END, `$134` COIN_SOUND);
+las de la BIOS, sus vectores y su tabla de saltos (`$C00402-$C004DA`, de a 6 bytes: lo que llaman los
+juegos). Desde cada una se siguen las instrucciones hasta un salto sin vuelta, con los destinos
+constantes de `Bcc`, `BRA`, `BSR`, `DBcc` y `JMP`/`JSR`. Un opcode inválido al que se llega siguiendo el
+flujo corta el recorrido (son datos), salvo `ILLEGAL` o en una traza.
+
+**Bancos de P2.** En los juegos de más de 2 MB, un salto a la ventana P2 desde P1 puede ir a cualquier
+banco: se prueba en todos y se toma lo que tenga pinta de código (como en NESRecomp con los bancos
+cambiables). Desde una función de P2, la ventana es la de su mismo banco. Esas funciones vigilan el banco
+(`MAPCHK`, con `map_ver`) y salen si cambió.
+
+**Heurísticas** (las de GENRecomp, con el mapa de memoria del Neo Geo en `sane_abs` y `code_addr`):
+tablas de desplazamientos de 16 bits, de instrucciones (`bra.w`/`jmp`, aceptando un `jmp` a la BIOS), de
+punteros de 32 bits y bases constantes; y las especulativas (`--no-spec`): punteros inmediatos, tablas
+sueltas (en P1 en el juego y en toda la BIOS, donde la dirección dice el desplazamiento) y lo que sigue a un
+final de rutina. "Con pinta de código" (`plausible`) es lo mismo que en GENRecomp. Ajustarlas al Neo Geo y
+medir la cobertura es la fase 7.
+
+### La BIOS: una vez por versión
+
+El código de cada versión de la BIOS se genera en una caché del usuario (`~/.neorecomp/bios/<sha1>/`, o
+`$NEO_BIOS_CACHE`) y cada proyecto lleva una copia en `bios/`. La caché guarda la versión de `neorecomp`
+y las instrucciones de la BIOS que vieron las trazas de todos los juegos (`semillas.txt`): se regenera solo
+si cambió `neorecomp` o si una traza trae instrucciones nuevas, así crece con cada juego y la comparten
+todos. `bios/bios.c` dice qué versiones hay; en tiempo de ejecución, `recomp_bios_lookup` busca la de la
+BIOS cargada por su SHA1 (una vez: `bios.code`). Con una versión aceptada que no se recompiló, la BIOS corre
+en el intérprete.
+
+### Herramientas de análisis
+
+Las mismas que en GENRecomp, con los mismos formatos, sobre el espacio del juego: `--coverage traza`,
+`--why BB:DIRECCION` (o el desplazamiento en P), `--viz [--color]`, `--html archivo`, `--events archivo`,
+`--codemap archivo` y `--dis OFFSET:DIR:N` (`dis68k.c`, que también pone el desensamblado en los
+comentarios del código generado).
+
+### Funciones y emisión
+
+Como en GENRecomp: las instrucciones se agrupan en funciones (tramos contiguos con huecos de hasta 32 bytes,
+de hasta 400 instrucciones, sin cruzar una ventana); cada función empieza con un `switch` sobre el PC y tiene
+una etiqueta por instrucción, que llama a su `k_*` de `m68k_ops.h` con el opcode, las palabras de extensión
+y el PC constantes. `AFTER` pone al día el LSPC y el Z80 y sale si terminó el cuadro o hay que volver al
+intérprete; después se sigue con un `goto` si el destino es de la misma función, y si no, `LEAVE` rehace el
+PC y la cola de prefetch y vuelve al despachador. Las funciones del juego se llaman `f_DESPLAZAMIENTO` y las
+de la BIOS `b<sha1 corto>_DESPLAZAMIENTO`.
+
+`gen/dispatch.c` tiene las funciones del juego ordenadas por desplazamiento, con una tabla por KB, y
+`recomp_lookup`: traduce el PC con `neo_code_offset` y busca en el juego o, si el desplazamiento es de la
+BIOS, en `recomp_bios_lookup`.
+
+### El proyecto generado
+
+`neorecomp -o carpeta` escribe `runtime/` (el runtime de este repo, que va dentro de `neorecomp`),
+`platform/` (la ventana, `difftest`, `bench`), `gen/` (`code_NNN.c` de unas 3000 instrucciones cada uno,
+para compilar en paralelo, `dispatch.c`, `info.c` con el SHA1 y el nombre, `gen.h`), `bios/` (el código de
+la BIOS de la caché y `bios.c`), un `Makefile` (con `-DNEO_RECOMP`) y `LEEME.txt`. No lleva datos del juego
+ni de la BIOS: el ejecutable busca el juego (el argumento, la copia que guarda la primera vez en su carpeta
+de datos como `juego.neo`, o un `.neo` o `.zip` de la carpeta actual con el SHA1 correcto) o lo pide, y
+comprueba el SHA1 de la imagen normalizada; la BIOS, como el intérprete. `--interp` corre solo el
+intérprete, `--force` acepta otro juego (con el intérprete) y `--uncovered archivo` guarda lo que el
+intérprete tuvo que ejecutar. Ayuda → Este juego dice cuántas instrucciones se recompilaron y qué parte de
+los ciclos corrió en código recompilado.
+
+### difftest
+
+`difftest juego [cuadros] [--seed S] [--input archivo] [--uncovered archivo] [--screens carpeta] [--bench]
+[--executed archivo]`, las mismas opciones que en los otros recompiladores. La máquina B corre función por
+función (recompilada, o el intérprete donde no hay código); tras cada función la A (solo intérprete) avanza
+hasta el mismo ciclo y se comparan el 68000, los ciclos, la RAM, la VRAM, los registros del LSPC (dirección,
+modo, temporizador, interrupciones, líneas), la paleta, el latch del sistema y el banco de P2, la tarjeta,
+el Z80 con su RAM, sus bancos y la comunicación con el 68000, el YM2610, la mezcla de audio, el bus abierto
+y las excepciones atendidas; al final de cada cuadro, también la imagen y el audio listo. `--uncovered`
+escribe en formato de traza lo que B tuvo que interpretar (del juego y de la BIOS), para volver a
+recompilar con `--trace`.
+
+`tests/recomp_game.sh JUEGO NOMBRE [CUADROS] [SEMILLAS...]` hace el ciclo completo de un juego, como en los
+otros recompiladores (y lo usa la GUI): una traza guionada, recompilar, compilar, `difftest` con cada
+semilla, juntar lo que cayó al intérprete y repetir una vez con esa traza.
 
 ## Bancos, mappers y guardado
 
@@ -392,7 +492,10 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
   juegos ponen su fuente así, Metal Slug en `$300` + ASCII). `--shot archivo.png` guarda la imagen del
   último cuadro y `--shots carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
-- **`make test`:** `inputtest`, `statetest` (con el juego de prueba y con Metal Slug), el contrato común; las SingleStepTests del 68000 por el intérprete y por el camino del código generado
+- **`make test`:** `inputtest`, `statetest` (con el juego de prueba y con Metal Slug), el contrato común; el
+  recompilador (generar, compilar `difftest` y compararlo contra el intérprete con el juego de prueba, 600
+  cuadros, y con Metal Slug sin traza, 1200; las herramientas de análisis con el juego de prueba; la caché
+  de la BIOS de las pruebas va en `build/bios-cache`); las SingleStepTests del 68000 por el intérprete y por el camino del código generado
   (~8 s cada una) y las del Z80 (~24 s); `z80test --nmi`; `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
   SHA1, cabecera y vectores desde los chips, como `.neo`, como zip guardado dentro de una carpeta y como
   carpeta; el inflate con códigos fijos y dinámicos, cortado y con salida chica; un zip dañado; los sufijos
@@ -426,6 +529,14 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
   selección de personaje, pelea con la cámara reducida) y Neo Turf Masters (título, menús, el hoyo con el
   campo en perspectiva, que usa el temporizador: unas 13 700 interrupciones en 4200 cuadros) se ven bien.
   Con el intérprete y el dibujo, 16-20 veces el tiempo real.
+- **Recompilador** (`tests/recomp_game.sh` con 1800 cuadros y las semillas 1 y 2): Metal Slug, Samurai
+  Shodown II y Neo Turf Masters dan cuadros idénticos al intérprete. En la primera ronda (análisis más una
+  traza guionada) quedan 52 a 109 instrucciones de ROM en el intérprete; en la segunda, ninguna. Los ciclos en
+  código recompilado (del juego y de la BIOS): 100 % en Metal Slug y Samurai Shodown II, 99,7-99,8 % en Neo
+  Turf Masters (la entrada a sus miles de interrupciones del temporizador la hace siempre el intérprete). Sin
+  traza, Metal Slug ya da 99,9 %. Velocidad (`difftest --bench`, 3600 cuadros): recompilado 23-31 veces el
+  tiempo real, el intérprete 17-20. Compilar un proyecto (`make -j8`): ~55 s (Metal Slug: 95 000
+  instrucciones del juego; la BIOS, 5500).
 - **Herramientas, estados y contrato:** `inputtest`, `statetest`, `tests/contract.sh` sin fallas.
 - **Audio:** `audiotest`. Los tres juegos suenan: Metal Slug con FM y ADPCM-A, Samurai Shodown II también con
   ADPCM-B y Neo Turf Masters además con el SSG. Con el sonido, 14-18 veces el tiempo real.

@@ -104,6 +104,8 @@ typedef struct {
     const BiosVersion *ver;         /* NULL: no se cargó */
     char path[512];                 /* archivo (y miembro del zip) de donde salió */
     int  l0_checked;                /* había un 000-lo.lo junto a la BIOS: 1 igual a la calculada, -1 distinta */
+    int  code;                      /* en los proyectos generados: qué código recompilado es el de esta BIOS
+                                       (-2 sin buscar todavía, -1 ninguno) */
 } Bios;
 
 /*
@@ -281,6 +283,8 @@ typedef struct Neo {
     Ym2610 ym;
     Audio audio;
     u32  exc_count[64];             /* excepciones atendidas por vector (estadística) */
+    u64  cyc_recomp;                /* ciclos del 68000 en código recompilado (estadística) */
+    u64  recomp_calls;              /* entradas al código recompilado (estadística) */
     u32 *trace;                     /* NULL, o por cada palabra de P y de la BIOS (neo_trace_index): 0 = no
                                        ejecutada; si no, $80000000 | dirección */
     u8   ram[0x10000];              /* RAM del 68000: $100000-$10FFFF (con espejos hasta $1FFFFF) */
@@ -341,7 +345,8 @@ void neo_assemble(Neo *g, const Cart *cart, const Bios *bios);
 void neo_free(Neo *g);
 void neo_power_on(Neo *g);              /* encendido: todo a cero, la interrupción de arranque pendiente */
 void neo_reset(Neo *g);                 /* botón de reset */
-void neo_run_frame(Neo *g);             /* corre hasta terminar el cuadro */
+void neo_run_frame(Neo *g);             /* corre hasta terminar el cuadro (con NEO_RECOMP, con el código recompilado) */
+extern int neo_force_interp;            /* con NEO_RECOMP: 1 = solo el intérprete */
 void neo_after_step(Neo *g);            /* LSPC y Z80 al ciclo del 68000 (tras cada instrucción) */
 int  neo_card_insert(Neo *g, const char *path);  /* tarjeta de 2 KB (la carga si el archivo existe); 1 si todo bien */
 int  neo_card_save(Neo *g, const char *path);

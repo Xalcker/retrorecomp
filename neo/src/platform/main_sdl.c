@@ -1,8 +1,8 @@
 /*
  * Capa de plataforma con SDL2 para NEORecomp: ventana con barra de menús, controles (teclado y
  * mandos), sonido estéreo a 44 100 Hz, tarjeta de memoria, estados guardados y ritmo de 59,60 cuadros
- * por segundo (el del AES). La usa el intérprete (`neo`); los juegos que genere neorecomp la usarán
- * también (fase 6).
+ * por segundo (el del AES). La usan el intérprete (`neo`) y los juegos que genera neorecomp (con
+ * -DNEO_RECOMP).
  *
  * Uso: neo [juego] [--bios archivo] [--scale N] [--record archivo | --play archivo] [--trace archivo]
  *   juego    un .neo, un .zip al estilo MAME o una carpeta con los chips (si no, se pide)
@@ -12,13 +12,20 @@
  *   --record graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
  *   --play   reproduce un archivo grabado (el teclado se ignora)
  *   --trace  al salir, agrega a `archivo` las instrucciones de ROM que se ejecutaron (para neorecomp)
+ * Recompilado: juego [juego] [--interp] [--force] [--uncovered archivo] y las mismas opciones. El juego
+ *   se busca en el argumento, en la copia que se guarda la primera vez (juego.neo en la carpeta de
+ *   datos) o en la carpeta actual (un .neo o un .zip con el SHA1 correcto), y si no, se pide.
+ *   --interp     solo el intérprete (para comparar)
+ *   --force      acepta otro juego (corre con el intérprete)
+ *   --uncovered  como --trace: lo que el intérprete tuvo que ejecutar (para neorecomp --trace)
  * Para pruebas sin ventana: --ui-shot archivo.png [--ui-frames N] [--ui-menu N] [--ui-action N].
  *
  * Jugador 1: flechas, Z X C V = A B C D, Enter = Start, Mayús = Select. Jugador 2: I J K L,
  * B N M , = A B C D, H = Start, G = Select. Mandos: el primero es el jugador 1 y el segundo el 2.
  *
- * Carpeta de datos (la da SDL): en Windows %APPDATA%\NEORecomp\interprete\, en Linux
- * ~/.local/share/NEORecomp/interprete/, en macOS ~/Library/Application Support/NEORecomp/interprete/.
+ * Carpeta de datos (la da SDL): en Windows %APPDATA%\NEORecomp\<juego>\, en Linux
+ * ~/.local/share/NEORecomp/<juego>/, en macOS ~/Library/Application Support/NEORecomp/<juego>/ (el
+ * intérprete usa "interprete").
  * Ahí van la copia de la BIOS (bios.bin), la tarjeta de memoria de cada juego (<juego>.tarjeta: se
  * guarda al salir y cada 5 segundos si cambió), los estados guardados (<juego>.estado1-4), las
  * preferencias (settings.ini) y lo exportado.
@@ -28,6 +35,11 @@
  * se pausa.
  */
 #include <SDL.h>
+
+#ifdef NEO_RECOMP
+#include <dirent.h>
+#include "recomp.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +81,7 @@ typedef struct {
     Neo *neo;
     Bios bios;              /* se conserva al cambiar de juego */
     int loaded;
+    int interp_only;        /* recompilado: solo el intérprete (--interp, o el juego es otro) */
 
     char name[96];          /* nombre del juego (archivos y título) */
     char title[96];         /* nombre para mostrar */
@@ -195,7 +208,8 @@ static int get_bios(App *app, const char *arg, const char *rom_path)
     return 1;
 }
 
-/* Lee un juego. 0 y el mensaje en msg si no se puede */
+/* Lee un juego. 1 si se puede correr; 0 y el mensaje en msg si no. Recompilado: 2 si es otro juego
+ * (el cartucho queda cargado, por si se acepta con --force) */
 static int read_game(const char *path, Cart *cart, char *msg, size_t size)
 {
     const char *why = NULL;
@@ -203,6 +217,12 @@ static int read_game(const char *path, Cart *cart, char *msg, size_t size)
     int fatal;
     const char *u = cart_unsupported(cart, &fatal);
     if (u && fatal) { snprintf(msg, size, tr(T_ROM_BAD_FMT), path, u); cart_free(cart); return 0; }
+#ifdef NEO_RECOMP
+    if (strcmp(cart->sha1, recomp_rom_sha1)) {
+        snprintf(msg, size, tr(T_ROM_WRONG_FMT), path, recomp_name, recomp_rom_sha1);
+        return 2;
+    }
+#endif
     return 1;
 }
 
@@ -213,10 +233,33 @@ static int ask_for_game(Cart *cart, char *path_out, size_t path_size)
     snprintf(drop, sizeof drop, tr(T_ROM_DROP_FMT), "Neo Geo");
     for (int first = 1;; first = 0) {
         if (!ask_file(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), drop, first, path_out, path_size)) return 0;
-        if (read_game(path_out, cart, msg, sizeof msg)) return 1;
+        int r = read_game(path_out, cart, msg, sizeof msg);
+        if (r == 1) return 1;
+        if (r == 2) cart_free(cart);
         inform(msg);
     }
 }
+
+#ifdef NEO_RECOMP
+/* Un juego de la carpeta actual (.neo o .zip) con el SHA1 que se recompiló */
+static int find_game_here(Cart *cart, char *path_out, size_t size)
+{
+    DIR *d = opendir(".");
+    if (!d) return 0;
+    struct dirent *e;
+    int found = 0;
+    char msg[2048];
+    while (!found && (e = readdir(d))) {
+        const char *dot = strrchr(e->d_name, '.');
+        if (!dot || (SDL_strcasecmp(dot, ".neo") && SDL_strcasecmp(dot, ".zip"))) continue;
+        int r = read_game(e->d_name, cart, msg, sizeof msg);
+        if (r == 1) { snprintf(path_out, size, "%s", e->d_name); found = 1; }
+        else if (r == 2) cart_free(cart);
+    }
+    closedir(d);
+    return found;
+}
+#endif
 
 /* ------------------------------------------------------------------ */
 /* Partida                                                             */
@@ -264,7 +307,9 @@ static int switch_game(App *app, const char *path)
 {
     static Cart cart;
     char msg[4096];
-    if (!read_game(path, &cart, msg, sizeof msg)) {
+    int r = read_game(path, &cart, msg, sizeof msg);
+    if (r != 1) {
+        if (r == 2) cart_free(&cart);
         menubar_close(&app->bar);
         dialog_open(&app->dlg, DIALOG_MESSAGE, TAG_INFO, app->title, msg);
         return 0;
@@ -417,8 +462,10 @@ static char size_labels[6][40], volume_labels[4][40], chan_labels[4][40], slot_l
 static void build_menus(App *app)
 {
     int n = 0, k = 0;
+#ifndef NEO_RECOMP
     ITEM(menu_game, n, tr(T_OPEN_ROM), "Ctrl+O", A_OPEN_ROM, ITEM_ACTION);
     SEPARATOR(menu_game, n);
+#endif
     ITEM(menu_game, n, tr(T_RESET), "Ctrl+R", A_RESET, ITEM_ACTION);
     ITEM(menu_game, n, tr(T_PAUSE), "P", A_PAUSE, ITEM_CHECK);
     ITEM(menu_game, n, tr(T_CARD), NULL, A_CARD, ITEM_CHECK);
@@ -542,6 +589,13 @@ static void game_info(App *app)
     else snprintf(folder, sizeof folder, "%s", app->pref);
     snprintf(text, sizeof text, tr(T_GAME_TEXT_FMT), app->title, c->hdr.ngh, (int)(c->size / 1024),
              app->bios.ver ? app->bios.ver->file : "?", app->neo->card.data ? file_name(app->card_path) : "-", c->sha1, folder);
+#ifdef NEO_RECOMP
+    size_t tl = strlen(text);
+    const Neo *g = app->neo;
+    if (app->interp_only) snprintf(text + tl, sizeof text - tl, "\n\n%s", tr(T_RECOMP_OFF));
+    else snprintf(text + tl, sizeof text - tl, tr(T_RECOMP_STATS_FMT), recomp_instructions,
+                  g->cyc ? 100.0 * (double)g->cyc_recomp / (double)g->cyc : 0.0);
+#endif
     message(app, tr(T_GAME_TITLE), text);
 }
 
@@ -610,7 +664,9 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     int replay = app->play || app->record;
     switch (k->keysym.sym) {
     case SDLK_r:      if (ctrl && !replay) { do_action(app, A_RESET); return 1; } break;
+#ifndef NEO_RECOMP
     case SDLK_o:      if (ctrl && !replay) { do_action(app, A_OPEN_ROM); return 1; } break;
+#endif
     case SDLK_F5:     do_action(app, A_SAVE_STATE); return 1;
     case SDLK_F8:     if (!replay) { do_action(app, A_LOAD_STATE); return 1; } break;
     case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
@@ -646,7 +702,9 @@ static void handle_event(App *app, SDL_Event *e)
         return;
     }
     if (e->type == SDL_DROPFILE) {
+#ifndef NEO_RECOMP
         if (!(app->play || app->record)) switch_game(app, e->drop.file);
+#endif
         SDL_free(e->drop.file);
         return;
     }
@@ -911,7 +969,7 @@ int main(int argc, char *argv[])
     static App app_storage;
     App *app = &app_storage;
     const char *rom_arg = NULL, *bios_arg = NULL, *record_path = NULL, *play_path = NULL;
-    int scale_arg = 0, shot_menu = -1, shot_action = 0;
+    int scale_arg = 0, shot_menu = -1, shot_action = 0, force = 0;
     long shot_frames = 300;
     char msg[4096];
     the_app = app;
@@ -922,7 +980,11 @@ int main(int argc, char *argv[])
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 
     /* Carpeta de datos: tarjetas, copia de la BIOS y preferencias */
+#ifdef NEO_RECOMP
+    app->pref = SDL_GetPrefPath("NEORecomp", recomp_name);
+#else
     app->pref = SDL_GetPrefPath("NEORecomp", "interprete");
+#endif
     if (!app->pref) fail(tr(T_NO_DATA_DIR));
     snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
     snprintf(app->bios_copy, sizeof app->bios_copy, "%sbios.bin", app->pref);
@@ -937,7 +999,9 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--bios") && i + 1 < argc) bios_arg = argv[++i];
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
-        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) app->trace_path = argv[++i];
+        else if ((!strcmp(argv[i], "--trace") || !strcmp(argv[i], "--uncovered")) && i + 1 < argc) app->trace_path = argv[++i];
+        else if (!strcmp(argv[i], "--interp")) app->interp_only = 1;
+        else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);
@@ -971,13 +1035,36 @@ int main(int argc, char *argv[])
     SDL_RenderClear(app->ren);
     SDL_RenderPresent(app->ren);
 
-    /* El juego (el argumento, o se pide) y la BIOS */
+    /* El juego (el argumento; recompilado: la copia guardada o uno de la carpeta actual; si no, se pide)
+     * y la BIOS */
     static Cart cart;
     char found_path[1024] = "";
+    int have = 0, from_cache = 0;
+    (void)from_cache;
     if (rom_arg) {
-        if (!read_game(rom_arg, &cart, msg, sizeof msg)) fail(msg);
+        int r = read_game(rom_arg, &cart, msg, sizeof msg);
+        if (r == 0 || (r == 2 && !force)) fail(msg);
+        if (r == 2) app->interp_only = 1;       /* el código recompilado es de otro juego */
         snprintf(found_path, sizeof found_path, "%s", rom_arg);
-    } else if (!ask_for_game(&cart, found_path, sizeof found_path)) return 0;
+        have = 1;
+    }
+#ifdef NEO_RECOMP
+    char cache_path[1100];
+    snprintf(cache_path, sizeof cache_path, "%sjuego.neo", app->pref);
+    if (!have) {
+        int r = read_game(cache_path, &cart, msg, sizeof msg);
+        if (r == 1) { have = from_cache = 1; snprintf(found_path, sizeof found_path, "%s", cache_path); }
+        else if (r == 2) cart_free(&cart);
+    }
+    if (!have) have = find_game_here(&cart, found_path, sizeof found_path);
+#endif
+    if (!have && !ask_for_game(&cart, found_path, sizeof found_path)) return 0;
+#ifdef NEO_RECOMP
+    /* Copia para las siguientes veces (solo el juego correcto) */
+    if (!from_cache && !app->interp_only && !cart_write_neo(&cart, cache_path))
+        fprintf(stderr, "no se pudo guardar la copia del juego en %s\n", cache_path);
+    neo_force_interp = app->interp_only;
+#endif
     snprintf(app->rom_path, sizeof app->rom_path, "%s", found_path);
     set_game(app, found_path, cart.title);
     if (!get_bios(app, bios_arg, found_path)) return 0;

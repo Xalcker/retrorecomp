@@ -2,7 +2,7 @@
 # Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
 # (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2); el LSPC y la
 # ventana (fase 3); el YM2610 y la mezcla (fase 4); las herramientas sin ventana, los estados y el
-# contrato común (fase 5).
+# contrato común (fase 5); el recompilador (fase 6).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -18,6 +18,8 @@ falla() {   # descripción comando...: debe fallar
 T0=$(date +%s); TS=$T0
 tiempo() { t=$(date +%s); echo "      ($1: $((t - TS)) s)"; TS=$t; }
 mkdir -p build/tests
+# La caché de la BIOS recompilada de las pruebas va en build/ (no en la del usuario)
+NEO_BIOS_CACHE=$PWD/build/bios-cache; export NEO_BIOS_CACHE
 
 corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
@@ -57,6 +59,42 @@ tiempo "estados guardados"
 r=$(sh tests/contract.sh | tail -1)
 case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
 tiempo "contrato"
+
+# Recompilar: proyecto generado, compilado (difftest, sin SDL2) y comparado contra el intérprete. Con el
+# juego de prueba del contrato (make testroms) y con Metal Slug (roms/, sin traza) si están; necesitan la
+# BIOS del AES.
+recompila() {   # nombre juego cuadros
+    n=$1; rom=$2; nf=$3
+    d=build/tests/proy_$n
+    rm -rf "$d"
+    if ! "$(exe neorecomp)" "$rom" -o "$d" --name "$n" >/dev/null 2>&1; then echo "FALLA neorecomp -o con $n"; fallas=$((fallas + 1)); return; fi
+    # En Windows el objetivo del Makefile generado es difftest.exe (difftest$(EXE))
+    x=; [ -x ./neorecomp.exe ] && x=.exe
+    if ! make -C "$d" -j8 -s "difftest$x" >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
+    res=$("$d/difftest$x" "$rom" "$nf" --seed 2 start:120-125 start:300-305 a:400-420 2>&1 | grep "^difftest\|DIFERENCIA" | tail -1)
+    case "$res" in *"cuadros iguales"*) echo "ok    recompilado $n: $res";; *) echo "FALLA recompilado $n: $res"; fallas=$((fallas + 1));; esac
+}
+if [ -f testroms/neo/contrato.neo ] && [ -f roms/aes.zip ]; then recompila contrato testroms/neo/contrato.neo 600; fi
+tiempo "proyecto generado: contrato"
+if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then recompila mslug roms/mslug.zip 1200; fi
+tiempo "proyecto generado: Metal Slug"
+
+# Herramientas de análisis de neorecomp con el juego de prueba (no necesitan la BIOS): --why, --viz,
+# --codemap, --events, --html, --dis, y la traza BANCO:DIRECCION
+if [ -f testroms/neo/contrato.neo ]; then
+    R=testroms/neo/contrato.neo; G="$(exe neorecomp)"
+    an=0
+    "$G" "$R" --why 400 | grep -q "salto desde" || { echo "FALLA neorecomp --why"; an=1; }
+    "$G" "$R" --why 400 | grep -q "punto de entrada: entrada" || { echo "FALLA neorecomp --why (entrada de la cabecera)"; an=1; }
+    "$G" "$R" --viz | grep -q "celdas con código" || { echo "FALLA neorecomp --viz"; an=1; }
+    "$G" "$R" --codemap build/tests/contrato.codemap >/dev/null && [ "$(sed -n 17p build/tests/contrato.codemap | cut -c1-3)" = "CCC" ] || { echo "FALLA neorecomp --codemap"; an=1; }
+    "$G" "$R" --events build/tests/contrato.events >/dev/null && grep -q "^000400 000400 salto 000122 flujo desde los puntos de entrada move.b d0" build/tests/contrato.events || { echo "FALLA neorecomp --events"; an=1; }
+    "$G" "$R" --html build/tests/contrato.html >/dev/null && grep -q '"ins":\[' build/tests/contrato.html || { echo "FALLA neorecomp --html"; an=1; }
+    "$G" "$R" --dis 400:400:1 | grep -q "move.b d0,(\$300001).l" || { echo "FALLA neorecomp --dis"; an=1; }
+    [ "$("$G" "$R" --why 00:000400)" = "$("$G" "$R" --why 400)" ] || { echo "FALLA --why con BANCO:DIRECCION"; an=1; }
+    if [ $an -eq 0 ]; then echo "ok    neorecomp --why, --viz, --codemap, --events, --html, --dis"; else fallas=$((fallas + 1)); fi
+fi
+tiempo "herramientas de análisis"
 
 # Con los juegos y la BIOS de roms/ (no se versionan)
 for r in roms/*.zip roms/*.neo; do

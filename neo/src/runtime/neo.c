@@ -28,6 +28,7 @@ void neo_assemble(Neo *g, const Cart *cart, const Bios *bios)
     memset(g, 0, sizeof *g);
     g->cart = *cart;
     g->bios = *bios;
+    g->bios.code = -2;
     l0_generate(g->l0);
     neo_power_on(g);
 }
@@ -96,12 +97,36 @@ static int frame_after(Neo *g)
     return g->lspc.frame_done;
 }
 
+int neo_force_interp;
+
+#ifdef NEO_RECOMP
+#include "recomp.h"
+/* Código recompilado donde lo hay; el intérprete en el resto (RAM, lo no descubierto) */
+static int native(Neo *g)
+{
+    if (neo_force_interp) return 0;
+    RecompFn fn = recomp_lookup(g, g->cpu.pc);
+    if (!fn) return 0;
+    u64 c0 = g->cyc;
+    int r = fn(g);
+    if (r) { g->cyc_recomp += g->cyc - c0; g->recomp_calls++; }
+    return r;
+}
+
+void neo_run_frame(Neo *g)
+{
+    g->lspc.frame_done = 0;
+    m68k_run_hybrid(g, frame_after, native);
+    audio_end_frame(g);
+}
+#else
 void neo_run_frame(Neo *g)
 {
     g->lspc.frame_done = 0;
     m68k_run(g, frame_after);
     audio_end_frame(g);
 }
+#endif
 
 /* --- Tarjeta de memoria --- */
 

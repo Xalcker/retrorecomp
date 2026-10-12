@@ -10,7 +10,7 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fases 0 a 5 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`, con el intérprete; las herramientas sin ventana y el contrato común). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 a 6 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`; las herramientas sin ventana y el contrato común; el recompilador: los tres juegos recompilados dan cuadros idénticos al intérprete y corren a 23-31 veces el tiempo real). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar
@@ -57,6 +57,23 @@ vectores. Busca la BIOS del AES junto al juego o en `roms/` (`aes.zip` de MAME, 
 (reducción vertical de los sprites, un chip de la placa) se calcula y se compara con la del chip.
 `--neo salida.neo` escribe el juego como `.neo`.
 
+```
+./neorecomp roms/mslug.zip -o mslug/
+make -C mslug -j
+./mslug/mslug roms/mslug.zip
+./mslug/difftest roms/mslug.zip 1800 --seed 2 --uncovered faltante.txt
+./neorecomp roms/mslug.zip -o mslug/ --trace faltante.txt      # si faltó algo
+```
+
+El recompilador: descubre el código del juego y de la BIOS (cada uno en su espacio), sigue las tablas de
+saltos y los punteros a código (y una traza, para lo que se le escape) y escribe un proyecto con el código
+recompilado, el runtime, la ventana, `difftest` y `bench`. El ejecutable no lleva el juego ni la BIOS:
+busca el juego o lo pide una vez y comprueba su SHA1; la BIOS, como el intérprete. La BIOS se recompila una
+vez por versión en `~/.neorecomp/bios/` (o `$NEO_BIOS_CACHE`) y la comparten todos los juegos. `difftest`
+corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
+`--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
+`sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo.
+
 ## Herramientas
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y
@@ -67,7 +84,9 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 
 | Comando | Qué hace |
 |---|---|
-| `neorecomp juego [--info] [--bios archivo] [--neo salida.neo]` | Información del juego y de la BIOS; exportar a `.neo`. El recompilador (`-o`) llega en la fase 6. |
+| `neorecomp juego -o carpeta [--name n] [--bios archivo] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`; `--neo` exporta a `.neo`). |
+| `neorecomp juego --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta. |
+| `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `neo juego [--bios archivo] [--scale N] [--record/--play archivo] [--trace archivo]` | Ventana SDL2 con el intérprete (ver arriba). |
 | `neotrace juego traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común; la BIOS en el banco `FF`). |
 | `neoshot juego salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |

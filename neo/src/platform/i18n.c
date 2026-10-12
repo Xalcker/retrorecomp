@@ -134,6 +134,17 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
                           "Could not create the game's data folder." },
     [T_CARD_SAVE_FAILED_FMT] = { "No se pudo guardar la tarjeta de memoria en\n%s", "Could not save the memory card to\n%s" },
     [T_RECORD_FAILED] = { "No se pudo crear el archivo de grabación.", "Could not create the recording file." },
+    [T_ROM_WRONG_FMT] = {
+        "\"%s\" no es el juego %s que se recompiló.\n"
+        "Se necesita el que tiene SHA1 %s.",
+        "\"%s\" is not the %s game that was recompiled.\n"
+        "The one with SHA1 %s is needed.",
+    },
+    [T_RECOMP_STATS_FMT] = {
+        "\n\nCódigo recompilado: %u instrucciones del juego, %.1f%% de los ciclos",
+        "\n\nRecompiled code: %u game instructions, %.1f%% of cycles",
+    },
+    [T_RECOMP_OFF] = { "Solo el intérprete (--interp u otro juego)", "Interpreter only (--interp or another game)" },
 };
 
 static const char *const names[LANG_COUNT] = { "Español", "English" };

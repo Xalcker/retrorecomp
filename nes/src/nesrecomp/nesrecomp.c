@@ -44,6 +44,7 @@
 #include "../runtime/cpu_ops.h"
 #include "../runtime/console.h"
 #include "../runtime/sha1.h"
+#include "../runtime/trace_line.h"
 #include "embedded.h"
 
 #ifndef NESRECOMP_VERSION
@@ -61,9 +62,10 @@ static const char usage_text[] =
     "                     (se puede repetir)\n"
     "  --coverage archivo compara lo descubierto con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron sin ayuda y cuáles faltan\n"
-    "  --why OFFSET       explica por qué esa instrucción (desplazamiento hexadecimal en PRG) se tomó como\n"
-    "                     código: la cadena de saltos, tablas y bancos desde un punto de entrada (se puede\n"
-    "                     repetir; sin -o no genera el proyecto)\n"
+    "  --why BB:DIRECCION explica por qué esa instrucción (banco y dirección como en la traza, o su\n"
+    "                     desplazamiento hexadecimal en el PRG) se tomó como código: la cadena de saltos,\n"
+    "                     tablas y bancos desde un punto de entrada (se puede repetir; sin -o no genera el\n"
+    "                     proyecto)\n"
     "  --viz              mapa del PRG en la terminal: una celda por 256 bytes, coloreada por cómo se\n"
     "                     descubrió (con --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
     "  --color            con --viz, colorea aunque la salida no sea una terminal (lo usa la GUI)\n"
@@ -599,6 +601,16 @@ static void seed_vectors(void)
     }
 }
 
+#define TRACE_SHIFT 13      /* bancos de la traza: ventanas de 8 KB del PRG (NES_TRACE_SHIFT del runtime) */
+
+/* --why: "BB:DIRECCION" como en la traza, o el desplazamiento en el PRG */
+static size_t why_arg(const char *arg)
+{
+    unsigned long off, addr;
+    return trace_line_read(arg, TRACE_SHIFT, &off, &addr) ? off : strtoul(arg, NULL, 16);
+}
+
+/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION") */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -606,7 +618,7 @@ static void load_trace(const char *path)
     char line[64];
     unsigned long off, addr;
     while (fgets(line, sizeof line, f)) {
-        if (sscanf(line, "%lx:%lx", &off, &addr) != 2) continue;
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr)) continue;
         if (off >= prg_size || addr < 0x8000) continue;
         seed(off, (u16)addr, HOW_TRACE);
         stat_trace++;
@@ -1060,7 +1072,7 @@ static void coverage_report(const char *path)
     unsigned long off, addr;
     unsigned total = 0, found = 0, missing_shown = 0;
     while (fgets(line, sizeof line, f)) {
-        if (sscanf(line, "%lx:%lx", &off, &addr) != 2 || off >= prg_size) continue;
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr) || off >= prg_size) continue;
         total++;
         if (site[off].state) { found++; continue; }
         missing_mark[off] = 1;
@@ -1359,7 +1371,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc && ntraces < 32) traces[ntraces++] = argv[++i];
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis_arg = argv[++i];
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
-        else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = strtoul(argv[++i], NULL, 16);
+        else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = why_arg(argv[++i]);
         else if (!strcmp(argv[i], "--viz")) viz = 1;
         else if (!strcmp(argv[i], "--color")) force_color = 1;
         else if (!strcmp(argv[i], "--html") && i + 1 < argc) html_path = argv[++i];

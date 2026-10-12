@@ -146,9 +146,15 @@ qué instrucción se llegó (`parent`), cómo (`how`) y su origen (flujo, traza,
 el mismo formato que `difftest --executed` y que `gbrecomp --codemap`, para comparar lo descubierto
 con lo que el juego ejecutó.
 
-`--trace` agrega las instrucciones que ejecutó el juego (`OFFSET:DIRECCION`, que escribe `nestrace`, la
-ventana con `--trace`/`--uncovered`, o `nes` con `NES_TRACE`) como puntos de entrada: es lo que falta
-cuando alguna heurística no alcanza.
+`--trace` agrega las instrucciones que ejecutó el juego (las escribe `nestrace`, la ventana con
+`--trace`/`--uncovered`, o `nes` con `NES_TRACE`) como puntos de entrada: es lo que falta cuando alguna
+heurística no alcanza.
+
+Una traza tiene una línea `BANCO:DIRECCION` por instrucción, el mismo formato que GBRecomp y GENRecomp
+(`src/runtime/trace_line.h`, idéntico en los tres). El banco es el desplazamiento en el PRG dividido entre
+8 KB, la ventana más chica de los mappers, y la dirección es la del CPU: `0A:C2C4` es el desplazamiento
+`0A × $2000 + ($C2C4 & $1FFF)` = `$0142C4`. Se siguen leyendo las trazas viejas, `DESPLAZAMIENTO:DIRECCION`
+con 6 dígitos (`0142C4:C2C4`). `--why` acepta las dos formas.
 
 Descubrir de más no rompe nada, solo agrega código que nunca se ejecuta (SMB3 pasa de 5 mil a 69 mil
 instrucciones, 13 s de compilación con `make -j8`); de menos tampoco: lo que falta, o está en RAM, lo

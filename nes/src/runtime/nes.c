@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "nes.h"
+#include "trace_line.h"
 
 int nes_load(NES *n, const u8 *d, size_t len, const char **err)
 {
@@ -402,11 +403,11 @@ int nes_trace_write(const NES *n, const char *path)
     FILE *f = fopen(path, "w");
     if (!f) return 0;
     for (size_t i = 0; i < n->cart.prg_size; i++)
-        if (n->trace[i]) fprintf(f, "%06zX:%04X\n", i, n->trace[i] & 0xFFFF);
+        if (n->trace[i]) trace_line_write(f, NES_TRACE_SHIFT, 4, i, n->trace[i] & 0xFFFF);
     return fclose(f) == 0;
 }
 
-/* Suma a la traza las líneas de un archivo anterior (para ir acumulando corridas) */
+/* Suma a la traza las líneas de un archivo anterior (para ir acumulando corridas; lee también el formato viejo) */
 int nes_trace_load(NES *n, const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -415,7 +416,7 @@ int nes_trace_load(NES *n, const char *path)
     unsigned long off, addr;
     int k = 0;
     while (fgets(line, sizeof line, f))
-        if (sscanf(line, "%lx:%lx", &off, &addr) == 2 && off < n->cart.prg_size && !n->trace[off]) {
+        if (trace_line_read(line, NES_TRACE_SHIFT, &off, &addr) && off < n->cart.prg_size && !n->trace[off]) {
             n->trace[off] = 0x10000u | (u32)addr; k++;
         }
     fclose(f);

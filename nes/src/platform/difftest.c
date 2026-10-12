@@ -8,7 +8,7 @@
  * Las mismas opciones que difftest de GBRecomp.
  *
  * --seed S       suma a las entradas dadas un mando aleatorio (reproducible con la semilla).
- * --uncovered f  escribe, en formato de traza de nesrecomp ("OFFSET:DIRECCION"), las
+ * --uncovered f  escribe, en formato de traza de nesrecomp ("BANCO:DIRECCION"), las
  *                instrucciones de PRG que la máquina B tuvo que interpretar: sirven como
  *                --trace para recompilar y cubrirlas.
  * --screens d    guarda una captura PNG (cuadro_NNNNNN.png) cada --every N cuadros (600), para

@@ -328,7 +328,8 @@ int  apu_take(NES *n, int16_t *dst, int max);    /* saca muestras mono de 44100 
 /* Traza de ejecución (para guiar al recompilador) */
 void nes_trace_start(NES *n);
 void nes_trace_note(NES *n, u16 pc);
-int  nes_trace_write(const NES *n, const char *path);     /* líneas "OFFSET:DIRECCION" en hexadecimal */
+int  nes_trace_write(const NES *n, const char *path);     /* líneas "BANCO:DIRECCION" (trace_line.h) */
+#define NES_TRACE_SHIFT 13                                /* bancos de la traza: ventanas de 8 KB del PRG */
 
 /* Consola: un instante de CPU más PPU, o un cuadro completo */
 int  nes_step(NES *n);

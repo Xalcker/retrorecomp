@@ -1,6 +1,6 @@
 /*
  * nestrace: corre una ROM sin ventana y guarda qué instrucciones de PRG ejecutó
- * (líneas "OFFSET:DIRECCION" en hexadecimal) para guiar a nesrecomp.
+ * (líneas "BANCO:DIRECCION" en hexadecimal, runtime/trace_line.h) para guiar a nesrecomp.
  *   nestrace rom.nes traza.txt [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: nestrace rom.nes traza.txt cuadros [boton:desde-hasta ...])
  * Con varias corridas se pueden juntar trazas (nesrecomp acepta --trace varias veces).

@@ -70,6 +70,18 @@ if [ -x ./nesrecomp ]; then
         && ./nesrecomp $T/other/nestest.nes --codemap build/cm.txt >/dev/null && grep -q C build/cm.txt \
         && [ -s build/ev.txt ] && echo "ok   why/viz/events/html/codemap" || { echo "FALLA why/viz/events/html/codemap"; fail=1; }
 fi
+# Traza: el formato viejo (DESPLAZAMIENTO:DIRECCION) se lee igual que el de ahora (BANCO:DIRECCION)
+if [ -x ./nesrecomp ] && ./nestrace $T/other/nestest.nes build/rt_nueva.trace --frames 300 >/dev/null; then
+    tr -d '\r' < build/rt_nueva.trace | while IFS=: read -r b a; do
+        printf "%06X:%s\n" $(( (0x$b << 13) | (0x$a & 0x1FFF) )) "$a"
+    done > build/rt_vieja.trace
+    first=$(head -1 build/rt_nueva.trace | tr -d '\r'); old=$(head -1 build/rt_vieja.trace)
+    if grep -q "^0[0-9A-F]:[89A-F]" build/rt_nueva.trace \
+        && [ "$(./nesrecomp $T/other/nestest.nes --coverage build/rt_nueva.trace)" = "$(./nesrecomp $T/other/nestest.nes --coverage build/rt_vieja.trace)" ] \
+        && [ "$(./nesrecomp $T/other/nestest.nes --why "$first")" = "$(./nesrecomp $T/other/nestest.nes --why "${old%%:*}")" ]; then
+        echo "ok   traza BANCO:DIRECCION y la vieja"
+    else echo "FALLA traza BANCO:DIRECCION y la vieja"; fail=1; fi
+fi
 # Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
 if [ -x ./nes ]; then
     for m in 0 1 2 3 4 5 6 7; do

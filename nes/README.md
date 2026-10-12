@@ -132,7 +132,7 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 
 ```
 ./nesrecomp juego.nes --viz                          # mapa del PRG en la terminal, coloreado por origen
-./nesrecomp juego.nes --why 175                      # por qué esa instrucción (offset hex en PRG) es código
+./nesrecomp juego.nes --why 00:8175                  # por qué esa instrucción (banco:dirección, o el offset hex en PRG) es código
 ./nesrecomp juego.nes --html visor.html              # lo mismo, interactivo: una página sola, sin servidor
 ./nesrecomp juego.nes --html visor.html --coverage smb.trace    # y en rojo lo que el juego ejecutó y no se encontró
 ```
@@ -214,7 +214,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nesshot rom salida.png [--frames N] [--input archivo] [--expect esperado.png] [--hash] [...]` | Captura sin ventana; imprime el resultado de las ROMs de Blargg. Con `zapper:X,Y,desde-hasta` apunta y dispara el Zapper en esos cuadros. Como `gbtest` de GBRecomp: `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el audio. |
 | `nesaudio rom salida.wav [--frames N] [--input archivo] [...]` | Audio a WAV, con el nivel por segundo. |
 | `nesbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
-| `nesrecomp juego.nes --why OFFSET` / `--viz` / `--html visor.html` / `--events archivo` / `--codemap archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta), vuelca cada instrucción con su origen o escribe qué bytes se tomaron como código (el formato de `difftest --executed`, para compararlos). |
+| `nesrecomp juego.nes --why BB:DIRECCION` / `--viz` / `--html visor.html` / `--events archivo` / `--codemap archivo` | Explica por qué una instrucción es código (cadena de saltos, tablas y bancos), dibuja un mapa del PRG en la terminal coloreado por origen (con `--coverage traza`, en rojo lo que falta), vuelca cada instrucción con su origen o escribe qué bytes se tomaron como código (el formato de `difftest --executed`, para compararlos). |
 | `nesramdump rom [--frames N] [--input archivo] [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`; en GBRecomp, `gbramdump`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |

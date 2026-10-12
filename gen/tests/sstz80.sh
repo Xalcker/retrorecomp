@@ -10,12 +10,19 @@ T=$(exe z80test)
 if [ ! -f "$D/00.json.gz" ]; then echo "(sin $D: make testroms)"; exit 0; fi
 if [ -n "$1" ]; then n=$1; shift; gunzip -c "$D/$n.json.gz" | "$T" - --name "$n" "$@"; exit $?; fi
 pasan=0; total=0; fallan=0
+# Sin basename, grep, tail ni tr dentro del bucle: en MSYS2 (Windows) cada proceso cuesta, y con 1604
+# archivos eso eran más de 4 minutos (GENRecomp#5). Por archivo solo corren gunzip y z80test.
+cr=$(printf '\r'); nl='
+'
 for f in "$D"/*.json.gz; do
-    n=$(basename "$f" .json.gz)
+    n=${f##*/}; n=${n%.json.gz}
     r=$(gunzip -c "$f" | "$T" - --name "$n")
-    set -- $(echo "$r" | grep -o '[0-9]*/[0-9]*' | tail -1 | tr '/' ' ')
-    pasan=$((pasan + $1)); total=$((total + $2))
-    if [ "$1" != "$2" ]; then fallan=$((fallan + 1)); echo "$r"; fi
+    l=${r##*"$nl"}; l=${l%"$cr"}            # última línea: "NOMBRE   pasan/total[  <--]"
+    c=; set -f; for w in $l; do case $w in *[0-9]/[0-9]*) c=$w;; esac; done; set +f
+    [ -n "$c" ] || c=0/1                 # sin resumen (¿se cayó?): cuenta como falla
+    p=${c%/*}; t=${c#*/}
+    pasan=$((pasan + p)); total=$((total + t))
+    if [ "$p" != "$t" ]; then fallan=$((fallan + 1)); echo "$r"; fi
 done
 echo "SingleStepTests Z80: $pasan/$total ($fallan archivos con fallas)"
 [ $fallan -eq 0 ]

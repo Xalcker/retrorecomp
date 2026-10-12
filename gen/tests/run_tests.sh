@@ -7,6 +7,9 @@ corre() {   # descripción comando...
     d=$1; shift
     if "$@" >/dev/null 2>&1; then echo "ok    $d"; else echo "FALLA $d"; fallas=$((fallas + 1)); fi
 }
+# Segundos de cada sección (para ver qué pesa en el CI; GENRecomp#5)
+T0=$(date +%s); TS=$T0
+tiempo() { t=$(date +%s); echo "      ($1: $((t - TS)) s)"; TS=$t; }
 
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
 mkdir -p build/tests
@@ -14,12 +17,15 @@ corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, SSF2
 corre "vdptest (puertos, DMA, estado, planos, ventana, sprites, sombra y resalte)" "$(exe vdptest)"
 corre "audiotest (afinación del PSG y del YM2612, panorama, DAC, relajación, temporizador A, ocupado, SSG-EG)" "$(exe audiotest)"
 corre "inputtest (entradas grabadas, 12 botones, \$hex, --seed, boton:desde-hasta)" "$(exe inputtest)"
+tiempo "pruebas unitarias"
 # Estados guardados: con la demo Overdrive (make testroms) y con Sonic 1 si está en roms/
 if [ -f testroms/demos/overdrive.bin ]; then corre "statetest con Overdrive (VDP, Z80, YM2612, PSG)" "$(exe statetest)" testroms/demos/overdrive.bin 300 300; fi
 for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do [ -f "$r" ] && corre "statetest con Sonic 1" "$(exe statetest)" "$r" 700 300; done
+tiempo "estados guardados"
 # Contrato común con NESRecomp y GBRecomp (opciones y comportamiento de las herramientas sin ventana)
 r=$(sh tests/contract.sh | tail -1)
 case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+tiempo "contrato"
 # Z80: SingleStepTests (make testroms)
 if [ -f testroms/z80/v1/00.json.gz ]; then
     r=$(sh tests/sstz80.sh | tail -1)
@@ -27,6 +33,7 @@ if [ -f testroms/z80/v1/00.json.gz ]; then
 else
     echo "(sin testroms/z80 se omiten las SingleStepTests del Z80: make testroms)"
 fi
+tiempo "SingleStepTests del Z80"
 
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
@@ -37,6 +44,7 @@ if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
 else
     echo "(sin testroms/680x0 se omiten las SingleStepTests del 68000: make testroms)"
 fi
+tiempo "SingleStepTests del 68000 (intérprete y --recomp)"
 
 # Una ROM mínima hecha aquí (vectores, "SEGA" en $100 y un bucle en $200)
 R=build/tests/minima.bin
@@ -57,6 +65,7 @@ if [ -x "$(exe gen)" ]; then
     done
     if [ $ui -eq 0 ]; then echo "ok    gen: los 7 menús y los 4 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
 fi
+tiempo "interfaz"
 
 # genrecomp: --info con una ROM que no es de Genesis debe fallar sin caerse, y sin ROM, dar el uso
 D=build/tests; mkdir -p "$D"
@@ -83,7 +92,9 @@ recompila() {   # nombre rom cuadros [traza]
     case "$res" in *"cuadros iguales"*) echo "ok    recompilado $n: $res";; *) echo "FALLA recompilado $n: $res"; fallas=$((fallas + 1));; esac
 }
 recompila minima "$R" 60
+tiempo "proyecto generado: minima"
 [ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
+tiempo "proyecto generado: overdrive"
 for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do
     [ -f "$r" ] || continue
     recompila sonic1 "$r" 1200
@@ -92,6 +103,7 @@ for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do
     c=$("$(exe genrecomp)" "$r" --coverage build/tests/sonic1_traza.txt | grep "^cobertura")
     case "$c" in *"(99."*|*"(100."*) echo "ok    Sonic 1, $c";; *) echo "FALLA Sonic 1, $c"; fallas=$((fallas + 1));; esac
 done
+tiempo "proyecto generado y cobertura: Sonic 1 (roms/)"
 
 # Herramientas de análisis de genrecomp con la ROM mínima: --why, --viz, --codemap, --events, --html, --dis
 G="$(exe genrecomp)"
@@ -103,6 +115,7 @@ an=0
 "$G" "$R" --html build/tests/minima.html >/dev/null && grep -q '"ins":\[' build/tests/minima.html || { echo "FALLA genrecomp --html"; an=1; }
 "$G" "$R" --dis 200:200:1 | grep -q "bra.s \$200" || { echo "FALLA genrecomp --dis"; an=1; }
 if [ $an -eq 0 ]; then echo "ok    genrecomp --why, --viz, --codemap, --events, --html y --dis"; else fallas=$((fallas + 1)); fi
+tiempo "herramientas de análisis"
 
 # Las ROMs de roms/ (tuyas, no se versionan): genrecomp --info no debe fallar con ninguna
 for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do
@@ -129,5 +142,7 @@ for r in roms/*.bin roms/*.md roms/*.gen roms/*.smd; do
     done
 done
 
+tiempo "ROMs de roms/"
+echo "      (total: $(($(date +%s) - T0)) s)"
 [ $fallas -eq 0 ] && echo "Todas las pruebas pasaron." || echo "$fallas pruebas fallaron."
 [ $fallas -eq 0 ]

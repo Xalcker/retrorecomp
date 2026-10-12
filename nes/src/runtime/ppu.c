@@ -79,9 +79,13 @@ u32 ppu_argb(const u32 pal[64], u16 px)
     int e = (px >> 6) & 7;
     if (!e) return c;
     int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
-    if (e & 1) { g = g * 3 / 4; b = b * 3 / 4; }     /* énfasis rojo */
-    if (e & 2) { r = r * 3 / 4; b = b * 3 / 4; }     /* verde */
-    if (e & 4) { r = r * 3 / 4; g = g * 3 / 4; }     /* azul */
+    /* Cada bit atenúa los otros dos canales al 84 %, como Mesen2 (con 75 %, 720 Degrees, que usa los tres bits, se veía
+     * un 20 % más oscuro) */
+    float fr = 1, fg = 1, fb = 1;
+    if (e & 1) { fg *= 0.84f; fb *= 0.84f; }     /* énfasis rojo */
+    if (e & 2) { fr *= 0.84f; fb *= 0.84f; }     /* verde */
+    if (e & 4) { fr *= 0.84f; fg *= 0.84f; }     /* azul */
+    r = (int)(r * fr); g = (int)(g * fg); b = (int)(b * fb);
     return 0xFF000000u | (u32)r << 16 | (u32)g << 8 | (u32)b;
 }
 

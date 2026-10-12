@@ -4,6 +4,10 @@ herramientas, para comparar contra una referencia. Mesen2 es GPL-3: no va en el 
 (versión fija, con su SHA-256) a build/oracles/.
 
   tools/oracles/mesen.py ramdump rom.nes cuadros [boton:desde-hasta ...]   (salida idéntica a ./ramdump)
+  tools/oracles/mesen.py shot rom.nes salida.png cuadros [boton:desde-hasta ...]   (captura al terminar ese cuadro)
+
+Los cuadros de Mesen2 van uno adelante de los nuestros: su cuadro N corresponde a nuestro N - 1, con las entradas también
+corridas un cuadro (tools/compat/vsmesen.py lo compensa).
 
 Probado en Windows; en Linux necesita SDL2 y en macOS no está probado."""
 import hashlib, json, os, platform, stat, subprocess, sys, tempfile, urllib.request, zipfile
@@ -74,6 +78,13 @@ def ramdump(rom, cuadros, *botones):
         sys.stdout.write(open(out).read())
 
 
+def shot(rom, salida, cuadros, *botones):
+    correr(rom, "mesen_shot.lua", {"ORACLE_OUT": os.path.abspath(salida), "ORACLE_FRAMES": str(int(cuadros)),
+                                   "ORACLE_HOLD": " ".join(botones)})
+    if not os.path.exists(salida): sys.exit("Mesen no escribió la captura (¿falló el script de Lua?)")
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 4 or sys.argv[1] != "ramdump": sys.exit(__doc__)
-    ramdump(*sys.argv[2:])
+    if len(sys.argv) >= 4 and sys.argv[1] == "ramdump": ramdump(*sys.argv[2:])
+    elif len(sys.argv) >= 5 and sys.argv[1] == "shot": shot(*sys.argv[2:])
+    else: sys.exit(__doc__)

@@ -36,7 +36,7 @@ typedef struct {
     int repeat;
     const char *uncovered;
     const char *screens, *executed; long every; int bench;     /* solo difftest */
-    const char *expect; int hash;                               /* solo nesshot */
+    const char *expect; int hash, entradas_241;                 /* solo nesshot */
     CliHold h[64]; int nh;
     const char *extra[64]; int nextra;  /* sueltos que no se reconocieron (p. ej. zapper:X,Y,a-b) */
 } Cli;
@@ -74,6 +74,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--bench")) c->bench = 1;
         else if (!strcmp(a, "--expect") && i + 1 < argc) c->expect = argv[++i];
         else if (!strcmp(a, "--hash")) c->hash = 1;
+        else if (!strcmp(a, "--entradas-241")) c->entradas_241 = 1;
         else if (a[0] == '-' && a[1] == '-') { fprintf(stderr, "opción desconocida: %s\n", a); return 2; }
         else if (sscanf(a, "%15[a-z]:%d-%d", name, &f0, &f1) == 3) {
             int ok = 0;

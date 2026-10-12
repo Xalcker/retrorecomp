@@ -1,7 +1,7 @@
 /*
  * nesshot: corre una ROM sin ventana y guarda una captura en PNG.
  *   nesshot rom.nes salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]
- *                              [boton:desde-hasta ...]
+ *                              [--entradas-241] [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: nesshot rom.nes salida.png cuadros [boton:desde-hasta ...])
  * Ejemplo: nesshot smb.nes smb.png 600 start:90-95 right:200-500 a:300-320
  * Botones: a b select start up down left right.
@@ -14,6 +14,9 @@
  *                          Corre todos los cuadros (no se detiene con el resultado de Blargg).
  *   --hash                 imprime un hash de todos los cuadros y de todo el audio
  *                          ("hash imagen X audio Y"), para comprobar que un cambio no altera nada.
+ *   --entradas-241         los botones del cuadro N cambian en la línea 241 del cuadro N (al empezar el vblank) y no
+ *                          al empezar el cuadro: así lo hace Mesen2, y con eso tools/compat/vsmesen.py ve las mismas
+ *                          entradas en los dos emuladores lea el juego el control donde lo lea.
  * Código de salida: 0 pasó, 1 falló (Blargg o --expect), 2 error.
  */
 #include <stdio.h>
@@ -78,13 +81,18 @@ int main(int argc, char **argv)
     }
     unsigned long long h_img = 0xCBF29CE484222325ULL, h_aud = 0xCBF29CE484222325ULL;
     for (long f = 0; f < frames; f++) {
+        if (c.entradas_241) {
+            /* El cuadro empieza con los botones del anterior; cambian al llegar a la línea 241 */
+            n.ppu.frame_done = 0;
+            do { nes_step(&n); ppu_flush(&n); } while (n.ppu.scanline < 241 && !n.ppu.frame_done);
+        }
         n.pad[0] = cli_pad(&c, f, 0);
         n.pad[1] = cli_pad(&c, f, 1);
         if (nz) {
             n.zapper_on = 1; n.zap_x = n.zap_y = -1; n.zap_trigger = 0;
             for (int i = 0; i < nz; i++) if (f >= z[i].from && f <= z[i].to) { n.zap_x = z[i].x; n.zap_y = z[i].y; n.zap_trigger = !zap_aim[i]; }
         }
-        nes_run_frame(&n);
+        if (!c.entradas_241 || !n.ppu.frame_done) nes_run_frame(&n);
         if (c.hash) {
             fnv(&h_img, n.ppu.fb, sizeof n.ppu.fb);
             fnv(&h_aud, n.apu.buf, (size_t)n.apu.nbuf * sizeof n.apu.buf[0]);

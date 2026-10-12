@@ -25,7 +25,7 @@ def estado(r):
 
 
 def main():
-    rs = json.load(open(D / "results.json"))
+    rs = json.load(open(D / "results.json", encoding="utf-8"))
     for r in rs:
         r["estado"] = estado(r)
     rs.sort(key=lambda r: (r["mapper"], r["juego"]))

@@ -18,7 +18,7 @@ import argparse, zlib, concurrent.futures as cf, json, os, pathlib, re, shutil, 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORK = ROOT / "build" / "compat"
 OUT = ROOT / "docs" / "compat"
-SUPPORTED = {0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 13, 18, 19, 23, 34, 66, 69, 71, 75, 79, 87, 95, 115, 118, 119, 140, 180, 184, 206, 210}
+SUPPORTED = {0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 13, 18, 19, 21, 22, 23, 24, 25, 26, 34, 66, 69, 71, 75, 79, 85, 87, 95, 115, 118, 119, 140, 180, 184, 206, 210}
 # Cuántas ROMs de cada mapper entran a la etapa 2 (los demás, 3 si no se indica)
 CUPO = {0: 4, 1: 6, 2: 4, 3: 4, 4: 8, 5: 6, 7: 4}
 REUSAR = False
@@ -134,7 +134,12 @@ def etapa2(src, fila, base):
         return r
     traza.write_text((WORK / f"{nombre}.guiada").read_text())
     for ronda in (1, 2):
-        rc, o, dt = sh(f'./nesrecomp{EXE} "{rom.as_posix()}" -o "{carpeta.as_posix()}" --name {nombre} --trace "{traza.as_posix()}"')
+        for intento in range(3):
+            rc, o, dt = sh(f'./nesrecomp{EXE} "{rom.as_posix()}" -o "{carpeta.as_posix()}" --name {nombre} --trace "{traza.as_posix()}"')
+            # En Windows un archivo recién borrado puede seguir «pendiente de borrar» un momento y no se deja crear
+            if rc == 0 or "no se pudo crear" not in o:
+                break
+            time.sleep(2)
         f = {"ronda": ronda}
         if rc != 0:
             r["fases"].append(f)
@@ -174,11 +179,17 @@ def etapa2(src, fila, base):
         traza.write_text("\n".join(lineas) + "\n")
     else:
         r["resultado"] = "ok"
-    # Velocidad del proyecto generado
-    rc, o, _ = sh(f'cd "{carpeta.as_posix()}" && ./bench{EXE} "{rom.as_posix()}" 600')
-    r["velocidad_x"] = num(r"\(([\d.]+)x tiempo real", o)
     r["total_s"] = round(time.time() - t0, 1)
     return r
+
+
+def velocidad(fila):
+    """bench del proyecto generado. Se corre al final y de una ROM a la vez: con compilaciones en paralelo da un tercio"""
+    nombre = slug(fila["zip"])
+    carpeta = WORK / "out" / nombre
+    rom = WORK / "roms" / (nombre + ".nes")
+    rc, o, _ = sh(f'cd "{carpeta.as_posix()}" && ./bench{EXE} "{rom.as_posix()}" 600')
+    return num(r"\(([\d.]+)x tiempo real", o)
 
 
 def elegir(filas):
@@ -216,14 +227,14 @@ def main():
     a = ap.parse_args()
     global REUSAR
     REUSAR = a.reusar
-    scan = json.load(open(WORK.parent / "compat_scan.json"))
+    scan = json.load(open(WORK.parent / "compat_scan.json", encoding="utf-8"))
     filas = [f for f in scan if "mapper" in f]
     if a.mappers:
         solo = {int(m) for m in a.mappers.split(",")}
         filas = [f for f in filas if f["mapper"] in solo]
     (OUT / "thumbs").mkdir(parents=True, exist_ok=True)
     res_path = OUT / "results.json"
-    prev = {r["zip"]: r for r in json.load(open(res_path))} if res_path.exists() else {}
+    prev = {r["zip"]: r for r in json.load(open(res_path, encoding="utf-8"))} if res_path.exists() else {}
     t0 = time.time()
     if a.solo != "etapa2":
         with cf.ThreadPoolExecutor(8) as ex:
@@ -233,7 +244,7 @@ def main():
                     prev[r["zip"]].pop("detalle", None)
                 if i % 100 == 0:
                     print(f"etapa 1: {i}/{len(filas)}", flush=True)
-        json.dump(list(prev.values()), open(res_path, "w"), indent=1, ensure_ascii=False)
+        json.dump(list(prev.values()), open(res_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     if a.solo != "etapa1":
         sel = elegir(filas)
         print(f"etapa 2: {len(sel)} ROMs", flush=True)
@@ -245,8 +256,14 @@ def main():
         with cf.ThreadPoolExecutor(a.hilos) as ex:
             for z, r in ex.map(una, sel):
                 prev[z]["recompilador"] = r
-                json.dump(list(prev.values()), open(res_path, "w"), indent=1, ensure_ascii=False)
+                json.dump(list(prev.values()), open(res_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        print("velocidad (bench, de una en una)", flush=True)
+        for f in sel:
+            if prev[f["zip"]]["recompilador"].get("resultado") == "ok":
+                prev[f["zip"]]["recompilador"]["velocidad_x"] = velocidad(f)
+        json.dump(list(prev.values()), open(res_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     print(f"listo en {time.time() - t0:.0f} s")
 
 
-main()
+if __name__ == "__main__":
+    main()

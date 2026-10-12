@@ -1,6 +1,6 @@
 #!/bin/sh
 # Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
-# (fase 0); el 68000 y el Z80 (fase 1).
+# (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -19,6 +19,7 @@ mkdir -p build/tests
 
 corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
+corre "bustest (mapa, vectores, P2, mandos, paleta, tarjeta, VRAM, contador de líneas, interrupciones, Z80, YM2610)" "$(exe bustest)"
 falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/basura.bin
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
 tiempo "pruebas unitarias"
@@ -77,6 +78,15 @@ if [ -f roms/neogeo.zip ] && [ -f roms/mslug.zip ]; then
     out=$("$(exe neorecomp)" roms/mslug.zip --bios roms/neogeo.zip 2>&1)
     echo "$out" | grep -q "no tiene ninguna BIOS del AES" && echo "ok    neogeo.zip (solo MVS) no se acepta como BIOS del AES" \
         || { echo "FALLA neogeo.zip no debería aceptarse"; fallas=$((fallas + 1)); }
+fi
+# Metal Slug arranca con la BIOS del AES: la BIOS le pasa los vectores, llega a la demo
+# (USER_REQUEST 2) y con Start empieza la partida (USER_MODE 2, un jugador)
+if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
+    out=$("$(exe neorun)" roms/mslug.zip --frames 1800 start:1500-1505 --fix 2>&1)
+    echo "$out" | grep -q "^vectores: *del juego" && echo "$out" | grep -q "USER_REQUEST 2, USER_MODE 2" \
+        && echo "$out" | grep -q "CREDITS 04" \
+        && echo "ok    Metal Slug arranca con la BIOS, llega a la demo (CREDITS 04) y con Start empieza la partida" \
+        || { echo "FALLA Metal Slug con la BIOS (neorun)"; fallas=$((fallas + 1)); }
 fi
 tiempo "juegos de roms/"
 

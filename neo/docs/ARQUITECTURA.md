@@ -12,10 +12,10 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (temporizadores del YM2610), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
 | `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
 | `src/platform/` | Lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). La ventana llega en la fase 3. |
-| `src/tools/` | `carttest` (con `inflate_vectors.h`), `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `embed`. |
+| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo). |
 
@@ -81,15 +81,37 @@ interrupciones) y prueba `z80test --nmi`:
 
 ## Temporización
 
-Llega en la fase 2. Lo que ya está decidido: todo se cuenta en ciclos del reloj maestro. Un cuadro son
-384 pixeles × 264 líneas × 4 = 405 504 ciclos maestros; el 68000 va a la mitad (202 752 por cuadro, 768
-por línea), el Z80 a un sexto y el YM2610 a un tercio. El reloj del AES (24,167829 MHz, 59,60 cuadros por
-segundo) solo cambia el ritmo de la ventana y del audio.
+Todo se cuenta en ciclos: `g->cyc` (del 68000) y los maestros. Un cuadro son 384 pixeles × 264 líneas ×
+4 = 405 504 ciclos maestros; el 68000 va a la mitad (202 752 por cuadro, 768 por línea), el Z80 a un sexto
+(exactamente un ciclo suyo cada 3 del 68000) y el YM2610 a un tercio (una muestra del FM cada 432
+maestros). El reloj del AES (24,167829 MHz según la wiki de NeoGeoDev, 59,60 cuadros por segundo; el MVS y
+MAME usan 24 MHz, 59,19) solo cambia el ritmo de la ventana y del audio, no la emulación.
+
+Cada acceso del 68000 al bus son 4 ciclos; la tarjeta de memoria tiene 2 de espera. No hay refresco de
+DRAM (las memorias son SRAM) ni esperas de la ROM (los cartuchos van sin estados de espera; no se emulan las
+patas ROMWAIT/PWAIT). El Z80 corre detrás del 68000 (`z80_sync`): se pone al día tras cada instrucción del
+68000 y antes de que el 68000 le mande un comando o lea su respuesta.
+
+**Las líneas del cuadro se cuentan desde el VBLANK** (el contador del LSPC vale `$1F0`, la primera línea
+del borde de abajo): 0-15 borde de abajo, 16-23 sincronía vertical (`$0F8-$0FF`), 24-39 borde de arriba
+(`$100-$10F`) y 40-263 las 224 visibles (`$110-$1EF`). Así un cuadro termina con la última línea visible y
+las entradas de un cuadro las lee el juego en su VBLANK, al principio. El VBLANK se pide 85 ciclos después
+de empezar la línea 0 (168 + 2 ciclos maestros desde el comienzo de la sincronía horizontal, según los
+comentarios de MAME) y la recarga del temporizador "al empezar el cuadro", 573 ciclos después; los dos
+números se ajustarán con los oráculos.
 
 ## Interrupciones y despachador
 
-Llega en las fases 2 (interrupciones: nivel 1 VBLANK, 2 temporizador, 3 arranque; se reconocen
-escribiendo `IRQACK`, no al atenderlas) y 6 (despachador).
+`neo_run_frame` corre hasta que el LSPC termina el cuadro con `m68k_run` (un solo `setjmp` por cuadro,
+como en GENRecomp) y después de cada instrucción `neo_after_step_inline`: el LSPC solo si llegó su
+próximo evento (`lspc.next_event`: fin de línea, VBLANK, recarga o vencimiento del temporizador) y el Z80
+solo si quedó atrás. `lspc_sync` fija el nivel de interrupción del 68000 (`cpu.ipl`) con lo pendiente:
+3 la de arranque, 2 el temporizador, 1 el VBLANK (autovector). **No se borran al atenderlas**
+(`m68k_int_ack` no hace nada): el programa las reconoce escribiendo `IRQACK` (`$3C000C`: bit 0 la de
+arranque, 1 el temporizador, 2 el VBLANK). Si no, al volver con `RTE` la misma interrupción entra otra
+vez. La de arranque queda pendiente al encender (no con el botón de reset).
+
+El despachador del código recompilado llega en la fase 6.
 
 ## Recompilador
 
@@ -111,7 +133,25 @@ BIOS (`neo_trace_index`).
 
 ### Mapa de memoria del 68000
 
-Llega en la fase 2.
+`bus.c`:
+
+| Dirección | Qué hay |
+|---|---|
+| `$000000-$0FFFFF` | P1: el primer MB del programa (con espejos si mide menos). `$000000-$00007F` muestra los vectores de la BIOS hasta que se escribe `REG_SWPROM` (`$3A0013`); `REG_SWPBIOS` (`$3A0003`) los vuelve a poner. |
+| `$100000-$1FFFFF` | RAM de 64 KB con espejos. TAS escribe (en el Genesis no). |
+| `$200000-$2FFFFF` | P2: fijo si P mide hasta 2 MB; si mide más, el banco de 1 MB que eligió la última escritura en `$2FFFF0-$2FFFFF` (los 3 bits bajos, con espejos si hay menos bancos; cada cambio sube `map_ver`). La wiki dice que cualquier escritura en la ventana cambia el banco; MAME, solo en `$2FFFF0`. Se sigue a MAME. |
+| `$300000` | `REG_P1CNT`: cruz y A B C D del mando 1 (activos en 0). `$300001` es el DIP del MVS (lee `$FF`) y escribirlo es el perro guardián del MVS (el AES no tiene). |
+| `$320000` | `REG_SOUND`: escribir manda un comando al Z80; leer, su respuesta. `$320001` (monedas y reloj del MVS) lee `$FF`. |
+| `$340000` | `REG_P2CNT`. |
+| `$380000` | `REG_STATUS_B`: bit 7 en 0 (AES), bit 6 tarjeta protegida, bits 5-4 en 0 con tarjeta, Select y Start de los dos mandos. `$380001` salidas de los mandos, `$380011` banco de la tarjeta. |
+| `$3A0001-$3A001F` | Latch del sistema (bytes impares; el dato es el bit 4 de la dirección): sombra, vectores, bloqueo de la tarjeta (dos llaves), banco de la paleta. BRDFIX/CRTFIX y la RAM de respaldo no hacen nada en el AES. |
+| `$3C0000-$3DFFFF` | LSPC (`lspc.c`). |
+| `$400000-$7FFFFF` | Paleta: 8 KB del banco elegido, con espejos. |
+| `$800000-$BFFFFF` | Tarjeta de memoria: bytes impares (los pares leen `$FF`), 2 ciclos de espera. |
+| `$C00000-$CFFFFF` | BIOS de 128 KB con espejos. `$D00000-$FFFFFF`: nada (el AES no tiene RAM de respaldo). |
+
+Lo que no responde devuelve el último valor del bus de datos (`open_bus`). Los registros de 16 bits (LSPC,
+paleta) reciben un byte escrito en las dos mitades, porque el 68000 lo pone en las dos.
 
 ### Cartucho
 
@@ -168,15 +208,52 @@ contenido del chip y da su SHA1 (`5992277d...`); si el `aes.zip` trae el chip, `
 
 ### Guardado
 
-Llega en la fase 2: la tarjeta de memoria (el AES no tiene RAM de respaldo).
+El AES no tiene RAM de respaldo: las partidas van a la **tarjeta de memoria**, que maneja la BIOS
+(`CARD`). Se emula una de 2 KB (`neo_card_insert`/`neo_card_save`, `neorun --card archivo`): sin tarjeta,
+`REG_STATUS_B` dice que no hay; con tarjeta, solo se escribe con las dos llaves abiertas (`CRDUNLOCK1`, que
+es la salida en 0, y `CRDUNLOCK2`) y si no está protegida. Por omisión no hay tarjeta puesta.
 
 ## Video y audio
 
-Llegan en las fases 3 (LSPC) y 4 (YM2610).
+### LSPC
+
+`lspc.c`. Registros de `$3C0000` (de 16 bits; con espejos cada 16 bytes): `VRAMADDR`, `VRAMRW` (escribir
+avanza la dirección `VRAMMOD`, con signo, sin pasar de la VRAM lenta `$0000-$7FFF` a la rápida
+`$8000-$87FF` ni al revés; leer `$3C0000` o `$3C0002` da la palabra de la dirección), `VRAMMOD`, `LSPCMODE`
+(al leer, el contador de líneas en los bits 15-7 y el de autoanimación en 2-0), `TIMERHIGH`/`TIMERLOW`,
+`IRQACK` y `TIMERSTOP` (solo PAL). La autoanimación avanza en cada VBLANK cada (velocidad + 1) cuadros.
+
+**El temporizador** baja con el reloj de pixel (un paso cada 2 ciclos del 68000) y no se lleva paso a paso:
+se guarda el ciclo en que llegará a 0 (`timer_at`). Desde que se carga con N tarda N + 1 pixeles (el
+ejemplo de la wiki con Neo Turf Masters y la cuenta de MAME coinciden). Se carga al escribir `TIMERLOW` (si
+`LSPCMODE` tiene el bit 5), al empezar el cuadro (bit 6) y al llegar a 0 (bit 7); al llegar a 0 pide la
+interrupción de nivel 2 si el bit 4 lo permite.
+
+El dibujo llega en la fase 3.
+
+### Z80
+
+`z80bus.c`. Su mapa: `$0000-$7FFF` los primeros 32 KB de la M1 del cartucho; ventanas de 16, 8, 4 y 2 KB
+en `$8000`, `$C000`, `$E000` y `$F000`, que se eligen leyendo los puertos `$0B`, `$0A`, `$09` y `$08` con el
+número de banco en la mitad alta de la dirección (al encender, como si la M1 fuera lineal); `$F800-$FFFF`,
+2 KB de RAM. Puertos: `$00` el comando del 68000 (leerlo da por atendida la NMI), `$04-$07` el YM2610,
+escribir `$08`/`$18` habilita o deshabilita la NMI, `$0C` la respuesta. Cada comando del 68000 deja la NMI
+pedida; la línea de la NMI es "pedida y habilitada" y el Z80 la atiende en el flanco (si ya estaba pedida, un
+segundo comando no da otra). La INT viene de los temporizadores del YM2610. Un `HALT` sin nada que atender
+se salta de una vez hasta el destino o hasta que venza un temporizador.
+
+### Audio
+
+Por ahora (`ym2610.c`) solo lo que el programa del Z80 necesita para andar: los registros, los
+temporizadores A (de a una muestra del FM) y B (de a 16), sus banderas y la IRQ. El sonido llega en la fase 4.
 
 ## Variantes de la consola y accesorios
 
 Solo el AES, NTSC. El MVS (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots) y PAL, después.
+
+- **Mandos** (`pad[0]`, `pad[1]`, bits `NEO_*`): cruz y A B C D en `REG_P1CNT`/`REG_P2CNT`, Start y Select en
+  `REG_STATUS_B`. En el AES no hay monedas.
+- **BIOS:** la de exportación declara la región Europa (`COUNTRY_CODE` 2 en la RAM de la BIOS).
 
 ## Interfaz del ejecutable
 
@@ -193,15 +270,26 @@ Llega en la fase 3.
   `neobench` (fase 5).
 - **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
   fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona).
+- **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [boton:desde-hasta]`:**
+  corre sin ventana con el intérprete y resume instrucciones, ciclos, excepciones, el estado del Z80, las
+  variables de la BIOS en la RAM (`SYSTEM_MODE`, `USER_REQUEST`, `USER_MODE`...) y los PC más frecuentes del
+  último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
+  juegos ponen su fuente así, Metal Slug en `$300` + ASCII).
 - **`make test`:** las SingleStepTests del 68000 por el intérprete y por el camino del código generado
   (~8 s cada una) y las del Z80 (~24 s); `z80test --nmi`; `carttest` (un juego sintético con el P1 de 2 MB de mitades cambiadas da la misma imagen,
   SHA1, cabecera y vectores desde los chips, como `.neo`, como zip guardado dentro de una carpeta y como
   carpeta; el inflate con códigos fijos y dinámicos, cortado y con salida chica; un zip dañado; los sufijos
   con P2 y buses de V separados; los errores; un juego cifrado y uno sin `NEO-GEO`; la tabla L0 y su SHA1;
   una BIOS desconocida o de otro tamaño; la identidad del código en P1, en los bancos de un P de 5 MB y en
-la BIOS con sus espejos, con la ida y vuelta por una línea de traza). Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
+la BIOS con sus espejos, con la ida y vuelta por una línea de traza). `bustest`, con una BIOS de prueba
+hecha en la prueba y juegos sintéticos: el mapa de memoria (vectores de la BIOS y del juego, espejos, bus
+abierto, esperas de la tarjeta), los mandos, la paleta, la tarjeta y sus llaves, la VRAM y su incremento, el
+contador de líneas, las interrupciones con un programa de 68000 (la de arranque una vez, 10 VBLANK en 10
+cuadros, el temporizador cada 10 líneas, un VBLANK sin reconocer que vuelve a entrar), los bancos de P2 y un
+programa de Z80 (banco de la M1, INT del temporizador A, NMI con el comando y su respuesta). Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
   mismo SHA1; con Metal Slug, la base de datos, el SHA1, el P1 y las entradas; con `aes.zip`, que se acepte
-  `neo-epo.bin` y que su `000-lo.lo` sea la tabla calculada; `neogeo.zip` (MVS) no se acepta.
+  `neo-epo.bin` y que su `000-lo.lo` sea la tabla calculada; `neogeo.zip` (MVS) no se acepta; y que Metal
+Slug arranque con la BIOS, llegue a la demo ("CREDITS 04" en la capa fija) y con Start empiece la partida.
 
 ## Estado de la validación
 
@@ -209,6 +297,11 @@ la BIOS con sus espejos, con la ida y vuelta por una línea de traza). Con los j
   (`m68ktest`, `--recomp`), y las 1 604 000 del Z80 (`z80test`), más la NMI (`z80test --nmi`).
 - **Carga:** juegos (`.neo`, zip, carpeta) y BIOS, con `make test`. Probado con Metal Slug (`mslug.zip` de
   MAME) y las BIOS del `aes.zip` y del `neogeo.zip` de MAME.
+- **Bus, interrupciones y Z80:** `bustest`. Con la BIOS original, Metal Slug pasa la pantalla de SNK, llega
+  a la demo y empieza la partida con Start (`neorun`), a ~14 veces el tiempo real con el intérprete.
+- **Sin comprobar todavía con un oráculo:** la posición del VBLANK y de la recarga del temporizador en la
+  línea, lo que leen `$300001` y `$320001` en el AES, el perro guardián (MAME no lo emula en el AES) y la
+  dirección exacta del latch de bancos de P2.
 
 ### Línea base para optimizar el runtime
 

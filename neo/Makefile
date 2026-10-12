@@ -34,8 +34,9 @@ endif
 # Lo que hace `make` a secas (las reglas de abajo no siguen el orden en que se usan)
 .DEFAULT_GOAL := all
 
-# Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1)
-RUNTIME := cart.c bios.c zip.c neodb.c cpu68k.c z80.c sha1.c
+# Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1), la
+# consola, el bus, el LSPC sin imagen, el mapa del Z80 y los temporizadores del YM2610 (fase 2)
+RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c cpu68k.c z80.c z80bus.c ym2610.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 
@@ -43,12 +44,18 @@ RT := $(BUILD)/libneort.a
 PLAT := png.c files.c export.c
 PLAT_OBJ := $(PLAT:%.c=$(BUILD)/plat_%.o)
 
-PROGS := neorecomp carttest m68ktest z80test
+PROGS := neorecomp neorun carttest m68ktest z80test bustest
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+bustest$(EXE): src/tools/bustest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+neorun$(EXE): src/tools/neorun.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola

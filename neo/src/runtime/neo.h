@@ -16,6 +16,7 @@ typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef int16_t  s16;
 
 /*
  * Imagen normalizada: las regiones en el orden del .neo, con la forma que tienen ahí.
@@ -104,17 +105,107 @@ typedef struct {
     int  l0_checked;                /* había un 000-lo.lo junto a la BIOS: 1 igual a la calculada, -1 distinta */
 } Bios;
 
+/*
+ * Reloj: el maestro es de 24 MHz (24,167829 MHz en el AES); el 68000 va a la mitad, el Z80 a un
+ * sexto y el YM2610 a un tercio. Una línea son 384 pixeles de 4 ciclos maestros (768 ciclos del
+ * 68000) y un cuadro, 264 líneas. Todo se cuenta en ciclos del 68000 (g->cyc) o maestros.
+ */
+#define MCLK_PER_M68K    2
+#define MCLK_PER_Z80     6
+#define M68K_PER_LINE    768
+#define LINES_PER_FRAME  264
+#define M68K_PER_FRAME   (M68K_PER_LINE * LINES_PER_FRAME)
+#define MCLK_PER_FM      432          /* una muestra del FM del YM2610: 144 ciclos suyos */
+#define NEVER            UINT64_MAX
+
+/*
+ * Líneas del cuadro: se cuentan desde la que empieza el VBLANK (el contador de líneas del LSPC
+ * vale $1F0, la primera del borde de abajo), así un cuadro termina con la última línea visible:
+ *   0-15 borde de abajo ($1F0-$1FF), 16-23 sincronía vertical ($0F8-$0FF), 24-39 borde de arriba
+ *   ($100-$10F), 40-263 las 224 líneas visibles ($110-$1EF)
+ */
+#define FIRST_VISIBLE_LINE 40
+#define SCREEN_H           224
+#define VBL_IRQ_AT         85         /* ciclo de la línea 0 en que se pide el VBLANK (168 + 2 maestros) */
+#define TIMER_VBL_AT       573        /* ... y en que se recarga el temporizador si así se pidió (1146 maestros) */
+
+/* Interrupciones pendientes del 68000 (se borran escribiendo IRQACK, $3C000C, con los mismos bits) */
+enum { IRQ_COLD = 1, IRQ_TIMER = 2, IRQ_VBL = 4 };     /* nivel 3 (arranque), 2 y 1 */
+
+/* LSPC: VRAM, registros, contador de líneas, temporizador e interrupciones */
+typedef struct {
+    u16  vram[0x10000];             /* $0000-$7FFF la lenta; $8000-$87FF la rápida (con espejos) */
+    u16  vram_addr;
+    s16  vram_mod;
+    u16  mode;                      /* lo escrito en LSPCMODE ($3C0006) */
+    u32  timer_reload;              /* TIMERHIGH:TIMERLOW */
+    u64  timer_at;                  /* ciclo del 68000 en que el temporizador llega a 0 (NEVER: no llegará) */
+    u16  timer_stop;                /* $3C000E (solo PAL) */
+    u8   irq;                       /* IRQ_* pendientes */
+    int  line;                      /* línea del cuadro (0-263) */
+    u64  line_start;                /* ciclo del 68000 en que empezó */
+    u64  next_event;                /* el próximo ciclo en que hay algo que hacer (lspc_sync) */
+    u8   vbl_done, reload_done;     /* en la línea 0: ya se pidió el VBLANK / ya se recargó el temporizador */
+    u8   anim, anim_wait;           /* autoanimación: contador de 3 bits y cuadros hasta el próximo paso */
+    u8   frame_done;                /* terminó el cuadro (lo borra quien corre el cuadro) */
+    u64  frame;                     /* cuadros desde el reset */
+} Lspc;
+
+/* YM2610: por ahora los registros, los temporizadores, las banderas y la IRQ al Z80 (el sonido llega
+ * en la fase 4) */
+typedef struct {
+    u8   addr[2];                   /* registro elegido en cada mitad (puertos 4 y 6 del Z80) */
+    u8   reg[2][256];
+    u8   flags;                     /* bit 0 temporizador A, bit 1 temporizador B */
+    u64  ta_at, tb_at;              /* ciclo maestro en que vence cada temporizador (NEVER: parado) */
+} Ym2610;
+
+/* Tarjeta de memoria (la usa la BIOS del AES para guardar las partidas) */
+typedef struct {
+    u8  *data;                      /* NULL: no hay tarjeta */
+    u32  size;
+    u8   protect;                   /* protegida contra escritura */
+    u8   dirty;
+} Card;
+
+/* Botones de un mando (1 = apretado); los 8 primeros en el orden de REG_P1CNT ($300000) */
+enum {
+    NEO_UP = 1, NEO_DOWN = 2, NEO_LEFT = 4, NEO_RIGHT = 8, NEO_A = 16, NEO_B = 32, NEO_C = 64, NEO_D = 128,
+    NEO_START = 256, NEO_SELECT = 512
+};
+
+/* Salidas del latch del sistema ($3A0001-$3A001F): bit n = salida n */
+enum { LATCH_SHADOW = 1, LATCH_SWPROM = 2, LATCH_CRDLOCK1 = 4, LATCH_CRDUNLOCK2 = 8, LATCH_CRDNORMAL = 16,
+       LATCH_CRTFIX = 32, LATCH_SRAMUNLOCK = 64, LATCH_PALBANK1 = 128 };
+
 typedef struct Neo {
     M68k cpu;
-    u64  cyc;                       /* ciclos del 68000 desde el reset */
+    u64  cyc;                       /* ciclos del 68000 desde el encendido */
     void *jb;                       /* jmp_buf del paso actual (el error de dirección vuelve ahí) */
     Cart cart;
     Bios bios;
-    u8   p2_bank;                   /* banco de P2 que se ve en $200000 */
+    u8   p2_bank;                   /* banco de P2 que se ve en $200000 (lo escrito en el latch) */
+    u32  map_ver;                   /* sube con cada cambio de banco (el código generado lo vigilará) */
+    Lspc lspc;
+    u8   latch;                     /* LATCH_* */
+    u16  pad[2];                    /* NEO_* de los mandos 1 y 2 */
+    u8   poutput, crdbank;          /* $380001 y $380011 */
+    Card card;
+    u16  open_bus;                  /* último valor en el bus de datos (lo que leen las direcciones sin nada) */
+    /* Z80 y sonido */
     Z80  z80;
+    u64  z80_mclk;                  /* ciclo maestro hasta el que corrió el Z80 */
+    u8   z80_bank[4];               /* bancos de las ventanas de 2, 4, 8 y 16 KB ($F000, $E000, $C000, $8000) */
+    u8   sound_cmd, sound_reply;    /* $320000: comando del 68000 al Z80 y respuesta */
+    u8   nmi_pending, nmi_enabled, nmi_line;
+    u32  sound_cmds;                /* comandos enviados (estadística) */
+    Ym2610 ym;
     u32  exc_count[64];             /* excepciones atendidas por vector (estadística) */
     u32 *trace;                     /* NULL, o por cada palabra de P y de la BIOS (neo_trace_index): 0 = no
                                        ejecutada; si no, $80000000 | dirección */
+    u8   ram[0x10000];              /* RAM del 68000: $100000-$10FFFF (con espejos hasta $1FFFFF) */
+    u16  pal[2][0x1000];            /* paleta: dos bancos de 256 paletas de 16 colores */
+    u8   zram[0x800];               /* RAM del Z80: $F800-$FFFF */
     u8   l0[L0_SIZE];
 } Neo;
 
@@ -153,6 +244,48 @@ static inline u16 rdw_le(const u8 *p) { return (u16)(p[1] << 8 | p[0]); }
 /* Una palabra o un largo del 68000 en el desplazamiento off de P (par) */
 static inline u16 cart_p16(const Cart *c, u32 off) { return rdw_le(c->data + c->off[REG_P] + off); }
 static inline u32 cart_p32(const Cart *c, u32 off) { return (u32)cart_p16(c, off) << 16 | cart_p16(c, off + 2); }
+
+/* --- La consola (neo.c) --- */
+
+/* Carga el juego y la BIOS (la busca si bios_path es NULL), calcula la tabla L0 y enciende. 0 si todo
+ * bien; si no, *err */
+int  neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err);
+void neo_free(Neo *g);
+void neo_power_on(Neo *g);              /* encendido: todo a cero, la interrupción de arranque pendiente */
+void neo_reset(Neo *g);                 /* botón de reset */
+void neo_run_frame(Neo *g);             /* corre hasta terminar el cuadro */
+void neo_after_step(Neo *g);            /* LSPC y Z80 al ciclo del 68000 (tras cada instrucción) */
+int  neo_card_insert(Neo *g, const char *path);  /* tarjeta de 2 KB (la carga si el archivo existe); 1 si todo bien */
+int  neo_card_save(Neo *g, const char *path);
+
+/* --- LSPC (lspc.c) --- */
+void lspc_reset(Neo *g);
+void lspc_sync(Neo *g);                 /* líneas, temporizador e interrupciones hasta g->cyc */
+u16  lspc_read(Neo *g, u32 a);
+void lspc_write(Neo *g, u32 a, u16 v);
+NEO_INL u16 lspc_counter(const Lspc *l)    /* contador de líneas del LSPC ($0F8-$1FF) de la línea actual */
+{
+    int v = 0x1F0 + l->line;
+    return (u16)(v > 0x1FF ? v - 0x200 + 0xF8 : v);
+}
+
+/* --- Z80 y YM2610 (z80bus.c, ym2610.c) --- */
+void z80_run_until(Neo *g, u64 mclk);   /* el Z80 corre hasta ese ciclo maestro */
+NEO_INL void z80_sync(Neo *g) { u64 m = g->cyc * MCLK_PER_M68K; if (g->z80_mclk < m) z80_run_until(g, m); }
+void sound_command(Neo *g, u8 v);       /* el 68000 escribe $320000 */
+void ym_reset(Ym2610 *y);
+void ym_update(Ym2610 *y, u64 mclk);    /* temporizadores hasta ese ciclo maestro */
+u8   ym_read(Ym2610 *y, int port, u64 mclk);
+void ym_write(Ym2610 *y, int port, u8 v, u64 mclk);
+NEO_INL u64 ym_next_event(const Ym2610 *y) { return y->ta_at < y->tb_at ? y->ta_at : y->tb_at; }
+
+/* Tras cada instrucción del 68000 (intérprete y código generado): el LSPC solo si hay algo que hacer
+ * y el Z80 solo si quedó atrás */
+NEO_INL void neo_after_step_inline(Neo *g)
+{
+    if (g->cyc >= g->lspc.next_event) lspc_sync(g);
+    z80_sync(g);
+}
 
 /* --- Carga (cart.c) --- */
 

@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fases 0 y 1 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 2 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -135,7 +135,13 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     excepciones de DIVU/DIVS) y las 1 604 000 del Z80.
   - Se adelanta el Z80 (en GENRecomp llegó en la fase 4) porque en el Neo Geo la BIOS y los juegos
     esperan las respuestas del Z80 para arrancar.
-- [ ] **2. Bus, BIOS e interrupciones.**
+- [x] **2. Bus, BIOS e interrupciones.** Hecho: mapa de memoria, vectores de la BIOS y del juego, bancos
+  de P2, latch del sistema, mandos, paleta, tarjeta de memoria (2 KB, con sus llaves), registros del LSPC
+  y VRAM, contador de líneas, temporizador y las tres interrupciones con `IRQACK`; el Z80 con los bancos de
+  la M1, la NMI por comando y la respuesta; los temporizadores y la IRQ del YM2610. `neorun` (con `--fix` y
+  las variables de la BIOS) y `bustest`. **Meta cumplida:** con la BIOS original, Metal Slug pasa la
+  pantalla de SNK, llega a la demo ("CREDITS 04") y con Start empieza la partida. Pendiente de los
+  oráculos: la posición del VBLANK en la línea, `$300001`/`$320001` en el AES, el perro guardián.
   - Copia la forma de `bus.c` (cada acceso 4 ciclos, bus abierto con el último dato) y de `gen.c`
     (cargar, reset, cuadro). `m68k_run` con un solo `setjmp` por cuadro.
   - Nuevo: mapa de memoria del 68000; banco P2; cambio de vectores; latch del sistema; mandos del AES;

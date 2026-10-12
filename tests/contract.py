@@ -20,9 +20,10 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
             "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat", "--seed")},
 }
 
-# Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed y
-# la propia prueba de contrato de cada uno
-SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("tests", "contract.sh"))
+# Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed, el
+# formato de las trazas y la propia prueba de contrato de cada uno
+SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
+          os.path.join("tests", "contract.sh"))
 
 
 def main():

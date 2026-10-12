@@ -65,6 +65,11 @@ entre consolas queda dentro de esos objetivos.
 El mando aleatorio de `--seed` es el mismo en los tres: `src/platform/random_pad.h` es idéntico en todos los repositorios
 (`tests/contract.py` lo comprueba), así que la misma semilla da la misma secuencia de botones.
 
+Las trazas también: una línea `BANCO:DIRECCION` por instrucción ejecutada, escrita y leída por `src/runtime/trace_line.h`
+(idéntico en los tres). El banco es el desplazamiento en la ROM entre una ventana fija de cada consola (tabla de abajo) y la
+dirección es la del CPU. NES y Genesis siguen leyendo sus trazas viejas `DESPLAZAMIENTO:DIRECCION`, y `--why` acepta las
+dos formas.
+
 `python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los tres mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
 mirando todos los repositorios que encuentre. Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
 
@@ -73,7 +78,7 @@ mirando todos los repositorios que encuentre. Si cambias una opción en un recom
 | | NES | Game Boy | Genesis |
 |---|---|---|---|
 | Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) |
-| Dirección de «por qué» | desplazamiento en PRG | `BB:AAAA` | desplazamiento en la ROM |
+| Banco de la traza (`BB:AAAA`) | 8 KB del PRG | 16 KB (el banco del MBC) | 512 KB de la ROM (las ventanas de SSF2) |
 | Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` |
 | Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) |

@@ -13,18 +13,18 @@ EXE=
 [ -x ./gbrecomp.exe ] && EXE=.exe
 
 make -s || exit 2
-./gbrecomp$EXE "$ROM" -o out/tetris > /dev/null || exit 2
-make -s -C out/tetris || exit 2
+./gbrecomp$EXE "$ROM" -o build/out/tetris > /dev/null || exit 2
+make -s -C build/out/tetris || exit 2
 
 falla=0
 corre() {
     printf '%-40s ' "$1"
     shift
-    if out/tetris/difftest$EXE "$ROM" "$@" > out/tetris/difftest.log 2>&1; then
-        grep -o '[0-9.]*% recompilado' out/tetris/difftest.log
+    if build/out/tetris/difftest$EXE "$ROM" "$@" > build/out/tetris/difftest.log 2>&1; then
+        grep -o '[0-9.]*% recompilado' build/out/tetris/difftest.log
     else
         echo "DIFERENCIA"
-        cat out/tetris/difftest.log
+        cat build/out/tetris/difftest.log
         falla=1
     fi
 }

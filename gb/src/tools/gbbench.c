@@ -7,8 +7,9 @@
  *   --repeat  corridas; se reporta la más rápida, que es la menos afectada por
  *             otros programas en la máquina (por omisión 3).
  *   --input   entradas grabadas (src/platform/inputs.h).
- *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp); sin
- *             --input, se usa ese mando con semilla 1.
+ *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp).
+ *   Sin --input ni --seed: Start en los cuadros 121-124 y la derecha desde el 401,
+ *   el mismo guion que nesbench y genbench.
  * El audio se genera y se saca de la cola en cada cuadro, como en la ventana.
  * Para el código recompilado: difftest --bench en el proyecto generado.
  */
@@ -79,11 +80,12 @@ int main(int argc, char **argv)
         if (input_path) script.pos = 0;
         RandomPad rp;
         random_pad_init(&rp, seed);
-        int use_random = seed_given || !input_path;
+        int scripted = input_path || seed_given;
         clock_t t0 = clock();
         for (long f = 0; f < frames; f++) {
             u8 pad = input_path ? inputs_pad(&script, f) : 0;
-            if (use_random) pad |= inputs_random_pad(&rp, f);
+            if (seed_given) pad |= inputs_random_pad(&rp, f);
+            if (!scripted) pad = (f > 120 && f < 125) ? PAD_START : (f > 400 ? PAD_RIGHT : 0);
             gb_set_pad(&g, pad);
             gb_run_frame(&g);
             while (gb_audio_pull(&g, aud, 4096) > 0) {}

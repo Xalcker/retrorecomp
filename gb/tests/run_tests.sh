@@ -107,9 +107,9 @@ GB=./gb
 if [ -x "$GB" ] && { [ -z "$FILTRO" ] || case "interprete" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
     ok=1
     for m in 0 1 2 3 4 5 6; do
-        rm -f build/gb_ui.bmp
-        "$GB" "$T/dmg-acid2/dmg-acid2.gb" --ui-shot build/gb_ui.bmp --ui-frames 5 --ui-menu $m > /tmp/gbtest.out 2>&1 \
-            && [ -s build/gb_ui.bmp ] || { ok=0; echo "  menú $m" >> /tmp/gbtest.out; }
+        rm -f build/gb_ui.png
+        "$GB" "$T/dmg-acid2/dmg-acid2.gb" --ui-shot build/gb_ui.png --ui-frames 5 --ui-menu $m > /tmp/gbtest.out 2>&1 \
+            && [ -s build/gb_ui.png ] || { ok=0; echo "  menú $m" >> /tmp/gbtest.out; }
     done
     if [ $ok = 1 ]; then pasa=$((pasa + 1)); else falla=$((falla + 1)); fallidas="$fallidas
   gb (intérprete con ventana): $(tail -3 /tmp/gbtest.out)"; fi
@@ -135,9 +135,9 @@ EXE=
 [ -x ./gbrecomp.exe ] && EXE=.exe
 if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
     rom="$T/blargg/cpu_instrs/cpu_instrs.gb"
-    if ./gbrecomp$EXE "$rom" -o out/cpu_instrs --name cpu_instrs > /tmp/gbtest.out 2>&1 \
-        && make -s -C out/cpu_instrs -j4 >> /tmp/gbtest.out 2>&1 \
-        && out/cpu_instrs/difftest$EXE "$rom" --frames 3600 --seed 1 >> /tmp/gbtest.out 2>&1; then
+    if ./gbrecomp$EXE "$rom" -o build/out/cpu_instrs --name cpu_instrs > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/cpu_instrs -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/cpu_instrs/difftest$EXE "$rom" --frames 3600 --seed 1 >> /tmp/gbtest.out 2>&1; then
         pasa=$((pasa + 1))
     else
         falla=$((falla + 1))

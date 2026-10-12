@@ -65,6 +65,7 @@
 #include "i18n.h"
 #include "iconos.h"
 #include "inputs.h"
+#include "png.h"
 #ifdef GB_INTERP
 #include "gb.h"
 /* Lo que en un juego recompilado viene de gen/info.c; aquí se llena al abrir la ROM */
@@ -415,7 +416,7 @@ static const char *file_name(const char *path)
     return s;
 }
 
-/* Pruebas de la interfaz: --ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
+/* Pruebas de la interfaz: --ui-shot archivo.png [--ui-frames N] [--ui-menu N]
  * [--ui-action N] [--ui-export] corre N cuadros sin ventana visible (con
  * --ui-export, grabando música y gráficos), abre un menú o hace
  * una acción, guarda la imagen y sale */
@@ -1418,8 +1419,21 @@ static void render(App *app)
         int ow = w, oh = h;
         if (SDL_GetRendererOutputSize(app->ren, &ow, &oh) != 0) { ow = w; oh = h; }
         SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, ow, oh, 32, SDL_PIXELFORMAT_ARGB8888);
-        if (shot && SDL_RenderReadPixels(app->ren, NULL, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch) == 0)
-            SDL_SaveBMP(shot, ui_shot_path);
+        if (shot && SDL_RenderReadPixels(app->ren, NULL, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch) == 0) {
+            /* PNG, como --ui-shot de NESRecomp y GENRecomp */
+            unsigned char *rgb = malloc((size_t)ow * oh * 3);
+            if (rgb) {
+                for (int y = 0; y < oh; y++) {
+                    const Uint32 *row = (const Uint32 *)((const Uint8 *)shot->pixels + (size_t)y * shot->pitch);
+                    for (int x = 0; x < ow; x++) {
+                        unsigned char *px = rgb + ((size_t)y * ow + x) * 3;
+                        px[0] = (unsigned char)(row[x] >> 16); px[1] = (unsigned char)(row[x] >> 8); px[2] = (unsigned char)row[x];
+                    }
+                }
+                if (!png_write_rgb(ui_shot_path, rgb, ow, oh)) fprintf(stderr, "no se pudo escribir %s\n", ui_shot_path);
+                free(rgb);
+            }
+        }
         SDL_FreeSurface(shot);
         ui_shot_path = NULL;
     }

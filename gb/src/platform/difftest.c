@@ -9,8 +9,8 @@
  *                     [--uncovered archivo]
  *                     [--screens carpeta [--every N]] [--bench] [--executed archivo]
  *   --input reproduce entradas grabadas (ver inputs.h). --seed suma el mando
- *   aleatorio de random_pad.h (el mismo que en NESRecomp); sin --input, se usa
- *   ese mando con semilla 1.
+ *   aleatorio de random_pad.h (el mismo que en NESRecomp y GENRecomp). Sin --input
+ *   ni --seed no se pulsa nada, como en el difftest de los otros dos.
  *   --save carga un .sav en ambas máquinas antes de empezar (para partidas
  *   grabadas que empezaron desde una partida guardada).
  *   --save-out escribe la RAM del cartucho (de la máquina recompilada) al terminar.
@@ -385,7 +385,7 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    use_random = seed_given || !use_script;     /* sin guion, el mando aleatorio (semilla 1) */
+    use_random = seed_given;      /* sin --seed no se pulsa nada (como en NESRecomp y GENRecomp) */
     reset_pad(seed);
 
     printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, seed);

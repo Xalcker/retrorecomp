@@ -244,7 +244,7 @@ HRAM), para distinguir código no descubierto de código en RAM.
 
 ```
 sh tools/truth/build_truth.sh build/ext/tetris-disasm build/ext/rgbds tetris.gb build/truth
-gbrecomp tetris.gb -o out/tetris --codemap static.map
+gbrecomp tetris.gb -o build/out/tetris --codemap static.map
 perl tools/truth/compare.pl build/truth/truth.txt static.map tetris-disasm/tetris.sym
 ```
 
@@ -716,7 +716,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
 - **Audio:** callback de SDL con búfer circular (como gb-recompiled). Espera a
   juntar 50 ms antes de sonar, también después de quedarse sin muestras, y
   descarta lo que pase de 200 ms.
-- **Pruebas sin ventana:** `--ui-shot archivo.bmp [--ui-frames N] [--ui-menu N]
+- **Pruebas sin ventana:** `--ui-shot archivo.png [--ui-frames N] [--ui-menu N]
   [--ui-action N] [--ui-export]` corre N cuadros con la ventana oculta (con
   `--ui-export`, exportando música y gráficos), abre un menú o hace
   una acción y guarda la imagen.

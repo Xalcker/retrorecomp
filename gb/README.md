@@ -91,7 +91,7 @@ sube al repositorio.
 
 ```
 make
-./gbrecomp roms/sfa2.gbc -o out/sfa2 --name sfa2 --viz --events build/sfa2_eventos.txt
+./gbrecomp roms/sfa2.gbc -o build/out/sfa2 --name sfa2 --viz --events build/sfa2_eventos.txt
 ```
 
 `--viz` anima el descubrimiento en la terminal y `--events` guarda cada paso
@@ -108,8 +108,8 @@ niveles: no dice qué tan bien va a correr. Para eso está el paso 2.
 **2. Compilar y medir cuánto se ejecuta recompilado**
 
 ```
-make -C out/sfa2
-out/sfa2/difftest roms/sfa2.gbc --frames 6000 --seed 1
+make -C build/out/sfa2
+build/out/sfa2/difftest roms/sfa2.gbc --frames 6000 --seed 1
 ```
 
 `difftest` juega solo, con entradas al azar, y compara el código recompilado
@@ -153,21 +153,21 @@ Sin diferencias.
 La traza se acumula: si corres el script otra vez, la primera ronda ya parte
 de ella.
 
-El proyecto queda en `out/sfa2`, ya compilado con la traza. Las entradas al
+El proyecto queda en `build/out/sfa2`, ya compilado con la traza. Las entradas al
 azar no llegan a todo el juego: para lo que falte, juega con `--uncovered`,
 que agrega a un archivo lo que ejecutó el intérprete, y recompila con esa
 traza:
 
 ```
-out/sfa2/sfa2 roms/sfa2.gbc --uncovered build/sfa2.trace
-./gbrecomp roms/sfa2.gbc -o out/sfa2 --name sfa2 --trace build/sfa2.trace && make -C out/sfa2
+build/out/sfa2/sfa2 roms/sfa2.gbc --uncovered build/sfa2.trace
+./gbrecomp roms/sfa2.gbc -o build/out/sfa2 --name sfa2 --trace build/sfa2.trace && make -C build/out/sfa2
 ```
 
 **4. Ver qué faltaba y por qué**
 
 ```
-./gbrecomp roms/sfa2.gbc -o out/sfa2-viz --viz --coverage build/sfa2.trace
-./gbrecomp roms/sfa2.gbc -o out/sfa2-viz --viz --trace build/sfa2.trace \
+./gbrecomp roms/sfa2.gbc -o build/out/sfa2-viz --viz --coverage build/sfa2.trace
+./gbrecomp roms/sfa2.gbc -o build/out/sfa2-viz --viz --trace build/sfa2.trace \
     --coverage build/sfa2.trace --events build/sfa2_traza.txt
 ./gbrecomp roms/sfa2.gbc --why 00:0008
 ./gbrecomp roms/sfa2.gbc --trace build/sfa2.trace --why 00:0008
@@ -198,11 +198,11 @@ sus instrucciones, y al hacer clic en una dirección, la cadena de `--why`.
 **6. Jugar**
 
 ```
-out/sfa2/sfa2 roms/sfa2.gbc
+build/out/sfa2/sfa2 roms/sfa2.gbc
 ```
 
 La primera vez guarda una copia de la ROM en su carpeta de datos; después
-basta con `out/sfa2/sfa2`. El menú Ayuda > Datos del juego dice qué porcentaje
+basta con `build/out/sfa2/sfa2`. El menú Ayuda > Datos del juego dice qué porcentaje
 de lo ejecutado va recompilado.
 
 Con un juego que el análisis estático cubre bien, como Tetris (98.9 %
@@ -373,7 +373,7 @@ Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 `difftest --input`), `--link` (cable link), `--uncovered archivo` (lo que
 ejecutó el intérprete, para `gbrecomp --trace`), `--interp` (todo con el
 intérprete), `--force` (acepta una ROM con otro SHA1; solo con el intérprete)
-y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.bmp` con
+y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 `--ui-frames N`, `--ui-menu N`, `--ui-action N` y `--ui-export`.
 
 ## Estado

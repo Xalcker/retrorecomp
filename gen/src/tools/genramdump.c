@@ -1,7 +1,7 @@
 /*
- * ramdump: corre una ROM sin ventana y vuelca los 64 KB de RAM del 68000 (una línea "DIRECCION VALOR"
- * por byte, con la dirección de $FF0000 a $FFFFFF). Como ramdump de NESRecomp y gbramdump de GBRecomp.
- *   ramdump rom.bin [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
+ * genramdump: corre una ROM sin ventana y vuelca los 64 KB de RAM del 68000 (una línea "DIRECCION VALOR"
+ * por byte, con la dirección de $FF0000 a $FFFFFF). Como genramdump de NESRecomp y gbramdump de GBRecomp.
+ *   genramdump rom.bin [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
  */
 #include <stdio.h>
 
@@ -14,7 +14,7 @@ int main(int argc, char **argv)
     console_utf8();
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 60)) {
-        fprintf(stderr, "uso: ramdump rom.bin [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]\n");
+        fprintf(stderr, "uso: genramdump rom.bin [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]\n");
         return 2;
     }
     Gen *g = load_gen(c.pos[0]);

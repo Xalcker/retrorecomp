@@ -1,7 +1,7 @@
 /*
  * retro_run: corre una ROM en un núcleo libretro (un emulador de referencia: Genesis Plus GX, BlastEm)
  * sin ventana, con las mismas entradas que las herramientas de GENRecomp, y da la misma salida que
- * ramdump (o una captura PNG). Sirve de oráculo para comparar contra el intérprete.
+ * genramdump (o una captura PNG). Sirve de oráculo para comparar contra el intérprete.
  *
  *   retro_run NUCLEO rom.bin [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
  *             [--shot captura.png] [--no-ram] [--vram] [--swap16] [--opt clave=valor ...] [--verbose]

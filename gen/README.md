@@ -116,7 +116,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
 | `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
 | `genbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
-| `ramdump rom [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr la ROM. |
+| `genramdump rom [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr la ROM. |
 | `genrun rom [--frames N] [--watch DIR] [--sram archivo] [--tmss] [--shot/--shots/--wav ...]` | Diagnóstico: resume instrucciones, excepciones y dónde se va el tiempo. |
 | `carttest`, `m68ktest`, `z80test`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` | Pruebas; `make test` corre todas. |
 
@@ -133,7 +133,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `recomp.h`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
-| `src/tools/` | `gentrace`, `genshot`, `genaudio`, `ramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
+| `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp y GBRecomp), `sst68k.sh`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los tres repos). |

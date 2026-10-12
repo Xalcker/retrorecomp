@@ -54,7 +54,7 @@ endif
 gen$(EXE): $(GEN_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := genrecomp gentrace genshot genaudio genbench ramdump genrun gen \
+PROGS := genrecomp gentrace genshot genaudio genbench genramdump genrun gen \
          carttest m68ktest z80test bustest vdptest audiotest statetest inputtest
 
 # SDL2 para el intérprete con ventana (gen). En Windows, enlazado de forma
@@ -95,8 +95,8 @@ genaudio$(EXE): src/tools/genaudio.c $(TOOL_DEPS)
 genbench$(EXE): src/platform/bench.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
-ramdump$(EXE): src/tools/ramdump.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/ramdump.c $(RT) -lm
+genramdump$(EXE): src/tools/genramdump.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genramdump.c $(RT) -lm
 
 statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/statetest.c $(RT) -lm

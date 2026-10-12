@@ -6,7 +6,7 @@ y se imprime) y los maneja build/retro_run (tools/oracles/retro_run.c), sin vent
 tiene una licencia no comercial y BlastEm es GPL-3: solo se usan como programas aparte.
 
   tools/oracles/oracle.py fetch [gpgx|blastem]                    bajar (todos si no se dice)
-  tools/oracles/oracle.py ramdump NUCLEO rom.bin [opciones]        la misma salida que ./ramdump
+  tools/oracles/oracle.py ramdump NUCLEO rom.bin [opciones]        la misma salida que ./genramdump
   tools/oracles/oracle.py shot NUCLEO rom.bin salida.png [opciones]
   tools/oracles/oracle.py compare rom.bin [opciones]              GENRecomp contra los oráculos
 
@@ -81,7 +81,7 @@ def propio(herramienta):
 
 
 def leer_ram(texto):
-    """Los 64 KB de una salida como la de ramdump (los núcleos pueden escribir otras cosas)"""
+    """Los 64 KB de una salida como la de genramdump (los núcleos pueden escribir otras cosas)"""
     import re
     v = [int(m.group(1), 16) for m in re.finditer(r"^FF[0-9A-F]{4} ([0-9A-F]{2})$", texto, re.M)]
     if len(v) != 0x10000: sys.exit(f"la salida no trae los 64 KB de RAM ({len(v)} bytes)")
@@ -135,7 +135,7 @@ def compare(rom, args, png_dir=None):
     tmp = png_dir or tempfile.mkdtemp()
     os.makedirs(tmp, exist_ok=True)
     rams, imgs = {}, {}
-    r = subprocess.run([propio("ramdump"), rom, *args], capture_output=True, text=True, check=True)
+    r = subprocess.run([propio("genramdump"), rom, *args], capture_output=True, text=True, check=True)
     rams["genrecomp"] = leer_ram(r.stdout)
     shot = os.path.join(tmp, "genrecomp.png")
     subprocess.run([propio("genshot"), rom, shot, *args], capture_output=True, check=True)

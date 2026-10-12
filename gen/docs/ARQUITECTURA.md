@@ -15,7 +15,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80.h`/`z80.c` (el Z80), `z80bus.c` (su mapa y cuándo corre), `psg.c`, `ym2612.c`, `audio.c` (mezcla), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete); `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `icono.h`), `random_pad.h`. |
-| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `ramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. `embed`. |
+| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
@@ -502,7 +502,7 @@ libretro. No van en el repositorio (Genesis Plus GX tiene una licencia no comerc
 frontend libretro mínimo sin ventana: declara solo la parte pública de la API que usa
 (`libretro_min.h`), toma las entradas de `cli.h` (`--frames`, `--input`, `--seed`, `boton:desde-hasta`)
 y asigna los botones por las descripciones que publica cada núcleo ("A", "Start", "Mode"...: cada uno
-los acomoda distinto en el mando de libretro). Da la misma salida que `ramdump` (con `--swap16`: los dos
+los acomoda distinto en el mando de libretro). Da la misma salida que `genramdump` (con `--swap16`: los dos
 guardan la RAM en palabras de 16 bits de la máquina) o una captura (`--shot`).
 
 ```

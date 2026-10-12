@@ -1,16 +1,46 @@
-smb img d811c033403665bddba0ef6359330d0d aud 8d3e337265876334a99b3dbe5d832a05
-smb3 img 389d9e6d3b43466a5320d2e62f920bf8 aud 84f517b45085638bd6f2e759e9e746b2
-contra img 75667684cf1cec8bfd8ede2e9282734d aud a38a78a9e05387c1eb65891bdb48d8e5
-cv img 487f7a2bbd7f19263ce5a1779c5b9f59 aud 4428f39d1abc3c4d756a048197d4cba3
-mm img 6b4482ab01c794561379407697f1f8c2 aud 4ce67eedd9145adad7c13d84cd4594b3
-zelda img 144a6318088526a5005c021093cad271 aud 6a8a32cd1a603e77666bbfeff8a47874
-ark img a6c44abfd3079b65adb79664a3f3b464 aud 23283e947f5b300b4b207f0b753ce4ac
-dk img 3c3c07cceb4ffad5889f3194019a48ab aud 375a57f91645937b0139fef742e324e0
-nestest img 2e836460c26fa849f2c91e4248f38631 aud 43e869d055058a5867e2edf3f3f21d85
-apu1 img 950516fde1d06cdc5cbd4ce15990f0d9 aud 65dc3f072a03e4070447eb9c2f5cfc90
-apu7 img 53e028487f0571e69867f84652c4640e aud 68ef089230c9210022e460ee6e3b0580
-vbl5 img 8b4d3acee55c6625ad3ab717f793af4b aud e6d63a05aea943e803cfc27a49a7b1c4
-sh9 img 6939705b4b64061a7e1f2048952083a3 aud f5a208a48105d9bfb852d36b0d6f7fbc
-mmc3 img 95db49b3341a1f5c6d6e4d3acd8a002f aud 7b44eb80a4678e8205fd3eb47938bc61
-pcm img 0fb25b294e3c1738f32cbef3bb22629c aud 398d29c577b70c37dcc582671af14178
-parallax img c82291f57bd53e895a9b254ac0fd4fdd aud 63bb6ff5cd214c7257bff07f67514a1c
+230fc31d2c2eb20e78711c82574f29f28117eba3 hash imagen a58899366aad514d audio 6a64489138dfc241  # Arkanoid (USA).nes
+ee09b857c90916edd92a20c463485a610b0a76fd hash imagen c7fac67bbfd94ae7 audio 34e489bc2471f091  # Castlevania (USA).nes
+979494e7869ac7ab4815fdbd1dc99f893f713fbf hash imagen 19b97bb6e6baed75 audio 0efadc267d80690b  # Contra (USA).nes
+f08d61cf09b6794ba7e642ac501614493753ba0f hash imagen c7ad121a1788a847 audio 998183c357a78ee4  # Crisis Force (Japan).nes
+8a49fe60b6a151c055a63639894cd366935a7ee9 hash imagen 277e6cef08f83aeb audio 09de1b171242806c  # Crystalis (USA).nes
+d222dbba5bd3716bbf62ca91167c6a9d15c60065 hash imagen 47cfa310e954efc2 audio d40fe7a7dd84fea2  # Donkey Kong (World) (Rev 1).nes
+96356da50ff4cd4e3d399181ac19dafbf298eea8 hash imagen 68f2980627a693e3 audio 6168bd4da1ad34b6  # Double Dragon (USA).nes
+6e700e8f72f767918b096f6a5f17f8cd1e2d0866 hash imagen c9c5fbfdf15a2344 audio 2c50a835754a150c  # DuckTales (USA).nes
+5b05c8859f356013d37f0545f5de5fa1693da5da hash imagen 43dc2eb5ca2770e8 audio c6643250b1429dc3  # Faxanadu (USA).nes
+d3cbc72802ac0d56e4f992652e16a60383bd93c3 hash imagen 6efbb68169c3521e audio d05c35000e1d2604  # Gekikame Ninja Den (Japan).nes
+6a493cc7a3745f44e2ec4ba0fa71bfa89ff5cf37 hash imagen c5fd77a7e13e4c89 audio 0b7cd706955b7bf9  # Gradius II (Japan) (En).nes
+32473799f96406d73aa37d5cf66e0e27f1f339da hash imagen 55762c834a0150b5 audio 8202262ff741bfc8  # Kirby's Adventure (USA).nes
+c87e7e6a68dd9c7e24652cd2c7d390a14e8adf04 hash imagen c80f50a580c4f005 audio 38dd1b7ec6bd3e16  # Lagrange Point (Japan).nes
+a12d74c73a0481599a5d832361d168f4737bbcf6 hash imagen ce1972564aafe558 audio a1777800781cde17  # Legend of Zelda, The (USA).nes
+6047e52929dfe8ed4708d325766ccb8d3d583c7d hash imagen c71fce515b028efd audio fcaa66f7b68be1a0  # Mega Man (USA).nes
+2ec08f9341003ded125458df8697ca5ef09d2209 hash imagen e98105d215ca7187 audio 4ed26df1a9719071  # Mega Man 2 (USA).nes
+36842491bb513c80beb9f2fb2aa30edaa1121ca4 hash imagen e66e5081bcadc49a audio e6fd66fa4e45130d  # Mega Man 5 (USA).nes
+fdbfc7871962f72a1ef57e5a7e456164fb93430b hash imagen a114fdb7d3732feb audio 57d1acbb38256094  # Metroid (USA).nes
+cc5bac121d94b23d7581f4f443dd42f6cfe8eb67 hash imagen 1a7452f1422c8b78 audio db9ebd73644abe0b  # Mighty Final Fight (USA).nes
+339eb36acbbbec96c8d177f0265253a5764cc1fb hash imagen c78216c492a519b3 audio 215e237994c1a6ea  # Mike Tyson's Punch-Out!! (Japan, USA) (En).nes
+15f245161179ab1959b7dc20e82add024d23aa3d hash imagen b7a2de705d9e9eab audio 45eb366a6ffe58aa  # Ninja Gaiden (USA).nes
+d529e7fb2ba1aeefd7f7a5258b53732461f85ba0 hash imagen b66ba39a72f037b3 audio 15a00edd22e0fb62  # Nintendo World Cup (USA).nes
+e5f893a247fee3fa24e5d32129aec53f07304cbb hash imagen ed28dc05ec35d81d audio 6dba6e8482a9e202  # Parodius Da! (Japan).nes
+b5eb3572fca1fb005ba00c45eebaa9754c3fa4cb hash imagen 9a8afbe4ede126f7 audio 6b04647c5c0c9e8d  # Rad Racer (USA).nes
+dcbb5b66e27ba66d90a3f11d35fb968a63033e8f hash imagen f72cdeb5e3bbe334 audio b0cec7927a05a43d  # Robo Warrior (USA).nes
+222e19511d64872e0b47a47d77ecc9bb3ebc52dc hash imagen 931ee9ad56519914 audio fad57fc339b99502  # Solomon's Key (USA).nes
+4cf5d092693e94bbf7afd3e15e05cc580ca33df2 hash imagen e82e8bed78a861a9 audio 8e0853d2bc07dd26  # Star Wars - The Empire Strikes Back (USA).nes
+74c53fe9ac779f146c59ac01e701c9bf912b3c7b hash imagen c25836e69771bd78 audio abbe19be1ac663f4  # StarTropics (USA).nes
+facee9c577a5262dbe33ac4930bb0b58c8c037f7 hash imagen c571d1d8ab825db2 audio b6de307ca62f57d7  # Super Mario Bros. (World).nes
+a611b90b4833b20a364bf06ee3be3b9093ea4df9 hash imagen 96a9e9862437fdd9 audio 3f8f6340fa47e6da  # Super Mario Bros. 3 (USA).nes
+993f0daf561292831a65164cdc71bf4380d59513 hash imagen 0cef661330723e57 audio 21ee264fcd4c2b76  # Teenage Mutant Ninja Turtles (Japan).nes
+b239c2d48e84ca676dee4461d4d6a1f77f34255d hash imagen 28dcc88a8ebf922d audio 254c5d89a492dce5  # Teenage Mutant Ninja Turtles (USA).nes
+dee9cf8dcc91de3f9c65181a07e7e84f7570363d hash imagen a43388cdbe3d2647 audio 865c8f8296adbb43  # Teenage Mutant Ninja Turtles II - The Arcade Game (USA).nes
+fd9079cb5e8479eb06d93c2ae5175bfce871746a hash imagen 839b68cbbdbc68f2 audio c686e5b2a266abea  # Tetris (USA).nes
+3c011e4ea5eb7e93299347f8009e5bdf51e223eb hash imagen 940e50dda75a0bc4 audio 69aaa379cc14fe34  # Tiny Toon Adventures (USA).nes
+be4ef2b1260cbd0743b074bf3fc1d266c504d72d hash imagen b078579c93e9e003 audio 316883ca2bcb542b  # Tiny Toon Adventures 2 - Trouble in Wackyland (USA).nes
+2b1c7c4871ffe07639c75c1861ae8ca0f7638c60 hash imagen b2706d058e193605 audio 6a4c896237f703e8  # Wai Wai World 2 - SOS!! Parsley Jou (Japan).nes
+c8895753a379903f7b06f1d4a5cfb654f53390bb hash imagen 21eee7f2bd8e95f1 audio 5a8d68fe9903deb9  # Who Framed Roger Rabbit (USA).nes
+4131307f0f69f2a5c54b7d438328c5b2a5ed0820 hash imagen d92cc6fbad74e5be audio 003bac96d3248842  # nestest.nes
+cba7fd964f05e0112b93c96a0303249328fb623e hash imagen d671c906048564ca audio 60d473e1910ea972  # 1-len_ctr.nes
+d6a82a81ab7bcfc5a14bb1d2d43231bf587d9657 hash imagen b01b7e42e3330e7a audio f91603dbdca5e1ae  # 7-dmc_basics.nes
+95d141cbbb6184537649b4f3b3e3009edd6cd597 hash imagen 738ce0206713f045 audio af248ec7949e8653  # 05-nmi_timing.nes
+ce6e814f3f3dee80e813a280deae227c2038fb85 hash imagen bbf955b3411fe1ea audio 17df644e93c4d890  # 09.timing_basics.nes
+400109b056c76314739d0ae8cc047163ef85047d hash imagen be7beafdddfd2daa audio d34061d831b5f38c  # 3-A12_clocking.nes
+07d361a75b3d445607667a114c581d9a594958ff hash imagen b8d6a6e1edcdbf92 audio 967fe53e553d3e61  # PCM.demo.wgraphics.nes
+6ed3c1626976dadd16e36b22702bde382ec46c56 hash imagen cd932d2855301392 audio f1d5fdd4d63d35a5  # SimpleParallaxDemo.nes

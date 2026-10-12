@@ -1,47 +1,40 @@
 #!/bin/sh
-# Línea base exacta: hash de la imagen final y de todo el audio de varios juegos y ROMs de prueba.
-# Una optimización no debe cambiar ni un byte.
-#   tests/golden.sh            compara con tests/golden.txt
-#   tests/golden.sh --update   reescribe tests/golden.txt con el estado actual
+# Línea base exacta: hash de todos los cuadros y de todo el audio (nesshot --hash) de cada ROM de
+# roms/ y de las pruebas libres. Una optimización no debe cambiar ni un bit.
+#   sh tests/golden.sh            compara con tests/golden.txt (solo los casos que se pueden correr)
+#   sh tests/golden.sh --update   reescribe tests/golden.txt con el estado actual
+# Los casos se nombran por el SHA1 de la ROM sin la cabecera iNES (el de No-Intro: no cambia con el
+# nombre del archivo ni con la cabecera). Con GOLDEN_SHOT=ruta se usa otro nesshot.
 cd "$(dirname "$0")/.." || exit 1
+exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
+SHOT=${GOLDEN_SHOT:-$(exe nesshot)}
 T=testroms/nes-test-roms
-mkdir -p build/gold
-OUT=build/gold/now.txt
+OUT=build/gold.txt
+mkdir -p build
 : > $OUT
-A1="start:120-125 right:400-3000 a:500-520 a:700-720 a:900-920 a:1100-1120"
-md5f() {    # md5 de un archivo (macOS: md5; Linux y MSYS2: md5sum)
-    if command -v md5 >/dev/null 2>&1; then md5 -q "$1"; else md5sum "$1" | cut -d' ' -f1; fi
+sha1() {    # SHA1 de la ROM sin los 16 bytes de cabecera (macOS: shasum; Linux y MSYS2: sha1sum)
+    if command -v sha1sum >/dev/null 2>&1; then tail -c +17 "$1" | sha1sum | cut -d' ' -f1
+    else tail -c +17 "$1" | shasum | cut -d' ' -f1; fi
 }
-one() {     # rom nombre cuadros [botones...]
-    rom="$1"; name="$2"; fr="$3"; shift 3
-    [ -f "$rom" ] || return
-    ./nesshot "$rom" build/gold/$name.png "$fr" "$@" >/dev/null 2>&1
-    ./nesaudio "$rom" build/gold/$name.wav "$fr" "$@" >/dev/null 2>&1
-    printf "%s img %s aud %s\n" "$name" "$(md5f build/gold/$name.png)" "$(md5f build/gold/$name.wav)" >> $OUT
-}
-one "roms/Super Mario Bros. (Japan, USA).nes" smb 1500 $A1
-one "roms/Super Mario Bros. 3 (U) (PRG0) [!].nes" smb3 1800 start:300-305 start:400-405 a:500-505 start:600-605 right:1000-1010 up:1100-1110 a:1300-1305 a:1400-1405 right:1500-1800
-one "roms/Contra (U) [!].nes" contra 1500 start:300-305 start:400-405 right:600-1500 a:700-710 a:900-910
-one "roms/Castlevania (U) (PRG0) [!].nes" cv 1500 start:300-305 start:400-405 right:600-1500 a:700-710
-one "roms/Megaman 1(U) [!].nes" mm 1500 start:300-305 start:400-405 a:500-505 right:600-1500 a:700-710
-one "roms/Legend of Zelda, The (U) (PRG0) [!].nes" zelda 1500 start:300-305 start:400-405 a:500-505 start:600-605 a:700-705 a:800-805
-one "roms/Arkanoid (USA).nes" ark 900 start:200-205 a:300-305
-one "roms/Donkey Kong (U) (PRG1) [!p].nes" dk 900 start:200-205 a:300-305 right:400-900
-one $T/other/nestest.nes nestest 300
-one $T/apu_test/rom_singles/1-len_ctr.nes apu1 200
-one $T/apu_test/rom_singles/7-dmc_basics.nes apu7 400
-one $T/ppu_vbl_nmi/rom_singles/05-nmi_timing.nes vbl5 200
-one $T/sprite_hit_tests_2005.10.05/09.timing_basics.nes sh9 200
-one $T/mmc3_test_2/rom_singles/3-A12_clocking.nes mmc3 200
-one $T/other/PCM.demo.wgraphics.nes pcm 600
-one $T/other/SimpleParallaxDemo.nes parallax 400
+IN="--seed 1 start:120-125 start:300-305 start:600-605"
+for r in roms/*.nes $T/other/nestest.nes $T/apu_test/rom_singles/1-len_ctr.nes \
+         $T/apu_test/rom_singles/7-dmc_basics.nes $T/ppu_vbl_nmi/rom_singles/05-nmi_timing.nes \
+         $T/sprite_hit_tests_2005.10.05/09.timing_basics.nes $T/mmc3_test_2/rom_singles/3-A12_clocking.nes \
+         $T/other/PCM.demo.wgraphics.nes $T/other/SimpleParallaxDemo.nes; do
+    [ -f "$r" ] || continue
+    sha=$(sha1 "$r")
+    h=$("$SHOT" "$r" /dev/null --frames 1800 $IN --hash 2>/dev/null | grep "^hash")
+    [ -n "$h" ] || h="hash error"
+    printf "%s %s  # %s\n" "$sha" "$h" "$(basename "$r")" >> $OUT
+done
 if [ "$1" = "--update" ]; then cp $OUT tests/golden.txt; echo "tests/golden.txt actualizado ($(wc -l < $OUT) casos)"; exit 0; fi
-if [ "$(cat tests/golden.txt)" = "$(cat $OUT)" ]; then echo "golden: igual ($(wc -l < $OUT) casos)"; else
-    # Solo se comparan los casos que se pudieron correr (faltan los juegos de roms/ que no tengas)
-    bad=0
-    while read -r name rest; do
-        want=$(grep "^$name " tests/golden.txt)
-        [ "$want" = "$name $rest" ] || { echo "DIFERENTE: $name"; echo "  esperado: $want"; echo "  ahora:    $name $rest"; bad=1; }
-    done < $OUT
-    [ $bad = 0 ] && echo "golden: igual en los $(wc -l < $OUT) casos que se pudieron correr (de $(wc -l < tests/golden.txt))" || { echo "golden: DIFERENTE"; exit 1; }
-fi
+bad=0; n=0
+while read -r sha rest; do
+    n=$((n + 1))
+    want=$(grep "^$sha " tests/golden.txt | sed 's/  #.*//')
+    now=$(echo "$sha $rest" | sed 's/  #.*//')
+    if [ -z "$want" ]; then echo "(nuevo: $rest)"; continue; fi
+    [ "$want" = "$now" ] || { echo "DIFERENTE: ${rest#*# }"; echo "  esperado: $want"; echo "  ahora:    $now"; bad=1; }
+done < $OUT
+if [ $bad = 0 ]; then echo "golden: igual en los $n casos que se pudieron correr (de $(wc -l < tests/golden.txt))"
+else echo "golden: DIFERENTE"; exit 1; fi

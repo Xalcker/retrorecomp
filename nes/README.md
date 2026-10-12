@@ -241,7 +241,7 @@ las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp) (`--frames`,
 dos repos) comprueba que las herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé
 la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` igual a `boton:desde-hasta`); el CI la corre en cada PR (`.github/workflows/ci.yml`, como en GBRecomp). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
 
-`tests/golden.sh` compara el hash de imagen y audio de varios casos con una línea base; `tests/coverage.sh` mide la cobertura del análisis estático.
+`tests/golden.sh` compara el hash de todos los cuadros y del audio de cada juego de `roms/` y de las ROMs de prueba con una línea base (`tests/golden.txt`, por SHA1 de la ROM); `tests/coverage.sh` mide la cobertura del análisis estático.
 
 ## Estructura
 

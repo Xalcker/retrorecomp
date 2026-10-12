@@ -53,7 +53,8 @@ en el ciclo siguiente no latchea el control.
 ### Rendimiento: ejecución perezosa
 
 La PPU y el APU no avanzan en cada ciclo de CPU sino cuando hace falta; el resultado es idéntico bit a bit
-(`tests/golden.sh` compara el hash de la imagen y del audio de 16 casos con una línea base).
+(`tests/golden.sh` compara el hash de todos los cuadros y de todo el audio de cada juego de `roms/` y de
+varias ROMs de prueba con una línea base).
 
 - **PPU** (`ppu_sync`): avanza cuando el CPU toca sus registros, un registro del mapper o el DMA de OAM, y
   cuando va a pasar algo visible desde fuera (bandera de vblank, fin de cuadro: `event_dot`). En las líneas
@@ -365,12 +366,9 @@ abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferen
 
 ### Línea base para optimizar el runtime
 
-`tests/golden.sh` corre varios juegos y ROMs de prueba con entradas fijas y compara el hash de la
-imagen final y de todo el audio con `tests/golden.txt`: una optimización no debe cambiar ni un byte
-(`--update` reescribe la línea base). Es lo que respalda la ejecución perezosa de la PPU y el APU
-(ver "Rendimiento: ejecución perezosa").
-
-`nesshot --hash` imprime un hash de todos los cuadros y de todo el audio, como `gbtest --hash`, que
-es lo que usa el `golden.sh` de GBRecomp. El de NES todavía compara el md5 de la captura final y del
-WAV (`nesshot` y `nesaudio`); pasarlo a `--hash` cambia `tests/golden.txt`, así que hay que
-regenerarlo con todos los juegos de `roms/` a la mano.
+`tests/golden.sh` corre cada juego de `roms/` y varias ROMs de prueba 1800 cuadros con las mismas entradas
+(`--seed 1` y Start en tres momentos) y compara `nesshot --hash` (un hash de todos los cuadros y de todo el
+audio) con `tests/golden.txt`: una optimización no debe cambiar ni un bit (`--update` reescribe la línea
+base). Es lo que respalda la ejecución perezosa de la PPU y el APU (ver "Rendimiento: ejecución perezosa").
+Cada caso se nombra por el SHA1 de la ROM sin la cabecera iNES (el de No-Intro), así que no importa cómo se
+llame el archivo; los juegos que no tengas se omiten. Es el mismo esquema que el `golden.sh` de GENRecomp.

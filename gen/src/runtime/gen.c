@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "gen.h"
+#include "trace_line.h"
 #include "sha1.h"
 
 /* Región para el registro de versión: se prefiere EE. UU. (NTSC, en inglés); si el cartucho solo
@@ -164,10 +165,10 @@ int gen_trace_load(Gen *g, const char *path)
     FILE *f = fopen(path, "r");
     if (!f) return 0;
     gen_trace_start(g);
-    unsigned off, addr;
+    unsigned long off, addr;
     char line[128];
     while (fgets(line, sizeof line, f))
-        if (sscanf(line, "%x:%x", &off, &addr) == 2 && off < g->cart.rom_size && !g->trace[off >> 1])
+        if (trace_line_read(line, GEN_TRACE_SHIFT, &off, &addr) && off < g->cart.rom_size && !(off & 1) && !g->trace[off >> 1])
             g->trace[off >> 1] = 0x80000000u | (addr & 0xFFFFFF);
     fclose(f);
     return 1;
@@ -179,7 +180,7 @@ int gen_trace_write(const Gen *g, const char *path)
     FILE *f = fopen(path, "w");
     if (!f) return 0;
     for (size_t i = 0; i < g->cart.rom_size / 2; i++)
-        if (g->trace[i]) fprintf(f, "%06X:%06X\n", (unsigned)(i * 2), g->trace[i] & 0xFFFFFF);
+        if (g->trace[i]) trace_line_write(f, GEN_TRACE_SHIFT, 6, i * 2, g->trace[i] & 0xFFFFFF);
     return fclose(f) == 0;
 }
 

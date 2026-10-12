@@ -252,8 +252,9 @@ int  gen_sram_load(Gen *g, const char *path);  /* 1 si se cargó; 0 si no aplica
 int  gen_sram_save(Gen *g, const char *path);
 int  gen_sram_dirty(const Gen *g);
 
-/* Traza: qué instrucciones de ROM ejecutó el intérprete (líneas "OFFSET:DIRECCION" en hexadecimal,
- * lo que lee genrecomp --trace) */
+/* Traza: qué instrucciones de ROM ejecutó el intérprete (líneas "BANCO:DIRECCION" de trace_line.h,
+ * lo que lee genrecomp --trace; también se leen las viejas "DESPLAZAMIENTO:DIRECCION") */
+#define GEN_TRACE_SHIFT 19      /* bancos de la traza: ventanas de 512 KB, las del mapper de SSF2 */
 void gen_trace_start(Gen *g);
 int  gen_trace_load(Gen *g, const char *path);  /* suma lo de una traza anterior; 1 si se leyó */
 int  gen_trace_write(const Gen *g, const char *path);

@@ -1,6 +1,6 @@
 /*
  * gentrace: corre una ROM sin ventana y guarda qué instrucciones de ROM ejecutó (líneas
- * "OFFSET:DIRECCION" en hexadecimal) para guiar a genrecomp.
+ * "BANCO:DIRECCION" en hexadecimal, runtime/trace_line.h) para guiar a genrecomp.
  *   gentrace rom.bin traza.txt [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
  * Con varias corridas se pueden juntar trazas (genrecomp acepta --trace varias veces).
  */

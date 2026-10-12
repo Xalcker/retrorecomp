@@ -99,8 +99,11 @@ genrecomp juego.bin [--info]
 ```
 
 `--trace` lee las trazas de `gentrace`, de la ventana con `--trace` y de `difftest --uncovered`: una
-línea `OFFSET:DIRECCION` en hexadecimal por instrucción de ROM ejecutada (el desplazamiento en la ROM
-normalizada y la dirección del 68000 con la que se ejecutó; con SSF2 pueden no coincidir). Las marca
+línea `BANCO:DIRECCION` en hexadecimal por instrucción de ROM ejecutada, el mismo formato que NESRecomp y
+GBRecomp (`src/runtime/trace_line.h`, idéntico en los tres). El banco es el desplazamiento en la ROM
+normalizada dividido entre 512 KB (las ventanas del mapper de SSF2) y la dirección es la del 68000 con la
+que se ejecutó: `01:0A1234` es el desplazamiento `01 × $80000 + ($0A1234 & $7FFFF)` = `$0A1234` (sin SSF2
+los dos coinciden). Se siguen leyendo las trazas viejas, `DESPLAZAMIENTO:DIRECCION` con 6 dígitos. Las marca
 el intérprete (`g->trace`). `--coverage` dice cuántas instrucciones de una traza se encontraron.
 
 ### Identidad de las instrucciones
@@ -163,7 +166,7 @@ Las mismas que `nesrecomp`, con los mismos formatos:
 
 - `--coverage traza`: cuántas instrucciones de la traza encontró el análisis sin ella, y las que
   faltan (las primeras 12; todas con `--verbose`).
-- `--why OFFSET`: la cadena desde un punto de entrada (vector, traza, tabla...) hasta esa instrucción.
+- `--why BB:DIRECCION` (o el desplazamiento en la ROM): la cadena desde un punto de entrada (vector, traza, tabla...) hasta esa instrucción.
 - `--viz [--color]`: mapa de la ROM en la terminal, coloreado por origen (flujo, traza, tabla,
   especulativo; en rojo, con `--coverage`, lo ejecutado y no descubierto).
 - `--html archivo`: el mismo mapa en una página sola, con las instrucciones de cada celda y el "por

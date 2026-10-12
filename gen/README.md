@@ -110,9 +110,9 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
 | `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
-| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why OFFSET] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `sh tests/coverage.sh` lo mide con todas las ROMs de `roms/`. |
+| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `sh tests/coverage.sh` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
-| `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `OFFSET:DIRECCION`). |
+| `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp y GBRecomp). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
 | `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
 | `genbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |

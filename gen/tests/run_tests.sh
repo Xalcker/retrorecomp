@@ -114,7 +114,15 @@ an=0
 "$G" "$R" --events build/tests/minima.events >/dev/null && grep -q "^000200 000200 vector - flujo desde los vectores bra.s \$200" build/tests/minima.events || { echo "FALLA genrecomp --events"; an=1; }
 "$G" "$R" --html build/tests/minima.html >/dev/null && grep -q '"ins":\[' build/tests/minima.html || { echo "FALLA genrecomp --html"; an=1; }
 "$G" "$R" --dis 200:200:1 | grep -q "bra.s \$200" || { echo "FALLA genrecomp --dis"; an=1; }
-if [ $an -eq 0 ]; then echo "ok    genrecomp --why, --viz, --codemap, --events, --html y --dis"; else fallas=$((fallas + 1)); fi
+# Traza BANCO:DIRECCION (trace_line.h) y la vieja DESPLAZAMIENTO:DIRECCION se leen igual
+"$(exe gentrace)" "$R" build/tests/minima.trace --frames 10 >/dev/null 2>&1
+tr -d '\r' < build/tests/minima.trace | while IFS=: read -r b a; do
+    printf "%06X:%s\n" $(( (0x$b << 19) | (0x$a & 0x7FFFF) )) "$a"
+done > build/tests/minima_vieja.trace
+grep -q "^00:000200" build/tests/minima.trace \
+    && [ "$("$G" "$R" --coverage build/tests/minima.trace)" = "$("$G" "$R" --coverage build/tests/minima_vieja.trace)" ] \
+    && [ "$("$G" "$R" --why 00:000200)" = "$("$G" "$R" --why 200)" ] || { echo "FALLA traza BANCO:DIRECCION"; an=1; }
+if [ $an -eq 0 ]; then echo "ok    genrecomp --why, --viz, --codemap, --events, --html, --dis y la traza vieja"; else fallas=$((fallas + 1)); fi
 tiempo "herramientas de análisis"
 
 # Las ROMs de roms/ (tuyas, no se versionan): genrecomp --info no debe fallar con ninguna

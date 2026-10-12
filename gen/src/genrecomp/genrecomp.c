@@ -42,6 +42,7 @@
 
 #include "m68k_ops.h"
 #include "console.h"
+#include "trace_line.h"
 #include "embedded.h"
 #include "dis68k.h"
 
@@ -60,9 +61,9 @@ static const char usage_text[] =
     "                     --trace y difftest --uncovered); se agregan como entradas (se puede repetir)\n"
     "  --coverage archivo compara lo descubierto sin traza con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron y cuáles faltan\n"
-    "  --why OFFSET       explica por qué esa instrucción (desplazamiento hexadecimal en la ROM) se tomó\n"
-    "                     como código: la cadena de saltos y tablas desde un punto de entrada (se puede\n"
-    "                     repetir; sin -o no genera el proyecto)\n"
+    "  --why BB:DIRECCION explica por qué esa instrucción (banco y dirección como en la traza, o su\n"
+    "                     desplazamiento hexadecimal en la ROM) se tomó como código: la cadena de saltos\n"
+    "                     y tablas desde un punto de entrada (se puede repetir; sin -o no genera el proyecto)\n"
     "  --viz              mapa de la ROM en la terminal, coloreado por cómo se descubrió (con\n"
     "                     --coverage, en rojo lo que el juego ejecutó y no se encontró)\n"
     "  --color            con --viz, colorea aunque la salida no sea una terminal (lo usa la GUI)\n"
@@ -713,7 +714,16 @@ static void seed_vectors(void)
     }
 }
 
-/* Traza "OFFSET:DIRECCION" (hexadecimal) */
+#define TRACE_SHIFT 19      /* bancos de la traza: ventanas de 512 KB (GEN_TRACE_SHIFT del runtime) */
+
+/* --why: "BB:DIRECCION" como en la traza, o el desplazamiento en la ROM */
+static u32 why_arg(const char *arg)
+{
+    unsigned long off, addr;
+    return (u32)(trace_line_read(arg, TRACE_SHIFT, &off, &addr) ? off : strtoul(arg, NULL, 16));
+}
+
+/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION") */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -721,7 +731,7 @@ static void load_trace(const char *path)
     char line[128];
     unsigned long off, addr;
     while (fgets(line, sizeof line, f))
-        if (sscanf(line, "%lx:%lx", &off, &addr) == 2 && off < rom_size && !(off & 1)) {
+        if (trace_line_read(line, TRACE_SHIFT, &off, &addr) && off < rom_size && !(off & 1)) {
             if (!is_ins[off >> 1]) stat_trace++;
             seed((u32)off, (u32)addr & 0xFFFFFF, HOW_TRACE);
         }
@@ -738,7 +748,7 @@ static void coverage_report(const char *path)
     unsigned long off, addr;
     unsigned total = 0, found = 0, shown = 0;
     while (fgets(line, sizeof line, f)) {
-        if (sscanf(line, "%lx:%lx", &off, &addr) != 2 || off >= rom_size || (off & 1)) continue;
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr) || off >= rom_size || (off & 1)) continue;
         total++;
         if (is_ins[off >> 1]) { found++; continue; }
         missing_mark[off >> 1] = 1;
@@ -1315,7 +1325,7 @@ int main(int argc, char **argv)
             if (!strcmp(a, "--codemap")) { codemap_path = argv[++i]; continue; }
             if (!strcmp(a, "--why")) {
                 if (nwhy == 32) die("demasiados --why");
-                why_list[nwhy++] = (u32)strtoul(argv[++i], NULL, 16);
+                why_list[nwhy++] = why_arg(argv[++i]);
                 continue;
             }
             if (!strcmp(a, "--trace")) {

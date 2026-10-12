@@ -1,7 +1,7 @@
 #!/bin/sh
 # Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, la BIOS y neorecomp --info
 # (fase 0); el 68000 y el Z80 (fase 1); el bus, la BIOS y las interrupciones (fase 2); el LSPC y la
-# ventana (fase 3).
+# ventana (fase 3); el YM2610 y la mezcla (fase 4).
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -21,6 +21,7 @@ mkdir -p build/tests
 corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 corre "lspctest (capa fija, sprites, volteos, reducciones, pegajosos, prioridad, autoanimación, límite de 96, colores, por línea)" "$(exe lspctest)"
+corre "audiotest (FM, SSG con ruido y envolvente, ADPCM-A, ADPCM-B, banderas, temporizadores, ocupado)" "$(exe audiotest)"
 corre "bustest (mapa, vectores, P2, mandos, paleta, tarjeta, VRAM, contador de líneas, interrupciones, Z80, YM2610)" "$(exe bustest)"
 falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/basura.bin
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
@@ -100,9 +101,17 @@ for z in mslug:900 samsho2:1200 turfmast:2000; do
     if [ "${c:-0}" -ge 40 ]; then echo "ok    $r dibuja (cuadro $f: $c colores, build/shots/$r.png)"
     else echo "FALLA $r no dibuja (cuadro $f: ${c:-?} colores)"; fallas=$((fallas + 1)); fi
 done
+# Sonido: los tres juegos suenan (nivel por segundo de neorun --wav en los primeros 30 s)
+mkdir -p build/wav
+for r in mslug samsho2 turfmast; do
+    [ -f "roms/$r.zip" ] && [ -f roms/aes.zip ] || continue
+    m=$("$(exe neorun)" "roms/$r.zip" --frames 1800 --wav "build/wav/$r.wav" 2>/dev/null | awk '/^audio/ { if ($5 > m) m = $5 } END { print m + 0 }')
+    if [ "${m:-0}" -ge 300 ]; then echo "ok    $r suena (nivel máximo $m en 30 s, build/wav/$r.wav)"
+    else echo "FALLA $r no suena (nivel máximo ${m:-?})"; fallas=$((fallas + 1)); fi
+done
 if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
     ui=0
-    for m in 0 1 2 3 4; do
+    for m in 0 1 2 3 4 5; do
         "$(exe neo)" roms/mslug.zip --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
             && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
     done

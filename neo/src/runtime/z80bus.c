@@ -59,7 +59,7 @@ uint8_t z80_in(struct Neo *g, uint16_t port)
         g->nmi_pending = 0;
         nmi_update(g);
         return g->sound_cmd;
-    case 0x04: return ym_read(&g->ym, p & 3, g->z80_mclk);
+    case 0x04: return ym_read(g, p & 3, g->z80_mclk);
     case 0x08:
         g->z80_bank[p & 3] = (u8)(port >> 8);
         return 0;
@@ -72,7 +72,7 @@ void z80_out(struct Neo *g, uint16_t port, uint8_t v)
     u8 p = (u8)port;
     switch (p & 0x0C) {
     case 0x00: g->nmi_pending = 0; nmi_update(g); break;
-    case 0x04: ym_write(&g->ym, p & 3, v, g->z80_mclk); break;
+    case 0x04: ym_write(g, p & 3, v, g->z80_mclk); break;
     case 0x08: g->nmi_enabled = !(p & 0x10); nmi_update(g); break;
     default: g->sound_reply = v; break;
     }

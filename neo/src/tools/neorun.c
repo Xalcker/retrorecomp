@@ -11,9 +11,12 @@
  * --watch DIR (hexadecimal, en la RAM: $100000-$10FFFF) imprime el byte cada vez que cambia.
  * --card ARCHIVO mete una tarjeta de memoria (la carga si existe) y la guarda al terminar.
  * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
+ * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y su nivel por segundo; --mute M
+ *       silencia partes (bits 0-3 FM 1-4, 4 SSG, 5 ADPCM-A, 6 ADPCM-B; en hexadecimal).
  * --fix muestra la capa fija al final como texto: muchos juegos ponen su fuente en el código ASCII
  *       dentro de un bloque de 256 mosaicos (Metal Slug, en $300 + ASCII), así que se mira el byte bajo.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,7 +87,8 @@ int main(int argc, char **argv)
     Hold h[32]; int nh = 0;
     u32 watch[16]; int nw = 0; int wlast[16];
     int fix = 0;
-    const char *shot = NULL, *shots = NULL;
+    const char *shot = NULL, *shots = NULL, *wav = NULL;
+    unsigned mute = 0;
     long every = 60;
     for (int i = 1; i < argc; i++) {
         char name[16]; long f0, f1;
@@ -93,6 +97,8 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--card") && i + 1 < argc) card = argv[++i];
         else if (!strcmp(argv[i], "--fix")) fix = 1;
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
+        else if (!strcmp(argv[i], "--mute") && i + 1 < argc) mute = (unsigned)strtoul(argv[++i], NULL, 16);
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
@@ -109,7 +115,7 @@ int main(int argc, char **argv)
     }
     if (!rom || frames <= 0) {
         fprintf(stderr, "uso: neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR ...] [--fix]\n"
-                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]]\n"
+                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav [--mute M]]\n"
                         "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c d start select\n");
         return 2;
@@ -121,6 +127,16 @@ int main(int argc, char **argv)
     const char *u = cart_unsupported(&g->cart, &fatal);
     if (u) { fprintf(stderr, "%s%s\n", fatal ? "no se puede correr: " : "aviso: ", u); if (fatal) return 1; }
     if (card) { neo_card_insert(g, card); printf("tarjeta de memoria: %s\n", card); }
+    g->audio.mute = (u8)mute;
+    FILE *wf = NULL;
+    u32 wav_bytes = 0;
+    double sec_sum = 0; long sec_n = 0, sec = 0;
+    if (wav) {
+        wf = fopen(wav, "wb");
+        if (!wf) { fprintf(stderr, "no se pudo crear %s\n", wav); return 1; }
+        static const u8 hdr[44] = { 0 };
+        fwrite(hdr, 1, 44, wf);
+    }
 
     for (long f = 0; f < frames; f++) {
         u16 pad = 0;
@@ -129,6 +145,21 @@ int main(int argc, char **argv)
         last_frame = f == frames - 1;
         g->lspc.frame_done = 0;
         m68k_run(g, after);
+        audio_end_frame(g);
+        {
+            static int16_t s[AUDIO_BINS * 2];
+            int n = neo_audio_take(g, s, AUDIO_BINS);
+            if (wf) {
+                fwrite(s, 4, (size_t)n, wf);
+                wav_bytes += (u32)n * 4;
+                for (int i = 0; i < n * 2; i++) sec_sum += (double)s[i] * s[i];
+                sec_n += n * 2;
+                if (sec_n >= AUDIO_RATE * 2) {
+                    printf("audio, segundo %3ld: nivel %5.0f\n", sec++, sqrt(sec_sum / (double)sec_n));
+                    sec_sum = 0; sec_n = 0;
+                }
+            }
+        }
         if (shots && every > 0 && (f + 1) % every == 0) {
             char path[1024];
             snprintf(path, sizeof path, "%s/%06ld.png", shots, f + 1);
@@ -171,6 +202,27 @@ int main(int argc, char **argv)
         if (!best) break;
         printf("  $%06X  %u%s\n", hpc[bi], best, hpc[bi] >= 0xC00000 && hpc[bi] < 0xD00000 ? "  (BIOS)" : "");
         hcount[bi] = 0;
+    }
+    if (wf) {
+        /* Cabecera RIFF/WAVE de 44 bytes (PCM, 2 canales, 16 bits) */
+        u8 h[44];
+        u32 rate = AUDIO_RATE;
+        memcpy(h, "RIFF", 4);
+        u32 v = 36 + wav_bytes; memcpy(h + 4, &v, 4);
+        memcpy(h + 8, "WAVEfmt ", 8);
+        v = 16; memcpy(h + 16, &v, 4);
+        u16 w = 1; memcpy(h + 20, &w, 2);
+        w = 2; memcpy(h + 22, &w, 2);
+        memcpy(h + 24, &rate, 4);
+        v = rate * 4; memcpy(h + 28, &v, 4);
+        w = 4; memcpy(h + 32, &w, 2);
+        w = 16; memcpy(h + 34, &w, 2);
+        memcpy(h + 36, "data", 4);
+        memcpy(h + 40, &wav_bytes, 4);
+        fseek(wf, 0, SEEK_SET);
+        fwrite(h, 1, 44, wf);
+        fclose(wf);
+        printf("sonido en %s (%.1f s)\n", wav, wav_bytes / 4.0 / AUDIO_RATE);
     }
     if (fix) print_fix(g);
     {

@@ -12,10 +12,10 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (temporizadores del YM2610), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `audio.c` (la mezcla), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h` (idéntico en los cuatro recompiladores). |
 | `src/neorecomp/` | El recompilador. Por ahora, `--info` y `--neo`. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (idéntico en los cuatro). |
-| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
+| `src/tools/` | `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`); diagnóstico: `neorun`; `embed`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
@@ -268,8 +268,44 @@ se salta de una vez hasta el destino o hasta que venza un temporizador.
 
 ### Audio
 
-Por ahora (`ym2610.c`) solo lo que el programa del Z80 necesita para andar: los registros, los
-temporizadores A (de a una muestra del FM) y B (de a 16), sus banderas y la IRQ. El sonido llega en la fase 4.
+- **YM2610** (`ym2610.c`): su reloj es un tercio del maestro (8 MHz). Una muestra del FM cada 144 ciclos
+  suyos (432 maestros: 55 944 Hz con el reloj del AES); en cada una se calculan el FM, 9 pasos del SSG, el
+  ADPCM-B y, cada 3, el ADPCM-A, y todo sale a la mezcla como un tramo de 432 ciclos maestros. Se pone
+  al día (`ym_run`) antes de cada escritura del Z80 y al terminar el cuadro.
+  - **FM:** el YM2612 de GENRecomp sin cambios (fase con detune, múltiplo y PM; envolvente con la tabla
+    del chip, escala por tecla, TL, AM y SSG-EG; seno logarítmico y exponencial; los 8 algoritmos y la
+    realimentación; panorama; LFO; canal 3 especial), sin DAC y con solo los 4 canales que existen (los 2,
+    3, 5 y 6 del OPNA; la tecla de los otros dos no hace nada). Los canales callados no se calculan.
+  - **SSG** (como el YM2149; wiki de NeoGeoDev, "SSG"): va a 500 kHz (8 MHz / 16, 9 pasos por muestra del
+    FM, promediados). El tono cambia cada TP pasos (TP = 568 da 440 Hz), el ruido (LFSR de 17 bits, bits
+    0 y 3) avanza cada 2 × NP y la envolvente da 32 pasos por periodo, uno cada EP, con las formas de
+    `$0D` (seguir, subir, alternar, quedarse). Volumen fijo de 4 bits (nivel 2v + 1) o el de la envolvente,
+    de 5 bits, en pasos de 1,5 dB. Sin signo: el pasa-altos de la mezcla le quita la continua.
+  - **ADPCM-A** (wiki, "ADPCM"): 6 canales a 18 518 Hz desde la V ROM del bus A, 4 bits por muestra con el
+    nibble alto primero; tabla de 49 pasos (16 a 1552), el índice cambia -1 -1 -1 -1 2 5 7 9 con los 3
+    bits bajos del nibble y el acumulador es de 12 bits (da la vuelta). Atenuación = (63 - volumen maestro)
+    + (31 - volumen del canal), en pasos de 0,75 dB. Al pasar su dirección de fin se calla y levanta su
+    bandera.
+  - **ADPCM-B:** un canal desde la V ROM del bus B (o la del A si el juego usa un solo bus); avanza Delta-N /
+    65 536 muestras por muestra del FM e interpola entre la anterior y la nueva; acumulador de 16 bits y
+    paso adaptativo (127-24 576, por 57, 57, 57, 57, 77, 102, 128 o 153 sesenta y cuatroavos). Volumen
+    lineal (`$1B`), repetición (`$10`, bit 4), bandera al terminar.
+  - **Banderas de fin** (puerto 6 del Z80: bits 0-5 ADPCM-A, bit 7 ADPCM-B): `$1C` con 1 las borra y las
+    enmascara; con 0, las desenmascara. **Ocupado** (bit 7 del estado) durante 32 ciclos internos (576
+    maestros) después de escribir un dato.
+  - **Temporizadores:** A (10 bits) de a una muestra del FM y B (8 bits) de a 16, sin llevarlos muestra a
+    muestra (se guarda cuándo vence cada uno: el Z80 los necesita para saber cuándo despertar de un
+    `HALT`); sus banderas y la IRQ.
+- **Mezcla** (`audio.c`, la de GENRecomp): cada muestra de salida (44 100 Hz, estéreo de 16 bits) es el
+  promedio de lo que sonó durante ella; después, un pasa-altos de ~10 Hz como el acople de la salida de la
+  consola. El tiempo real sale del reloj del AES (740 muestras por cuadro). Los niveles relativos de FM,
+  SSG, ADPCM-A y ADPCM-B son provisionales (los picos de los juegos de validación llegan a 10 000-12 000,
+  sin recortes) y se ajustarán con los oráculos.
+- **Pruebas:** `audiotest` maneja el chip como el Z80 y mide la afinación (FM y SSG a 440 Hz), el
+  panorama, silenciar, los canales que no existen, el volumen y el ruido del SSG, dos formas de la
+  envolvente, los primeros valores de una muestra de ADPCM-A (calculados a mano), el fin y su bandera con
+  la máscara, el ADPCM-B a dos velocidades y con repetición, los temporizadores y la bandera de ocupado.
+  `neorun --wav` guarda el sonido y su nivel por segundo (`--mute` silencia partes).
 
 ## Variantes de la consola y accesorios
 
@@ -290,6 +326,8 @@ AES). La barra de menús y los diálogos vienen de Moskva 89, GBRecomp, NESRecom
   de la consola), pausa, tarjeta de memoria (ponerla o sacarla; se guarda en `<juego>.tarjeta` al salir, al
   sacarla y cada 5 segundos si cambió).
 - **Video:** tamaños 1x-6x, pantalla completa, escala entera y aspecto 4:3.
+- **Audio:** sonido (Ctrl+M), volumen y silenciar cada parte (FM 1-4, SSG, ADPCM-A, ADPCM-B); en pausa, con
+  un menú abierto o en avance rápido, no suena.
 - **Exportar:** captura PNG (F12). **Idioma** y **Ayuda** (controles, este juego, acerca de).
 - **Controles:** jugador 1 con flechas, Z X C V = A B C D, Enter = Start, Mayús = Select; jugador 2 con
   I J K L, B N M , = A B C D, H = Start, G = Select; mandos con A B X Y = A B C D (el arco del mando del
@@ -299,8 +337,8 @@ AES). La barra de menús y los diálogos vienen de Moskva 89, GBRecomp, NESRecom
   guarda ahí. Carpeta de datos: `NEORecomp/interprete/` (con las preferencias y lo exportado).
 
 Opciones: `neo [juego] [--bios archivo] [--scale N]`. Para pruebas sin ventana: `--ui-shot archivo.png` con
-`--ui-frames N`, `--ui-menu N` y `--ui-action N`. El sonido llega en la fase 4; los estados guardados, la
-grabación de entradas y la traza, en la 5; el modo recompilado, en la 6.
+`--ui-frames N`, `--ui-menu N` y `--ui-action N`. Los estados guardados, la grabación de entradas y la traza
+llegan en la fase 5; el modo recompilado, en la 6.
 
 Icono: `NEOGEO.png` (el mando del AES, serie TriMui) de
 [KyleBing/retro-game-console-icons](https://github.com/KyleBing/retro-game-console-icons), CC BY 4.0; la
@@ -343,7 +381,7 @@ momento. Con los juegos de `roms/`: `neorecomp --info` y que `--neo` dé el
   `neo-epo.bin` y que su `000-lo.lo` sea la tabla calculada; `neogeo.zip` (MVS) no se acepta; y que Metal
 Slug arranque con la BIOS, llegue a la demo ("CREDITS 04" en la capa fija) y con Start empiece la partida;
 que los tres juegos de validación dibujen (40 colores o más), y que `neo` dibuje cada menú y cada diálogo sin
-ventana (`--ui-shot`).
+ventana (`--ui-shot`); y que suenen (`neorun --wav`).
 
 ## Estado de la validación
 
@@ -357,6 +395,8 @@ ventana (`--ui-shot`).
   selección de personaje, pelea con la cámara reducida) y Neo Turf Masters (título, menús, el hoyo con el
   campo en perspectiva, que usa el temporizador: unas 13 700 interrupciones en 4200 cuadros) se ven bien.
   Con el intérprete y el dibujo, 16-20 veces el tiempo real.
+- **Audio:** `audiotest`. Los tres juegos suenan: Metal Slug con FM y ADPCM-A, Samurai Shodown II también con
+  ADPCM-B y Neo Turf Masters además con el SSG. Con el sonido, 14-18 veces el tiempo real.
 - **Sin comprobar todavía con un oráculo:** la posición del VBLANK y de la recarga del temporizador en la
   línea, lo que leen `$300001` y `$320001` en el AES, el perro guardián (MAME no lo emula en el AES) y la
   dirección exacta del latch de bancos de P2.

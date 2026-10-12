@@ -16,6 +16,7 @@ typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef int8_t   s8;
 typedef int16_t  s16;
 
 /*
@@ -152,14 +153,91 @@ typedef struct {
     u64  frame;                     /* cuadros desde el reset */
 } Lspc;
 
-/* YM2610: por ahora los registros, los temporizadores, las banderas y la IRQ al Z80 (el sonido llega
- * en la fase 4) */
+/*
+ * YM2610 (ym2610.c): 4 canales FM, SSG, 6 canales de ADPCM-A y uno de ADPCM-B, más los temporizadores
+ * y la IRQ al Z80. El FM es el YM2612 de GENRecomp (los canales 2, 3, 5 y 6 del OPNA: índices 1, 2, 4
+ * y 5; el 0 y el 3 no existen).
+ */
 typedef struct {
-    u8   addr[2];                   /* registro elegido en cada mitad (puertos 4 y 6 del Z80) */
+    u32  phase;                 /* 20 bits */
+    int  env;                   /* atenuación 0-1023 */
+    u8   state;                 /* ataque, decaimiento, sostenido, relajación */
+    u8   key;
+    u8   dt, mul, tl, ks, ar, am, dr, sr, sl, rr, ssg;
+    u8   ssg_inv;               /* SSG-EG: la envolvente va invertida en este ciclo (modos que alternan) */
+    u8   kc;                    /* código de tecla (se recalcula tras escribir un registro) */
+    u32  inc;                   /* incremento de fase sin el LFO (ídem) */
+} YmOp;
+
+typedef struct {
+    YmOp op[4];                 /* S1 S2 S3 S4 (orden de modulación) */
+    u16  fnum;
+    u8   block, alg, fb, pan, ams, pms;
+    u8   latch;                 /* $A4-$A6: bits altos de fnum y bloque, que se aplican al escribir $A0-$A2 */
+    int  fb_out[2];             /* las dos últimas salidas de S1 (realimentación) */
+    int  out;                   /* última salida del canal (14 bits) */
+} YmCh;
+
+typedef struct {
+    u16  tcnt[3];               /* contadores de tono */
+    u8   tout[3];               /* salida de cada tono (0/1) */
+    u16  ncnt;
+    u32  lfsr;                  /* ruido: 17 bits */
+    u16  ecnt;                  /* envolvente: contador del periodo */
+    u8   estep;                 /* paso (0-31) */
+    u8   eatt, ehold;           /* dirección (1 = sube) y quieta */
+} Ssg;
+
+typedef struct {
+    u8   on;
+    u32  addr, end;             /* en nibbles: dirección actual y la última */
+    int  acc, step;             /* acumulador de 12 bits e índice de la tabla de pasos */
+} AdpcmA;
+
+typedef struct {
+    u8   on;
+    u32  addr;                  /* en nibbles */
+    u32  pos;                   /* fracción de 16 bits hacia la siguiente muestra */
+    int  acc, step, prev;       /* acumulador de 16 bits, paso, muestra anterior (se interpola) */
+} AdpcmB;
+
+typedef struct {
+    u8   addr[2];               /* registro elegido en cada mitad (puertos 4 y 6 del Z80) */
     u8   reg[2][256];
-    u8   flags;                     /* bit 0 temporizador A, bit 1 temporizador B */
-    u64  ta_at, tb_at;              /* ciclo maestro en que vence cada temporizador (NEVER: parado) */
+    u8   flags;                 /* bit 0 temporizador A, bit 1 temporizador B */
+    u64  ta_at, tb_at;          /* ciclo maestro en que vence cada temporizador (NEVER: parado) */
+    /* FM */
+    YmCh ch[6];
+    u16  fnum3[3];              /* canal 3 en modo especial: fnum de S1, S2, S3 */
+    u8   block3[3], latch3;
+    u8   dirty;                 /* se escribió un registro: recalcular kc e inc de los operadores */
+    u8   lfo_on, lfo_freq, lfo_step;
+    u16  lfo_cnt;
+    u32  eg_cnt;
+    u8   eg_sub;
+    /* SSG, ADPCM */
+    Ssg  ssg;
+    AdpcmA pa[6];
+    AdpcmB pb;
+    u8   pa_sub;                /* el ADPCM-A va cada 3 muestras del FM */
+    u8   end_flags;             /* fin de los ADPCM: bits 0-5 A, bit 7 B (se leen en el puerto 6) */
+    u8   end_mask;              /* las banderas que no se levantan ($1C) */
+    u64  busy_until;            /* ciclo maestro hasta el que el estado dice "ocupado" */
+    u64  mclk;                  /* ciclo maestro hasta el que se generó el sonido */
 } Ym2610;
+
+/* Audio (audio.c): el YM2610 mezclado a 44 100 Hz en estéreo de 16 bits */
+#define AUDIO_RATE 44100
+#define AUDIO_BINS 4096
+#define MCLK_HZ    24167829.0       /* el reloj maestro del AES (fija cuántas muestras salen por cuadro) */
+typedef struct {
+    float acc[AUDIO_BINS][2];   /* muestras de salida que se están formando (por promedio en el tiempo) */
+    u64  first;                 /* número de la primera de ellas */
+    int16_t buf[AUDIO_BINS * 2]; /* muestras listas (L R), para quien las tome */
+    int  n;
+    u8   mute;                  /* bits 0-3: FM 1-4, bit 4: SSG, bit 5: ADPCM-A, bit 6: ADPCM-B */
+    float hp_x[2], hp_y[2];     /* filtro pasa-altos de la salida (el acople de la consola) */
+} Audio;
 
 /* Tarjeta de memoria (la usa la BIOS del AES para guardar las partidas) */
 typedef struct {
@@ -201,6 +279,7 @@ typedef struct Neo {
     u8   nmi_pending, nmi_enabled, nmi_line;
     u32  sound_cmds;                /* comandos enviados (estadística) */
     Ym2610 ym;
+    Audio audio;
     u32  exc_count[64];             /* excepciones atendidas por vector (estadística) */
     u32 *trace;                     /* NULL, o por cada palabra de P y de la BIOS (neo_trace_index): 0 = no
                                        ejecutada; si no, $80000000 | dirección */
@@ -291,8 +370,13 @@ NEO_INL void z80_sync(Neo *g) { u64 m = g->cyc * MCLK_PER_M68K; if (g->z80_mclk 
 void sound_command(Neo *g, u8 v);       /* el 68000 escribe $320000 */
 void ym_reset(Ym2610 *y);
 void ym_update(Ym2610 *y, u64 mclk);    /* temporizadores hasta ese ciclo maestro */
-u8   ym_read(Ym2610 *y, int port, u64 mclk);
-void ym_write(Ym2610 *y, int port, u8 v, u64 mclk);
+void ym_run(Neo *g, u64 mclk);          /* el sonido hasta ese ciclo maestro */
+u8   ym_read(Neo *g, int port, u64 mclk);
+void ym_write(Neo *g, int port, u8 v, u64 mclk);
+void audio_reset(Neo *g);
+void audio_add(Neo *g, u64 t0, u64 t1, float l, float r);  /* un tramo constante de sonido */
+void audio_end_frame(Neo *g);           /* lleva el YM2610 al final del cuadro y suelta las muestras */
+int  neo_audio_take(Neo *g, int16_t *out, int max_frames);  /* muestras L R; devuelve cuántos pares */
 NEO_INL u64 ym_next_event(const Ym2610 *y) { return y->ta_at < y->tb_at ? y->ta_at : y->tb_at; }
 
 /* Tras cada instrucción del 68000 (intérprete y código generado): el LSPC solo si hay algo que hacer

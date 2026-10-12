@@ -10,7 +10,7 @@ línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`
 El modelo es GENRecomp: el mismo 68000 y el mismo Z80, validados con las SingleStepTests por los dos
 caminos. Se copian y se adaptan (el código es del mismo autor); la semántica del CPU no cambia.
 
-**Estado: fases 0 a 3 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 4 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto al Genesis
 
@@ -170,7 +170,11 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - Icono de la consola de KyleBing/retro-game-console-icons (CC BY 4.0, con su crédito); se busca el
     dibujo del Neo Geo en el repositorio.
   - `lspctest`, `neorun --shot/--shots`. Meta: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven bien.
-- [ ] **4. Audio.**
+- [x] **4. Audio.** Hecho: el YM2610 completo (el FM del YM2612 de GENRecomp con sus 4 canales; SSG con
+  ruido y envolvente; 6 canales de ADPCM-A; ADPCM-B con interpolación y repetición; banderas de fin con su
+  máscara; ocupado), la mezcla de GENRecomp a 44 100 Hz con el reloj del AES, el menú Audio y el sonido en
+  la ventana, `neorun --wav/--mute`, `audiotest`. Los tres juegos suenan. Pendiente de los oráculos: los
+  niveles relativos de FM, SSG y ADPCM y la duración de "ocupado".
   - Copia: `ym2612.c` como base del FM (4 canales, sin DAC), `audio.c` (mezcla a 44 100 Hz con
     pasa-altos) y el menú Audio.
   - Nuevo: SSG, ADPCM-A (tabla de pasos documentada) y ADPCM-B, las V ROM con sus dos buses. Desde el

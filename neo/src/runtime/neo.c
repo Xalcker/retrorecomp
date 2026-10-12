@@ -61,6 +61,7 @@ static void reset_common(Neo *g)
     g->sound_cmds = 0;
     ym_reset(&g->ym);
     m68k_reset(g);
+    audio_reset(g);
 }
 
 void neo_power_on(Neo *g)
@@ -98,6 +99,7 @@ void neo_run_frame(Neo *g)
 {
     g->lspc.frame_done = 0;
     m68k_run(g, frame_after);
+    audio_end_frame(g);
 }
 
 /* --- Tarjeta de memoria --- */

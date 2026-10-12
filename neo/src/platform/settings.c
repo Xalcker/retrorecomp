@@ -42,7 +42,7 @@ void settings_load(Settings *s, const char *path)
         else if (!strcmp(key, "aspect"))   s->aspect = atoi(value) != 0;
         else if (!strcmp(key, "integer"))  s->integer = atoi(value) != 0;
         else if (!strcmp(key, "card"))     s->card = atoi(value) != 0;
-        else if (!strcmp(key, "mute"))     s->mute = clamp(atoi(value), 0, 0xFFFF);
+        else if (!strcmp(key, "mute"))     s->mute = clamp(atoi(value), 0, 127);
         else if (!strcmp(key, "language")) snprintf(s->language, sizeof s->language, "%.2s", value);
     }
     fclose(f);

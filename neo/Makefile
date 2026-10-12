@@ -35,8 +35,9 @@ endif
 .DEFAULT_GOAL := all
 
 # Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1), la
-# consola, el bus, el LSPC sin imagen, el mapa del Z80 y los temporizadores del YM2610 (fase 2)
-RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c z80.c z80bus.c ym2610.c sha1.c
+# consola, el bus, el LSPC sin imagen, el mapa del Z80 y los temporizadores del YM2610 (fase 2), el
+# dibujo del LSPC (fase 3), el YM2610 y la mezcla (fase 4)
+RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c z80.c z80bus.c ym2610.c audio.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 
@@ -56,7 +57,7 @@ endif
 neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := neorecomp neorun neo carttest m68ktest z80test bustest lspctest
+PROGS := neorecomp neorun neo carttest m68ktest z80test bustest lspctest audiotest
 
 # SDL2 para el intérprete con ventana (neo). En Windows, enlazado de forma
 # estática para que el .exe no pida SDL2.dll.
@@ -74,6 +75,9 @@ carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 bustest$(EXE): src/tools/bustest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+
+audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 lspctest$(EXE): src/tools/lspctest.c $(RT)

@@ -1,11 +1,13 @@
 /*
  * gbtrace: corre una ROM con el intérprete, sin ventana, y guarda qué direcciones de ROM
- * ejecutó (líneas BB:AAAA en hexadecimal, el formato de --uncovered) para guiar a gbrecomp.
+ * ejecutó (líneas BB:AAAA en hexadecimal, runtime/trace_line.h, el formato común con NESRecomp
+ * y GENRecomp y el de --uncovered) para guiar a gbrecomp.
  *
  * Uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]
  * Con varias corridas se pueden juntar trazas (gbrecomp acepta --trace varias veces).
  */
 #include "cli.h"
+#include "../runtime/trace_line.h"
 
 #define MAX_BANKS 512
 static unsigned char *executed[MAX_BANKS];
@@ -46,7 +48,7 @@ int main(int argc, char **argv)
         if (!executed[b]) continue;
         for (u32 off = 0; off < 0x4000; off++) {
             if (!executed[b][off]) continue;
-            fprintf(o, "%02X:%04X\n", b, b == 0 ? off : 0x4000 + off);
+            trace_line_write(o, 14, 4, (unsigned long)b << 14 | off, b == 0 ? off : 0x4000 + off);
             n++;
         }
     }

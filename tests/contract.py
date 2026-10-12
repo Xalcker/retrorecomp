@@ -13,11 +13,11 @@ import retrorecomp_gui as rr  # noqa: E402
 
 COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
     "nes": {"nestrace": ("--frames", "--input", "--seed"), "nesshot": ("--frames", "--input", "--seed"),
-            "nesaudio": ("--frames", "--input", "--seed"), "nesbench": ("--frames", "--input", "--repeat")},
+            "nesaudio": ("--frames", "--input", "--seed"), "nesbench": ("--frames", "--input", "--repeat", "--seed")},
     "gb": {"gbtrace": ("--frames", "--input", "--seed"), "gbshot": ("--frames", "--input", "--seed"),
-           "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat")},
+           "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat", "--seed")},
     "gen": {"gentrace": ("--frames", "--input", "--seed"), "genshot": ("--frames", "--input", "--seed"),
-            "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat")},
+            "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat", "--seed")},
 }
 
 # Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed y

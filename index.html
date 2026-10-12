@@ -232,7 +232,7 @@ async function refresh(){
   $("#romsdir").textContent=Object.values(st.systems).map(x=>x.root).join("\n");
   applyCaps();
   renderRoms();
-  if(S.rom){S.traces=st.traces||[];renderTraces();renderInputs();renderSteps();$("#rDir").textContent=(S.sys==="gb"?"out/":"build/out/")+(st.project?.name||"")}
+  if(S.rom){S.traces=st.traces||[];renderTraces();renderInputs();renderSteps();$("#rDir").textContent="build/out/"+(st.project?.name||"")}
   renderJobs();
   const running=st.jobs.some(j=>j.status==="running");
   if(S.lastRunning&&!running&&S.rom){loadMap().catch(()=>{})}
@@ -276,7 +276,7 @@ function renderSteps(){
   const cv=an?.cov_pct;
   st_.push(["Cobertura",cv!=null?`${cv}%`:"sin medir",cv==null?"todo":(cv>=99?"ok":"bad"),cv||0,cv!=null?`${an.cov_total-an.cov_missing} de ${an.cov_total} direcciones halladas`:"elige una traza en «Cobertura»"]);
   st_.push(["Trazas",`${S.traces.length}`,S.traces.length?"ok":"todo",0,S.traces.reduce((a,t)=>a+t.lines,0)+" direcciones"]);
-  st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,(S.sys==="gb"?"out/":"build/out/")+(pj.name||"")]);
+  st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,"build/out/"+(pj.name||"")]);
   st_.push(["Compilado",pj.built?"sí":"no",pj.built?"ok":"todo",0,""]);
   const d=pr.difftest;
   st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_recomp??"?"}% recompilado`:""]);

@@ -2266,7 +2266,7 @@ static unsigned read_addr_list(const char *path, void (*fn)(u32 bank, u16 addr))
 }
 
 static unsigned cov_missing;
-static char cov_list[10][8];
+static char cov_list[10][16];    /* "BB:AAAA"; con 8 bytes se truncaba en ROMs de más de 4 MB (bancos desde $100) */
 
 static void coverage_addr(u32 bank, u16 addr)
 {

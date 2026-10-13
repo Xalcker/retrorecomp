@@ -819,6 +819,8 @@ class Job:
         self.status, self.rc = "running", None
         self.t0, self.t1 = time.time(), None
         self.proc, self.stopped, self.step_i = None, False, 0
+        self.step_rc = []
+        self.step_cmd = [" ".join(os.path.basename(a) if os.path.isabs(a) else a for a in st["argv"][:2]).replace(EXE, "") for st in steps]
 
     def emit(self, text):
         with lock:
@@ -852,6 +854,7 @@ class Job:
             except Exception as ex:  # noqa: BLE001
                 self.emit(f"error: {ex}\n")
                 rc = 127
+            self.step_rc.append(rc)
             if rc != 0:
                 break
         self.rc, self.t1 = rc, time.time()
@@ -887,7 +890,8 @@ class Job:
 
     def info(self):
         return {"id": self.id, "title": self.title, "rom": self.rid, "kind": self.kind, "status": self.status,
-                "rc": self.rc, "t0": self.t0, "t1": self.t1, "step": self.step_i, "steps": len(self.steps), "size": self.size}
+                "rc": self.rc, "t0": self.t0, "t1": self.t1, "step": self.step_i, "steps": len(self.steps), "size": self.size,
+                "step_list": [{"cmd": c, "rc": self.step_rc[i] if i < len(self.step_rc) else None} for i, c in enumerate(self.step_cmd)]}
 
 
 def start_job(title, steps, rid=None, kind="", cwd=None):

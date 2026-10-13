@@ -413,7 +413,7 @@ class NEO(GEN):
     tools = ("neorecomp", "neo", "neotrace", "neoshot", "neoaudio", "neobench", "neorun", "neoramdump")
     legend = ("flujo desde los puntos de entrada", "traza", "tabla de saltos", "especulativo (punteros sueltos)")
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
-            "game_frames": 1800}         # la BIOS del AES tarda unos 20 s en dejar el juego en su demo
+            "bios": True, "game_frames": 1800}        # la BIOS del AES tarda unos 20 s en dejar el juego en su demo
     mem = "P"
     map_note = "como --viz: una fila por cada 16 KB del programa (P); la celda es de 256 bytes, más grande si P pasa de 1 MB"
     input_note = "A B C D START SELECT RIGHT LEFT UP DOWN unidos con +; la segunda columna es el jugador 2"
@@ -817,6 +817,48 @@ PRESETS = {
 }
 
 
+# --------------------------------------------------------------------------- BIOS
+
+bios_path = [""]      # BIOS elegida en la GUI (Neo Geo); vacía = la búsqueda normal del runtime
+
+
+def bios_env():
+    """NEO_BIOS para los pasos y para jugar; solo si hay una BIOS elegida en la GUI y existe (la propia
+    se ensambla en un paso anterior del mismo trabajo)"""
+    return {"NEO_BIOS": bios_path[0]} if bios_path[0] and os.path.isfile(bios_path[0]) else {}
+
+
+BIOS_NAMES = ("aes.zip", "neo-epo.bin", "neo-po.bin", "neobios.bin")      # los de bios_find del runtime
+
+
+def bios_steps(sysm, rp):
+    """Pasos que ensamblan la BIOS propia (tools/neobios/asm68k.py, lo que hace make neobios) cuando no hay
+    ninguna: ni la elegida en la GUI, ni $NEO_BIOS, ni junto al juego o en roms/. La deja elegida en la GUI."""
+    if not sysm.caps.get("bios") or bios_path[0] or os.environ.get("NEO_BIOS"):
+        return []
+    for d in (os.path.dirname(rp), os.path.join(sysm.root, "roms"), "roms"):
+        if any(os.path.isfile(os.path.join(d, n)) for n in BIOS_NAMES):
+            return []
+    out = os.path.join(sysm.root, "build", "neobios.bin")
+    src = os.path.join(sysm.root, "tools", "neobios")
+    if not os.path.isfile(os.path.join(src, "asm68k.py")):
+        return []
+    bios_path[0] = out
+    if os.path.isfile(out):
+        return []
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    return [{"argv": [sys.executable, "-I", os.path.join(src, "asm68k.py"), os.path.join(src, "neobios.s"), out, "--swap",
+                      "--list", os.path.join(sysm.root, "build", "neobios.lst")], "cwd": sysm.root}]
+
+
+def set_bios(path):
+    path = (path or "").strip().strip('"')
+    if path and not os.path.isfile(path):
+        raise ValueError("no existe la BIOS: " + path)
+    bios_path[0] = os.path.abspath(path) if path else ""
+    return {"bios": bios_path[0]}
+
+
 # --------------------------------------------------------------------------- trabajos
 
 class Job:
@@ -854,6 +896,7 @@ class Job:
             self.emit(f"\n$ {strip(' '.join(shlex.quote(a) for a in st['argv']))}\n")
             try:
                 e = dict(os.environ)
+                e.update(bios_env())
                 e.update(st.get("env") or {})
                 argv, e = host_cmd(st["argv"], e)
                 self.proc = subprocess.Popen(argv, cwd=cwd, env=e, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -951,10 +994,11 @@ def make_job(p):
         if not all(sysm.tools_status().values()):
             steps.append({"argv": ["make", "-j8"], "cwd": sysm.root})
         if not proj["built"]:
+            steps += bios_steps(sysm, rp)
             steps += [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}, {"argv": ["make", "-C", pdir, "-j8"]}]
         return start_job(f"preparar {name}", steps, rid, "prepare", cwd)
     if kind == "recomp":
-        steps = [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
+        steps = bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
         if p.get("compile", True):
             steps.append({"argv": ["make", "-C", pdir, "-j8"]})
         return start_job(f"recompilar {name}", steps, rid, "recomp", cwd)
@@ -978,7 +1022,8 @@ def make_job(p):
         env = {"NOTRACE": "1"} if p.get("notrace") and sysm.caps["notrace"] else {}
         if inp:     # unas «Entradas» elegidas (p. ej. una partida grabada) sustituyen a las guionadas del ciclo
             env.update(INPUT_TRACE=posix_path(inp), INPUT_DIFFTEST=posix_path(inp))
-        return start_job(f"ciclo completo {name}", [{"argv": sysm.game_argv(rp, name, frames(6000)), "env": env}], rid, "recomp_game", cwd)
+        return start_job(f"ciclo completo {name}", bios_steps(sysm, rp) + [{"argv": sysm.game_argv(rp, name, frames(6000)), "env": env}],
+                         rid, "recomp_game", cwd)
     if kind in ("trace", "screenshot", "audio"):
         tn = safe_name(p.get("trace_name") or "guiada")
         out = {"trace": os.path.join(trace_dir(rid), (tn[:-6] if tn.endswith(".trace") else tn) + ".trace"),
@@ -1007,6 +1052,7 @@ def play(p):
     sysm, rp = rom_of(rid)
     proj = sysm.project(base_name(rid))
     env = dict(os.environ)
+    env.update(bios_env())
     trace = rec_in = None
     if p.get("record_trace"):
         os.makedirs(trace_dir(rid), exist_ok=True)
@@ -1112,7 +1158,7 @@ class Handler(BaseHTTPRequestHandler):
             st = {"systems": {s.id: {"label": s.label, "root": s.root, "git": s.git(), "tools": s.tools_status(), "caps": s.caps,
                                      "bench_tool": s.bench_tool, "trace_tool": s.trace_tool("trace"), "map_note": s.map_note, "input_note": s.input_note,
                                      "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
-                  "roms": list_roms(), "progress": load_state(),
+                  "roms": list_roms(), "progress": load_state(), "bios": bios_path[0],
                   "jobs": [j.info() for j in sorted(jobs.values(), key=lambda j: -j.id)[:30]]}
             if rid:
                 s, rp = rom_of(rid)
@@ -1166,6 +1212,8 @@ class Handler(BaseHTTPRequestHandler):
                     if j.proc:
                         j.proc.terminate()
                 return self._send(200, {"ok": True})
+            if path == "/api/bios":
+                return self._send(200, set_bios(p.get("path")))
             if path == "/api/play":
                 return self._send(200, play(p))
             if path == "/api/input":

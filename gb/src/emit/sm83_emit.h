@@ -66,6 +66,9 @@ struct Emit {
      * 8 bits de la instrucción (código que el juego copia a RAM y puede modificar después).
      */
     const char *imm8_expr;
+    /* Igual para el operando inmediato de 16 bits; un jp o call con ese operando salta a un
+     * destino que solo se conoce al ejecutar */
+    const char *imm16_expr;
 };
 
 /* Emite el cuerpo C de una instrucción. En modo intérprete, `op` es el

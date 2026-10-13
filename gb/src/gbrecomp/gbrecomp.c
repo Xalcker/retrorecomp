@@ -1388,7 +1388,67 @@ static void discover(void)
     }
 }
 
-/* Traza: líneas "BB:AAAA" (banco y dirección en hexadecimal) */
+/* Código que el juego ejecutó desde WRAM o HRAM, aprendido de la traza: una versión de una
+ * instrucción por línea, "ram DIRECCION BYTES" en hexadecimal (difftest --uncovered), con ??
+ * en los operandos que cambian entre ejecuciones. Se compila en emit_ram */
+typedef struct { u16 addr; u8 len; u8 bytes[3]; u8 vol; } RamObs;   /* vol: bit i = el byte i es variable */
+static RamObs *ram_obs;
+static size_t n_ram_obs, cap_ram_obs;
+
+/* Bytes de la instrucción que la identifican (el resto son operandos que pueden variar); ver
+ * ram_key_len en difftest.c */
+static unsigned ram_key_len(u8 op)
+{
+    switch (op) {
+    case 0x18: case 0x20: case 0x28: case 0x30: case 0x38: case 0xCB: return 2;
+    default: return 1;
+    }
+}
+
+static void ram_trace_line(const char *s)
+{
+    unsigned addr;
+    int used = 0;
+    if (sscanf(s, "%x%n", &addr, &used) != 1) return;
+    s += used;
+    u8 raw[3] = { 0, 0, 0 };
+    u8 vol = 0;
+    unsigned len = 0;
+    while (len < 3) {
+        while (*s == ' ') s++;
+        if (s[0] == '?' && s[1] == '?') {
+            vol |= (u8)(1u << len);
+            raw[len++] = 0;
+            s += 2;
+            continue;
+        }
+        unsigned v;
+        if (sscanf(s, "%x%n", &v, &used) != 1) break;
+        raw[len++] = (u8)v;
+        s += used;
+    }
+    if (len < 1 || (vol & 1)) return;    /* el opcode no puede ser variable */
+    int wram = addr >= 0xC000 && addr + len <= 0xE000;
+    int hram = addr >= 0xFF80 && addr + len <= 0xFFFF;
+    if (!wram && !hram) return;
+    Insn in;
+    sm83_decode(raw, (uint16_t)addr, &in);
+    if (in.len != len) return;    /* los bytes no son una instrucción completa */
+    for (unsigned i = 0; i < ram_key_len(raw[0]) && i < len; i++)
+        if (vol & (1u << i)) return;    /* el desplazamiento de un jr o el segundo byte de CB no varían */
+    if (n_ram_obs == cap_ram_obs) {
+        cap_ram_obs = cap_ram_obs ? cap_ram_obs * 2 : 256;
+        ram_obs = realloc(ram_obs, cap_ram_obs * sizeof *ram_obs);
+        if (!ram_obs) die("sin memoria");
+    }
+    RamObs *o = &ram_obs[n_ram_obs++];
+    o->addr = (u16)addr;
+    o->len = (u8)len;
+    memcpy(o->bytes, raw, sizeof o->bytes);
+    o->vol = vol;
+}
+
+/* Traza: líneas "BB:AAAA" (banco y dirección en hexadecimal) y "ram AAAA BYTES" */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -1400,6 +1460,10 @@ static void load_trace(const char *path)
     push_origin = ORG_TRACE;
     push_from_bank = EV_NONE;
     while (fgets(line, sizeof line, f)) {
+        if (strncmp(line, "ram ", 4) == 0) {
+            ram_trace_line(line + 4);
+            continue;
+        }
         if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
         if (bank >= nbanks || addr > 0x7FFF) continue;
         if (!in_region(bank, addr)) continue;
@@ -1410,6 +1474,7 @@ static void load_trace(const char *path)
     }
     fclose(f);
     printf("traza: %u puntos de entrada\n", n);
+    if (n_ram_obs) printf("traza: %zu instrucciones en WRAM/HRAM\n", n_ram_obs);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1941,6 +2006,328 @@ static void emit_hram(const char *dir)
     fclose(f);
 }
 
+/* Código que el juego copia a WRAM o HRAM y ejecuta desde ahí (manejadores de interrupción,
+ * trampolines de cambio de banco, saltos por vectores en RAM). No está en la ROM donde corre,
+ * así que se aprende de la traza (ram_obs). Cada versión de una instrucción es un nodo. Los
+ * nodos que van uno detrás de otro y no tienen ambigüedad forman un bloque, y cada bloque se
+ * compila con sus direcciones, como el código de ROM. Donde una dirección tiene varias versiones
+ * el bloque termina y el despachador elige la variante en ejecución. Un bloque se usa solo si
+ * los bytes de RAM siguen siendo los suyos (ram_match); los operandos marcados como variables no
+ * se comparan y se leen de RAM cuando la instrucción corre. Si el juego cambió el código, cae al
+ * intérprete. */
+#define RAM_MAXCHAIN 1024    /* instrucciones por bloque */
+#define RAM_MAXVER 8         /* versiones de una dirección que se aceptan; más es código generado */
+
+typedef struct {
+    size_t *node;            /* índices en ram_obs, en orden de dirección */
+    size_t n;
+    unsigned start, len;     /* primera dirección y bytes que cubre */
+} RamBlock;
+
+/* Orden por dirección y por lo que identifica la instrucción (opcode; en jr y CB, el segundo byte) */
+static int ram_obs_cmp(const void *a, const void *b)
+{
+    const RamObs *x = a, *y = b;
+    if (x->addr != y->addr) return x->addr < y->addr ? -1 : 1;
+    if (x->bytes[0] != y->bytes[0]) return x->bytes[0] < y->bytes[0] ? -1 : 1;
+    if (ram_key_len(x->bytes[0]) == 2 && x->bytes[1] != y->bytes[1]) return x->bytes[1] < y->bytes[1] ? -1 : 1;
+    return 0;
+}
+
+/* La misma instrucción vista en corridas distintas: los operandos que difieren pasan a ser variables */
+static void ram_merge(RamObs *into, const RamObs *from)
+{
+    for (unsigned i = ram_key_len(into->bytes[0]); i < into->len; i++)
+        if (into->bytes[i] != from->bytes[i]) into->vol |= (u8)(1u << i);
+    into->vol |= from->vol;
+}
+
+/* Primer nodo con dirección >= addr */
+static size_t ram_lower(size_t n, unsigned addr)
+{
+    size_t lo = 0, hi = n;
+    while (lo < hi) {
+        size_t mid = (lo + hi) / 2;
+        if (ram_obs[mid].addr < addr) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
+
+static int ram_block_has(const RamBlock *b, unsigned addr)
+{
+    for (size_t i = 0; i < b->n; i++)
+        if (ram_obs[b->node[i]].addr == addr) return 1;
+    return 0;
+}
+
+/* Saltos dentro del bloque van a su etiqueta; los demás salen al despachador */
+static void ram_jump(Emit *e, const char *expr, int is_const, uint16_t target)
+{
+    const RamBlock *b = e->user;
+    if (is_const && ram_block_has(b, target)) emit_line(e, "goto L_%04X;", target);
+    else emit_line(e, "c->pc = %s; return;", expr);
+}
+
+static void emit_ram_block(FILE *f, size_t bi, const RamBlock *b)
+{
+    /* Los bytes de la guarda y cuáles se comparan (los operandos variables no) */
+    fprintf(f, "static const u8 ram_b%zu_bytes[%u] = {", bi, b->len);
+    unsigned k = 0;
+    for (size_t i = 0; i < b->n; i++) {
+        const RamObs *o = &ram_obs[b->node[i]];
+        for (unsigned x = 0; x < o->len; x++, k++)
+            fprintf(f, "%s0x%02X", k % 16 ? ", " : k ? ",\n    " : " ", o->bytes[x]);
+    }
+    fprintf(f, " };\n");
+    fprintf(f, "static const u8 ram_b%zu_mask[%u] = {", bi, b->len);
+    k = 0;
+    for (size_t i = 0; i < b->n; i++) {
+        const RamObs *o = &ram_obs[b->node[i]];
+        for (unsigned x = 0; x < o->len; x++, k++)
+            fprintf(f, "%s%u", k % 32 ? ", " : k ? ",\n    " : " ", (o->vol >> x & 1) ? 0u : 1u);
+    }
+    fprintf(f, " };\n\n");
+
+    Emit e = { 0 };
+    e.f = f;
+    e.recomp = 1;
+    e.jump = ram_jump;
+    e.user = (void *)b;
+    fprintf(f, "static void ram_b%zu(GB *g)\n{\n    Cpu *c = &g->cpu;\n    switch (c->pc) {\n", bi);
+    for (size_t i = 0; i < b->n; i++) {
+        unsigned a = ram_obs[b->node[i]].addr;
+        fprintf(f, "    case 0x%04X: goto L_%04X;\n", a, a);
+    }
+    fprintf(f, "    default: gb_interp_step(g); return;\n    }\n");
+
+    for (size_t i = 0; i < b->n; i++) {
+        const RamObs *o = &ram_obs[b->node[i]];
+        Insn in;
+        char text[48], operand[160], lo[48], hi[48];
+        sm83_decode(o->bytes, o->addr, &in);
+        sm83_disasm(o->bytes, o->addr, text, sizeof text);
+        memcpy(e.b, o->bytes, sizeof e.b);
+        e.addr = o->addr;
+
+        /* Operandos variables: se leen de RAM cuando la instrucción corre */
+        e.imm8_expr = e.imm16_expr = NULL;
+        if (o->len == 2 && (o->vol & 2)) {
+            snprintf(operand, sizeof operand, "ram_peek(g, 0x%04X)", o->addr + 1);
+            e.imm8_expr = operand;
+        } else if (o->len == 3 && (o->vol & 6)) {
+            if (o->vol & 2) snprintf(lo, sizeof lo, "ram_peek(g, 0x%04X)", o->addr + 1);
+            else snprintf(lo, sizeof lo, "0x%02X", o->bytes[1]);
+            if (o->vol & 4) snprintf(hi, sizeof hi, "ram_peek(g, 0x%04X)", o->addr + 2);
+            else snprintf(hi, sizeof hi, "0x%02X", o->bytes[2]);
+            snprintf(operand, sizeof operand, "(u16)(%s | %s << 8)", lo, hi);
+            e.imm16_expr = operand;
+        }
+
+        fprintf(f, "L_%04X: /* %s */\n", o->addr, text);
+        fprintf(f, "    CHECK(0x%04X);\n", o->addr);
+        fprintf(f, "    {\n");
+        e.indent = "        ";
+        emit_insn(&e, e.b[0]);
+        fprintf(f, "    }\n");
+
+        if (in.kind == INS_HALT || in.kind == INS_STOP || sm83_ends_block(&in)) continue;
+        if (i + 1 == b->n) fprintf(f, "    c->pc = 0x%04X; return;\n", (unsigned)(o->addr + o->len));
+    }
+    fprintf(f, "}\n\n");
+}
+
+/* gen/ram.c: los bloques aprendidos de la traza y el lookup que los elige. Sin trazas de RAM,
+ * el lookup devuelve NULL y la RAM sigue en el intérprete. */
+static void emit_ram(const char *dir)
+{
+    FILE *f = open_out(dir, "gen/ram.c");
+    fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n#include <string.h>\n\n");
+
+    /* Una misma instrucción vista en varias corridas se fusiona (ram_merge). Las direcciones con
+     * demasiadas versiones son código que el juego genera con estructuras distintas y no se
+     * aprenden */
+    qsort(ram_obs, n_ram_obs, sizeof *ram_obs, ram_obs_cmp);
+    size_t kept = 0, generated = 0;
+    for (size_t i = 0; i < n_ram_obs;) {
+        size_t j = i + 1;
+        while (j < n_ram_obs && ram_obs_cmp(&ram_obs[i], &ram_obs[j]) == 0) ram_merge(&ram_obs[i], &ram_obs[j++]);
+        for (unsigned x = 1; x < ram_obs[i].len; x++)
+            if (ram_obs[i].vol >> x & 1) ram_obs[i].bytes[x] = 0;
+        ram_obs[kept++] = ram_obs[i];
+        i = j;
+    }
+    n_ram_obs = kept;
+    kept = 0;
+    for (size_t i = 0; i < n_ram_obs;) {
+        size_t j = i + 1;
+        while (j < n_ram_obs && ram_obs[j].addr == ram_obs[i].addr) j++;
+        if (j - i <= RAM_MAXVER) for (size_t x = i; x < j; x++) ram_obs[kept++] = ram_obs[x];
+        else generated += j - i;
+        i = j;
+    }
+    n_ram_obs = kept;
+    size_t n = n_ram_obs;
+
+    /* Bloques: cadenas de nodos que van uno detrás de otro sin ambigüedad, esto es, cada uno tiene
+     * un solo sucesor y ese sucesor un solo predecesor. No se cruza el límite entre los bancos de
+     * WRAM ($D000), que no son contiguos en memoria */
+    size_t *next = malloc((n ? n : 1) * sizeof *next);
+    size_t *succ = malloc((n ? n : 1) * sizeof *succ);
+    unsigned *succ_n = calloc(n ? n : 1, sizeof *succ_n);
+    unsigned *pred_n = calloc(n ? n : 1, sizeof *pred_n);
+    unsigned char *has_prev = calloc(n ? n : 1, 1), *seen = calloc(n ? n : 1, 1);
+    RamBlock *blocks = calloc(n ? n : 1, sizeof *blocks);
+    if (!next || !succ || !succ_n || !pred_n || !has_prev || !seen || !blocks) die("sin memoria");
+    for (size_t i = 0; i < n; i++) {
+        unsigned end = ram_obs[i].addr + ram_obs[i].len;
+        succ[i] = ram_lower(n, end);
+        while (succ[i] + succ_n[i] < n && ram_obs[succ[i] + succ_n[i]].addr == end) {
+            pred_n[succ[i] + succ_n[i]]++;
+            succ_n[i]++;
+        }
+    }
+    for (size_t i = 0; i < n; i++) {
+        next[i] = (size_t)-1;
+        if (succ_n[i] != 1 || pred_n[succ[i]] != 1) continue;
+        if ((ram_obs[i].addr < 0xD000) != (ram_obs[succ[i]].addr < 0xD000)) continue;
+        next[i] = succ[i];
+        has_prev[succ[i]] = 1;
+    }
+    size_t nblocks = 0;
+    for (int pass = 0; pass < 2; pass++)    /* la segunda recoge lo que quedó tras cortar una cadena larga */
+        for (size_t i = 0; i < n; i++) {
+            if (seen[i] || (pass == 0 && has_prev[i])) continue;
+            RamBlock *b = &blocks[nblocks++];
+            b->node = malloc(RAM_MAXCHAIN * sizeof *b->node);
+            if (!b->node) die("sin memoria");
+            for (size_t cur = i; cur != (size_t)-1 && !seen[cur] && b->n < RAM_MAXCHAIN; cur = next[cur]) {
+                b->node[b->n++] = cur;
+                seen[cur] = 1;
+            }
+            const RamObs *first = &ram_obs[b->node[0]], *last = &ram_obs[b->node[b->n - 1]];
+            b->start = first->addr;
+            b->len = last->addr + last->len - first->addr;
+        }
+
+    if (!nblocks) {
+        fprintf(f, "RecompFn ram_lookup(GB *g, u16 pc)\n{\n    (void)g;\n    (void)pc;\n    return NULL;\n}\n");
+        fclose(f);
+        free(next); free(succ); free(succ_n); free(pred_n); free(has_prev); free(seen); free(blocks);
+        return;
+    }
+    size_t nvol = 0;
+    for (size_t i = 0; i < n; i++) nvol += ram_obs[i].vol != 0;
+    printf("código en WRAM/HRAM aprendido de la traza: %zu instrucciones (%zu con operandos variables) en %zu bloques",
+           n, nvol, nblocks);
+    if (generated) printf(" (%zu descartadas por cambiar de estructura)", generated);
+    printf("\n");
+
+    fprintf(f,
+        "static inline const u8 *ram_ptr(GB *g, unsigned a)\n"
+        "{\n"
+        "    if (a >= 0xFF80) return g->hram + (a - 0xFF80);\n"
+        "    if (a < 0xD000) return g->wram + (a - 0xC000);\n"
+        "    return g->wram + g->wram_bank * 0x1000 + (a - 0xD000);\n"
+        "}\n\n"
+        "/* Un operando que el juego cambia: se lee cuando la instrucción corre */\n"
+        "static inline u8 ram_peek(GB *g, unsigned a)\n"
+        "{\n"
+        "    return *ram_ptr(g, a);\n"
+        "}\n\n"
+        "/* ¿Siguen en RAM los bytes del bloque? Los marcados con mask = 0 son operandos variables */\n"
+        "static int ram_match(GB *g, unsigned start, const u8 *bytes, const u8 *mask, unsigned len)\n"
+        "{\n"
+        "    const u8 *p = ram_ptr(g, start);\n"
+        "    for (unsigned i = 0; i < len; i++)\n"
+        "        if (mask[i] && p[i] != bytes[i]) return 0;\n"
+        "    return 1;\n"
+        "}\n\n");
+
+    for (size_t bi = 0; bi < nblocks; bi++) emit_ram_block(f, bi, &blocks[bi]);
+
+    fprintf(f, "static const struct { u16 start; u16 len; const u8 *bytes; const u8 *mask; RecompFn fn; } ram_blocks[%zu] = {\n", nblocks);
+    for (size_t bi = 0; bi < nblocks; bi++)
+        fprintf(f, "    { 0x%04X, %u, ram_b%zu_bytes, ram_b%zu_mask, ram_b%zu },\n", blocks[bi].start, blocks[bi].len, bi, bi, bi);
+    fprintf(f, "};\n\n");
+
+    /* Lookup: por cada dirección, los bloques que tienen una instrucción allí (varios si hay
+     * versiones distintas); el primero cuya guarda coincide es el que corre */
+    typedef struct { unsigned addr; size_t block; } AddrBlock;
+    size_t npairs = 0;
+    for (size_t bi = 0; bi < nblocks; bi++) npairs += blocks[bi].n;
+    AddrBlock *pairs = malloc(npairs * sizeof *pairs);
+    if (!pairs) die("sin memoria");
+    npairs = 0;
+    for (size_t bi = 0; bi < nblocks; bi++)
+        for (size_t i = 0; i < blocks[bi].n; i++) {
+            pairs[npairs].addr = ram_obs[blocks[bi].node[i]].addr;
+            pairs[npairs++].block = bi;
+        }
+    for (size_t i = 1; i < npairs; i++) {    /* inserción: por dirección y luego por bloque */
+        AddrBlock t = pairs[i];
+        size_t j = i;
+        while (j > 0 && (pairs[j - 1].addr > t.addr || (pairs[j - 1].addr == t.addr && pairs[j - 1].block > t.block))) {
+            pairs[j] = pairs[j - 1];
+            j--;
+        }
+        pairs[j] = t;
+    }
+    /* Listas de candidatos distintas */
+    size_t *list_start = malloc(npairs * sizeof *list_start), *list_len = malloc(npairs * sizeof *list_len);
+    size_t *addr_list = malloc(npairs * sizeof *addr_list), nlists = 0, naddr = 0;
+    if (!list_start || !list_len || !addr_list) die("sin memoria");
+    for (size_t i = 0; i < npairs;) {
+        size_t j = i;
+        while (j < npairs && pairs[j].addr == pairs[i].addr) j++;
+        size_t l;
+        for (l = 0; l < nlists; l++) {
+            if (list_len[l] != j - i) continue;
+            size_t x = 0;
+            while (x < j - i && pairs[list_start[l] + x].block == pairs[i + x].block) x++;
+            if (x == j - i) break;
+        }
+        if (l == nlists) {
+            list_start[nlists] = i;
+            list_len[nlists++] = j - i;
+        }
+        addr_list[naddr++] = l;
+        i = j;
+    }
+    fprintf(f, "static const short ram_cands[%zu][%d] = {\n", nlists, RAM_MAXVER + 1);
+    for (size_t l = 0; l < nlists; l++) {
+        fprintf(f, "    {");
+        for (size_t x = 0; x < list_len[l]; x++) fprintf(f, " %zu,", pairs[list_start[l] + x].block);
+        fprintf(f, " -1 },\n");
+    }
+    fprintf(f, "};\n\n");
+
+    fprintf(f, "RecompFn ram_lookup(GB *g, u16 pc)\n{\n    unsigned k;\n    switch (pc) {");
+    for (size_t l = 0; l < nlists; l++) {
+        unsigned col = 0;
+        for (size_t i = 0, ai = 0; i < npairs; ai++) {
+            size_t j = i;
+            while (j < npairs && pairs[j].addr == pairs[i].addr) j++;
+            if (addr_list[ai] == l) fprintf(f, "%s    case 0x%04X:", col++ % 8 ? "" : "\n", pairs[i].addr);
+            i = j;
+        }
+        fprintf(f, "\n        k = %zu;\n        break;", l);
+    }
+    fprintf(f,
+        "\n    default:\n"
+        "        return NULL;\n"
+        "    }\n"
+        "    for (const short *p = ram_cands[k]; *p >= 0; p++)\n"
+        "        if (ram_match(g, ram_blocks[*p].start, ram_blocks[*p].bytes, ram_blocks[*p].mask, ram_blocks[*p].len))\n"
+        "            return ram_blocks[*p].fn;\n"
+        "    return NULL;\n"
+        "}\n");
+    fclose(f);
+    free(pairs); free(list_start); free(list_len); free(addr_list);
+    for (size_t bi = 0; bi < nblocks; bi++) free(blocks[bi].node);
+    free(next); free(succ); free(succ_n); free(pred_n); free(has_prev); free(seen); free(blocks);
+}
+
 /* Tablas del despachador: banco → página de 256 bytes → función por dirección */
 static void emit_dispatch(const char *dir)
 {
@@ -1988,13 +2375,17 @@ static void emit_dispatch(const char *dir)
     }
     fprintf(f, "};\n\n");
 
-    fprintf(f, "RecompFn hram_lookup(GB *g, u16 pc);\n\n");
+    fprintf(f, "RecompFn hram_lookup(GB *g, u16 pc);\nRecompFn ram_lookup(GB *g, u16 pc);\n\n");
     fprintf(f,
         "RecompFn recomp_lookup(GB *g, u16 pc)\n"
         "{\n"
         "    const RecompFn *const *table;\n"
         "    u32 off;\n"
-        "    if (pc >= 0xFF80 && pc < 0xFFFF) return hram_lookup(g, pc);\n"
+        "    if (pc >= 0xFF80 && pc < 0xFFFF) {\n"
+        "        RecompFn f = hram_lookup(g, pc);\n"
+        "        return f ? f : ram_lookup(g, pc);\n"
+        "    }\n"
+        "    if (pc >= 0xC000 && pc < 0xE000) return ram_lookup(g, pc);\n"
         "    /* El código de cada banco se compiló para su región: el banco 0 en\n"
         "     * $0000-$3FFF y los demás en $4000-$7FFF */\n"
         "    if (pc < 0x4000) {\n"
@@ -2508,6 +2899,7 @@ int main(int argc, char **argv)
 
     emit_code(out);
     emit_hram(out);
+    emit_ram(out);
     emit_dispatch(out);
     emit_info(out, sha1, title, exe_name, ninsns);
     emit_makefile(out, exe_name);

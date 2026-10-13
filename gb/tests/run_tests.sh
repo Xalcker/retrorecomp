@@ -189,6 +189,55 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# --- Recompilador: código que el juego copia a WRAM, aprendido de la traza. Dos rondas, como
+#     tests/recomp_game.sh: sin traza, difftest interpreta ese código y apunta sus bytes
+#     (--uncovered); con esa traza, gbrecomp lo compila y difftest ya no lo interpreta. La primera
+#     ronda debe interpretar código de RAM y la segunda no (si no, la prueba no probaría nada).
+#     El sleep 1 es por el make 3.81 de macOS, que compara fechas con precisión de un segundo: una
+#     primera ronda rápida deja gen/ram.c regenerado en el mismo segundo que su objeto, make no lo
+#     recompila y la segunda ronda sigue con el código viejo ---
+ciclo_ram() {    # ROM NOMBRE CUADROS
+    mkdir -p build
+    ./gbrecomp$EXE "$1" -o build/out/$2 --name $2 > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/$2 -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/$2/difftest$EXE "$1" --frames $3 --seed 1 --uncovered build/$2.unc > /tmp/gbtest.out 2>&1 \
+        && grep -q 'interpretada en RAM' /tmp/gbtest.out \
+        && sleep 1 \
+        && ./gbrecomp$EXE "$1" -o build/out/$2 --name $2 --trace build/$2.unc > /tmp/gbtest.out 2>&1 \
+        && grep -q 'código en WRAM/HRAM aprendido' /tmp/gbtest.out \
+        && make -s -C build/out/$2 -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/$2/difftest$EXE "$1" --frames $3 --seed 1 >> /tmp/gbtest.out 2>&1 \
+        && ! grep -q 'interpretada en RAM' /tmp/gbtest.out
+}
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    # ROM mínima armada aquí (checksum del encabezado: 0xE7): copia a $C000 una rutina de 21 bytes y
+    # la llama en bucle. La rutina tiene un bucle con jr nz, lleva una cuenta en $C020 y la escribe
+    # en el operando de su propio ld a,n ($C010), que es lo que cambia en cada llamada
+    rom=build/wram_codigo.gb
+    mkdir -p build
+    { head -c 256 /dev/zero; printf '\000\303\120\001'; head -c 73 /dev/zero; printf '\347'; head -c 2 /dev/zero
+      printf '\041\160\001\021\000\300\006\025\052\022\023\005\040\372\315\000\300\030\373'
+      head -c 13 /dev/zero
+      printf '\006\003\005\040\375\372\040\300\074\352\040\300\352\020\300\076\000\352\041\300\311'
+      head -c $((32768 - 389)) /dev/zero; } > "$rom"
+    if ciclo_ram "$rom" wram_codigo 120; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp código en WRAM (ROM mínima): $(tail -3 /tmp/gbtest.out)"
+    fi
+    # Un caso real: interrupt_time, de Blargg, ejecuta desde WRAM unas 600 instrucciones distintas
+    rom="$T/blargg/interrupt_time/interrupt_time.gb"
+    if ciclo_ram "$rom" interrupt_time 600; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp código en WRAM (interrupt_time): $(tail -3 /tmp/gbtest.out)"
+    fi
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

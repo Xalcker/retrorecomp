@@ -230,6 +230,7 @@ static const char *imm16(Emit *e, char *buf)
         return "nn";
     }
     L("TICK(); TICK();");
+    if (e->imm16_expr) return e->imm16_expr;
     snprintf(buf, 16, "0x%04X", (unsigned)(e->b[1] | e->b[2] << 8));
     return buf;
 }
@@ -257,10 +258,11 @@ static void jump_const(Emit *e, u16 target)
     e->jump(e, buf, 1, target);
 }
 
-/* Destino de un salto con operando: constante en recompilado */
+/* Destino de un salto con operando: constante en recompilado, salvo que el operando se lea
+ * de memoria al ejecutar (imm16_expr) */
 static void jump_operand(Emit *e, const char *expr, u16 target)
 {
-    if (e->recomp) jump_const(e, target);
+    if (e->recomp && !e->imm16_expr) jump_const(e, target);
     else e->jump(e, expr, 0, 0);
 }
 

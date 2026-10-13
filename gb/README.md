@@ -15,7 +15,8 @@ cd juego && make
   descubrir (saltos indirectos raros, código en RAM, código automodificable)
   lo ejecuta un intérprete SM83 exacto al ciclo, y el control regresa al
   código recompilado en cuanto se puede. La rutina de DMA de OAM que los
-  juegos copian a HRAM sí se compila (ver `docs/ARQUITECTURA.md`).
+  juegos copian a HRAM sí se compila, y el código que copian a WRAM o HRAM
+  se aprende de la traza de `difftest` (ver `docs/ARQUITECTURA.md`).
 - **Exacto al ciclo:** el código recompilado cuenta los M-ciclos de cada
   acceso al bus. Timer, PPU, APU, serial y DMA avanzan igual que en el
   hardware, así que los efectos a mitad de línea funcionan.
@@ -228,6 +229,15 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
 2. `gbrecomp juego.gb -o salida/ --trace faltantes.txt` las agrega como
    puntos de entrada.
 
+Si el juego ejecuta código desde WRAM o HRAM (manejadores de interrupción, trampolines de cambio de
+banco, rutinas copiadas de la ROM), ese código no está en la ROM donde corre. `difftest --uncovered`
+también anota sus bytes, en líneas `ram DIRECCIÓN BYTES` que cualquier lector de trazas anterior
+ignora (jugando con `--uncovered` solo se anotan las direcciones de ROM). `gbrecomp --trace` las
+compila con sus direcciones y una guarda que comprueba que la RAM siga teniendo esos bytes; si el
+juego los cambia, el código cae al intérprete (ver «Código que el juego copia a WRAM o HRAM» en
+`docs/ARQUITECTURA.md`). `gbrecomp` dice cuántas instrucciones de RAM aprendió y `difftest`, cuántas
+siguen en el intérprete.
+
 `tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada. Game Boy corre 6000 cuadros por difftest si no se dice otra cosa.
 
 **Contrato común con NESRecomp, GENRecomp y NEORecomp.** Las herramientas sin ventana (`gbtrace`, `gbshot`, `gbaudio`, `gbbench`,
@@ -380,7 +390,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-138 de 138.
+140 de 140.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -392,6 +402,10 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
   compilan, esa rutina no pasa por el intérprete y `difftest` no encuentra diferencias.
 - Proyecto generado de `ei_di`, una ROM mínima que repite `ei` / `di`: el código recompilado no atiende
   una interrupción antes de la instrucción que sigue a `ei`, y `difftest` no encuentra diferencias.
+- Proyectos generados de una ROM mínima que copia una rutina a WRAM (con un operando que ella misma
+  cambia) y de `interrupt_time`, de Blargg, que ejecuta unas 600 instrucciones distintas desde WRAM: la
+  primera ronda las interpreta, con la traza que deja se compilan, y la segunda no interpreta ninguna
+  y `difftest` no encuentra diferencias.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg

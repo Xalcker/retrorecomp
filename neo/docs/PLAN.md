@@ -231,15 +231,21 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
       en la RAM (`$1008AC`): candidato para la fase 8.
     - Encontrado al mirar estos juegos: los sprites volteados en horizontal se dibujaban sin voltear (cada
       columna de 16 pixeles al revés; se veía en todos los juegos). Corregido, con su prueba en `lspctest`.
-- [ ] **7. Heurísticas de cobertura.**
-  - Copiadas ya en la fase 6 (con el mapa del Neo Geo en `sane_abs`); falta medirlas y ajustarlas.
-  - De GENRecomp: todas las (tablas de desplazamientos, de instrucciones, de punteros de 32 bits,
-    bases constantes; especulativas aparte: punteros inmediatos, tablas sueltas, tras un final) y su
-    plausibilidad, ajustando las direcciones razonables al mapa del Neo Geo. `--coverage`, `--why`,
-    `--viz [--color]`, `--html`, `--events`, `--codemap`, `--dis`, `--no-tables`, `--no-spec`;
-    `tests/coverage.sh`.
-  - Nuevo, si los juegos lo piden: los modismos de SNK (tablas de estados de sus motores).
-  - Meta: sin traza, cerca del 100 % de lo que ejecutan los juegos, y sin diferencias con el intérprete.
+- [x] **7. Heurísticas de cobertura.** Hecho. `tests/coverage.sh` (trazas de 6000 cuadros que llegan a
+  jugar, en `build/traces/`) y `--coverage` también para la BIOS (su análisis sin la caché). **Meta
+  cumplida:** sin traza el análisis encuentra el **99,0 %** de lo que ejecutan los 8 juegos (antes 88,3 %;
+  97,5-100 % cada uno) y el **100 %** de la BIOS (antes 97,1 %), y los 8 recompilados sin traza dan cero
+  diferencias con el intérprete (99,0-100 % de los ciclos ya en la primera ronda). `make test` lo vigila
+  con Metal Slug (99 % o más, la BIOS entera).
+  - Los modismos de SNK que pedían los juegos: el código se alcanza casi todo por estados de objetos
+    guardados en la RAM (sin lo especulativo, solo el 18,9 %). Se agregaron las anclas de máquinas de
+    estados (`move.l #propia+6,(a6)`), las tablas de registros con punteros cada 6 u 8 bytes, las tablas
+    de dos niveles, los desplazamientos con `lea 0(a0,d0.w),a0`, los saltos calculados a bloques
+    desenrollados y, en la plausibilidad estricta, las rutinas largas con señales de código (llamadas
+    a rutinas conocidas, saltos que caen en sus instrucciones, accesos absolutos al hardware).
+  - Arreglos: la RAM de respaldo del MVS (`$D00000`) es una dirección razonable (la mira la BIOS), y el
+    código especulativo ya no corta una tabla. La caché de la BIOS sube a formato 2.
+  - Detalle en `docs/ARQUITECTURA.md` (Descubrimiento).
 - [ ] **8. Rendimiento.** Copia `tests/golden.sh`. Perfilar primero; cada cambio sin mover un bit de la
   imagen ni del sonido. Candidatos según la lección de GENRecomp (el 68000 era ~13 %): el LSPC, el Z80 (el
   `HALT` de una vez; recompilar la M1 solo si pesa) y el YM2610.

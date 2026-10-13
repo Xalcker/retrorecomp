@@ -96,6 +96,20 @@ if [ -f testroms/neo/contrato.neo ]; then
 fi
 tiempo "herramientas de análisis"
 
+# Cobertura sin traza (fase 7): de lo que ejecuta Metal Slug en 3000 cuadros (de la demo a la partida),
+# el análisis estático solo tiene que encontrar el 99 % o más, y todo lo de la BIOS
+if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
+    "$(exe neotrace)" roms/mslug.zip build/tests/mslug_cob.txt --frames 3000 --seed 1 start:1200-1205 start:1500-1505 \
+        a:1700-1710 a:1900-1910 right:2000-2600 a:2100-2110 b:2300-2305 >/dev/null 2>&1
+    out=$("$(exe neorecomp)" roms/mslug.zip --coverage build/tests/mslug_cob.txt 2>/dev/null)
+    pj=$(echo "$out" | sed -n 's/^cobertura: .*(\([0-9.]*\)%).*/\1/p')
+    pb=$(echo "$out" | sed -n 's/^cobertura de la BIOS: .*(\([0-9.]*\)%).*/\1/p')
+    if awk -v j="${pj:-0}" -v b="${pb:-0}" 'BEGIN { exit !(j >= 99 && b >= 100) }'; then
+        echo "ok    cobertura sin traza: Metal Slug $pj%, BIOS $pb%"
+    else echo "FALLA cobertura sin traza: Metal Slug ${pj:-?}% (mínimo 99), BIOS ${pb:-?}% (100)"; fallas=$((fallas + 1)); fi
+fi
+tiempo "cobertura"
+
 # Con los juegos y la BIOS de roms/ (no se versionan)
 for r in roms/*.zip roms/*.neo; do
     [ -f "$r" ] || continue

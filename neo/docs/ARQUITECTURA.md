@@ -162,12 +162,41 @@ banco: se prueba en todos y se toma lo que tenga pinta de código (como en NESRe
 cambiables). Desde una función de P2, la ventana es la de su mismo banco. Esas funciones vigilan el banco
 (`MAPCHK`, con `map_ver`) y salen si cambió.
 
-**Heurísticas** (las de GENRecomp, con el mapa de memoria del Neo Geo en `sane_abs` y `code_addr`):
-tablas de desplazamientos de 16 bits, de instrucciones (`bra.w`/`jmp`, aceptando un `jmp` a la BIOS), de
-punteros de 32 bits y bases constantes; y las especulativas (`--no-spec`): punteros inmediatos, tablas
-sueltas (en P1 en el juego y en toda la BIOS, donde la dirección dice el desplazamiento) y lo que sigue a un
-final de rutina. "Con pinta de código" (`plausible`) es lo mismo que en GENRecomp. Ajustarlas al Neo Geo y
-medir la cobertura es la fase 7.
+**Heurísticas** (las de GENRecomp, con el mapa de memoria del Neo Geo en `sane_abs` y `code_addr`,
+ajustadas en la fase 7 con lo que hacen los juegos de SNK). Seguras (`--no-tables` las quita):
+
+- Tablas de desplazamientos de 16 bits (`move.w tbl(pc,d0.w),d1 / jmp tbl(pc,d1.w)`, y también
+  `lea tbl,a0 / move.w 0(a0,d0.w),d0 / lea 0(a0,d0.w),a0 / jsr (a0)`), de instrucciones (`bra.w`/`jmp`,
+  aceptando un `jmp` a la BIOS), de punteros de 32 bits y bases constantes.
+- Dos niveles: `movea.l tbls(pc,d0.w),a0 / move.w 0(a0,d0.w),d1 / jmp 0(a0,d1.w)`: cada puntero de
+  `tbls` es una tabla de desplazamientos relativos a ella misma.
+- Un `jmp blk(pc,d4.w)` sin tabla entra a la mitad de un bloque desenrollado (`move.l d7,(a6) / add.l
+  d3,d7 ...`): el bloque es código desde `blk`, y se puede entrar en cualquiera de sus instrucciones.
+- Lo especulativo no corta una tabla: "tras un final" puede haber tomado por código la tabla que sigue a
+  un `bra`.
+
+Especulativas (`--no-spec`):
+
+- Punteros inmediatos (`move.l #r,...`, `lea r,An`, `pea r`) y tablas sueltas: cuatro o más punteros con
+  el mismo paso de 4, 6 u 8 bytes (tablas de registros con un puntero, como las de objetos de SNK), en P1
+  en el juego y en toda la BIOS (donde la dirección dice el desplazamiento).
+- Anclas de máquinas de estados: `move.l #X,(An)` o `move.l #X,d16(An)` donde X es la instrucción que
+  sigue, o la que sigue a un `rts` inmediato (con hasta 16 bytes de datos en medio): el objeto guarda su
+  próximo estado. Que unos datos valgan justo su propia dirección más 6 u 8 es casi imposible, así que se
+  buscan en todo el programa, en cada banco.
+- Lo que sigue a un final de rutina.
+
+"Con pinta de código" (`plausible`): opcodes válidos, direcciones absolutas razonables (también la RAM de
+respaldo del MVS en `$D00000`, que mira la BIOS) y destinos de saltos dentro del espacio, hasta un final.
+Para los punteros sueltos (estricto) el final tiene que llegar en menos de 64 instrucciones, o la rutina
+tiene que dar señales de código: llamadas a rutinas ya descubiertas, saltos que caen justo en una de las
+instrucciones decodificadas y accesos absolutos a la RAM, la E/S, la paleta o la BIOS (un final antes de
+160 instrucciones con algo de esa evidencia, o 160 instrucciones con mucha): así entran las rutinas largas
+de inicialización y de estados, que usan `a5`/`a6` y no tienen un `rts` cerca.
+
+**Cobertura** (`tests/coverage.sh`, con trazas de 6000 cuadros que llegan a jugar): sin traza el análisis
+encuentra el 99,0 % de las instrucciones que ejecutan los 8 juegos (97,5-100 % cada uno) y el 100 % de las
+de la BIOS. Lo que falta se cubre con `--trace` o con la segunda ronda de `difftest --uncovered`.
 
 ### La BIOS: una vez por versión
 

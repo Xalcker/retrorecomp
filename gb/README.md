@@ -441,29 +441,30 @@ consola, el resultado del ciclo completo del recompilador y su velocidad.
 y se quedan en blanco o ejecutan un opcode ilegal; una usa HuC3, que no está
 soportado (issue #55). Las 31 que pasan por el recompilador quedan sin
 diferencias.
-Se genera con tres scripts de Python que se corren con
-[uv](https://docs.astral.sh/uv/) (instala Python y Pillow solo), desde la
-raíz del repo y con todo compilado con `make`:
+Se genera con dos scripts de Python 3 sin dependencias, desde la raíz del
+repo y con todo compilado con `make`. El motor es el mismo de NESRecomp y
+GENRecomp, `tools/retrorecomp/compat.py`; `run.py` solo dice lo propio del
+Game Boy (cabecera, MBC soportados, cupo por MBC):
 
 ```
-uv run tools/compat/scan.py "DIR/Nintendo - Game Boy" "DIR/Nintendo - Game Boy Color"
-uv run tools/compat/run.py        # etapa 1 (todas) y etapa 2 (selección); ~15 min + ~35 min
-uv run tools/compat/report.py     # escribe docs/compat/index.html
+python3 tools/compat/run.py "DIR/Nintendo - Game Boy" "DIR/Nintendo - Game Boy Color"
+python3 tools/compat/report.py     # escribe docs/compat/index.html
 ```
 
-- `scan.py` lee la cabecera de cada zip (tipo de cartucho, tamaños, banderas
-  de GBC y SGB) y deja `build/compat/scan.json`.
-- `run.py`, etapa 1: corre cada ROM en el intérprete (`gbtest`) con entradas
+- Etapa 1: corre cada ROM en el intérprete (`gbshot`) con entradas
   guionadas y toma capturas en los cuadros 450, 900 y 1500; marca las que no
-  cargan, ejecutan un opcode ilegal o quedan en blanco. Etapa 2: para unas 30
-  ROMs elegidas por MBC y consola, `gbrecomp`, compilar, `difftest` con dos
-  semillas y una segunda ronda con lo que cayó al intérprete
-  (`--uncovered` → `--trace`), más `difftest --bench`. Opciones: `--solo
-  etapa1|etapa2`, `--juego TEXTO` (solo esos juegos, y todos pasan a la etapa
-  2), `--reusar` (no repite capturas) y `--hilos N`.
-- Los resultados quedan en `docs/compat/results.json` (se acumulan entre
-  corridas) y las capturas en `docs/compat/thumbs/`; las ROMs extraídas y los
-  proyectos, en `build/compat/` (los proyectos sin diferencias se borran).
+  cargan, detienen el CPU (opcode ilegal) o quedan en blanco. Etapa 2: para
+  las ROMs elegidas por MBC (variando consola, tamaños y batería), `gbrecomp`,
+  compilar, `difftest` con dos semillas y una segunda ronda con lo que cayó al
+  intérprete (`--uncovered` → `--trace`), más `difftest --bench`.
+- Opciones: `--solo etapa1|etapa2`, `--etapa2 N` (cuántas ROMs pasan a la
+  etapa 2, por turnos entre MBC), `--lista ARCHIVO`, `--juego TEXTO` (solo
+  esos juegos, y todos pasan a la etapa 2), `--categoria MBC5,MBC3`,
+  `--hilos N`, `--salida DIR` y `--rehacer`.
+- Los resultados quedan en `docs/compat/results.json` (se guardan después de
+  cada ROM: si la corrida se corta, la misma orden sigue donde iba) y las
+  capturas en `docs/compat/thumbs/`; las ROMs extraídas y los proyectos, en
+  `build/compat/` (los proyectos sin diferencias se borran).
 
 La integración continua compila, corre la batería y recompila una ROM de
 prueba en Linux, macOS y Windows. En Linux y Windows además se jugaron los

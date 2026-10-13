@@ -19,3 +19,4 @@ dist/
 /gbrecomp
 /vgmcheck
 .DS_Store
+__pycache__/

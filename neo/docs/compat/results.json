@@ -1,0 +1,853 @@
+{
+ "sistema": "neo",
+ "fecha": "2026-10-12",
+ "version": "3e80cb3",
+ "roms": [
+  {
+   "archivo": "kof97.zip",
+   "juego": "kof97",
+   "coleccion": "roms",
+   "slug": "gkof970c7216",
+   "sha1": "843642a9e5e75b49f066b79a8f61d37f3b214a48",
+   "nombre": "The King of Fighters '97 (MVS) (kof97, SNK 1997)",
+   "ngh": "0232",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof970c7216.png",
+   "interprete_s": 10.0,
+   "colores": 250,
+   "dominante": 0.297,
+   "capturas": [
+    5,
+    250,
+    103
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.5,
+      "instrucciones": 117473,
+      "pct_rom": 10.13,
+      "funciones": 366,
+      "compilacion_s": 117.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 22.4,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 21.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 162.5,
+    "velocidad_x": 78.1,
+    "velocidad_interp_x": 33.9
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.9993743896484375,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.9131622314453125,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.913116455078125,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.9979705810546875,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.8832244873046875,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.882049560546875,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "archivo": "kof98.zip",
+   "juego": "kof98",
+   "coleccion": "roms",
+   "slug": "gkof985ce5c7",
+   "sha1": "e920d771c7df9248de2090e3e43bff68e9cd4623",
+   "nombre": "The King of Fighters '98 - The Slugfest (AES) (kof98h, SNK 1998)",
+   "ngh": "0242",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof985ce5c7.png",
+   "interprete_s": 15.33,
+   "colores": 402,
+   "dominante": 0.1,
+   "capturas": [
+    17,
+    381,
+    402
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 3.3,
+      "instrucciones": 127659,
+      "pct_rom": 11.13,
+      "funciones": 413,
+      "compilacion_s": 121.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 28.1,
+        "recompilado_pct": 99.1,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 26.6,
+        "recompilado_pct": 99.3,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 179.7,
+    "velocidad_x": 58.6,
+    "velocidad_interp_x": 34.7
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.9987945556640625,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.9500579833984375,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.950103759765625,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.9963531494140625,
+      "img": 0.9973493303571429
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.9147186279296875,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.913848876953125,
+      "img": 0.9972098214285714
+     }
+    }
+   }
+  },
+  {
+   "archivo": "lastblad.zip",
+   "juego": "lastblad",
+   "coleccion": "roms",
+   "slug": "glastbladbca64a",
+   "sha1": "7d1074ed50af973bc5df98b0b5d541372ae7c03d",
+   "nombre": "The Last Blade / Bakumatsu Roman - Gekka no Kenshi (lastblad, SNK 1997)",
+   "ngh": "0234",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glastbladbca64a.png",
+   "interprete_s": 10.55,
+   "colores": 270,
+   "dominante": 0.084,
+   "capturas": [
+    10,
+    257,
+    270
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.6,
+      "instrucciones": 109762,
+      "pct_rom": 8.12,
+      "funciones": 340,
+      "compilacion_s": 122.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 38.3,
+        "recompilado_pct": 100.0,
+        "interpretadas": 35
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 36.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 35
+       }
+      ],
+      "traza": 35
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.6,
+      "instrucciones": 109798,
+      "pct_rom": 8.12,
+      "funciones": 339,
+      "compilacion_s": 107.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 37.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 35.4,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 35
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 379.7,
+    "velocidad_x": 55.7,
+    "velocidad_interp_x": 32.2
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.996307373046875,
+      "img": 0.9980329241071428
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.910430908203125,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.9102020263671875,
+      "img": 0.9975446428571428
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.956268310546875,
+      "img": 0.16568080357142856
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.860015869140625,
+      "img": 0.8947823660714286
+     },
+     "geolith-fbneo": {
+      "ram": 0.8525543212890625,
+      "img": 0.15726841517857143
+     }
+    }
+   }
+  },
+  {
+   "archivo": "mslug.zip",
+   "juego": "mslug",
+   "coleccion": "roms",
+   "slug": "gmslugfb756a",
+   "sha1": "582233c4d95e4a2d80dd78a9de29b92e0f60d40f",
+   "nombre": "Metal Slug - Super Vehicle-001 (mslug, Nazca 1996)",
+   "ngh": "0201",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmslugfb756a.png",
+   "interprete_s": 8.65,
+   "colores": 134,
+   "dominante": 0.1,
+   "capturas": [
+    61,
+    89,
+    134
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.9,
+      "instrucciones": 100739,
+      "pct_rom": 20.88,
+      "funciones": 362,
+      "compilacion_s": 101.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.8,
+        "recompilado_pct": 100.0,
+        "interpretadas": 51
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.8,
+        "recompilado_pct": 99.9,
+        "interpretadas": 58
+       }
+      ],
+      "traza": 58
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.9,
+      "instrucciones": 100873,
+      "pct_rom": 20.91,
+      "funciones": 366,
+      "compilacion_s": 91.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 19.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.5,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 58
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 270.0,
+    "velocidad_x": 51.1,
+    "velocidad_interp_x": 29.3
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.99835205078125,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.85595703125,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.8559112548828125,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.998809814453125,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.7897796630859375,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.789581298828125,
+      "img": 1.0
+     }
+    }
+   }
+  },
+  {
+   "archivo": "mslug2.zip",
+   "juego": "mslug2",
+   "coleccion": "roms",
+   "slug": "gmslug2adbbc5",
+   "sha1": "f0549c1556470ffc828f9d4e8c4e91b2d202a2bb",
+   "nombre": "Metal Slug 2 - Super Vehicle-001/II (mslug2, SNK 1998)",
+   "ngh": "0241",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmslug2adbbc5.png",
+   "interprete_s": 9.96,
+   "colores": 167,
+   "dominante": 0.064,
+   "capturas": [
+    139,
+    97,
+    167
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.3,
+      "instrucciones": 120541,
+      "pct_rom": 15.97,
+      "funciones": 437,
+      "compilacion_s": 103.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 22.4,
+        "recompilado_pct": 99.8,
+        "interpretadas": 169
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 17.3,
+        "recompilado_pct": 99.9,
+        "interpretadas": 120
+       }
+      ],
+      "traza": 172
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.3,
+      "instrucciones": 120939,
+      "pct_rom": 16.02,
+      "funciones": 437,
+      "compilacion_s": 116.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.8,
+        "recompilado_pct": 99.8,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 16.4,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 172
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 300.7,
+    "velocidad_x": 44.9,
+    "velocidad_interp_x": 27.7
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.9974517822265625,
+      "img": 0.9941824776785714
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.7943878173828125,
+      "img": 0.9871211231203008
+     },
+     "geolith-fbneo": {
+      "ram": 0.794281005859375,
+      "img": 0.9957413063909775
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.997955322265625,
+      "img": 0.9857840401785715
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.7974853515625,
+      "img": 0.9865630874060151
+     },
+     "geolith-fbneo": {
+      "ram": 0.7974700927734375,
+      "img": 0.9654311560150376
+     }
+    }
+   }
+  },
+  {
+   "archivo": "samsho2.zip",
+   "juego": "samsho2",
+   "coleccion": "roms",
+   "slug": "gsamsho2ca9b6e",
+   "sha1": "83af9153f655527de0f24c9bd1fa1543cb4d68c3",
+   "nombre": "Samurai Shodown II / Shin Samurai Spirits (samsho2, SNK 1994)",
+   "ngh": "0063",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsamsho2ca9b6e.png",
+   "interprete_s": 8.25,
+   "colores": 210,
+   "dominante": 0.16,
+   "capturas": [
+    110,
+    199,
+    210
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.8,
+      "instrucciones": 62366,
+      "pct_rom": 12.5,
+      "funciones": 381,
+      "compilacion_s": 73.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.9,
+        "recompilado_pct": 100.0,
+        "interpretadas": 199
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 22.8,
+        "recompilado_pct": 100.0,
+        "interpretadas": 274
+       }
+      ],
+      "traza": 298
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.8,
+      "instrucciones": 62879,
+      "pct_rom": 12.6,
+      "funciones": 381,
+      "compilacion_s": 62.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.6,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 23.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 298
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 227.1,
+    "velocidad_x": 61.8,
+    "velocidad_interp_x": 30.9
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.9997406005859375,
+      "img": 0.9465401785714286
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.947052001953125,
+      "img": 0.9337472098214286
+     },
+     "geolith-fbneo": {
+      "ram": 0.9470062255859375,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.998138427734375,
+      "img": 0.7835379464285714
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.923614501953125,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.92340087890625,
+      "img": 0.7836495535714286
+     }
+    }
+   }
+  },
+  {
+   "archivo": "shocktro.zip",
+   "juego": "shocktro",
+   "coleccion": "roms",
+   "slug": "gshocktroa22c3a",
+   "sha1": "c06c42f8999fa5c284aa7e728574f15434e2a09a",
+   "nombre": "Shock Troopers (shocktro, Saurus 1997)",
+   "ngh": "0238",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "      salió solo en MVS: puede fallar con la BIOS del AES",
+   "interprete": "ok",
+   "thumb": "gshocktroa22c3a.png",
+   "interprete_s": 8.99,
+   "colores": 133,
+   "dominante": 0.307,
+   "capturas": [
+    133,
+    66,
+    110
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.1,
+      "instrucciones": 21019,
+      "pct_rom": 1.43,
+      "funciones": 205,
+      "compilacion_s": 23.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.6,
+        "recompilado_pct": 99.5,
+        "interpretadas": 112
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 24.1,
+        "recompilado_pct": 99.0,
+        "interpretadas": 147
+       }
+      ],
+      "traza": 147
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.1,
+      "instrucciones": 21683,
+      "pct_rom": 1.47,
+      "funciones": 210,
+      "compilacion_s": 30.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 20.3,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 21.3,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 147
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 143.9,
+    "velocidad_x": 68.7,
+    "velocidad_interp_x": 32.4
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.9997100830078125,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.89971923828125,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.899688720703125,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.999267578125,
+      "img": 0.9883510044642857
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.88568115234375,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.8855438232421875,
+      "img": 0.9877378994360902
+     }
+    }
+   }
+  },
+  {
+   "archivo": "turfmast.zip",
+   "juego": "turfmast",
+   "coleccion": "roms",
+   "slug": "gturfmast7accb6",
+   "sha1": "6383d852c17c0eb770cd51c4fa8cb9b29874bbb2",
+   "nombre": "Neo Turf Masters / Big Tournament Golf (turfmast, Nazca 1996)",
+   "ngh": "0200",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gturfmast7accb6.png",
+   "interprete_s": 8.51,
+   "colores": 208,
+   "dominante": 0.123,
+   "capturas": [
+    39,
+    127,
+    208
+   ],
+   "version1": "3e80cb3",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.5,
+      "instrucciones": 34743,
+      "pct_rom": 6.96,
+      "funciones": 172,
+      "compilacion_s": 35.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 19.5,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 22.2,
+        "recompilado_pct": 99.6,
+        "interpretadas": 68
+       }
+      ],
+      "traza": 68
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.6,
+      "instrucciones": 34811,
+      "pct_rom": 6.96,
+      "funciones": 172,
+      "compilacion_s": 46.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.8,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 21.6,
+        "recompilado_pct": 99.7,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 68
+     }
+    ],
+    "version": "3e80cb3",
+    "resultado": "ok",
+    "total_s": 165.9,
+    "velocidad_x": 42.1,
+    "velocidad_interp_x": 27.1
+   },
+   "oraculos": {
+    "1200": {
+     "neorecomp-geolith": {
+      "ram": 0.999176025390625,
+      "img": 1.0
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.9442138671875,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.944244384765625,
+      "img": 1.0
+     }
+    },
+    "2400": {
+     "neorecomp-geolith": {
+      "ram": 0.9990234375,
+      "img": 0.9975725446428572
+     },
+     "neorecomp-fbneo": {
+      "ram": 0.785125732421875,
+      "img": 1.0
+     },
+     "geolith-fbneo": {
+      "ram": 0.7849273681640625,
+      "img": 0.9973713580827067
+     }
+    }
+   }
+  }
+ ]
+}

@@ -501,7 +501,8 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
 - **`make dist`:** deja `dist/neorecomp-<versión>-<sistema>.tar.gz` con `neorecomp`, el README, la licencia
   y este documento. La versión sale de `git describe`.
 - **Integración continua:** el mismo flujo que en los otros recompiladores (Linux, macOS, MSYS2 UCRT64),
-  pendiente.
+  planeada pero todavía no (decisión del usuario): sin la BIOS del AES en el CI solo correrían las pruebas que
+  no la necesitan, hasta la BIOS propia de la fase 10.
 - **Herramientas sin ventana** (las mismas opciones que en los otros recompiladores, `cli.h`: `--frames N`,
   `--input archivo` con el guion de `inputs.h`, `--seed S` con el mando aleatorio común de `random_pad.h`
   traducido al Neo Geo, `--repeat N` en `neobench`, el número de cuadros suelto y `boton:desde-hasta` con
@@ -531,6 +532,23 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
   juegos ponen su fuente así, Metal Slug en `$300` + ASCII). `--shot archivo.png` guarda la imagen del
   último cuadro y `--shots carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
+- **Oráculos** (`tools/oracles/`, de GENRecomp): `retro_run` corre un núcleo libretro sin ventana con las
+  entradas de las herramientas (los botones se asignan por las descripciones que publica cada núcleo) y da
+  la RAM del 68000 como `neoramdump`, una captura o el sonido (`--wav`, con el nivel por segundo de
+  `neorun`). `oracle.py` baja los núcleos a `build/oracles/` (con su SHA-256) y arma lo que necesita cada
+  uno con los archivos del usuario: **Geolith** (BSD-3) carga el `.neo` que escribe `neorecomp --neo` y busca
+  `aes.zip` en `build/oracles/sys/`; **FBNeo** (licencia no comercial, solo como programa aparte) carga el zip
+  de MAME por el nombre del set desde `build/oracles/fbneo_roms/` (enlaces a `roms/`; un clon de un zip
+  merged apunta al mismo zip) con un `neogeo.zip` que lleva las BIOS del AES. Los dos en modo AES; Geolith sin
+  recortar los bordes (da 320 × 240) y FBNeo recortado (304 × 224): `compare` mide la imagen en el área común.
+  FBNeo corre a 59,18 cuadros por segundo (el reloj del MVS), así que su RAM se va corriendo; Geolith, al
+  mismo ritmo que NEORecomp, coincide en Metal Slug un 99,9 % en la RAM y un 100 % en la imagen. `mix`
+  estima los niveles de la mezcla (ver Audio).
+- **Prueba de compatibilidad** (`tools/compat/run.py`, `report.py`): el motor es el común de los cuatro
+  recompiladores (`tools/retrorecomp/compat.py`); aquí va lo propio del Neo Geo (el zip entero es el juego,
+  los zips de BIOS se saltan, los datos de `neorecomp --info`, categorías por el programa, capturas y guiones
+  más tarde porque la BIOS tarda unos 20 s, y los oráculos). Resultado en `docs/COMPATIBILIDAD.md` y
+  `docs/compat/`.
 - **`make test`:** `inputtest`, `statetest` (con el juego de prueba y con Metal Slug), el contrato común; el
   recompilador (generar, compilar `difftest` y compararlo contra el intérprete con el juego de prueba, 600
   cuadros, y con Metal Slug sin traza, 1200; las herramientas de análisis con el juego de prueba; la caché
@@ -579,9 +597,12 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
 - **Herramientas, estados y contrato:** `inputtest`, `statetest`, `tests/contract.sh` sin fallas.
 - **Audio:** `audiotest`. Los tres juegos suenan: Metal Slug con FM y ADPCM-A, Samurai Shodown II también con
   ADPCM-B y Neo Turf Masters además con el SSG. Con el sonido, 14-18 veces el tiempo real.
-- **Sin comprobar todavía con un oráculo:** la posición del VBLANK y de la recarga del temporizador en la
-  línea, lo que leen `$300001` y `$320001` en el AES, el perro guardián (MAME no lo emula en el AES) y la
-  dirección exacta del latch de bancos de P2.
+- **Contra los oráculos** (fase 9, `docs/COMPATIBILIDAD.md`): con los 8 juegos, la RAM del 68000 coincide con
+  la de Geolith entre el 99,6 % y el 100 % tras 1200 y 2400 cuadros (con entradas), y la imagen es idéntica o
+  casi; FBNeo, que corre a otro ritmo de cuadros, coincide en la imagen. Eso respalda la temporización (la
+  posición del VBLANK y de la recarga del temporizador, el reloj de cada chip) y los bancos de P2, aunque no
+  la prueba línea por línea. Sigue sin comprobar por separado: lo que leen `$300001` y `$320001` en el AES y el
+  perro guardián (MAME no lo emula en el AES).
 
 ### Línea base para optimizar el runtime
 

@@ -256,17 +256,21 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - SSG callado: 0 exacto y sus contadores de una vez.
   - Bucles de espera del 68000 en el código generado (`IDLE68`).
   - Detalle y lo que queda en `docs/ARQUITECTURA.md` (Línea base para optimizar el runtime).
-- [ ] **9. Compatibilidad, oráculos y empaquetado.**
-  - Copia: `tools/oracles/` (`retro_run.c`, `libretro_min.h`, `oracle.py`: los núcleos bajan a
-    `build/oracles/` y los botones se asignan por las descripciones que publica cada núcleo, que también
-    escriben en la salida estándar) y `tools/compat/` (`run.py`, `report.py`).
-  - Oráculos: **Geolith** (BSD-3; `.neo`; `aes.zip` con `neo-epo.bin` y `000-lo.lo` armado en
-    `build/oracles/sys/` con la BIOS del usuario y la L0 calculada; opción `geolith_system_type=aes`) y
-    **FBNeo** (licencia no comercial, solo como programa aparte; zips de MAME y `neogeo.zip`;
-    `fbneo-neogeo-mode=AES_EUR`). El MAME actual como tercero si hace falta. El buildbot solo tiene
-    `latest/`: se guarda el SHA-256 de lo que se bajó.
-  - `docs/COMPATIBILIDAD.md` y `docs/compat/`; `make dist`; el README y `ARQUITECTURA.md` completos.
-  - Agregar Neo Geo a la GUI de retrorecomp: **es un cambio en ese repositorio, se pregunta antes.**
+- [x] **9. Compatibilidad, oráculos y empaquetado.** Hecho (menos el CI, planeado: decisión del usuario).
+  - `tools/oracles/` (de GENRecomp): `retro_run` con los botones, la RAM y el sonido del Neo Geo, y `oracle.py`
+    (`fetch`, `ramdump`, `shot`, `wav`, `compare`, `mix`). **Geolith** (BSD-3) con el `.neo` y `aes.zip` en
+    `build/oracles/sys/`; **FBNeo** (no comercial, aparte) con el zip de MAME por el nombre del set y un
+    `neogeo.zip` con las BIOS del AES armado en `build/oracles/fbneo_roms/`. Los dos en modo AES, bajados del
+    buildbot con su SHA-256.
+  - `tools/compat/`: el motor común de `tools/retrorecomp/compat.py` (el submódulo, que ganó tres puntos de
+    extensión para el Neo Geo: el zip entero es el juego, saltar los zips de BIOS, capturas y guiones propios)
+    con lo propio del Neo Geo. **Los 8 juegos de `roms/` recompilados sin traza y sin diferencias**, 42-78× el
+    tiempo real; contra Geolith la RAM coincide un 99,6-100 %. `docs/COMPATIBILIDAD.md` y `docs/compat/`.
+  - `make dist`, el README y `ARQUITECTURA.md` completos.
+  - La GUI de retrorecomp (con permiso): el Neo Geo como cuarto sistema (clase `NEO`), en `contract.py` y en
+    `compat.py`; en la rama `neo-geo` de retrorecomp, sin subir (el submódulo de NEORecomp apunta a ese commit:
+    hay que subir esa rama antes que NEORecomp). `contract.py` marca `trace_line.h` y `tests/contract.sh`
+    distintos en NEORecomp hasta que los otros tres copien la versión para cuatro repos (los issues de antes).
   - [x] **Niveles de la mezcla del YM2610** (pedido al probar la fase 8: en Metal Slug las voces y los
     gritos, ADPCM-A, sonaban bajos). `oracle.py mix` ajusta la energía de cada oráculo como suma de la
     de cada parte de NEORecomp: los dos coinciden en que el ADPCM-A sonaba unos 13 dB bajo. Ahora ADPCM-A

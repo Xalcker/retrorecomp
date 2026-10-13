@@ -10,7 +10,7 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fases 0 a 8 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`; las herramientas sin ventana y el contrato común; el recompilador: los juegos recompilados dan cuadros idénticos al intérprete y corren a 43-55 veces el tiempo real; sin traza, el análisis encuentra el 99 % de lo que ejecutan 8 juegos y el 100 % de la BIOS). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 a 9 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`; las herramientas sin ventana y el contrato común; el recompilador: los juegos recompilados dan cuadros idénticos al intérprete y corren a 43-55 veces el tiempo real; sin traza, el análisis encuentra el 99 % de lo que ejecutan 8 juegos y el 100 % de la BIOS; los 8 recompilados sin traza no difieren del intérprete y coinciden con Geolith, ver [docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar
@@ -95,6 +95,10 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 | `neoramdump juego [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr el juego. |
 | `neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot archivo.png] [--shots carpeta --every N] [--wav archivo.wav [--mute M]] [boton:desde-hasta]` | Corre sin ventana con el intérprete y resume lo que pasó: instrucciones, excepciones, el Z80, las variables de la BIOS, dónde se va el tiempo, (`--fix`) la capa fija como texto, (`--shot`) la imagen y (`--wav`) el sonido con su nivel por segundo. Botones: `up down left right a b c d start select`. |
 | `carttest`, `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, el sonido, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
+| `sh tests/coverage.sh` | Cuánto de lo que ejecutan los juegos de `roms/` encuentra el análisis sin traza (y de la BIOS). |
+| `sh tests/golden.sh [--update]` | Hash de todos los cuadros y del sonido de cada juego: una optimización no cambia ni un bit. |
+| `python3 tools/oracles/oracle.py fetch/ramdump/shot/wav/compare/mix` | Oráculos: Geolith y FBNeo (núcleos libretro que se bajan a `build/oracles/`, solo como programas aparte). `compare` mide la RAM y la imagen contra ellos; `mix`, los niveles de cada parte del YM2610. |
+| `python3 tools/compat/run.py [--oraculos]`, `report.py` | Prueba de compatibilidad con los juegos de una carpeta (el motor común de `tools/retrorecomp/compat.py`): `docs/compat/`. |
 
 ## Juegos y BIOS
 
@@ -113,10 +117,10 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 | `src/neorecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
-| `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores (submódulo); `make_icon.py` (los iconos). |
-| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores y el motor de la prueba de compatibilidad (submódulo); `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
+| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
-| `docs/` | `PLAN.md`, `ARQUITECTURA.md`. |
+| `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe). |
 
 ## Créditos
 

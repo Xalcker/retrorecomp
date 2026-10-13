@@ -532,10 +532,12 @@ class Prueba:
             if mal:
                 r.update(resultado=mal, detalle=next(d["detalle"] for d in fa["semillas"] if not d["ok"]))
                 break
-            lineas = sorted(set(traza.read_text().split()))
+            # Por líneas enteras, no por palabras: GBRecomp también anota el código que corrió desde RAM en
+            # líneas "ram DIRECCION BYTES", y partirlas por espacios las deshacía (la segunda ronda no las aprendía)
+            lineas = sorted({l.strip() for l in traza.read_text().splitlines() if l.strip()})
             traza.write_text("\n".join(lineas) + ("\n" if lineas else ""))
             fa["traza"] = len(lineas)
-            if not lineas:          # nada cayó al intérprete en ROM: la segunda ronda sería idéntica
+            if not lineas:          # nada cayó al intérprete (ni en ROM ni en RAM): la segunda ronda sería idéntica
                 r["resultado"] = "ok"
                 break
         else:

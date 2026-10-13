@@ -11,6 +11,10 @@
 cd "$(dirname "$0")/.." || exit 2
 mkdir -p testroms build
 
+# SKIP_SST=1 (el CI de macOS y Windows): sin las SingleStepTests, que son lo que más pesa; make test las omite
+# si no están. En Linux y en tu máquina se bajan completas.
+if [ -n "$SKIP_SST" ]; then echo "SKIP_SST: sin las SingleStepTests del 68000 ni del Z80"
+else
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then echo "testroms/680x0 ya tiene las SingleStepTests del 68000"
 else
     mkdir -p testroms/680x0 && \
@@ -27,6 +31,7 @@ else
     for f in build/z80tests/v1/*.json; do gzip -c "$f" > "testroms/z80/v1/$(basename "$f").gz" || exit 1; done && \
     cp build/z80tests/LICENSE testroms/z80/ && rm -rf build/z80tests && \
     echo "SingleStepTests del Z80 en testroms/z80" || exit 1
+fi
 fi
 
 mkdir -p testroms/neo

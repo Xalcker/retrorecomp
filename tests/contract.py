@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Prueba de contrato: las herramientas sin ventana de NESRecomp, GBRecomp y GENRecomp aceptan las
-mismas opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
+"""Prueba de contrato: las herramientas sin ventana de NESRecomp, GBRecomp, GENRecomp y NEORecomp aceptan
+las mismas opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
 comprueba que su ayuda las menciona. También comprueba que el código compartido (SHARED, p. ej. el
 mando aleatorio random_pad.h) sea idéntico en todos los que encuentre. Corre con los recompiladores ya compilados (make).
 
-    python3 tests/contract.py [--nes DIR] [--gb DIR] [--gen DIR]
+    python3 tests/contract.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR]
 """
 import argparse, os, subprocess, sys
 
@@ -18,6 +18,8 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
            "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat", "--seed")},
     "gen": {"gentrace": ("--frames", "--input", "--seed"), "genshot": ("--frames", "--input", "--seed"),
             "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat", "--seed")},
+    "neo": {"neotrace": ("--frames", "--input", "--seed"), "neoshot": ("--frames", "--input", "--seed"),
+            "neoaudio": ("--frames", "--input", "--seed"), "neobench": ("--frames", "--input", "--repeat", "--seed")},
 }
 
 # Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed, el
@@ -31,10 +33,12 @@ def main():
     ap.add_argument("--nes")
     ap.add_argument("--gb")
     ap.add_argument("--gen")
+    ap.add_argument("--neo")
     a = ap.parse_args()
     roots = {"nes": rr.find_repo("NESRecomp", "NESRECOMP_DIR", a.nes, os.path.join("src", "nesrecomp", "nesrecomp.c")),
              "gb": rr.find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c")),
-             "gen": rr.find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c"))}
+             "gen": rr.find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c")),
+             "neo": rr.find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c"))}
     fails = checked = 0
     for sid, tools in COMMON.items():
         root = roots[sid]

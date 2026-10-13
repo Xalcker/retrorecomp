@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Prueba de compatibilidad común de NESRecomp, GBRecomp y GENRecomp con una colección de ROMs (solo la
-biblioteca estándar de Python).
+"""Prueba de compatibilidad común de NESRecomp, GBRecomp, GENRecomp y NEORecomp con una colección de ROMs (solo
+la biblioteca estándar de Python).
 
 Cada recompilador la llama desde su tools/compat/run.py, que define lo propio de su consola (una subclase de
 Sistema: leer la cabecera, la categoría de cada ROM, qué se soporta, los botones); el resto es igual en los tres
@@ -37,7 +37,7 @@ ESTADOS = ["recompilado", "intérprete", "diferencia", "falla", "pantalla en bla
 
 class Sistema:
     """Lo propio de cada consola. Las subclases están en tools/compat/run.py de cada recompilador."""
-    id = ""                          # "nes" / "gb" / "gen": prefijo de las herramientas (nesshot, gbrecomp...)
+    id = ""                          # "nes" / "gb" / "gen" / "neo": prefijo de las herramientas (nesshot, gbrecomp...)
     nombre = ""                      # "NESRecomp"
     consola = ""                     # para los textos del informe
     exts = ()                        # extensiones de ROM (dentro de los zips o sueltas)
@@ -50,6 +50,16 @@ class Sistema:
     escala_mini = 2                  # la miniatura es la captura dividida entre esto
     cupo = {}                        # categoría -> cuántas ROMs entran a la etapa 2 por omisión
     cupo_def = 3
+    juego_zip = False                # el zip entero es el juego (Neo Geo: zips de MAME, muchos chips): no se extrae
+    cuadros1 = CUADROS1              # capturas de la etapa 1
+
+    def es_juego(self, p):
+        """¿Este archivo de la carpeta es un juego? (no, p. ej., un zip de BIOS)"""
+        return True
+
+    def guiones(self):
+        """(guion de la etapa 1, entradas fijas de difftest): por omisión los comunes"""
+        return guiones(self)
 
     def __init__(self, root):
         self.root = pathlib.Path(root)
@@ -337,7 +347,7 @@ class Prueba:
         for c in carpetas:
             col = self.S.coleccion(c)
             for p in sorted(pathlib.Path(c).resolve().iterdir()):     # absolutas: difftest corre en su carpeta
-                if p.suffix.lower() == ".zip" or p.suffix.lower() in self.S.exts:
+                if (p.suffix.lower() == ".zip" or p.suffix.lower() in self.S.exts) and self.S.es_juego(p):
                     trabajos.append((col, p))
         if not trabajos:
             sys.exit(f"no hay ROMs en {', '.join(map(str, carpetas))}")
@@ -352,7 +362,7 @@ class Prueba:
             f = {"archivo": p.name, "juego": p.stem, "coleccion": col}
             f["slug"] = slug(f)
             try:
-                if p.suffix.lower() == ".zip":
+                if p.suffix.lower() == ".zip" and not self.S.juego_zip:
                     with zipfile.ZipFile(p) as z:
                         ent = [n for n in z.namelist() if n.lower().endswith(self.S.exts)]
                         if not ent:
@@ -387,11 +397,11 @@ class Prueba:
             r.update(interprete="error", detalle=f["error"])
             return r
         base = f["slug"]
-        pngs = [self.work / "shots" / f"{base}_{n}.png" for n in CUADROS1]
+        pngs = [self.work / "shots" / f"{base}_{n}.png" for n in S.cuadros1]
         pngs[0].parent.mkdir(parents=True, exist_ok=True)
         t0 = time.time()
         salida = ""
-        for p, n in zip(pngs, CUADROS1):
+        for p, n in zip(pngs, S.cuadros1):
             p.unlink(missing_ok=True)
             rc, salida, _ = correr([S.herramienta("shot"), f["rom"], p, "--frames", n, "--input", self.guion],
                                    cwd=S.root, timeout=300)
@@ -451,7 +461,7 @@ class Prueba:
                 r.update(resultado="falla", detalle=f"{S.id}recomp: " + o.strip()[-300:])
                 break
             fa["instrucciones"] = num(r"código: (\d+) instrucciones", o, int)
-            fa["pct_rom"] = num(r"bytes, ([\d.]+)% (?:de la ROM|del PRG)", o)
+            fa["pct_rom"] = num(r"bytes, ([\d.]+)% (?:de la ROM|del PRG|de P)", o)
             fa["funciones"] = num(r"(\d+) funciones", o, int)
             rc, o, dt = make(carpeta, f"difftest{EXE}", hilos_make)
             if rc != 0 or not (carpeta / f"difftest{EXE}").exists():
@@ -572,7 +582,7 @@ def main(S, argv=None):
     if a.oraculos and not S.oraculos:
         sys.exit(f"{S.nombre} no tiene oráculos para --oraculos")
     P = Prueba(S, a.salida)
-    guion, diff = guiones(S)
+    guion, diff = S.guiones()
     P.work.mkdir(parents=True, exist_ok=True)
     P.guion.write_text(guion)
     P.entradas_diff.write_text(diff)
@@ -823,7 +833,7 @@ input{{width:260px;max-width:100%}}
 </div>
 <h2>Cómo se probó</h2>
 <p><b>Etapa 1, todas las ROMs:</b> cada ROM corre en el intérprete (<code>{e(S.id)}shot</code>) con entradas guionadas (Start, botones,
-flechas) y se toman capturas en los cuadros {", ".join(map(str, CUADROS1))}; la miniatura es la más colorida. «Corre» significa que cargó,
+flechas) y se toman capturas en los cuadros {", ".join(map(str, S.cuadros1))}; la miniatura es la más colorida. «Corre» significa que cargó,
 el CPU no se detuvo y la captura no es de un solo color; no garantiza que el juego se vea bien: las miniaturas hay que revisarlas a ojo.</p>
 <p><b>Etapa 2, una selección por {e(S.categoria_nombre.lower())}:</b> <code>{e(S.id)}recomp</code> sin traza (solo análisis estático),
 compilar el proyecto generado y correr <code>difftest</code> con las semillas {" y ".join(map(str, SEMILLAS))} ({S.cuadros_diff} cuadros,

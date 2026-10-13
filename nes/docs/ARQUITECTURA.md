@@ -4,7 +4,7 @@ NESRecomp toma una ROM de NES (iNES) y genera un proyecto C99 que se compila en 
 nativo. El ejecutable carga la ROM del usuario en tiempo de ejecución y valida su SHA1: nunca se
 distribuyen datos de la ROM.
 
-Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de GBRecomp: lo
+Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de GBRecomp, GENRecomp y NEORecomp: lo
 que cambia entre las dos consolas queda dentro de cada una.
 
 ## Piezas
@@ -16,7 +16,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c`, `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `nesramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
 | `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
-| `tools/` | `retrorecomp/` (la GUI común con GBRecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `nesramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `scan.py`, `run.py`, `report.py`; con `uv`). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
+| `tools/` | `retrorecomp/` (la GUI común con GBRecomp, GENRecomp y NEORecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `nesramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `run.py` y `report.py`, con el motor común de retrorecomp). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 | `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
 
 ## Una sola fuente de verdad para el CPU
@@ -150,7 +150,7 @@ con lo que el juego ejecutó.
 `--trace`/`--uncovered`, o `nes` con `NES_TRACE`) como puntos de entrada: es lo que falta cuando alguna
 heurística no alcanza.
 
-Una traza tiene una línea `BANCO:DIRECCION` por instrucción, el mismo formato que GBRecomp y GENRecomp
+Una traza tiene una línea `BANCO:DIRECCION` por instrucción, el mismo formato que GBRecomp, GENRecomp y NEORecomp
 (`src/runtime/trace_line.h`, idéntico en los tres). El banco es el desplazamiento en el PRG dividido entre
 8 KB, la ventana más chica de los mappers, y la dirección es la del CPU: `0A:C2C4` es el desplazamiento
 `0A × $2000 + ($C2C4 & $1FFF)` = `$0142C4`. Se siguen leyendo las trazas viejas, `DESPLAZAMIENTO:DIRECCION`

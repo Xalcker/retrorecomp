@@ -8,7 +8,7 @@ generado (valida su SHA1) y con `difftest` para comprobar el código recompilado
 ## Un caso completo: recompilar Super Mario Bros.
 
 Se necesita un compilador C99, `make`, `pkg-config` y SDL2; `git` y `unzip` se usan para la versión y para
-`make testroms`. Son los mismos paquetes que en GBRecomp. La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
+`make testroms`. Son los mismos paquetes que en GBRecomp, GENRecomp y NEORecomp. La ROM la pones tú en `roms/` (no se versiona ni se distribuye).
 
 | Sistema | Paquetes |
 |---|---|
@@ -47,7 +47,7 @@ make test       # opcional: nestest, Blargg, mappers, recompilado contra intérp
 make dist       # dist/nesrecomp-<versión>-<sistema>.tar.gz (sistema: linux, macos o windows)
 ```
 
-Son los mismos objetivos que en GBRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre exactamente
+Son los mismos objetivos que en GBRecomp, GENRecomp y NEORecomp, y el CI (`.github/workflows/ci.yml`, el mismo flujo en los cuatro) corre exactamente
 eso en Linux, macOS y Windows. AccuracyCoin es opcional (`tests/accuracycoin.py`; usa uv):
 
 ```
@@ -126,7 +126,7 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 # o jugando en la ventana:  NES_TRACE=smb.trace ./nes juego.nes   (se puede repetir --trace con varias trazas)
 ```
 
-`sh tests/recomp_game.sh rom nombre [cuadros] [semillas...]` hace los pasos 3, 4 y 5 de una vez, con los mismos argumentos que en GBRecomp (`cuadros`: los de cada `difftest`, 1500; `TRACE_FRAMES=N`: los de la traza guionada, 2400; `NOTRACE=1`: solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`, por omisión 1 2 3), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar.
+`sh tests/recomp_game.sh rom nombre [cuadros] [semillas...]` hace los pasos 3, 4 y 5 de una vez, con los mismos argumentos que en GBRecomp, GENRecomp y NEORecomp (`cuadros`: los de cada `difftest`, 1500; `TRACE_FRAMES=N`: los de la traza guionada, 2400; `NOTRACE=1`: solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`, por omisión 1 2 3), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar.
 
 **8. Entender qué encontró el recompilador**
 
@@ -218,7 +218,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nesramdump rom [--frames N] [--input archivo] [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`; en GBRecomp, `gbramdump`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
-| `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
+| `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
 | `python3 tools/compat/{run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML, con el motor común de `tools/retrorecomp/compat.py` ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
@@ -235,11 +235,11 @@ Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde
 ```
 
 `tests/recomp_game.sh rom nombre` recompila un juego con una traza (guionada y la que descubre `difftest --uncovered`) y lo compara contra el intérprete.
-**Contrato común con GBRecomp.** `nestrace`, `nesshot`, `nesaudio`, `nesbench` y `difftest` tienen las mismas opciones que
-las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp) (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común
+**Contrato común con GBRecomp, GENRecomp y NEORecomp.** `nestrace`, `nesshot`, `nesaudio`, `nesbench` y `difftest` tienen las mismas opciones que
+las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp), [GENRecomp](https://github.com/Xalcker/GENRecomp) y [NEORecomp](https://github.com/Xalcker/NEORecomp) (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común
 ([retrorecomp](https://github.com/Xalcker/retrorecomp)) se apoya en eso. `sh tests/contract.sh` (el mismo archivo en los
 dos repos) comprueba que las herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé
-la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` igual a `boton:desde-hasta`); el CI la corre en cada PR (`.github/workflows/ci.yml`, como en GBRecomp). Si cambias una opción aquí, cámbiala también en GBRecomp y en la tabla de retrorecomp.
+la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` igual a `boton:desde-hasta`); el CI la corre en cada PR (`.github/workflows/ci.yml`, como en los otros tres). Si cambias una opción aquí, cámbiala también en GBRecomp, GENRecomp, NEORecomp y en la tabla de retrorecomp.
 
 `tests/golden.sh` compara el hash de todos los cuadros y del audio de cada juego de `roms/` y de las ROMs de prueba con una línea base (`tests/golden.txt`, por SHA1 de la ROM); `tests/coverage.sh` mide la cobertura del análisis estático.
 
@@ -251,7 +251,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 | `src/nesrecomp/` | El recompilador. |
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
-| `tools/` | `retrorecomp/`: la GUI común con GBRecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python, con `uv`). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
+| `tools/` | `retrorecomp/`: la GUI común con GBRecomp, GENRecomp y NEORecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
@@ -273,7 +273,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 
 ## Licencia
 
-NESRecomp se distribuye con licencia [MIT](LICENSE), la misma que GBRecomp y retrorecomp. La licencia cubre
+NESRecomp se distribuye con licencia [MIT](LICENSE), la misma que GBRecomp, GENRecomp, NEORecomp y retrorecomp. La licencia cubre
 el código del recompilador y del runtime, no las ROMs ni el código que se genera a partir de ellas: ese
 código es una traducción del programa del juego, así que sirve para jugar tu propia copia, pero no
 distribuyas el proyecto ni el ejecutable de un juego comercial.

@@ -1,10 +1,10 @@
 /*
- * Mando aleatorio de --seed: el mismo en NESRecomp y GBRecomp. Este archivo es idéntico en los
- * dos repositorios (retrorecomp/tests/contract.py lo comprueba): si lo cambias, cámbialo en el otro.
+ * Mando aleatorio de --seed: el mismo en NESRecomp, GBRecomp, GENRecomp y NEORecomp. Este archivo es idéntico en los
+ * cuatro repositorios (retrorecomp/tests/contract.py lo comprueba): si lo cambias, cámbialo en los otros tres.
  *
  * Mantiene una combinación de botones entre 4 y 43 cuadros. Start es poco frecuente (en muchos
  * juegos pausa la partida) y nunca se pulsa Select; A, B y la derecha pesan más, para avanzar en
- * el juego. Con la misma semilla, la secuencia es la misma en las dos consolas.
+ * el juego. Con la misma semilla, la secuencia es la misma en todas las consolas.
  *
  * Los botones salen como bits lógicos RP_*; cada consola los pasa a su registro (en la NES son
  * los mismos bits; en el Game Boy cambia el orden de la cruz).

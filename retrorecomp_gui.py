@@ -130,8 +130,8 @@ def update_state(rid, **kv):
         os.replace(tmp, STATE_FILE)
 
 
-# Botones de los tres (C, X, Y, Z y MODE solo existen en el Genesis; SELECT no)
-BTN = r"(A|B|C|X|Y|Z|SELECT|START|MODE|RIGHT|LEFT|UP|DOWN)"
+# Botones de los cuatro (C, X, Y, Z y MODE solo existen en el Genesis; C y D en el Neo Geo; SELECT no está en el Genesis)
+BTN = r"(A|B|C|D|X|Y|Z|SELECT|START|MODE|RIGHT|LEFT|UP|DOWN)"
 PAD = r"(-|\$?[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|" + BTN + r"(\+" + BTN + r")*)"
 LINE_OK = re.compile(r"^(#.*|modelo (dmg|cgb|sgb)|paleta [A-Za-z+]+|\d+\s+" + PAD + r"(\s+" + PAD + r")?)?$", re.I)
 
@@ -415,6 +415,8 @@ class NEO(GEN):
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
             "game_frames": 1800}         # la BIOS del AES tarda unos 20 s en dejar el juego en su demo
     mem = "P"
+    map_note = "como --viz: una fila por cada 16 KB del programa (P); la celda es de 256 bytes, más grande si P pasa de 1 MB"
+    input_note = "A B C D START SELECT RIGHT LEFT UP DOWN unidos con +; la segunda columna es el jugador 2"
     trace_shift = 20                 # bancos de 1 MB (P1 y cada banco de P2); la BIOS es el banco FF
     window = "neo"
     bench_tool = "neobench"
@@ -474,7 +476,7 @@ class GB(System):
     input_note = "A B SELECT START RIGHT LEFT UP DOWN unidos con +"
     tools = ("gbrecomp", "gb", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "gbramdump", "linktest", "vgmcheck")
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
-    caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
+    caps = {"notrace": True, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
             "game_frames": 6000, "unresolved": True}
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
            0x0F: "MBC3+TIMER+BAT", 0x10: "MBC3+TIMER+RAM+BAT", 0x11: "MBC3", 0x12: "MBC3+RAM", 0x13: "MBC3+RAM+BAT",
@@ -791,7 +793,7 @@ def save_input(rid, name, text):
     lines = [l.rstrip() for l in text.splitlines()]
     for i, l in enumerate(lines, 1):
         # Botones que esa consola no tiene (se revisan las palabras después del número de cuadro)
-        bad_btn = {"nes": {"C", "X", "Y", "Z", "MODE"}, "gb": {"C", "X", "Y", "Z", "MODE"}, "gen": {"SELECT"},
+        bad_btn = {"nes": {"C", "D", "X", "Y", "Z", "MODE"}, "gb": {"C", "D", "X", "Y", "Z", "MODE"}, "gen": {"SELECT", "D"},
                    "neo": {"X", "Y", "Z", "MODE"}}.get(sysm.id, set())
         words = set(re.split(r"[\s+]+", l.strip().upper())[1:]) if re.match(r"\d", l.strip()) else set()
         if (not LINE_OK.match(l.strip()) or (sysm.id != "gb" and re.match(r"(modelo|paleta)\b", l.strip(), re.I))
@@ -974,6 +976,8 @@ def make_job(p):
         return start_job("bench", [{"argv": argv}], rid, "bench", cwd)
     if kind == "recomp_game":
         env = {"NOTRACE": "1"} if p.get("notrace") and sysm.caps["notrace"] else {}
+        if inp:     # unas «Entradas» elegidas (p. ej. una partida grabada) sustituyen a las guionadas del ciclo
+            env.update(INPUT_TRACE=posix_path(inp), INPUT_DIFFTEST=posix_path(inp))
         return start_job(f"ciclo completo {name}", [{"argv": sysm.game_argv(rp, name, frames(6000)), "env": env}], rid, "recomp_game", cwd)
     if kind in ("trace", "screenshot", "audio"):
         tn = safe_name(p.get("trace_name") or "guiada")

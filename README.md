@@ -43,7 +43,8 @@ El interruptor de la barra superior elige entre dos modos (se recuerda en el nav
 - **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
   (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
   el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son
-  «Avance y mapa» y «Trazas y entradas». Encima de las pestañas quedan siempre a la vista las fichas de estado de la
+  «Avance y mapa» y «Trazas y entradas». Si eliges unas «Entradas» (p. ej. una partida grabada) el ciclo las usa en
+  lugar de las guionadas (`INPUT_TRACE` / `INPUT_DIFFTEST` de `recomp_game.sh`). Encima de las pestañas quedan siempre a la vista las fichas de estado de la
   ROM y sus ajustes comunes (cuadros de pruebas, cuadros de traza y velocidad, entradas y modelo). El registro muestra
   un ✓ o ✗ por cada paso del trabajo y se puede ocultar.
 

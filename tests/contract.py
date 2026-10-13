@@ -23,9 +23,14 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
 }
 
 # Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed, el
-# formato de las trazas y la propia prueba de contrato de cada uno
+# formato de las trazas, la propia prueba de contrato de cada uno y el ciclo completo (script y entradas)
 SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
-          os.path.join("tests", "contract.sh"))
+          os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_game.sh"),
+          os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
+
+# Las entradas guionadas del ciclo son las mismas en NES, Game Boy y Genesis; el Neo Geo tiene las suyas
+# (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)
+PROPIOS_NEO = (os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
 
 
 def main():
@@ -62,7 +67,7 @@ def main():
                 print(f"ok    {sid}/{tool}")
     # Archivos que deben ser idénticos en todos los repositorios (sin contar el fin de línea)
     for shared in SHARED:
-        found = [s for s in roots if roots[s]]
+        found = [s for s in roots if roots[s] and not (s == "neo" and shared in PROPIOS_NEO)]
         paths = [os.path.join(roots[s], shared) for s in found]
         if len(paths) < 2:
             continue

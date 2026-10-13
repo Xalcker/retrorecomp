@@ -2,7 +2,8 @@
 
 Una sola interfaz local para los recompiladores estáticos de esta serie:
 [NESRecomp](https://github.com/Xalcker/NESRecomp) (NES), [GBRecomp](https://github.com/Xalcker/GBRecomp)
-(Game Boy, Game Boy Color y Super Game Boy) y [GENRecomp](https://github.com/Xalcker/GENRecomp) (Sega Genesis).
+(Game Boy, Game Boy Color y Super Game Boy), [GENRecomp](https://github.com/Xalcker/GENRecomp) (Sega Genesis) y
+[NEORecomp](https://github.com/Xalcker/NEORecomp) (Neo Geo AES).
 Detecta el sistema de cada ROM por su cabecera y llama a las herramientas del recompilador que corresponda;
 cada uno sigue siendo su propio repositorio.
 
@@ -10,9 +11,9 @@ cada uno sigue siendo su propio repositorio.
 python3 retrorecomp_gui.py            # abre el navegador; solo Python 3, sin dependencias
 ```
 
-Busca los repositorios en `--nes DIR` / `--gb DIR` / `--gen DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR` / `GENRECOMP_DIR`,
-en la carpeta que contiene a este (si va como submódulo de uno de ellos) o en las hermanas `NESRecomp`, `GBRecomp` y
-`GENRecomp` (si es submódulo de uno, los otros se buscan junto a ese). Los que no encuentre no aparecen.
+Busca los repositorios en `--nes DIR` / `--gb DIR` / `--gen DIR` / `--neo DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR` /
+`GENRECOMP_DIR` / `NEORECOMP_DIR`, en la carpeta que contiene a este (si va como submódulo de uno de ellos) o en las
+hermanas `NESRecomp`, `GBRecomp`, `GENRecomp` y `NEORecomp` (si es submódulo de uno, los otros se buscan junto a ese). Los que no encuentre no aparecen.
 Como submódulo: `git submodule update --init` y `python3 tools/retrorecomp/retrorecomp_gui.py`. Las ROMs salen
 de la carpeta `roms/` de cada uno y de las que se pasen con `--roms DIR`. Compila las herramientas desde la
 propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
@@ -45,15 +46,15 @@ cada comando como una lista de argumentos (sin shell).
 
 La interfaz no conoce el interior de los recompiladores, solo esta línea de comandos común:
 
-| Herramienta (NES / GB / Genesis) | Uso |
+| Herramienta (NES / GB / Genesis / Neo Geo) | Uso |
 |---|---|
-| `nestrace` / `gbtrace` / `gentrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
-| `nesshot` / `gbshot` / `genshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]`; si el CPU se detiene (opcode KIL / ilegal, doble falta) escribe `CPU detenido en el cuadro N (motivo)` |
-| `nesaudio` / `gbaudio` / `genaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
-| `nesbench` / `gbbench` / `genbench` | `rom [--frames N] [--repeat N] [--input archivo] [--seed S]` (sin entradas: Start y luego la derecha) |
-| `nesramdump` / `gbramdump` / `genramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
-| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` (sin `--input` ni `--seed` no pulsa nada; el nombre es el mismo en los tres porque va dentro del proyecto generado, que ya es de una consola) |
-| `nesrecomp` / `gbrecomp` / `genrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
+| `nestrace` / `gbtrace` / `gentrace` / `neotrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
+| `nesshot` / `gbshot` / `genshot` / `neoshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]`; si el CPU se detiene (opcode KIL / ilegal, doble falta) escribe `CPU detenido en el cuadro N (motivo)` |
+| `nesaudio` / `gbaudio` / `genaudio` / `neoaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
+| `nesbench` / `gbbench` / `genbench` / `neobench` | `rom [--frames N] [--repeat N] [--input archivo] [--seed S]` (sin entradas: Start y luego la derecha) |
+| `nesramdump` / `gbramdump` / `genramdump` / `neoramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
+| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` (sin `--input` ni `--seed` no pulsa nada; el nombre es el mismo en todos porque va dentro del proyecto generado, que ya es de una consola) |
+| `nesrecomp` / `gbrecomp` / `genrecomp` / `neorecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
@@ -97,14 +98,15 @@ donde iba y salta las ROMs que ya tienen resultado del mismo commit del recompil
 
 ## Diferencias que la interfaz esconde
 
-| | NES | Game Boy | Genesis |
-|---|---|---|---|
-| Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) |
-| Banco de la traza (`BB:AAAA`) | 8 KB del PRG | 16 KB (el banco del MBC) | 512 KB de la ROM (las ventanas de SSF2) |
-| Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` |
-| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM |
-| Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) |
+| | NES | Game Boy | Genesis | Neo Geo |
+|---|---|---|---|---|
+| El juego | `.nes` | `.gb`, `.gbc`, `.sgb` | `.md`, `.gen`, `.bin`, `.smd` | zip de MAME (entero: muchos chips) o `.neo`; necesita la BIOS del AES |
+| Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) | 64 celdas del programa P (`--viz --color`): de 256 bytes hasta 1 MB, más grandes después |
+| Banco de la traza (`BB:AAAA`) | 8 KB del PRG | 16 KB (el banco del MBC) | 512 KB de la ROM (las ventanas de SSF2) | 1 MB de P (P1 y cada banco de P2); `FF` la BIOS |
+| Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` | `neo` (intérprete) con `--trace` |
+| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM | `--html`: página sola con el mapa de P |
+| Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) | segunda columna (jugador 2), botones C y D; la BIOS tarda unos 20 s en dejar el juego en su demo |
 
 ## Licencia
 
-retrorecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp y GENRecomp.
+retrorecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp, GENRecomp y NEORecomp.

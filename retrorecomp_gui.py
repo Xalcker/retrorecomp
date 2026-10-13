@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""retrorecomp: una sola GUI local para NESRecomp, GBRecomp y GENRecomp (solo biblioteca estándar
-de Python).
+"""retrorecomp: una sola GUI local para NESRecomp, GBRecomp, GENRecomp y NEORecomp (solo biblioteca
+estándar de Python).
 
 Una página servida en 127.0.0.1 que detecta el sistema de cada ROM (NES, Game Boy, Game Boy Color,
-Super Game Boy, Sega Genesis) y llama a las herramientas del recompilador que corresponda: mapa del descubrimiento
-con clic por celda, avance por ROM, trazas, guiones de entradas, recompilar, difftest, bench y el
-ciclo completo, con la salida en vivo.
+Super Game Boy, Sega Genesis, Neo Geo) y llama a las herramientas del recompilador que corresponda: mapa del
+descubrimiento con clic por celda, avance por ROM, trazas, guiones de entradas, recompilar, difftest, bench y
+el ciclo completo, con la salida en vivo.
 
-    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--gen DIR] [--roms DIR ...] [--port 8765] [--no-browser]
+    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR] [--roms DIR ...] [--port 8765] [--no-browser]
 
-Dónde busca los recompiladores: --nes/--gb/--gen, las variables NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR,
-la carpeta que contiene a retrorecomp si es uno de ellos (submódulo) o sus hermanas NESRecomp, GBRecomp y
-GENRecomp.
+Dónde busca los recompiladores: --nes/--gb/--gen/--neo, las variables
+NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR, la carpeta que contiene a retrorecomp si es uno de
+ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp y NEORecomp.
 """
 import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,7 +28,7 @@ lock = threading.RLock()
 jobs, job_seq = {}, [0]
 cfg = {"token": "", "extra_roms": []}
 events_cache = {}
-systems = {}          # "nes" / "gb" / "gen" -> System
+systems = {}          # "nes" / "gb" / "gen" / "neo" -> System
 
 
 # --------------------------------------------------------------------------- utilidades
@@ -260,7 +260,7 @@ class NES(System):
                 banks.append({"label": m.group(1), "base": int(m.group(1), 16), "cells": cells})
                 continue
             self.header_stats(ln, stats)
-            m = re.search(r"código: (\d+) instrucciones \((\d+) bytes, ([\d.]+)% (?:del PRG|de la ROM)\)", ln)
+            m = re.search(r"código: (\d+) instrucciones \((\d+) bytes, ([\d.]+)% (?:del PRG|de la ROM|de P)\)", ln)
             if m:
                 stats.update(instr=int(m.group(1)), bytes=int(m.group(2)), pct=float(m.group(3)))
             m = re.search(r"cobertura: (\d+) de (\d+) instrucciones ejecutadas descubiertas sin traza \(([\d.]+)% *\)", ln)
@@ -395,6 +395,69 @@ class GEN(NES):
 
     def record_trace(self, argv, env, path):
         argv += ["--trace", path]
+
+
+class NEO(GEN):
+    """NEORecomp copia los formatos de GENRecomp: cambian los nombres, que el juego es un zip de MAME (o un
+    .neo) y que el mapa de un programa de más de 1 MB tiene celdas de más de 256 bytes (las mismas 64 por
+    fila), así que la celda se busca con el tamaño de ese mapa. Los datos del juego (tamaño de P, nombre)
+    salen de neorecomp --info."""
+    id, label, exts = "neo", "Neo Geo", (".zip", ".neo")
+    recomp = "neorecomp"
+    tools = ("neorecomp", "neo", "neotrace", "neoshot", "neoaudio", "neobench", "neorun", "neoramdump")
+    legend = ("flujo desde los puntos de entrada", "traza", "tabla de saltos", "especulativo (punteros sueltos)")
+    caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
+            "game_frames": 1800}         # la BIOS del AES tarda unos 20 s en dejar el juego en su demo
+    mem = "P"
+    trace_shift = 20                 # bancos de 1 MB (P1 y cada banco de P2); la BIOS es el banco FF
+    window = "neo"
+    bench_tool = "neobench"
+    trace_tools = {"trace": "neotrace", "screenshot": "neoshot", "audio": "neoaudio"}
+    info_cache = {}
+
+    @staticmethod
+    def map_cell(size):
+        """Bytes por celda del mapa de neorecomp --viz: 256 hasta 1 MB; más, para unas 64 filas de 64"""
+        c = 256
+        while size // c > 4096:
+            c *= 2
+        return c
+
+    def info(self, path):
+        try:
+            key = (path, os.path.getmtime(path))
+        except OSError:
+            return {}
+        with lock:
+            if key in self.info_cache:
+                return self.info_cache[key]
+        rc, o = self.run([self.tool(self.recomp), path, "--info"], 120)
+        m = re.search(r"^\s+P\s+(\d+) (KB|MB)", o, re.M)
+        if rc != 0 or not m:
+            return {}
+        size = int(m.group(1)) * (1 << (20 if m.group(2) == "MB" else 10))
+        t = re.search(r"^juego:\s+(.*?)(?: \(|$)", o, re.M)
+        title = t.group(1).strip() if t and "no está en la base" not in t.group(1) else ""
+        row = 64 * self.map_cell(size)
+        r = {"title": title, "mapper": "Neo Geo", "banks": max(1, -(-size // row)), "size": size}
+        with lock:
+            self.info_cache[key] = r
+        return r
+
+    def header_stats(self, ln, stats):
+        m = re.search(r": P (\d+) KB", ln)
+        if m:
+            size = int(m.group(1)) * 1024
+            stats.update(mapper="Neo Geo", banks=max(1, -(-size // (64 * self.map_cell(size)))), size=size)
+
+    def cell(self, rom_path, traces, bank_i, ci, banks):
+        cell = self.map_cell(self.info(rom_path).get("size", 0))
+        ev = get_events(self, rom_path, traces)
+        lo = bank_i * 64 * cell + ci * cell
+        items = sorted((e for e in ev if lo <= e["pos"] < lo + cell), key=lambda e: e["pos"])
+        return {"title": f"{self.mem} ${lo:06X}–${lo + cell - 1:06X}",
+                "events": [{"addr": "%02X:%s" % (e["pos"] >> self.trace_shift, e["addr"]), "org": e["org"], "dis": e["dis"],
+                            "why": "%X" % e["pos"]} for e in items]}
 
 
 class GB(System):
@@ -603,6 +666,16 @@ def detect_system(path):
         return None
     if d[:4] == b"NES\x1a":
         return "nes"
+    # Neo Geo: un .neo, o un zip de MAME con su programa (un .p1; los de las BIOS, aes.zip y neogeo.zip, no)
+    if d[:4] == b"NEO\x01":
+        return "neo"
+    if d[:4] == b"PK\x03\x04":
+        try:
+            import zipfile
+            with zipfile.ZipFile(path) as z:
+                return "neo" if any(n.lower().endswith((".p1", ".ep1")) for n in z.namelist()) else None
+        except (OSError, zipfile.BadZipFile):
+            return None
     if len(d) >= 0x134 and d[0x104:0x108] == bytes([0xCE, 0xED, 0x66, 0x66]):
         return "gb"
     # Genesis: "SEGA" en la cabecera ($100), o un .smd (cabecera de copiador AA BB y bloques entrelazados)
@@ -710,7 +783,8 @@ def save_input(rid, name, text):
     lines = [l.rstrip() for l in text.splitlines()]
     for i, l in enumerate(lines, 1):
         # Botones que esa consola no tiene (se revisan las palabras después del número de cuadro)
-        bad_btn = {"nes": {"C", "X", "Y", "Z", "MODE"}, "gb": {"C", "X", "Y", "Z", "MODE"}, "gen": {"SELECT"}}.get(sysm.id, set())
+        bad_btn = {"nes": {"C", "X", "Y", "Z", "MODE"}, "gb": {"C", "X", "Y", "Z", "MODE"}, "gen": {"SELECT"},
+                   "neo": {"X", "Y", "Z", "MODE"}}.get(sysm.id, set())
         words = set(re.split(r"[\s+]+", l.strip().upper())[1:]) if re.match(r"\d", l.strip()) else set()
         if (not LINE_OK.match(l.strip()) or (sysm.id != "gb" and re.match(r"(modelo|paleta)\b", l.strip(), re.I))
                 or words & bad_btn):
@@ -727,6 +801,9 @@ PRESETS = {
            "titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 A\n407 -\n"},
     "gen": {"titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 C\n407 -\n",
             "sonic": "0 -\n120 START\n127 -\n300 RIGHT\n600 RIGHT+C\n610 RIGHT\n"},
+    # Neo Geo: la BIOS del AES deja el juego en su demo a los ~20 s; Start y A pasan a la partida
+    "neo": {"titulo": "0 -\n1200 START\n1206 -\n1500 START\n1506 -\n1700 A\n1711 -\n",
+            "partida": "0 -\n1200 START\n1206 -\n1500 START\n1506 -\n1700 A\n1711 -\n1900 A\n1911 -\n2400 RIGHT\n3000 RIGHT+A\n3010 RIGHT\n"},
 }
 
 
@@ -945,8 +1022,9 @@ def api_cell(rid, traces, bank_i, ci):
     n = sysm.info(rp).get("banks", 2)
     if bank_i < 0 or bank_i >= max(n, 1) or not 0 <= ci < BANK // CELL:
         raise ValueError("celda fuera de rango")
-    # NES y Genesis: una fila por cada 16 KB (de PRG o de ROM); GB: una por banco (el banco 0 en $0000, los demás en $4000)
-    banks = [{"bank": b, "base": b * BANK if sysm.id in ("nes", "gen") else (0 if b == 0 else 0x4000)} for b in range(n)]
+    # NES y Genesis: una fila por cada 16 KB (de PRG o de ROM); GB: una por banco (el banco 0 en $0000, los demás en
+    # $4000); Neo Geo: NEO.cell busca con el tamaño de celda de su mapa
+    banks = [{"bank": b, "base": b * BANK if sysm.id in ("nes", "gen", "neo") else (0 if b == 0 else 0x4000)} for b in range(n)]
     return sysm.cell(rp, trace_files(rid, traces), bank_i, ci, banks)
 
 
@@ -1081,10 +1159,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="GUI local para NESRecomp, GBRecomp y GENRecomp")
+    ap = argparse.ArgumentParser(description="GUI local para NESRecomp, GBRecomp, GENRecomp y NEORecomp")
     ap.add_argument("--nes", help="carpeta de NESRecomp")
     ap.add_argument("--gb", help="carpeta de GBRecomp")
     ap.add_argument("--gen", help="carpeta de GENRecomp")
+    ap.add_argument("--neo", help="carpeta de NEORecomp")
     ap.add_argument("--roms", action="append", default=[], help="carpeta extra con ROMs (se puede repetir)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
@@ -1101,8 +1180,12 @@ def main():
     gen = find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c"))
     if gen:
         systems["gen"] = GEN(gen)
+    neo = find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c"))
+    if neo:
+        systems["neo"] = NEO(neo)
     if not systems:
-        sys.exit("no encontré NESRecomp, GBRecomp ni GENRecomp: use --nes/--gb/--gen o NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR")
+        sys.exit("no encontré NESRecomp, GBRecomp, GENRecomp ni NEORecomp: use --nes/--gb/--gen/--neo o "
+                 "NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR")
     cfg["extra_roms"] = [os.path.abspath(r) for r in a.roms]
     cfg["token"] = secrets.token_urlsafe(16)
     os.makedirs(WORK, exist_ok=True)

@@ -161,7 +161,7 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
      <button id="iSave">Guardar</button><button id="iDel">Borrar</button>
     </div>
     <textarea id="iText" placeholder="0 -&#10;122 START&#10;129 -&#10;300 RIGHT+A"></textarea>
-    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +; en Genesis también C X Y Z MODE y sin SELECT) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
+    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +; en Genesis también C X Y Z MODE y sin SELECT; en Neo Geo también C y D) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
    </div>
   </div>
 
@@ -253,7 +253,7 @@ function renderRoms(){
   sel.value=S.romsys;
   const item=r=>{
     const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"";
-    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
+    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN",neo:"NEO"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd|zip|neo)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
   const roms=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)&&(!S.romsys||r.system===S.romsys));
   // Primero las que ya tienen su proyecto compilado (build/out/NOMBRE), luego las demás
   const built=roms.filter(r=>r.built), rest=roms.filter(r=>!r.built);

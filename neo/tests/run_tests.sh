@@ -51,6 +51,15 @@ else
 fi
 tiempo "SingleStepTests del 68000 (intérprete y --recomp)"
 
+# Sin la BIOS de SNK (nunca va en el repositorio: roms/ o NEO_BIOS), las pruebas que necesitan una BIOS usan la
+# propia (make neobios, que se ensambla con Python): así make test corre también en un clon recién hecho y en el CI
+snk=
+for b in roms/aes.zip roms/neo-epo.bin roms/neo-po.bin roms/neobios.bin; do [ -f "$b" ] && snk=1; done
+if [ -z "$NEO_BIOS" ] && [ -z "$snk" ] && command -v python3 >/dev/null 2>&1 && make -s neobios >/dev/null 2>&1; then
+    NEO_BIOS=$PWD/build/neobios.bin; export NEO_BIOS
+    echo "(sin la BIOS de SNK en roms/ ni en NEO_BIOS: las pruebas usan la BIOS propia)"
+fi
+
 # Estados guardados: con el juego de prueba del contrato (make testroms) y con Metal Slug si está
 if [ -f testroms/neo/contrato.neo ]; then corre "statetest con el juego de prueba" "$(exe statetest)" testroms/neo/contrato.neo 120 200; fi
 if [ -f roms/mslug.zip ]; then corre "statetest con Metal Slug (CPU, Z80, LSPC, YM2610; sin la BIOS en el estado)" "$(exe statetest)" roms/mslug.zip 700 300; fi

@@ -1,7 +1,7 @@
 # NEORecomp
 
 Recompilador estático de juegos de Neo Geo, con la misma arquitectura que
-[GENRecomp](https://github.com/Xalcker/GENRecomp), [NESRecomp](https://github.com/Xalcker/NESrecomp) y
+[GENRecomp](https://github.com/Xalcker/GENRecomp), [NESRecomp](https://github.com/Xalcker/NESRecomp) y
 [GBRecomp](https://github.com/Xalcker/GBRecomp): toma un juego y genera un proyecto C99 portable que se
 compila en un ejecutable nativo con SDL2. Es híbrido (código recompilado más un intérprete 68000 de
 respaldo), sin datos del juego ni de la BIOS en el proyecto generado (valida sus SHA1) y con `difftest`

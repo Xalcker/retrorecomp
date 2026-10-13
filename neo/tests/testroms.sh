@@ -30,4 +30,6 @@ else
 fi
 
 mkdir -p testroms/neo
-make -s build/mkcontrato && build/mkcontrato testroms/neo/contrato.neo || exit 1
+# En Windows (MSYS2) los programas llevan .exe y el objetivo del Makefile también
+x=; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) x=.exe;; esac
+make -s "build/mkcontrato$x" && "build/mkcontrato$x" testroms/neo/contrato.neo || exit 1

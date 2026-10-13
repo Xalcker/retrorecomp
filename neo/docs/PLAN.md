@@ -1,7 +1,7 @@
 # Plan de NEORecomp
 
 Recompilador estático de juegos de Neo Geo (68000 principal, Z80 de sonido) con la misma estructura que
-[GENRecomp](https://github.com/Xalcker/GENRecomp), [NESRecomp](https://github.com/Xalcker/NESrecomp) y
+[GENRecomp](https://github.com/Xalcker/GENRecomp), [NESRecomp](https://github.com/Xalcker/NESRecomp) y
 [GBRecomp](https://github.com/Xalcker/GBRecomp): runtime con intérprete de respaldo, proyecto C99 generado
 sin datos de la ROM ni de la BIOS (valida sus SHA1), `difftest` contra el intérprete y el mismo contrato de
 línea de comandos. Herramientas: `neorecomp`, `neotrace`, `neoshot`, `neoaudio`, `neobench`, `neoramdump`,

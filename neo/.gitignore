@@ -25,3 +25,4 @@ juegos/
 /audiotest
 /statetest
 /inputtest
+__pycache__/

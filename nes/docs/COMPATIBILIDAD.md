@@ -30,13 +30,22 @@ Mappers agregados en la ronda del 10 de octubre (14 ROMs que antes no cargaban):
 
 ## Cómo se probó
 
-`tools/compat/` (se corre con [uv](https://docs.astral.sh/uv/), desde la terminal MSYS2 UCRT64 y con `make CC=gcc` ya hecho):
+`tools/compat/` (Python 3 sin dependencias, desde la raíz del repo y con `make` ya hecho; en Windows el proyecto generado
+se compila solo dentro de MSYS2 UCRT64). El motor es el mismo de GBRecomp y GENRecomp, `tools/retrorecomp/compat.py`;
+`run.py` solo dice lo propio de la NES (cabecera iNES, mappers soportados, cupo por mapper):
 
 ```
-uv run tools/compat/scan.py "<carpeta de zips>" build/compat_scan.json    # cabeceras iNES -> mappers
-uv run tools/compat/run.py  "<carpeta de zips>"                           # etapas 1 y 2 (--solo etapa1|etapa2, --mappers 13,18, --reusar, --hilos N)
-uv run tools/compat/report.py                                             # docs/compat/index.html
+python3 tools/compat/run.py "<carpeta de zips>"    # etapas 1 y 2
+python3 tools/compat/report.py                     # docs/compat/index.html
 ```
+
+Opciones: `--solo etapa1|etapa2`, `--etapa2 N` (cuántas ROMs pasan a la etapa 2, por turnos entre mappers; sin esto, el
+cupo de cada mapper), `--lista ARCHIVO` (la etapa 2 con esas ROMs), `--juego TEXTO`, `--categoria 13,18` (mappers),
+`--hilos N`, `--salida DIR` y `--rehacer`. `results.json` se guarda después de cada ROM: si la corrida se corta, la
+misma orden sigue donde iba (salta las ROMs que ya tienen resultado del mismo commit).
+
+Los resultados de abajo son de la versión anterior de la prueba, que en la etapa 2 empezaba con una traza guionada
+(`nestrace`); ahora la primera ronda es sin traza, como en los otros dos recompiladores.
 
 **Etapa 1 (todas las ROMs).** `nesshot` corre la ROM en el intérprete con las entradas guionadas de `tests/recomp_game.sh`
 y toma capturas a los cuadros 450, 900 y 1500. Una ROM «corre» si carga y alguna captura no es casi de un solo color.
@@ -125,5 +134,5 @@ uv run tools/compat/vsmesen.py <carpeta o ROMs> [--sin-botones] [--cuadros 450,9
 
 ## Reproducir con otra colección
 
-`scan.py` y `run.py` aceptan cualquier carpeta de `.zip` con una ROM `.nes` cada uno. La etapa 2 tarda unos 45 minutos
+`run.py` acepta cualquier carpeta de `.zip` con una ROM `.nes` cada uno (o de `.nes` sueltas). La etapa 2 tarda unos 45 minutos
 con 4 hilos en una máquina de 12 núcleos.

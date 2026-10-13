@@ -19,3 +19,4 @@ dist/
 /nesramdump
 /inputtest
 *.exe
+__pycache__/

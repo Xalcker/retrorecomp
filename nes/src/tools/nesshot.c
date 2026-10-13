@@ -80,6 +80,7 @@ int main(int argc, char **argv)
         }
     }
     unsigned long long h_img = 0xCBF29CE484222325ULL, h_aud = 0xCBF29CE484222325ULL;
+    int parado = 0;             /* la línea común de las herramientas *shot cuando el CPU se detiene */
     for (long f = 0; f < frames; f++) {
         if (c.entradas_241) {
             /* El cuadro empieza con los botones del anterior; cambian al llegar a la línea 241 */
@@ -93,6 +94,7 @@ int main(int argc, char **argv)
             for (int i = 0; i < nz; i++) if (f >= z[i].from && f <= z[i].to) { n.zap_x = z[i].x; n.zap_y = z[i].y; n.zap_trigger = !zap_aim[i]; }
         }
         if (!c.entradas_241 || !n.ppu.frame_done) nes_run_frame(&n);
+        if (n.cpu.jammed && !parado) { printf("CPU detenido en el cuadro %ld (opcode KIL)\n", f); parado = 1; }
         if (c.hash) {
             fnv(&h_img, n.ppu.fb, sizeof n.ppu.fb);
             fnv(&h_aud, n.apu.buf, (size_t)n.apu.nbuf * sizeof n.apu.buf[0]);

@@ -219,7 +219,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
 | `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
-| `uv run tools/compat/{scan,run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
+| `python3 tools/compat/{run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML, con el motor común de `tools/retrorecomp/compat.py` ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
 `bench` de cada proyecto) aceptan las mismas opciones que `gbtrace`, `gbshot`, `gbaudio`, `gbbench` y `difftest` de

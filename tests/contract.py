@@ -23,9 +23,10 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
 }
 
 # Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed, el
-# formato de las trazas y la propia prueba de contrato de cada uno
+# formato de las trazas, la propia prueba de contrato de cada uno y el ciclo completo (script y entradas)
 SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
-          os.path.join("tests", "contract.sh"))
+          os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_game.sh"),
+          os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
 
 
 def main():

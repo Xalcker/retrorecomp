@@ -146,6 +146,27 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# --- Recompilador: la rutina de DMA de OAM que el juego copia a HRAM. Dos ROMs libres con
+#     las dos formas (firstwhite lleva ld a,N; strikethrough no): gbrecomp la reconoce, el
+#     proyecto compila, difftest no encuentra diferencias y ninguna instrucción de RAM
+#     pasa por el intérprete (sin esto, la rutina corría siempre en el intérprete) ---
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    for rom in "$T/little-things-gb/firstwhite.gb" "$T/strikethrough/strikethrough.gb"; do
+        n=$(basename "$rom" .gb)
+        if ./gbrecomp$EXE "$rom" -o build/out/$n --name $n > /tmp/gbtest.out 2>&1 \
+            && grep -q 'rutina de DMA en HRAM: [0-9A-F]' /tmp/gbtest.out \
+            && make -s -C build/out/$n -j4 >> /tmp/gbtest.out 2>&1 \
+            && build/out/$n/difftest$EXE "$rom" --frames 1800 --seed 1 >> /tmp/gbtest.out 2>&1 \
+            && ! grep -q 'interpretada en RAM' /tmp/gbtest.out; then
+            pasa=$((pasa + 1))
+        else
+            falla=$((falla + 1))
+            fallidas="$fallidas
+  recomp DMA en HRAM $n: $(tail -3 /tmp/gbtest.out)"
+        fi
+    done
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

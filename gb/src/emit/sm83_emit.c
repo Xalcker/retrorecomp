@@ -218,6 +218,7 @@ static const char *imm8(Emit *e, char *buf)
         return "n";
     }
     L("TICK();");
+    if (e->imm8_expr) return e->imm8_expr;
     snprintf(buf, 16, "0x%02X", e->b[1]);
     return buf;
 }

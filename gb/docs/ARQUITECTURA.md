@@ -332,6 +332,34 @@ L_14F5: /* jr nz, $1500 */
   código del banco 0 solo se usa si está mapeado en `$0000` y el de los demás
   bancos solo en `$4000`. Cualquier otra combinación va al intérprete.
 
+### Rutinas que el juego copia a HRAM
+
+Muchos juegos copian a HRAM la rutina que lanza el DMA de OAM y la ejecutan desde ahí, porque
+mientras corre el DMA el CPU solo puede leer HRAM. Ese código no está en la ROM en la dirección
+donde corre, así que el descubrimiento no lo alcanza y pasaba siempre por el intérprete (unas
+84 instrucciones por cuadro).
+
+`gbrecomp` reconoce la rutina en la ROM (`match_dma`) con esta forma:
+
+```
+[di] [ld a,N]  ldh ($46),a | ld [c],a    ; dispara el DMA
+ld a,M / dec a | dec r                   ; espera
+jr nz,-3 / [nop hasta 4] / ret | reti
+```
+
+y genera `gen/hram.c` con **una función por variante**, válida para cualquier dirección de
+HRAM: calcula en ejecución dónde está la copia (`hram_base`), las etiquetas son desplazamientos y
+`CHECK(base + n)` usa esa base. `hram_lookup`, que el despachador consulta para `$FF80-$FFFE`,
+solo devuelve la función si los bytes de HRAM coinciden con los de la variante. Los operandos de
+`ld a,N` (el byte alto del origen y el contador del bucle) no se comparan, porque algunos juegos
+los cambian después de copiar la rutina; la función los lee de HRAM cuando la instrucción corre,
+como el intérprete (`Emit.imm8_expr`). Si la copia es otra, cae al intérprete.
+
+Cada juego compila solo las variantes que tiene su ROM; sin rutina, `hram.c` queda en 10 líneas.
+`ld [c],a` escribe en cualquier puerto, así que esa forma se descarta cuando sus bytes son código
+que el análisis alcanza (en Rayman, las rutinas de infrarrojos tienen la misma forma). No cubre el
+código que se copia a WRAM, las rutinas de HRAM con otra forma ni un `nop` previo a la copia.
+
 ### Proyecto generado
 
 ```
@@ -742,7 +770,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 135, con `sgb_controles`, el proyecto generado, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 137, con `sgb_controles`, los proyectos generados, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -763,6 +791,11 @@ Primera diferencia en el cuadro 401, instrucción 2943 del cuadro,
 Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecutó
 el intérprete (para `gbrecomp --trace`), `--screens carpeta --every N` guarda
 capturas y `--bench` mide la velocidad de cada máquina.
+
+Al final imprime cuántas instrucciones corrieron recompiladas y cuántas en el intérprete (por
+zona: ROM, RAM del cartucho, WRAM y HRAM), las 20 direcciones de ROM que más ejecutó el
+intérprete y, aparte, las de RAM con cuántas veces y los 8 bytes que había la primera vez. Sirve
+para decidir qué falta compilar: una rutina en HRAM se reconoce por esos bytes.
 
 ### Resultados con Tetris (JUE) (V1.1)
 
@@ -785,9 +818,10 @@ capturas y `--bench` mide la velocidad de cada máquina.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **135 de 135** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
-`sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, y el proyecto generado de `cpu_instrs`
-comparado contra el intérprete con `difftest`).
+`sh tests/run_tests.sh`: **137 de 137** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, el proyecto generado de `cpu_instrs`
+comparado contra el intérprete con `difftest`, y los de `firstwhite` y `strikethrough`, que copian la
+rutina de DMA de OAM a HRAM y no deben pasar por el intérprete).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`. No hay un equivalente de `nestest` de NESRecomp

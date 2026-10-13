@@ -14,7 +14,8 @@ cd juego && make
 - **Híbrido:** el código que se descubre se traduce a C. Lo que no se pudo
   descubrir (saltos indirectos raros, código en RAM, código automodificable)
   lo ejecuta un intérprete SM83 exacto al ciclo, y el control regresa al
-  código recompilado en cuanto se puede.
+  código recompilado en cuanto se puede. La rutina de DMA de OAM que los
+  juegos copian a HRAM sí se compila (ver `docs/ARQUITECTURA.md`).
 - **Exacto al ciclo:** el código recompilado cuenta los M-ciclos de cada
   acceso al bus. Timer, PPU, APU, serial y DMA avanzan igual que en el
   hardware, así que los efectos a mitad de línea funcionan.
@@ -379,7 +380,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-135 de 135.
+137 de 137.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -387,6 +388,8 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 - SameSuite: las de DMA del GBC y las de multijugador del SGB.
 - `sgb_controles`: lee los controles 2 a 4 del SGB como lo haría un juego.
 - Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
+- Proyectos generados de `firstwhite` y `strikethrough`, que copian la rutina de DMA de OAM a HRAM: se
+  compilan, esa rutina no pasa por el intérprete y `difftest` no encuentra diferencias.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg

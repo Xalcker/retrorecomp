@@ -61,6 +61,11 @@ struct Emit {
      */
     void (*jump)(Emit *e, const char *expr, int is_const, uint16_t target);
     void *user;
+    /*
+     * Solo recompilado: si no es NULL, expresión C que sustituye al operando inmediato de
+     * 8 bits de la instrucción (código que el juego copia a RAM y puede modificar después).
+     */
+    const char *imm8_expr;
 };
 
 /* Emite el cuerpo C de una instrucción. En modo intérprete, `op` es el

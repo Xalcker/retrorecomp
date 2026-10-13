@@ -1617,6 +1617,330 @@ static void emit_code(const char *dir)
     if (f) fclose(f);
 }
 
+/* Rutinas de DMA de OAM: el juego las copia a HRAM y las ejecuta desde ahí, porque
+ * mientras el DMA corre solo se puede leer HRAM. Su dirección en HRAM no se conoce al
+ * generar, así que la función compilada de cada variante calcula en ejecución dónde está
+ * la copia y sirve para cualquier dirección.
+ *
+ * match_dma reconoce la forma de la rutina en la ROM y los bytes salen de la ROM misma, así
+ * que cada juego compila solo las variantes que tiene. En ejecución se usa el código
+ * compilado únicamente si los bytes de HRAM coinciden con una variante encontrada, salvo
+ * los operandos de ld a,n (el byte alto del origen, el contador del bucle), que no se
+ * comparan y se leen de HRAM cuando la instrucción corre. Un reconocedor laxo no arriesga
+ * nada: lo peor es compilar una variante que no se usa. Una variante que aparece al final
+ * de otra más larga no cuenta por separado. */
+#define HRAM_MAXLEN 16
+#define HRAM_MAXSIGS 4        /* variantes que se compilan por juego */
+#define HRAM_MAXCANDS 32      /* variantes distintas que se consideran */
+#define HRAM_MAXOCCS 256      /* apariciones que se recuerdan */
+
+typedef struct {
+    char name[8];          /* prefijo de funciones y tablas en gen/hram.c */
+    u8 len;
+    u8 bytes[HRAM_MAXLEN];
+} HramSig;
+
+static HramSig hram_sigs[HRAM_MAXSIGS];
+static unsigned n_hram_sigs;
+
+#define HRAM_LO 0xFF80u
+
+typedef struct {
+    unsigned base;                  /* dirección de referencia con la que se emite (HRAM_LO) */
+    unsigned starts[HRAM_MAXLEN];   /* desplazamientos de inicio de instrucción en la rutina */
+    unsigned nstarts;
+} HramRoutine;
+
+static int hram_is_start(const HramRoutine *r, unsigned addr)
+{
+    for (unsigned i = 0; i < r->nstarts; i++)
+        if (r->base + r->starts[i] == addr) return 1;
+    return 0;
+}
+
+/* Saltos dentro de la rutina van a su etiqueta (un desplazamiento); los demás salen al
+ * despachador con la dirección que calcula el emisor, que solo es dinámica (ret) */
+static void hram_jump(Emit *e, const char *expr, int is_const, uint16_t target)
+{
+    HramRoutine *r = e->user;
+    if (is_const && hram_is_start(r, target)) emit_line(e, "goto ins%u;", target - r->base);
+    else emit_line(e, "c->pc = %s; return;", expr);
+}
+
+/* Inicios de instrucción de una variante, decodificados una vez */
+static unsigned hram_starts(const HramSig *s, unsigned starts[HRAM_MAXLEN])
+{
+    u8 pad[HRAM_MAXLEN + 3] = { 0 };    /* 3 bytes de margen para decodificar la última instrucción */
+    memcpy(pad, s->bytes, s->len);
+    unsigned n = 0;
+    for (unsigned off = 0; off < s->len;) {
+        Insn in;
+        sm83_decode(pad + off, (uint16_t)off, &in);
+        starts[n++] = off;
+        off += in.len;
+    }
+    return n;
+}
+
+/* El operando de cada ld a,n (3E nn) no se compara con HRAM y se lee de ahí en ejecución: el
+ * juego puede cambiarlo después de copiar la rutina (el byte alto del origen del DMA, el
+ * contador del bucle), y leerlo cuando la instrucción corre es lo que hace el intérprete.
+ * mask[k] = 1 si el byte k de la variante sí se compara */
+static void hram_mask(const HramSig *s, u8 mask[HRAM_MAXLEN])
+{
+    u8 pad[HRAM_MAXLEN + 3] = { 0 };
+    memcpy(pad, s->bytes, s->len);
+    memset(mask, 1, HRAM_MAXLEN);
+    for (unsigned off = 0; off < s->len;) {
+        Insn in;
+        sm83_decode(pad + off, (uint16_t)off, &in);
+        if (pad[off] == 0x3E) mask[off + 1] = 0;
+        off += in.len;
+    }
+}
+
+/* Pone en 0 los operandos que no se comparan: la misma rutina con otro origen es una variante */
+static void hram_blank_operands(HramSig *s)
+{
+    u8 mask[HRAM_MAXLEN];
+    hram_mask(s, mask);
+    for (unsigned k = 0; k < s->len; k++)
+        if (!mask[k]) s->bytes[k] = 0;
+}
+
+/* ¿Hay en p una rutina de DMA de OAM? Devuelve su longitud, 0 si no. Forma:
+ *   [di] [ld a,N] ldh ($46),a | ld [c],a   dispara el DMA (con ld [c],a el llamador deja C = $46)
+ *   ld a,M / dec a | dec r                 espera (con dec r el llamador deja el contador en r)
+ *   jr nz,-3 / [nop hasta 4] / ret | reti
+ * Variantes vistas: Tetris (ld a,N), Wario Land II (sin ld a,N), Donkey Kong Land 2
+ * (cuatro nop), Tony Hawk (un nop), Mega Man Xtreme (di ... reti), Tomb Raider (dec e)
+ * y Metal Gear Solid (ld [c],a / dec b). */
+static unsigned match_dma(const u8 *p, size_t avail)
+{
+#define BYTE_AT(i) ((size_t)(i) < avail ? (int)p[i] : -1)
+    unsigned q = 0;
+    if (BYTE_AT(q) == 0xF3) q++;                                /* di */
+    if (BYTE_AT(q) == 0x3E) q += 2;                             /* ld a,N */
+    if (BYTE_AT(q) == 0xE0 && BYTE_AT(q + 1) == 0x46) q += 2;   /* ldh ($46),a */
+    else if (BYTE_AT(q) == 0xE2) q++;                           /* ld [c],a */
+    else return 0;
+    int op = BYTE_AT(q);
+    if (op == 0x3E && BYTE_AT(q + 2) == 0x3D) q += 3;           /* ld a,M / dec a */
+    else if (op == 0x05 || op == 0x0D || op == 0x15 || op == 0x1D || op == 0x25 || op == 0x2D)
+        q++;                                                    /* dec b, c, d, e, h o l */
+    else return 0;
+    if (BYTE_AT(q) != 0x20 || BYTE_AT(q + 1) != 0xFD) return 0; /* jr nz,-3 */
+    q += 2;
+    for (unsigned n = 0; n < 4 && BYTE_AT(q) == 0x00; n++) q++; /* nop */
+    if (BYTE_AT(q) != 0xC9 && BYTE_AT(q) != 0xD9) return 0;     /* ret | reti */
+    return q + 1;
+#undef BYTE_AT
+}
+
+/* ¿Algún byte de rom[p..p+len) es código que el análisis alcanza (se ejecuta en su sitio)? */
+static int rom_has_code(size_t p, unsigned len)
+{
+    for (unsigned i = 0; i < len; i++) {
+        size_t a = p + i;
+        if (a / BANK_SIZE < nbanks && (flags[a / BANK_SIZE][a % BANK_SIZE] & F_BODY)) return 1;
+    }
+    return 0;
+}
+
+/* Busca en la ROM las rutinas de DMA y se queda con las variantes concretas, de la más
+ * larga a la más corta, sin las que solo aparecen al final de otra */
+static void find_hram_sigs(void)
+{
+    HramSig cand[HRAM_MAXCANDS];
+    struct { unsigned cand; size_t pos; } occ[HRAM_MAXOCCS];
+    unsigned ncand = 0, nocc = 0;
+
+    for (size_t p = 0; p < rom_size; p++) {
+        unsigned len = match_dma(rom + p, rom_size - p);
+        if (!len) continue;
+
+        /* ld [c],a escribe en cualquier puerto (infrarrojos, sonido...). Si esos bytes son
+         * código que la ROM ejecuta en su sitio, es una función normal y no una rutina que
+         * el juego copie a HRAM. Con ldh ($46),a no hace falta: solo dispara el DMA */
+        int via_c = 1;
+        for (unsigned k = 0; k + 1 < len; k++)
+            if (rom[p + k] == 0xE0 && rom[p + k + 1] == 0x46) via_c = 0;
+        if (via_c && rom_has_code(p, len)) continue;
+
+        HramSig t = { { 0 }, (u8)len, { 0 } };
+        memcpy(t.bytes, rom + p, len);
+        hram_blank_operands(&t);
+
+        unsigned c = 0;
+        while (c < ncand && !(cand[c].len == len && memcmp(cand[c].bytes, t.bytes, len) == 0)) c++;
+        if (c == ncand) {
+            if (ncand == HRAM_MAXCANDS) continue;
+            cand[ncand++] = t;
+        }
+        if (nocc < HRAM_MAXOCCS) {
+            occ[nocc].cand = c;
+            occ[nocc].pos = p;
+            nocc++;
+        }
+    }
+
+    unsigned order[HRAM_MAXCANDS];    /* candidatas de la más larga a la más corta */
+    for (unsigned i = 0; i < ncand; i++) {
+        unsigned j = i;
+        while (j > 0 && cand[order[j - 1]].len < cand[i].len) {
+            order[j] = order[j - 1];
+            j--;
+        }
+        order[j] = i;
+    }
+
+    for (unsigned oi = 0; oi < ncand && n_hram_sigs < HRAM_MAXSIGS; oi++) {
+        const HramSig *cs = &cand[order[oi]];
+        int standalone = 0;
+        for (unsigned o = 0; o < nocc && !standalone; o++) {
+            if (occ[o].cand != order[oi]) continue;
+            /* ¿Está dentro de otra más larga que termina en el mismo byte? */
+            int covered = 0;
+            for (unsigned q = 0; q < nocc && !covered; q++) {
+                unsigned lq = cand[occ[q].cand].len;
+                covered = lq > cs->len && occ[o].pos >= lq - cs->len &&
+                          occ[q].pos == occ[o].pos - (lq - cs->len);
+            }
+            standalone = !covered;
+        }
+        if (!standalone) continue;
+        HramSig *s = &hram_sigs[n_hram_sigs];
+        snprintf(s->name, sizeof s->name, "d%u", n_hram_sigs);
+        s->len = cs->len;
+        memcpy(s->bytes, cs->bytes, cs->len);
+        n_hram_sigs++;
+    }
+}
+
+/* La función de una variante, válida para cualquier dirección de HRAM donde esté la copia:
+ * la dirección no se graba en el código. Las etiquetas son desplazamientos y CHECK usa
+ * base + desplazamiento, con base calculada en ejecución (hram_base). Se emite con HRAM_LO
+ * como dirección de referencia; las instrucciones de estas rutinas no llevan direcciones
+ * absolutas (no hay call, rst, halt ni stop). */
+static void emit_hram_sig(FILE *f, const HramSig *s)
+{
+    HramRoutine r = { 0 };
+    r.base = HRAM_LO;
+    r.nstarts = hram_starts(s, r.starts);
+    u8 pad[HRAM_MAXLEN + 3] = { 0 };
+    memcpy(pad, s->bytes, s->len);
+
+    u8 mask[HRAM_MAXLEN];
+    hram_mask(s, mask);
+
+    printf("rutina de DMA en HRAM:");
+    for (unsigned k = 0; k < s->len; k++) {
+        if (mask[k]) printf(" %02X", s->bytes[k]);
+        else printf(" ??");
+    }
+    printf("\n");
+
+    fprintf(f, "static const u8 hram_%s_bytes[%u] = {", s->name, (unsigned)s->len);
+    for (unsigned i = 0; i < s->len; i++) fprintf(f, "%s0x%02X", i ? ", " : " ", s->bytes[i]);
+    fprintf(f, " };\n");
+    fprintf(f, "static const u8 hram_%s_mask[%u] = {", s->name, (unsigned)s->len);
+    for (unsigned i = 0; i < s->len; i++) fprintf(f, "%s%u", i ? ", " : " ", (unsigned)mask[i]);
+    fprintf(f, " };\n");
+    fprintf(f, "static const u8 hram_%s_starts[%u] = {", s->name, r.nstarts);
+    for (unsigned i = 0; i < r.nstarts; i++) fprintf(f, "%s%u", i ? ", " : " ", r.starts[i]);
+    fprintf(f, " };\n\n");
+
+    Emit e = { 0 };
+    e.f = f;
+    e.recomp = 1;
+    e.jump = hram_jump;
+    e.user = &r;
+    fprintf(f, "static void hram_%s(GB *g)\n{\n    Cpu *c = &g->cpu;\n", s->name);
+    fprintf(f, "    unsigned base = hram_base(g, c->pc, hram_%s_bytes, hram_%s_mask, %u, hram_%s_starts, %u);\n",
+            s->name, s->name, (unsigned)s->len, s->name, r.nstarts);
+    fprintf(f, "    switch (c->pc - base) {\n");
+    for (unsigned i = 0; i < r.nstarts; i++)
+        fprintf(f, "    case %u: goto ins%u;\n", r.starts[i], r.starts[i]);
+    fprintf(f, "    default: gb_interp_step(g); return;\n    }\n");
+
+    for (unsigned i = 0; i < r.nstarts; i++) {
+        unsigned off = r.starts[i], addr = HRAM_LO + off;
+        Insn in;
+        char text[48], operand[48];
+        sm83_decode(pad + off, (uint16_t)addr, &in);
+        sm83_disasm(pad + off, (uint16_t)addr, text, sizeof text);
+        memcpy(e.b, pad + off, 3);
+        e.addr = (uint16_t)addr;
+
+        /* ld a,n: el operando se lee de HRAM cuando la instrucción corre */
+        e.imm8_expr = NULL;
+        if (pad[off] == 0x3E) {
+            snprintf(operand, sizeof operand, "g->hram[base + %u - 0xFF80]", off + 1);
+            e.imm8_expr = operand;
+            snprintf(text, sizeof text, "ld a, [operando en HRAM]");
+        }
+
+        fprintf(f, "ins%u: /* %s */\n", off, text);
+        fprintf(f, "    CHECK(base + %u);\n", off);
+        fprintf(f, "    {\n");
+        e.indent = "        ";
+        emit_insn(&e, e.b[0]);
+        fprintf(f, "    }\n");
+
+        if (in.kind == INS_HALT || in.kind == INS_STOP || sm83_ends_block(&in)) continue;
+        unsigned next = addr + in.len;
+        if (!hram_is_start(&r, next)) fprintf(f, "    c->pc = base + %u; return;\n", next - HRAM_LO);
+    }
+    fprintf(f, "}\n\n");
+}
+
+/* gen/hram.c: las funciones de cada variante presente y el lookup que las elige. Sin
+ * ninguna, el lookup devuelve NULL y HRAM sigue en el intérprete. */
+static void emit_hram(const char *dir)
+{
+    FILE *f = open_out(dir, "gen/hram.c");
+    fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n#include <string.h>\n\n");
+
+    find_hram_sigs();
+    if (!n_hram_sigs) {
+        printf("rutina de DMA en HRAM: no\n");
+        fprintf(f, "RecompFn hram_lookup(GB *g, u16 pc)\n{\n    (void)g;\n    (void)pc;\n    return NULL;\n}\n");
+        fclose(f);
+        return;
+    }
+
+    /* Dónde está la copia que contiene pc: pc - inicio de instrucción, si esos bytes de HRAM
+     * siguen siendo los reconocidos (salvo los operandos que se leen en ejecución, mask = 0).
+     * Una copia distinta (o con otro código) cae al intérprete */
+    fprintf(f,
+        "static unsigned hram_base(GB *g, u16 pc, const u8 *bytes, const u8 *mask, unsigned len,\n"
+        "                          const u8 *starts, unsigned nstarts)\n"
+        "{\n"
+        "    for (unsigned i = 0; i < nstarts; i++) {\n"
+        "        u32 base = (u32)pc - starts[i];\n"
+        "        if (base < 0xFF80 || base + len > 0xFFFF) continue;\n"
+        "        const u8 *h = g->hram + (base - 0xFF80);\n"
+        "        unsigned k = 0;\n"
+        "        while (k < len && (!mask[k] || h[k] == bytes[k])) k++;\n"
+        "        if (k == len) return base;\n"
+        "    }\n"
+        "    return 0;\n"
+        "}\n\n");
+
+    for (unsigned i = 0; i < n_hram_sigs; i++) emit_hram_sig(f, &hram_sigs[i]);
+
+    fprintf(f, "RecompFn hram_lookup(GB *g, u16 pc)\n{\n");
+    for (unsigned i = 0; i < n_hram_sigs; i++) {
+        const HramSig *s = &hram_sigs[i];
+        unsigned starts[HRAM_MAXLEN];
+        unsigned n = hram_starts(s, starts);
+        fprintf(f, "    if (hram_base(g, pc, hram_%s_bytes, hram_%s_mask, %u, hram_%s_starts, %u)) return hram_%s;\n",
+                s->name, s->name, (unsigned)s->len, s->name, n, s->name);
+    }
+    fprintf(f, "    return NULL;\n}\n");
+    fclose(f);
+}
+
 /* Tablas del despachador: banco → página de 256 bytes → función por dirección */
 static void emit_dispatch(const char *dir)
 {
@@ -1664,11 +1988,13 @@ static void emit_dispatch(const char *dir)
     }
     fprintf(f, "};\n\n");
 
+    fprintf(f, "RecompFn hram_lookup(GB *g, u16 pc);\n\n");
     fprintf(f,
         "RecompFn recomp_lookup(GB *g, u16 pc)\n"
         "{\n"
         "    const RecompFn *const *table;\n"
         "    u32 off;\n"
+        "    if (pc >= 0xFF80 && pc < 0xFFFF) return hram_lookup(g, pc);\n"
         "    /* El código de cada banco se compiló para su región: el banco 0 en\n"
         "     * $0000-$3FFF y los demás en $4000-$7FFF */\n"
         "    if (pc < 0x4000) {\n"
@@ -2181,6 +2507,7 @@ int main(int argc, char **argv)
     snprintf(path, sizeof path, "%s/platform", out); make_dir(path);
 
     emit_code(out);
+    emit_hram(out);
     emit_dispatch(out);
     emit_info(out, sha1, title, exe_name, ninsns);
     emit_makefile(out, exe_name);

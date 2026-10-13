@@ -1,8 +1,9 @@
 # Compatibilidad
 
-Registro de pruebas de GENRecomp con los 23 juegos de `roms/` (Sega Genesis, NTSC/EE. UU.). El resultado
-completo, con una miniatura de cada juego, está en [`compat/index.html`](compat/index.html) (datos crudos
-en [`compat/results.json`](compat/results.json)). Las ROMs no se versionan.
+Registro de pruebas de GENRecomp (Sega Genesis, NTSC/EE. UU.). El resultado completo de la última corrida,
+con una miniatura de cada juego, está en [`compat/index.html`](compat/index.html) (datos crudos en
+[`compat/results.json`](compat/results.json)); hoy es el de la colección No-Intro (abajo). El resumen de
+los 23 juegos de `roms/` (11 de octubre) queda como registro, sus datos crudos se reemplazaron. Las ROMs no se versionan.
 
 ## Resumen (11 de octubre de 2026)
 
@@ -20,9 +21,9 @@ en [`compat/results.json`](compat/results.json)). Las ROMs no se versionan.
 ## Colección No-Intro (12 de octubre de 2026)
 
 La colección No-Intro de Mega Drive / Genesis (728 ROMs, casi todas de EE. UU. o mundiales), con el informe
-completo en [`compat-nointro/index.html`](compat-nointro/index.html) (datos en
-[`compat-nointro/results.json`](compat-nointro/results.json)). Se corrió con
-`python3 tools/compat/run.py "<carpeta No-Intro>" --etapa2 250 --salida docs/compat-nointro`.
+completo en [`compat/index.html`](compat/index.html) (datos en
+[`compat/results.json`](compat/results.json)). Se corrió con
+`python3 tools/compat/run.py "<carpeta No-Intro>" --etapa2 250`.
 
 | | |
 |---|---|

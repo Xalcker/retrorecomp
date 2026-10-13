@@ -52,6 +52,7 @@ static inline int16_t clip(float v)
 
 void audio_end_frame(Neo *g)
 {
+    z80_sync(g);                                    /* las escrituras del Z80 al YM2610 hasta aquí */
     Audio *a = &g->audio;
     u64 t = g->cyc * MCLK_PER_M68K;
     ym_run(g, t);

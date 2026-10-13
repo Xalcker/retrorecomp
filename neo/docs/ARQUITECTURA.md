@@ -89,8 +89,10 @@ MAME usan 24 MHz, 59,19) solo cambia el ritmo de la ventana y del audio, no la e
 
 Cada acceso del 68000 al bus son 4 ciclos; la tarjeta de memoria tiene 2 de espera. No hay refresco de
 DRAM (las memorias son SRAM) ni esperas de la ROM (los cartuchos van sin estados de espera; no se emulan las
-patas ROMWAIT/PWAIT). El Z80 corre detrás del 68000 (`z80_sync`): se pone al día tras cada instrucción del
-68000 y antes de que el 68000 le mande un comando o lea su respuesta.
+patas ROMWAIT/PWAIT). El Z80 corre detrás del 68000 (`z80_sync`): solo se comunican por `$320000`, así que
+se pone al día antes de que el 68000 le mande un comando o lea su respuesta, y al final de cada cuadro
+(`audio_end_frame`). `z80_run_until` termina en el mismo límite de instrucción en un tramo que en muchos,
+así que correrlo de a ratos no cambia nada (fase 8; antes se ponía al día tras cada instrucción del 68000).
 
 **Las líneas del cuadro se cuentan desde el VBLANK** (el contador del LSPC vale `$1F0`, la primera línea
 del borde de abajo): 0-15 borde de abajo, 16-23 sincronía vertical (`$0F8-$0FF`), 24-39 borde de arriba
@@ -104,8 +106,8 @@ números se ajustarán con los oráculos.
 
 `neo_run_frame` corre hasta que el LSPC termina el cuadro con `m68k_run` (un solo `setjmp` por cuadro,
 como en GENRecomp) y después de cada instrucción `neo_after_step_inline`: el LSPC solo si llegó su
-próximo evento (`lspc.next_event`: fin de línea, VBLANK, recarga o vencimiento del temporizador) y el Z80
-solo si quedó atrás. `lspc_sync` fija el nivel de interrupción del 68000 (`cpu.ipl`) con lo pendiente:
+próximo evento (`lspc.next_event`: fin de línea, VBLANK, recarga o vencimiento del temporizador); el Z80
+va aparte (arriba). `lspc_sync` fija el nivel de interrupción del 68000 (`cpu.ipl`) con lo pendiente:
 3 la de arranque, 2 el temporizador, 1 el VBLANK (autovector). **No se borran al atenderlas**
 (`m68k_int_ack` no hace nada): el programa las reconoce escribiendo `IRQACK` (`$3C000C`: bit 0 la de
 arranque, 1 el temporizador, 2 el VBLANK). Si no, al volver con `RTE` la misma interrupción entra otra
@@ -401,7 +403,11 @@ número de banco en la mitad alta de la dirección (al encender, como si la M1 f
 escribir `$08`/`$18` habilita o deshabilita la NMI, `$0C` la respuesta. Cada comando del 68000 deja la NMI
 pedida; la línea de la NMI es "pedida y habilitada" y el Z80 la atiende en el flanco (si ya estaba pedida, un
 segundo comando no da otra). La INT viene de los temporizadores del YM2610. Un `HALT` sin nada que atender
-se salta de una vez hasta el destino o hasta que venza un temporizador.
+se salta de una vez hasta el destino o hasta que venza un temporizador; lo mismo los **bucles de espera**
+(`ld a,(hl) / and a / jp z,bucle`): si son puros (sin puertos; cada registro que leen lo escriben antes en
+la vuelta o no lo tocan; a lo sumo un contador en la RAM, `ld a,(nn) / inc a / ld (nn),a`, que suma k), cada
+vuelta deja el Z80 igual salvo el tiempo y R, y se saltan las vueltas enteras que caben. Lo que dura una
+vuelta se mide entre dos llegadas seguidas al comienzo.
 
 ### Audio
 
@@ -575,4 +581,36 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
 
 ### Línea base para optimizar el runtime
 
-Llega en la fase 8 (`tests/golden.sh`).
+`tests/golden.sh` corre cada juego de `roms/` y el juego de prueba del contrato 3600 cuadros (de la demo a la
+partida, con las entradas de `tests/coverage.sh`) y guarda el hash de todos los cuadros y de todo el audio
+(`neoshot --hash`) en `tests/golden.txt`, nombrados por el SHA1 de la imagen. Una optimización no debe
+cambiar ni un bit (`--update` reescribe la línea base). En la fase 8, con `sample` de macOS sobre `bench`:
+
+| | Antes | Después |
+|---|---|---|
+| Metal Slug, recompilado | 22,4× | 43,3× |
+| Samurai Shodown II, recompilado | 24,0× | 55,3× |
+| KOF '98, recompilado | 22,9× | 51,7× |
+| Los 8 juegos, intérprete | 14,8-17,9× | 23,8-32,3× |
+
+Lo que se hizo, todo sin mover un bit:
+
+1. **El Z80 de a ratos** (arriba): se ponía al día tras cada instrucción del 68000 y se pasaba el tiempo
+   entrando y saliendo de `z80_run_until`. Ahora solo en `$320000` y al final del cuadro.
+2. **Bucles de espera del Z80** (arriba): el programa de sonido pasaba del 38 % (Metal Slug) al 90 % (Samurai
+   Shodown II) de su tiempo esperando.
+3. **Los sprites ya recorridos** (`SprCache`): las cadenas pegajosas y la lista de sprites con alto se arman
+   una vez y se rehacen solo si cambiaron SCB2-4 (cada línea compara la copia con la VRAM: también sirve si
+   alguien escribe la VRAM directo, como `lspctest`). Y el dibujo de un mosaico sin ramas (máscaras en lugar
+   de un `if` por pixel; la reducción horizontal en una tabla de desplazamientos, volteada o no).
+4. **El SSG callado**: con los tres canales en volumen fijo 0 suena 0 exacto, y sus contadores (tonos, ruido,
+   envolvente) avanzan los 9 pasos de una muestra con aritmética.
+5. **Bucles de espera del 68000 en el código generado** (`IDLE68`, `m68k_idle_skip`): `neorecomp` reconoce
+   los bucles puros (de la cabecera al `Bcc`, sin saltos ni escrituras: `TST`, `CMP`, `CMPI`, `BTST`, `MOVE` a
+   Dn) y el código mide una vuelta entre dos llegadas seguidas por el `Bcc` (una interrupción sale de la
+   función y un `Bcc` no tomado borra la medida); el runtime mira que las direcciones sean de RAM o ROM y
+   salta las vueltas que terminan antes del próximo evento del LSPC.
+
+Queda (perfil de KOF '98 recompilado): el dibujo del LSPC, la FM del YM2610 y, en Metal Slug, el programa de
+sonido, que trabaja de verdad (unos 42 000 ciclos del Z80 por cuadro: recompilar la M1 si alguna vez pesa) y
+un bucle de espera del 68000 con un contador de 16 bits en la RAM que no se reconoce.

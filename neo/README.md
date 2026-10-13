@@ -10,7 +10,7 @@ para comprobar el código recompilado contra el intérprete.
 Primero el AES (la consola), NTSC y los juegos sin cifrar. El MVS, los juegos cifrados (desde 1999) y PAL
 vienen después.
 
-**Estado: fases 0 a 7 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`; las herramientas sin ventana y el contrato común; el recompilador: los juegos recompilados dan cuadros idénticos al intérprete y corren a 23-31 veces el tiempo real; sin traza, el análisis encuentra el 99 % de lo que ejecutan 8 juegos y el 100 % de la BIOS). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
+**Estado: fases 0 a 8 de 10** (carga de juegos y BIOS; el 68000 y el Z80, que pasan sus SingleStepTests; el bus, la BIOS y las interrupciones; el video, el sonido y la ventana: Metal Slug, Samurai Shodown II y Neo Turf Masters se ven y se oyen en la ventana `neo`; las herramientas sin ventana y el contrato común; el recompilador: los juegos recompilados dan cuadros idénticos al intérprete y corren a 43-55 veces el tiempo real; sin traza, el análisis encuentra el 99 % de lo que ejecutan 8 juegos y el 100 % de la BIOS). El plan completo está en [docs/PLAN.md](docs/PLAN.md) y
 cómo está hecho, en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ## Compilar

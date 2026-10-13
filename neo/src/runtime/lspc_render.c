@@ -141,30 +141,84 @@ static const u8 hshrink[16][16] = {
     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
 };
 
+/* hshrink como desplazamientos dentro de la fila (4 bits por pixel), sin voltear y volteado */
+static u8 shrink_shift[2][16][16];
+static int shrink_ready;
+
+static void shrink_init(void)
+{
+    shrink_ready = 1;
+    for (int hz = 0; hz < 16; hz++)
+        for (int p = 0; p <= hz; p++) {
+            shrink_shift[0][hz][p] = (u8)(4 * hshrink[hz][p]);
+            shrink_shift[1][hz][p] = (u8)(4 * hshrink[hz][hz - p]);
+        }
+}
+
+/* Los 16 pixeles de una fila al revés (el 0 pasa a ser el 15) */
+static inline u64 flip_nibbles(u64 v)
+{
+    v = (v >> 32) | (v << 32);
+    v = ((v >> 16) & 0x0000FFFF0000FFFFull) | ((v & 0x0000FFFF0000FFFFull) << 16);
+    v = ((v >> 8) & 0x00FF00FF00FF00FFull) | ((v & 0x00FF00FF00FF00FFull) << 8);
+    return ((v >> 4) & 0x0F0F0F0F0F0F0F0Full) | ((v & 0x0F0F0F0F0F0F0F0Full) << 4);
+}
+
 #define MAX_PER_LINE 96
 #define LAST_SPRITE  381
 
-void lspc_render_line(Neo *g, int sy)
+/* Recorre los sprites 1-381 desde la copia de SCB2-4: un sprite pegajoso toma Y, alto y reducción
+ * vertical del anterior y va a su derecha (X del anterior más su ancho reducido) */
+static void spr_parse(SprCache *k)
 {
-    const u16 *vram = g->lspc.vram;
-    u16 buf[SCREEN_W];
-    for (int x = 0; x < SCREEN_W; x++) buf[x] = 0x0FFF;            /* el fondo */
-
-    /* Sprites: la línea en las coordenadas de los sprites (la primera visible es la 16) */
-    int line = (sy + 16) & 0x1FF;
-    int y = 0, size = 0, vz = 0xFF, x = 0, prev_w = 0, count = 0;
-    u8 anim = g->lspc.anim;
-    int anim_on = !(g->lspc.mode & 8);
+    int y = 0, size = 0, vz = 0xFF, x = 0, prev_w = 0;
+    k->n = 0;
     for (int s = 1; s <= LAST_SPRITE; s++) {
-        u16 scb2 = vram[0x8000 + s], scb3 = vram[0x8200 + s], scb4 = vram[0x8400 + s];
+        u16 scb2 = k->scb[0][s], scb3 = k->scb[1][s], scb4 = k->scb[2][s];
         if (scb3 & 0x40) x = (x + prev_w) & 0x1FF;                  /* pegajoso */
         else { y = scb3 >> 7; size = scb3 & 0x3F; vz = scb2 & 0xFF; x = scb4 >> 7; }
         int hz = (scb2 >> 8) & 0xF;
         prev_w = hz + 1;
         if (!size) continue;
-        int rel = (line - ((0x200 - y) & 0x1FF)) & 0x1FF;          /* línea dentro del sprite */
+        int i = k->n++;
+        k->sprite[i] = (u16)s;
+        k->top[i] = (u16)((0x200 - y) & 0x1FF);
+        k->x[i] = (u16)x;
+        k->size[i] = (u8)size;
+        k->vz[i] = (u8)vz;
+        k->hz[i] = (u8)hz;
+    }
+}
+
+void lspc_render_line(Neo *g, int sy)
+{
+    const u16 *vram = g->lspc.vram;
+    u16 buf[SCREEN_W];
+    if (!shrink_ready) shrink_init();
+    for (int x = 0; x < SCREEN_W; x++) buf[x] = 0x0FFF;            /* el fondo */
+
+    /* Los sprites como están al empezar la línea */
+    SprCache *k = &g->spr_cache;
+    if (memcmp(k->scb[0], vram + 0x8000, sizeof k->scb[0]) || memcmp(k->scb[1], vram + 0x8200, sizeof k->scb[1]) ||
+        memcmp(k->scb[2], vram + 0x8400, sizeof k->scb[2])) {
+        memcpy(k->scb[0], vram + 0x8000, sizeof k->scb[0]);
+        memcpy(k->scb[1], vram + 0x8200, sizeof k->scb[1]);
+        memcpy(k->scb[2], vram + 0x8400, sizeof k->scb[2]);
+        spr_parse(k);
+    }
+
+    /* La línea en las coordenadas de los sprites (la primera visible es la 16) */
+    int line = (sy + 16) & 0x1FF;
+    int count = 0;
+    u8 anim = g->lspc.anim;
+    int anim_on = !(g->lspc.mode & 8);
+    for (int i = 0; i < k->n; i++) {
+        int size = k->size[i];
+        int rel = (line - k->top[i]) & 0x1FF;                       /* línea dentro del sprite */
         if (size < 32 && rel >= size * 16) continue;
         if (++count > MAX_PER_LINE) break;
+        int x = k->x[i], hz = k->hz[i], vz = k->vz[i], s = k->sprite[i];
+        if (x >= SCREEN_W && x + hz < 0x200) continue;              /* entero fuera de la pantalla */
         /* Qué mosaico y qué fila: la tabla L0 da la mitad de arriba; la de abajo, al revés */
         int zl = rel & 0xFF, inv = rel & 0x100;
         if (inv) zl ^= 0xFF;
@@ -187,14 +241,30 @@ void lspc_render_line(Neo *g, int sy)
         u64 bits = g->spr[(tile % g->spr_tiles) * 16 + (u32)row];
         if (!bits) continue;
         u16 pal = (u16)((w1 >> 8) << 4);
-        /* Quedan los pixeles src[0..hz] del mosaico, en orden; volteado, los mismos de derecha a izquierda */
-        const u8 *src = hshrink[hz];
         int flip = w1 & 1;
-        for (int k = 0; k <= hz; k++) {
-            int px = (x + k) & 0x1FF;
+        if (hz == 15 && x <= SCREEN_W - 16) {                       /* entero y sin cortar: los 16 seguidos */
+            u16 *d = buf + x;
+            if (flip) bits = flip_nibbles(bits);
+            for (int p = 0; p < 16; p++) {                          /* sin saltos: el color 0 deja lo de abajo */
+                u16 c = (u16)(bits >> (4 * p) & 15), keep = (u16)-(c == 0);
+                d[p] = (u16)((d[p] & keep) | ((pal | c) & ~keep));
+            }
+            continue;
+        }
+        /* Quedan los pixeles src[0..hz] del mosaico, en orden; volteado, los mismos de derecha a izquierda */
+        const u8 *sh = shrink_shift[flip][hz];
+        if (x <= SCREEN_W - 1 - hz) {                               /* sin cortar */
+            u16 *d = buf + x;
+            for (int p = 0; p <= hz; p++) {
+                u16 c = (u16)(bits >> sh[p] & 15), keep = (u16)-(c == 0);
+                d[p] = (u16)((d[p] & keep) | ((pal | c) & ~keep));
+            }
+            continue;
+        }
+        for (int p = 0; p <= hz; p++) {
+            int px = (x + p) & 0x1FF;
             if (px >= SCREEN_W) continue;
-            int sx = flip ? src[hz - k] : src[k];
-            int c = (int)(bits >> (4 * sx)) & 15;
+            int c = (int)(bits >> sh[p]) & 15;
             if (c) buf[px] = (u16)(pal | c);
         }
     }

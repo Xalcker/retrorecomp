@@ -91,6 +91,110 @@ void neo_after_step(Neo *g)
     neo_after_step_inline(g);
 }
 
+/*
+ * Bucles de espera del 68000 en el código generado: tst.b $2785(a5) / beq.s *-4 hasta que una
+ * interrupción cambie la RAM. Si el bucle es puro, cada vuelta deja el 68000 igual salvo el tiempo: se
+ * saltan de una vez las vueltas enteras que terminan antes del próximo evento del LSPC (la línea que
+ * se dibuja, el VBLANK, el temporizador), como el HALT del Z80. Puro: solo TST, CMP, CMPI, BTST y MOVE a
+ * un registro de datos, con operandos Dn, inmediatos, (An), d16(An), absolutos o d16(PC); cada Dn que
+ * se lee se escribió antes en la misma vuelta o el bucle no lo toca; la condición del Bcc sale de la
+ * última instrucción que puso las banderas (BTST solo pone Z: BEQ/BNE). En cada llegada se miran las
+ * direcciones con los registros de ese momento (RAM o ROM, alineadas: sin efectos); lo que dura una
+ * vuelta lo mide el código generado (IDLE68, recomp.h) entre dos llegadas seguidas.
+ */
+static int idle_ea(Neo *g, M68Loop *lp, u32 *pc, int mode, int reg, int size, u32 *dreads)
+{
+    switch (mode) {
+    case 0: *dreads |= 1u << reg; return 1;
+    case 2: case 5: {
+        if (lp->nea == 6) return 0;
+        u32 d = mode == 5 ? (u32)(int32_t)(int16_t)m68k_peek16(g, *pc) : 0;
+        if (mode == 5) *pc += 2;
+        lp->ea[lp->nea].mode = (u8)mode; lp->ea[lp->nea].reg = (u8)reg; lp->ea[lp->nea].size = (u8)size;
+        lp->ea[lp->nea++].at = d;
+        return 1; }
+    case 7: {
+        u32 a;
+        if (reg == 4) { *pc += size == 2 ? 4 : 2; return 1; }                  /* inmediato */
+        if (reg == 0) { a = (u32)(int32_t)(int16_t)m68k_peek16(g, *pc); *pc += 2; }
+        else if (reg == 1) { a = (u32)m68k_peek16(g, *pc) << 16 | m68k_peek16(g, *pc + 2); *pc += 4; }
+        else if (reg == 2) { a = *pc + (u32)(int32_t)(int16_t)m68k_peek16(g, *pc); *pc += 2; }
+        else return 0;
+        if (lp->nea == 6) return 0;
+        lp->ea[lp->nea].mode = 7; lp->ea[lp->nea].reg = 0; lp->ea[lp->nea].size = (u8)size;
+        lp->ea[lp->nea++].at = a & 0xFFFFFF;
+        return 1; }
+    default: return 0;
+    }
+}
+
+static int idle_pure(Neo *g, M68Loop *lp, u32 head, u32 br)
+{
+    u32 pc = head, rd[6], wr[6];
+    int n = 0, flags = 0;                       /* 0: nada puso las banderas; 1: todas; 2: solo Z (BTST) */
+    lp->nea = 0;
+    while (pc < br) {
+        if (n == 6) return 0;
+        u16 op = m68k_peek16(g, pc);
+        int mode = op >> 3 & 7, reg = op & 7;
+        u32 r = 0, w = 0;
+        pc += 2;
+        if ((op & 0xFF00) == 0x4A00 && (op & 0xC0) != 0xC0) {                  /* TST */
+            if (!idle_ea(g, lp, &pc, mode, reg, op >> 6 & 3, &r)) return 0;
+            flags = 1;
+        } else if ((op & 0xFF00) == 0x0C00 && (op & 0xC0) != 0xC0) {           /* CMPI */
+            pc += (op >> 6 & 3) == 2 ? 4 : 2;
+            if (!idle_ea(g, lp, &pc, mode, reg, op >> 6 & 3, &r)) return 0;
+            flags = 1;
+        } else if ((op & 0xFFC0) == 0x0800 || ((op & 0xF1C0) == 0x0100 && mode != 1)) {   /* BTST #n / Dn */
+            if (op & 0x0100) r |= 1u << (op >> 9 & 7); else pc += 2;
+            if (!idle_ea(g, lp, &pc, mode, reg, mode ? 0 : 2, &r)) return 0;
+            flags = 2;
+        } else if ((op & 0xF000) == 0xB000 && (op >> 6 & 7) <= 2) {           /* CMP <ea>,Dn */
+            r |= 1u << (op >> 9 & 7);
+            if (mode == 1 || !idle_ea(g, lp, &pc, mode, reg, op >> 6 & 3, &r)) return 0;
+            flags = 1;
+        } else if ((op >> 12) >= 1 && (op >> 12) <= 3 && (op >> 6 & 7) == 0) {   /* MOVE <ea>,Dn */
+            int sz = (op >> 12) == 1 ? 0 : (op >> 12) == 3 ? 1 : 2;
+            if (mode == 1 || !idle_ea(g, lp, &pc, mode, reg, sz, &r)) return 0;
+            w = 1u << (op >> 9 & 7);
+            flags = 1;
+        } else return 0;
+        rd[n] = r; wr[n] = w; n++;
+    }
+    if (pc != br) return 0;
+    u16 op = m68k_peek16(g, br);
+    int cc = op >> 8 & 15;
+    u32 d8 = op & 0xFF, to = br + 2 + (d8 ? (u32)(int32_t)(int8_t)d8 : (u32)(int32_t)(int16_t)m68k_peek16(g, br + 2));
+    if ((op & 0xF000) != 0x6000 || cc == 1 || (to & 0xFFFFFF) != head) return 0;
+    if (cc >= 2 && (flags == 0 || (flags == 2 && cc != 6 && cc != 7))) return 0;
+    u32 all = 0, done = 0;
+    for (int i = 0; i < n; i++) all |= wr[i];
+    for (int i = 0; i < n; i++) {
+        if (rd[i] & all & ~done) return 0;      /* lee lo que dejó la vuelta anterior */
+        done |= wr[i];
+    }
+    return 1;
+}
+
+void m68k_idle_skip(Neo *g, u32 head, u32 br, u64 at)
+{
+    M68Loop *lp = &g->m68_loop;
+    M68k *c = &g->cpu;
+    if (head != lp->head || br != lp->br || g->map_ver != lp->map_ver) {
+        lp->head = head; lp->br = br; lp->map_ver = g->map_ver;
+        lp->ok = (u8)idle_pure(g, lp, head, br);
+    }
+    if (!lp->ok || (c->ipl > c->ipm) | c->nmi_edge | c->t | c->stopped) return;
+    for (int i = 0; i < lp->nea; i++) {
+        u32 a = lp->ea[i].mode == 7 ? lp->ea[i].at : (c->a[lp->ea[i].reg] + lp->ea[i].at) & 0xFFFFFF;
+        if (lp->ea[i].size && (a & 1)) return;                                  /* error de dirección */
+        if (!(a < 0x200000 || (a >= 0xC00000 && a < 0xD00000))) return;         /* solo el programa, la RAM y la BIOS */
+    }
+    u64 len = g->cyc - at, e = g->lspc.next_event;
+    if (len && e > g->cyc + len) g->cyc += (e - 1 - g->cyc) / len * len;
+}
+
 static int frame_after(Neo *g)
 {
     neo_after_step_inline(g);

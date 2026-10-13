@@ -246,9 +246,16 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - Arreglos: la RAM de respaldo del MVS (`$D00000`) es una dirección razonable (la mira la BIOS), y el
     código especulativo ya no corta una tabla. La caché de la BIOS sube a formato 2.
   - Detalle en `docs/ARQUITECTURA.md` (Descubrimiento).
-- [ ] **8. Rendimiento.** Copia `tests/golden.sh`. Perfilar primero; cada cambio sin mover un bit de la
-  imagen ni del sonido. Candidatos según la lección de GENRecomp (el 68000 era ~13 %): el LSPC, el Z80 (el
-  `HALT` de una vez; recompilar la M1 solo si pesa) y el YM2610.
+- [x] **8. Rendimiento.** Hecho. `tests/golden.sh` (hash de cuadros y audio de 3600 cuadros por juego,
+  `tests/golden.txt`): nada cambió un bit. Perfilado con `sample` sobre `bench`. **Recompilado: de 22-24 a
+  43-55 veces el tiempo real** (Metal Slug 43×, Samurai Shodown II 55×, KOF '98 52×); el intérprete, de 15-18
+  a 24-32×. El 68000 ya era lo de menos (como en GENRecomp):
+  - El Z80 se pone al día solo en `$320000` y al final del cuadro (no tras cada instrucción del 68000).
+  - Bucles de espera del Z80 (además del `HALT`): puros, o con un contador en la RAM (KOF '98).
+  - LSPC: los sprites ya recorridos (se rehacen si cambian SCB2-4) y el dibujo de un mosaico sin ramas.
+  - SSG callado: 0 exacto y sus contadores de una vez.
+  - Bucles de espera del 68000 en el código generado (`IDLE68`).
+  - Detalle y lo que queda en `docs/ARQUITECTURA.md` (Línea base para optimizar el runtime).
 - [ ] **9. Compatibilidad, oráculos y empaquetado.**
   - Copia: `tools/oracles/` (`retro_run.c`, `libretro_min.h`, `oracle.py`: los núcleos bajan a
     `build/oracles/` y los botones se asignan por las descripciones que publica cada núcleo, que también
@@ -260,6 +267,11 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     `latest/`: se guarda el SHA-256 de lo que se bajó.
   - `docs/COMPATIBILIDAD.md` y `docs/compat/`; `make dist`; el README y `ARQUITECTURA.md` completos.
   - Agregar Neo Geo a la GUI de retrorecomp: **es un cambio en ese repositorio, se pregunta antes.**
+  - **Niveles de la mezcla del YM2610** contra los oráculos (pedido al probar la fase 8: en Metal Slug las
+    voces y los gritos, ADPCM-A, suenan bajos). Hoy las ganancias salen de la escala de bits (FM 9 bits
+    × 16 por canal, ADPCM-A 12 bits × 4, ADPCM-B 16 bits × 0,5, SSG 3072 por canal) y nunca se midieron:
+    en 30 s de partida de Metal Slug la FM sola da un nivel medio de 2278 y el ADPCM-A solo 836 (≈9 dB
+    menos). Medir la proporción con Geolith y FBNeo y ajustar (golden cambia a propósito).
 - [ ] **10. (Opcional) BIOS de reemplazo propia.** Ver "BIOS". Se mide con `tools/compat` contra la original.
 
 Después: **MVS** (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots, el reloj de 24 MHz), **juegos

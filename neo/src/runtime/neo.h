@@ -136,6 +136,38 @@ typedef struct {
 /* Interrupciones pendientes del 68000 (se borran escribiendo IRQACK, $3C000C, con los mismos bits) */
 enum { IRQ_COLD = 1, IRQ_TIMER = 2, IRQ_VBL = 4 };     /* nivel 3 (arranque), 2 y 1 */
 
+/* Los sprites ya recorridos (lspc_render.c): las cadenas pegajosas resueltas y solo los que tienen
+ * alto, armados con la copia de SCB2, SCB3 y SCB4 que guardan. Cada línea compara esa copia con la
+ * VRAM y los rearma si cambió: el resultado es el mismo que recorrer los 381 en cada línea. En cero
+ * (al cargar) corresponde a una VRAM en cero */
+typedef struct {
+    u16 scb[3][0x180];
+    u16 n;
+    u16 sprite[381], top[381], x[381];
+    u8  size[381], vz[381], hz[381];
+} SprCache;
+
+/* Un bucle de espera del 68000 (neo.c, m68k_idle_loop): de head al Bcc en br, que vuelve a head. Las
+ * direcciones de memoria que lee, para comprobarlas con los registros de cada momento */
+typedef struct {
+    u32  head, br, map_ver;
+    u8   ok, nea;                   /* es puro; cuántos operandos en memoria */
+    struct { u8 mode, reg, size; u8 pad; u32 at; } ea[6];  /* at: desplazamiento (modo 5) o la dirección */
+} M68Loop;
+
+/* Un bucle de espera del Z80 (z80bus.c): de pc al salto en end, que vuelve a pc */
+typedef struct {
+    u16  pc, end;
+    u32  banks;                     /* los bancos cuando se analizó (si está en una ventana) */
+    u8   ok;                        /* es puro: cada vuelta deja todo igual */
+    u8   armed;                     /* ya llegó una vez a pc desde el salto: se sabe cuánto dura una vuelta */
+    u8   r;                         /* R y el ciclo de esa llegada */
+    u8   counters;                  /* contadores en la RAM que suman delta por vuelta (0-2) */
+    u8   delta[2];
+    u16  counter[2];
+    u64  at;
+} Z80Loop;
+
 /* LSPC: VRAM, registros, contador de líneas, temporizador e interrupciones */
 typedef struct {
     u16  vram[0x10000];             /* $0000-$7FFF la lenta; $8000-$87FF la rápida (con espejos) */
@@ -280,6 +312,8 @@ typedef struct Neo {
     u8   sound_cmd, sound_reply;    /* $320000: comando del 68000 al Z80 y respuesta */
     u8   nmi_pending, nmi_enabled, nmi_line;
     u32  sound_cmds;                /* comandos enviados (estadística) */
+    Z80Loop z80_loop;               /* bucle de espera del Z80 que se salta de una vez (z80bus.c) */
+    M68Loop m68_loop;               /* y el del 68000 en el código generado (neo.c) */
     Ym2610 ym;
     Audio audio;
     u32  exc_count[64];             /* excepciones atendidas por vector (estadística) */
@@ -295,6 +329,7 @@ typedef struct Neo {
     size_t spr_tiles;
     u32 *fix;                       /* S convertida: 8 filas de 32 bits por mosaico */
     size_t fix_tiles;
+    SprCache spr_cache;             /* los SCB2-4 ya recorridos (lspc_render.c) */
     u8   zram[0x800];               /* RAM del Z80: $F800-$FFFF */
     u8   l0[L0_SIZE];
 } Neo;
@@ -347,7 +382,7 @@ void neo_power_on(Neo *g);              /* encendido: todo a cero, la interrupci
 void neo_reset(Neo *g);                 /* botón de reset */
 void neo_run_frame(Neo *g);             /* corre hasta terminar el cuadro (con NEO_RECOMP, con el código recompilado) */
 extern int neo_force_interp;            /* con NEO_RECOMP: 1 = solo el intérprete */
-void neo_after_step(Neo *g);            /* LSPC y Z80 al ciclo del 68000 (tras cada instrucción) */
+void neo_after_step(Neo *g);            /* el LSPC al ciclo del 68000 (tras cada instrucción) */
 int  neo_card_insert(Neo *g, const char *path);  /* tarjeta de 2 KB (la carga si el archivo existe); 1 si todo bien */
 int  neo_card_save(Neo *g, const char *path);
 
@@ -396,12 +431,13 @@ void audio_end_frame(Neo *g);           /* lleva el YM2610 al final del cuadro y
 int  neo_audio_take(Neo *g, int16_t *out, int max_frames);  /* muestras L R; devuelve cuántos pares */
 NEO_INL u64 ym_next_event(const Ym2610 *y) { return y->ta_at < y->tb_at ? y->ta_at : y->tb_at; }
 
-/* Tras cada instrucción del 68000 (intérprete y código generado): el LSPC solo si hay algo que hacer
- * y el Z80 solo si quedó atrás */
+/* Tras cada instrucción del 68000 (intérprete y código generado): el LSPC solo si hay algo que hacer.
+ * El Z80 no: solo se comunica con el 68000 por $320000, así que se pone al día cuando el 68000 lee la
+ * respuesta o manda un comando, y al final del cuadro (audio_end_frame). Termina en el mismo límite de
+ * instrucción en un tramo que en muchos: el resultado es el mismo y no corre a pasitos */
 NEO_INL void neo_after_step_inline(Neo *g)
 {
     if (g->cyc >= g->lspc.next_event) lspc_sync(g);
-    z80_sync(g);
 }
 
 /* --- Carga (cart.c) --- */

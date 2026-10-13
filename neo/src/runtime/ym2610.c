@@ -377,6 +377,18 @@ static void ssg_env_step(Ym2610 *y)
 
 static inline int ssg_env_level(const Ssg *s) { return s->eatt ? s->estep : 31 - s->estep; }
 
+/* Un contador que sube en cada paso y vuelve a 0 al llegar al periodo, tras `steps` pasos de una vez:
+ * devuelve cuántas veces volvió */
+static inline int counter_steps(u16 *cnt, u16 period, int steps)
+{
+    u32 c = *cnt;
+    if (c + (u32)steps < period) { *cnt = (u16)(c + (u32)steps); return 0; }
+    u32 d = c + 1 >= period ? 1 : period - c;           /* el paso en que vuelve la primera vez */
+    u32 rest = (u32)steps - d;
+    *cnt = (u16)(rest % period);
+    return 1 + (int)(rest / period);
+}
+
 /* 9 pasos del SSG (una muestra del FM): la suma promedio de los tres canales */
 static float ssg_sample(Ym2610 *y)
 {
@@ -389,6 +401,16 @@ static float ssg_sample(Ym2610 *y)
     if (!ep) ep = 1;
     u8 mix = r[7];
     float sum = 0;
+    if (!((r[8] | r[9] | r[10]) & 0x1F)) {
+        /* Los tres en volumen fijo 0: suenan 0 (ssg_amp[0]); los contadores avanzan los 9 pasos de una vez */
+        for (int c = 0; c < 3; c++) if (counter_steps(&s->tcnt[c], tp[c], 9) & 1) s->tout[c] ^= 1;
+        for (int k = counter_steps(&s->ncnt, np, 9); k > 0; k--) {
+            u32 bit = (s->lfsr ^ (s->lfsr >> 3)) & 1;
+            s->lfsr = (s->lfsr >> 1) | bit << 16;
+        }
+        for (int k = counter_steps(&s->ecnt, ep, 9); k > 0; k--) ssg_env_step(y);
+        return 0.0f;
+    }
     for (int step = 0; step < 9; step++) {
         for (int c = 0; c < 3; c++)
             if (++s->tcnt[c] >= tp[c]) { s->tcnt[c] = 0; s->tout[c] ^= 1; }

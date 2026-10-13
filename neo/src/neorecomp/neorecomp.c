@@ -1357,6 +1357,73 @@ static const char *kind_name(int k)
 /* ¿Las funciones de esta ventana dependen del banco elegido? (la ventana P2 de un juego con bancos) */
 static int banked(u32 off) { return space == SPACE_GAME && p_banks > 1 && off >= P_BANK_SIZE; }
 
+/* ¿El Bcc en off cierra un bucle de espera? Las mismas reglas que m68k_idle_skip (neo.c): de head al Bcc,
+ * sin saltos, solo TST, CMPI, BTST, CMP <ea>,Dn y MOVE <ea>,Dn con operandos Dn, inmediatos, (An),
+ * d16(An), absolutos o d16(PC); cada Dn que se lee se escribió antes en la vuelta o el bucle no lo toca;
+ * la condición sale de la última que puso las banderas (BTST solo Z: BEQ/BNE). Devuelve el
+ * desplazamiento de head o -1 */
+static int idle_ea_ok(u32 *o, int mode, int reg, int size, u32 *rd)
+{
+    switch (mode) {
+    case 0: *rd |= 1u << reg; return 1;
+    case 2: return 1;
+    case 5: *o += 2; return 1;
+    case 7:
+        if (reg == 0 || reg == 2) { *o += 2; return 1; }
+        if (reg == 1) { *o += 4; return 1; }
+        if (reg == 4) { *o += size == 2 ? 4 : 2; return 1; }
+        return 0;
+    default: return 0;
+    }
+}
+
+static long idle_site(u32 off)
+{
+    u16 op = romw(off);
+    int cc = op >> 8 & 15;
+    if (m68k_decode(op) != K_BCC || cc == 1) return -1;
+    u32 addr = ins_addr[off >> 1], d8 = op & 0xFF;
+    u32 to = (addr + 2 + (d8 ? sx8(d8) : sx16(romw(off + 2)))) & 0xFFFFFF;
+    if (to >= addr || addr - to > 32) return -1;
+    long head = in_func(off, to);
+    if (head < 0) return -1;
+    u32 o = (u32)head, rd[8], wr[8], all = 0, done = 0;
+    int n = 0, flags = 0;
+    while (o < off) {
+        if (n == 6 || !is_ins[o >> 1]) return -1;
+        u16 w = romw(o);
+        int mode = w >> 3 & 7, reg = w & 7;
+        u32 r = 0, wv = 0, o0 = o;
+        o += 2;
+        if ((w & 0xFF00) == 0x4A00 && (w & 0xC0) != 0xC0) { if (!idle_ea_ok(&o, mode, reg, w >> 6 & 3, &r)) return -1; flags = 1; }
+        else if ((w & 0xFF00) == 0x0C00 && (w & 0xC0) != 0xC0) {
+            o += (w >> 6 & 3) == 2 ? 4 : 2;
+            if (!idle_ea_ok(&o, mode, reg, w >> 6 & 3, &r)) return -1;
+            flags = 1;
+        } else if ((w & 0xFFC0) == 0x0800 || ((w & 0xF1C0) == 0x0100 && mode != 1)) {
+            if (w & 0x0100) r |= 1u << (w >> 9 & 7); else o += 2;
+            if (!idle_ea_ok(&o, mode, reg, mode ? 0 : 2, &r)) return -1;
+            flags = 2;
+        } else if ((w & 0xF000) == 0xB000 && (w >> 6 & 7) <= 2) {
+            r |= 1u << (w >> 9 & 7);
+            if (mode == 1 || !idle_ea_ok(&o, mode, reg, w >> 6 & 3, &r)) return -1;
+            flags = 1;
+        } else if ((w >> 12) >= 1 && (w >> 12) <= 3 && (w >> 6 & 7) == 0) {
+            int sz = (w >> 12) == 1 ? 0 : (w >> 12) == 3 ? 1 : 2;
+            if (mode == 1 || !idle_ea_ok(&o, mode, reg, sz, &r)) return -1;
+            wv = 1u << (w >> 9 & 7);
+            flags = 1;
+        } else return -1;
+        if (o - o0 != (u32)ins_len(o0)) return -1;
+        rd[n] = r; wr[n] = wv; n++;
+    }
+    if (o != off) return -1;
+    if (cc >= 2 && (flags == 0 || (flags == 2 && cc != 6 && cc != 7))) return -1;
+    for (int i = 0; i < n; i++) all |= wr[i];
+    for (int i = 0; i < n; i++) { if (rd[i] & all & ~done) return -1; done |= wr[i]; }
+    return head;
+}
+
 static void emit_ins(FILE *f, u32 off)
 {
     u32 addr = ins_addr[off >> 1];
@@ -1399,6 +1466,12 @@ static void emit_ins(FILE *f, u32 off)
     default: break;
     }
     if (fall) succ[ns++] = next;
+    /* El Bcc de un bucle de espera: si se toma, IDLE68; si no, el bucle terminó */
+    long idle = idle_site(off);
+    if (idle >= 0) {
+        fprintf(f, "    IDLE68(0x%06X, 0x%06X, L_%06X);\n", (u32)succ[0] & 0xFFFFFF, addr, (u32)idle);
+        fprintf(f, "    idle_head = 0;\n");
+    }
     for (int i = 0; i < ns; i++) {
         long t = in_func(off, (u32)succ[i]);
         if (t >= 0) fprintf(f, "    if (npc == 0x%06X) goto L_%06X;\n", (u32)succ[i] & 0xFFFFFF, (u32)t);
@@ -1412,6 +1485,11 @@ static void emit_function(FILE *f, size_t idx)
     fprintf(f, "/* %s $%06X-$%06X (%u instrucciones) */\n", space == SPACE_GAME ? "P" : "BIOS", fn->lo, fn->hi, fn->n);
     fprintf(f, "int %s%06X(Neo *g)\n{\n    M68k *c = &g->cpu;\n    u32 npc;\n", fn_prefix, fn->lo);
     if (banked(fn->lo)) fprintf(f, "    u32 ver0 = g->map_ver;\n");
+    for (u32 o = fn->lo; o <= fn->hi; o += 2)
+        if (is_ins[o >> 1] && fn_of[o >> 1] == idx + 1 && idle_site(o) >= 0) {
+            fprintf(f, "    u32 idle_head = 0;\n    u64 idle_at = 0;\n");   /* bucles de espera (IDLE68) */
+            break;
+        }
     fprintf(f, "    (void)c;\n    switch (c->pc) {\n");
     for (u32 o = fn->lo; o <= fn->hi; o += 2)
         if (is_ins[o >> 1] && fn_of[o >> 1] == idx + 1)
@@ -1639,8 +1717,9 @@ static void sanitize(char *s)
 /* ------------------------------------------------------------------ */
 
 /* Sube cuando cambia lo que se genera (el análisis, la emisión): la caché vieja se rehace aunque la versión
- * de neorecomp sea la misma (un árbol con cambios sin commit). 2: las heurísticas de la fase 7 */
-#define BIOS_CACHE_FORMAT "2"
+ * de neorecomp sea la misma (un árbol con cambios sin commit). 2: las heurísticas de la fase 7; 3: los
+ * bucles de espera (IDLE68) de la fase 8 */
+#define BIOS_CACHE_FORMAT "3"
 
 static void bios_cache_root(char *out, size_t n)
 {

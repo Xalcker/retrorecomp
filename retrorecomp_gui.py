@@ -922,12 +922,23 @@ def make_job(p):
         return start_job({"build": "make", "test": "pruebas", "git_sync": "git fetch + fast-forward"}[kind], steps, kind=kind)
     sysm, rp = rom_of(rid)
     proj = sysm.project(base_name(rid))
+    if kind == "prepare":
+        # Modo fácil: deja la ROM lista para jugar nativa, haciendo solo lo que falta
+        # (herramientas, proyecto generado y compilado) y con todas las trazas que ya haya
+        traces = [t["name"] for t in list_traces(rid)]
     name = safe_name(p.get("name") or proj["name"])
     pdir = sysm.project_dir(name)
     tflags = [x for t in trace_files(rid, traces) for x in ("--trace", t)]
     inp = resolve_input(rid, p.get("input"))
     frames = lambda d: pint(p.get("frames") or d, 1, 2000000, "cuadros")  # noqa: E731
     cwd = sysm.root
+    if kind == "prepare":
+        steps = []
+        if not all(sysm.tools_status().values()):
+            steps.append({"argv": ["make", "-j8"], "cwd": sysm.root})
+        if not proj["built"]:
+            steps += [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}, {"argv": ["make", "-C", pdir, "-j8"]}]
+        return start_job(f"preparar {name}", steps, rid, "prepare", cwd)
     if kind == "recomp":
         steps = [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
         if p.get("compile", True):

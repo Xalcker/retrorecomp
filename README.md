@@ -11,6 +11,16 @@ cada uno sigue siendo su propio repositorio.
 python3 retrorecomp_gui.py            # abre el navegador; solo Python 3, sin dependencias
 ```
 
+En Windows, con [uv](https://docs.astral.sh/uv/), desde PowerShell y dentro de la carpeta `retrorecomp`:
+
+```
+Set-Location "C:\ruta\a\retrorecomp"
+uv run --python 3 .\retrorecomp_gui.py
+```
+
+uv elige un Python 3 y corre el script; como solo usa la biblioteca estándar, no hay que instalar dependencias
+ni crear un entorno. El navegador se abre solo. Para detener el servidor, presiona `Ctrl+C`.
+
 Busca los repositorios en `--nes DIR` / `--gb DIR` / `--gen DIR` / `--neo DIR`, en `NESRECOMP_DIR` / `GBRECOMP_DIR` /
 `GENRECOMP_DIR` / `NEORECOMP_DIR`, en la carpeta que contiene a este (si va como submódulo de uno de ellos) o en las
 hermanas `NESRecomp`, `GBRecomp`, `GENRecomp` y `NEORecomp` (si es submódulo de uno, los otros se buscan junto a ese). Los que no encuentre no aparecen.
@@ -22,6 +32,18 @@ En Windows, `make` y `sh` (compilar, pruebas, ciclo completo, compilar el proyec
 UCRT64, como se compila a mano: la GUI los lanza con su `bash` (`MSYSTEM=UCRT64`) y pasa las rutas como `C:/...`.
 Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:msys64`, y al arrancar dice cuál usa. Los ejecutables de los
 recompiladores y `git` se lanzan directo.
+
+## Modos
+
+El interruptor de la barra superior elige entre dos modos (se recuerda en el navegador):
+
+- **Fácil** (por omisión): lista de ROMs y un solo botón, «Jugar». Si falta algo, primero lo prepara solo
+  (compila las herramientas, recompila la ROM y compila el proyecto, con las trazas que ya existan) y luego abre
+  la versión recompilada nativa. «Mostrar detalles» muestra el registro del trabajo.
+- **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
+  (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
+  el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son
+  «Avance y mapa» y «Trazas y entradas».
 
 ## Qué hace
 

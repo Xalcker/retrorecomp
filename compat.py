@@ -19,11 +19,11 @@ Uso, desde la raíz del recompilador y con "make" ya hecho:
 
 Las carpetas (por omisión roms/) pueden tener zips de No-Intro o ROMs sueltas. Los resultados se guardan en
 SALIDA/results.json (por omisión docs/compat) después de cada ROM: si la corrida se interrumpe, la misma orden
-sigue donde iba. Una ROM se salta si ya tiene resultado de la misma versión del recompilador (el commit y si
-src/ tiene cambios); --rehacer la repite igual.
+sigue donde iba. Una ROM se salta si ya tiene resultado del mismo código del recompilador (un hash de src/ y el Makefile, más lo
+que esté sin commitear: un commit que solo toca docs/ no la invalida); --rehacer la repite igual.
 """
-import argparse, concurrent.futures as cf, datetime, html, json, os, pathlib, re, shlex, shutil, struct
-import subprocess, sys, threading, time, zipfile, zlib
+import argparse, concurrent.futures as cf, datetime, hashlib, html, json, os, pathlib, re, shlex, shutil, struct
+import subprocess, sys, tempfile, threading, time, zipfile, zlib
 
 EXE = ".exe" if os.name == "nt" else ""
 CUADROS1 = (450, 900, 1500)
@@ -186,6 +186,37 @@ def version(root):
     return v + ("+cambios" if rc == 1 else "")
 
 
+def fuente(root):
+    """Qué código produjo un resultado: un hash del contenido de src/ y del Makefile tal como están en el disco
+    (lo commiteado y lo que no, da igual). Sirve para decidir si un resultado guardado sigue valiendo al reanudar
+    una corrida: un commit que solo toca docs/ o tests/, una fusión, o commitear lo que ya estaba corriendo, no
+    cambian nada y no obligan a repetir lo ya hecho (con el commit a secas, sí). Se calcula con una copia
+    temporal del índice de git, así que no toca el del repositorio. No cuenta este motor ni el guion: si cambian de
+    forma que altere los resultados, se repite con --rehacer."""
+    rutas = [x for x in ("src", "Makefile") if os.path.exists(os.path.join(root, x))]
+    rc, ruta, _ = correr(["git", "rev-parse", "--git-path", "index"], cwd=root, timeout=30)
+    if rc != 0 or not rutas:
+        return "?"
+    ruta = ruta.strip()
+    if not os.path.isabs(ruta):
+        ruta = os.path.join(root, ruta)
+    fd, tmp = tempfile.mkstemp(prefix="compat-indice-")
+    os.close(fd)
+    try:
+        shutil.copyfile(ruta, tmp)
+        env = dict(os.environ, GIT_INDEX_FILE=tmp)
+        rc, _, _ = correr(["git", "add", "-u", "--", *rutas], cwd=root, timeout=60, env=env)
+        rc2, o, _ = correr(["git", "ls-files", "-s", "--", *rutas], cwd=root, timeout=30, env=env)
+        if rc != 0 or rc2 != 0:
+            return "?"
+        return hashlib.sha1(o.encode("utf-8", "replace")).hexdigest()[:7]
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
 # --------------------------------------------------------------------------- PNG (RGB de 8 bits, lo que escriben los *shot)
 
 def leer_png(path):
@@ -303,6 +334,7 @@ class Prueba:
         self.res_path = self.out / "results.json"
         self.lock = threading.Lock()
         self.version = version(S.root)
+        self.fuente = fuente(S.root)       # lo que decide si un resultado guardado sigue valiendo
         self.res = {}
         if self.res_path.exists():
             datos = json.loads(self.res_path.read_text(encoding="utf-8"))
@@ -328,7 +360,7 @@ class Prueba:
     def guardar(self):
         with self.lock:
             self.out.mkdir(parents=True, exist_ok=True)
-            datos = {"sistema": self.S.id, "fecha": datetime.date.today().isoformat(), "version": self.version,
+            datos = {"sistema": self.S.id, "fecha": datetime.date.today().isoformat(), "version": self.version, "fuente": self.fuente,
                      "roms": sorted(self.res.values(), key=lambda r: (r["juego"].lower(), r.get("coleccion") or ""))}
             tmp = self.res_path.with_suffix(".tmp")
             tmp.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -442,7 +474,7 @@ class Prueba:
         shutil.rmtree(carpeta, ignore_errors=True)
         carpeta.parent.mkdir(parents=True, exist_ok=True)   # nesrecomp solo crea el último nivel con rutas C:\...
         traza.write_text("")
-        r = {"fases": [], "version": self.version}
+        r = {"fases": [], "version": self.version, "fuente": self.fuente}
         t0 = time.time()
         for ronda in (1, 2):
             fa = {"ronda": ronda}
@@ -603,7 +635,7 @@ def main(S, argv=None):
         P.fila(f)
 
     if a.solo != "etapa2":
-        pend = [f for f in filas if a.rehacer or P.res[P.clave(f)].get("version1") != P.version
+        pend = [f for f in filas if a.rehacer or P.res[P.clave(f)].get("fuente1") != P.fuente
                 or not P.res[P.clave(f)].get("interprete")]
         print(f"etapa 1: {len(pend)} ROMs ({len(filas) - len(pend)} ya tenían resultado de esta versión)", flush=True)
         t1 = time.time()
@@ -615,6 +647,7 @@ def main(S, argv=None):
                     if r.get(k) is None:
                         fila.pop(k, None)
                 fila["version1"] = P.version
+                fila["fuente1"] = P.fuente
                 if i % 25 == 0 or i == len(pend):
                     P.guardar()
                     print(f"  {i}/{len(pend)} ({time.time() - t1:.0f} s)", flush=True)
@@ -630,7 +663,7 @@ def main(S, argv=None):
             sel = [f for f in filas if not f.get("error")]
         else:
             sel = P.elegir(filas, a.etapa2)
-        pend = [f for f in sel if a.rehacer or (P.res[P.clave(f)].get("recompilador") or {}).get("version") != P.version]
+        pend = [f for f in sel if a.rehacer or (P.res[P.clave(f)].get("recompilador") or {}).get("fuente") != P.fuente]
         print(f"etapa 2: {len(sel)} ROMs, {len(pend)} por hacer ({len(sel) - len(pend)} ya tenían resultado de esta versión)",
               flush=True)
         hilos_make = max(2, (os.cpu_count() or 4) // max(1, a.hilos))
@@ -640,7 +673,8 @@ def main(S, argv=None):
             try:
                 r = P.etapa2(f, hilos_make)
             except Exception as e:  # noqa: BLE001
-                r = {"resultado": "falla", "detalle": f"compat.py: {e!r}"[:300], "fases": [], "version": P.version}
+                r = {"resultado": "falla", "detalle": f"compat.py: {e!r}"[:300], "fases": [], "version": P.version,
+                     "fuente": P.fuente}
             return f, r
         hechas = 0
         with cf.ThreadPoolExecutor(max(1, a.hilos)) as ex:

@@ -117,8 +117,11 @@ python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [-
 python3 tools/compat/report.py [--salida DIR]
 ```
 
-Los resultados (`docs/compat/results.json` y las miniaturas) se guardan después de cada ROM; la misma orden sigue
-donde iba y salta las ROMs que ya tienen resultado del mismo commit del recompilador (`--rehacer` las repite).
+Los resultados (`docs/compat/results.json` y las miniaturas) se guardan después de cada ROM de la etapa 2 (y cada 25
+de la etapa 1); la misma orden sigue donde iba y salta las ROMs que ya tienen resultado del **mismo código** del
+recompilador: un hash del contenido de `src/` y del `Makefile` (commiteado o no), no el commit. Así un commit que solo
+toca `docs/` o `tests/`, o una fusión, no obliga a repetir una corrida a medias. Este motor y el guion no cuentan: si
+cambian de forma que altere los resultados, `--rehacer` repite todo.
 
 ## Diferencias que la interfaz esconde
 

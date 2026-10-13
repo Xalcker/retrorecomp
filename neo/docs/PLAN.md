@@ -268,8 +268,8 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     tiempo real; contra Geolith la RAM coincide un 99,6-100 %. `docs/COMPATIBILIDAD.md` y `docs/compat/`.
   - `make dist`, el README y `ARQUITECTURA.md` completos.
   - La GUI de retrorecomp (con permiso): el Neo Geo como cuarto sistema (clase `NEO`), en `contract.py` y en
-    `compat.py`; en la rama `neo-geo` de retrorecomp, sin subir (el submódulo de NEORecomp apunta a ese commit:
-    hay que subir esa rama antes que NEORecomp). `contract.py` marca `trace_line.h` y `tests/contract.sh`
+    `compat.py`; fusionado en retrorecomp (Xalcker/retrorecomp#21), al que apunta el submódulo. `contract.py`
+    marca `trace_line.h` y `tests/contract.sh`
     distintos en NEORecomp hasta que los otros tres copien la versión para cuatro repos (los issues de antes).
   - [x] **Niveles de la mezcla del YM2610** (pedido al probar la fase 8: en Metal Slug las voces y los
     gritos, ADPCM-A, sonaban bajos). `oracle.py mix` ajusta la energía de cada oráculo como suma de la

@@ -1,12 +1,16 @@
 /*
  * gbtrace: corre una ROM con el intérprete, sin ventana, y guarda qué direcciones de ROM
  * ejecutó (líneas BB:AAAA en hexadecimal, runtime/trace_line.h, el formato común con NESRecomp
- * y GENRecomp y el de --uncovered) para guiar a gbrecomp.
+ * y GENRecomp y el de --uncovered) para guiar a gbrecomp. Si el juego ejecuta código desde WRAM
+ * o HRAM, también anota sus bytes en líneas "ram DIRECCION BYTES" (platform/ramtrace.h), las
+ * mismas que escriben difftest y el ejecutable del juego con --uncovered: ese código no está en la
+ * ROM donde corre y gbrecomp solo puede aprenderlo de lo que se ejecutó.
  *
  * Uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]
- * Con varias corridas se pueden juntar trazas (gbrecomp acepta --trace varias veces).
+ * Con varias corridas se pueden juntar trazas (cat y sort -u, como tests/recomp_game.sh).
  */
 #include "cli.h"
+#include "../platform/ramtrace.h"
 #include "../runtime/trace_line.h"
 
 #define MAX_BANKS 512
@@ -17,6 +21,10 @@ static void record(GB *g)
     u16 pc = g->cpu.pc;
     u32 bank;
     u16 off;
+    if ((pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF)) {
+        ramtrace_observe(g, pc);
+        return;
+    }
     if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
     else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
     else return;
@@ -52,8 +60,12 @@ int main(int argc, char **argv)
             n++;
         }
     }
+    RamSummary rs = ramtrace_write(o);
     fclose(o);
     printf("%s: %zu instrucciones distintas en %ld cuadros\n", c.out, n, c.frames);
+    if (rs.fixed || rs.vol || rs.multi || rs.lost)
+        printf("Código en WRAM/HRAM: %u instrucciones fijas, %u con operandos variables, %u con varias "
+               "versiones, %u que cambian demasiado\n", rs.fixed, rs.vol, rs.multi, rs.lost);
     gb_free(&g);
     free(rom);
     return 0;

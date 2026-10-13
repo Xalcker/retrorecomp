@@ -230,13 +230,13 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
    puntos de entrada.
 
 Si el juego ejecuta código desde WRAM o HRAM (manejadores de interrupción, trampolines de cambio de
-banco, rutinas copiadas de la ROM), ese código no está en la ROM donde corre. `difftest --uncovered`
-también anota sus bytes, en líneas `ram DIRECCIÓN BYTES` que cualquier lector de trazas anterior
-ignora (jugando con `--uncovered` solo se anotan las direcciones de ROM). `gbrecomp --trace` las
-compila con sus direcciones y una guarda que comprueba que la RAM siga teniendo esos bytes; si el
-juego los cambia, el código cae al intérprete (ver «Código que el juego copia a WRAM o HRAM» en
-`docs/ARQUITECTURA.md`). `gbrecomp` dice cuántas instrucciones de RAM aprendió y `difftest`, cuántas
-siguen en el intérprete.
+banco, rutinas copiadas de la ROM), ese código no está en la ROM donde corre. `--uncovered` (en
+`difftest` y en el ejecutable del juego, `gb` incluido) también anota sus bytes, en líneas
+`ram DIRECCIÓN BYTES` que cualquier lector de trazas anterior ignora. `gbrecomp --trace` las compila con
+sus direcciones y una guarda que comprueba que la RAM siga teniendo esos bytes; si el juego los cambia,
+el código cae al intérprete (ver «Código que el juego copia a WRAM o HRAM» en `docs/ARQUITECTURA.md`,
+que también explica por qué y cómo llevarlo a otra consola). `gbrecomp` dice cuántas instrucciones de
+RAM aprendió y `difftest`, cuántas siguen en el intérprete.
 
 `tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada. Game Boy corre 6000 cuadros por difftest si no se dice otra cosa.
 
@@ -310,7 +310,7 @@ salida no sea una terminal (la GUI lo usa), sin animación.
 `--frames N`, `--input archivo`, `--seed S`, `--model dmg|cgb|sgb`):
 
 ```
-gbtrace rom.gb traza.txt --frames 3000 --input tests/inputs/partida1.txt   # direcciones de ROM ejecutadas (formato BB:AAAA)
+gbtrace rom.gb traza.txt --frames 3000 --input tests/inputs/partida1.txt   # direcciones de ROM ejecutadas (BB:AAAA) y código de WRAM/HRAM (ram ...)
 gbshot  rom.gb captura.png --frames 900 --input tests/inputs/partida1.txt
 gbaudio rom.gb audio.wav   --frames 600 --seed 3                            # WAV estéreo y nivel por segundo
 gbramdump rom.gb          --frames 600 --input partida.txt                 # WRAM y HRAM (como ramdump de NES)
@@ -382,7 +382,7 @@ Select, o un control (A y B en la posición de Nintendo).
 Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 `--record archivo` / `--play archivo` (entradas grabadas, reproducibles en
 `difftest --input`), `--link` (cable link), `--uncovered archivo` (lo que
-ejecutó el intérprete, para `gbrecomp --trace`), `--interp` (todo con el
+ejecutó el intérprete, ROM y código de RAM, para `gbrecomp --trace`), `--interp` (todo con el
 intérprete), `--force` (acepta una ROM con otro SHA1; solo con el intérprete)
 y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 `--ui-frames N`, `--ui-menu N`, `--ui-action N` y `--ui-export`.
@@ -390,7 +390,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-140 de 140.
+142 de 142.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -406,6 +406,8 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
   cambia) y de `interrupt_time`, de Blargg, que ejecuta unas 600 instrucciones distintas desde WRAM: la
   primera ronda las interpreta, con la traza que deja se compilan, y la segunda no interpreta ninguna
   y `difftest` no encuentra diferencias.
+- El ejecutable (`gb`) con `--uncovered` y `gbtrace` anotan el mismo código de RAM que `difftest` en la
+  ROM mínima.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg

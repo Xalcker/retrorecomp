@@ -20,7 +20,8 @@
  *                 reproducirlos con --play o con difftest --input
  *   --play        reproduce un archivo grabado (el teclado se ignora)
  *   --uncovered archivo  al salir, agrega a `archivo` las direcciones de ROM
- *                 que tuvo que ejecutar el intérprete (para gbrecomp --trace)
+ *                 que tuvo que ejecutar el intérprete y los bytes del código que
+ *                 corrió desde WRAM o HRAM (para gbrecomp --trace; ver ramtrace.h)
  *   --link        empieza con el cable link (también en el menú Juego)
  *
  * Multijugador: el jugador 1 usa las flechas (y el primer control), el 2 WASD
@@ -76,6 +77,7 @@ static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[4
 #else
 #include "recomp.h"
 #endif
+#include "ramtrace.h"
 #include "settings.h"
 #include "sha1.h"
 #include "ui_font.h"
@@ -200,6 +202,13 @@ static u8 *uncovered[MAX_BANKS];
 static void mark_uncovered(GB *g)
 {
     u16 pc = g->cpu.pc;
+    /* El código de WRAM y HRAM no está en la ROM donde corre: se apuntan sus bytes para que
+     * gbrecomp --trace lo compile (ramtrace.h). Es lo que difftest --uncovered ya hacía; sin
+     * esto, jugar con --uncovered perdería justo lo que el análisis no puede deducir */
+    if ((pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF)) {
+        ramtrace_observe(g, pc);
+        return;
+    }
     u32 bank = pc < 0x4000 ? g->mbc.bank0 : g->mbc.bankx;
     if (pc >= 0x8000 || bank >= MAX_BANKS) return;
     if (!uncovered[bank]) uncovered[bank] = calloc(0x4000, 1);
@@ -214,6 +223,7 @@ static void write_uncovered(const char *path)
         for (u32 off = 0; uncovered[b] && off < 0x4000; off++)
             if (uncovered[b][off])
                 fprintf(f, "%02X:%04X\n", b, (unsigned)(b == 0 ? off : 0x4000 + off));
+    ramtrace_write(f);
     fclose(f);
 }
 

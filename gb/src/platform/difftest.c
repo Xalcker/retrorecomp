@@ -17,7 +17,8 @@
  *   --screens guarda una captura (PNG) cada N cuadros, para ver hasta dónde
  *   llegaron las entradas aleatorias.
  *   --uncovered escribe, en formato de traza de gbrecomp, las direcciones de
- *   ROM que ejecutó el intérprete (para alimentar gbrecomp --trace).
+ *   ROM que ejecutó el intérprete y los bytes del código que corrió desde
+ *   WRAM o HRAM (para alimentar gbrecomp --trace; ver ramtrace.h).
  *   --executed escribe qué bytes de ROM se ejecutaron (los registra la máquina
  *   de referencia; formato de gbrecomp --codemap).
  * Código de salida: 0 sin diferencias, 1 con diferencias.
@@ -29,6 +30,7 @@
 
 #include "console.h"
 #include "inputs.h"
+#include "ramtrace.h"
 #include "recomp.h"
 #include "sha1.h"
 
@@ -66,42 +68,11 @@ static void top_insert(Hit *top, unsigned *ntop, Hit h)
 
 /* Instrucciones del intérprete fuera de la ROM ($8000-$FFFF): cuántas veces, los bytes que
  * había en esa dirección la primera vez (para reconocer la rutina) y las versiones del código
- * que corrieron allí. Una versión es un opcode (en jr y CB, también su segundo byte); si sus
- * operandos cambian entre ejecuciones (el destino de un jp, un valor inmediato que el juego
- * parcha), se apuntan como variables: vol, un bit por byte. */
-#define RAM_BYTES 8
-#define RAM_GROUPS 4
-typedef struct { u32 n; u8 bytes[3]; u8 vol; } RamGroup;
-typedef struct {
-    u32 n;                   /* ejecuciones */
-    u8 ngroups;
-    u8 overflow;             /* más versiones de opcode que RAM_GROUPS: no se aprende */
-    u8 first[RAM_BYTES];     /* los bytes la primera vez */
-    RamGroup g[RAM_GROUPS];
-} RamHit;
-static RamHit ram_hits[0x8000];
+ * que corrieron allí. Lo lleva ramtrace.h, que comparte con el ejecutable del juego */
 
 /* --- Bytes de ROM ejecutados (por la máquina de referencia) --- */
 
 static u8 *executed[MAX_BANKS];
-
-static int insn_length(u8 op)
-{
-    switch (op) {
-    case 0x01: case 0x11: case 0x21: case 0x31: case 0x08:
-    case 0xC2: case 0xC3: case 0xCA: case 0xD2: case 0xDA:
-    case 0xC4: case 0xCC: case 0xCD: case 0xD4: case 0xDC:
-    case 0xEA: case 0xFA:
-        return 3;
-    case 0x06: case 0x0E: case 0x16: case 0x1E: case 0x26: case 0x2E: case 0x36: case 0x3E:
-    case 0x18: case 0x20: case 0x28: case 0x30: case 0x38:
-    case 0xC6: case 0xCE: case 0xD6: case 0xDE: case 0xE6: case 0xEE: case 0xF6: case 0xFE:
-    case 0xE0: case 0xF0: case 0xE8: case 0xF8: case 0xCB: case 0x10:
-        return 2;
-    default:
-        return 1;
-    }
-}
 
 static void mark_executed(GB *g)
 {
@@ -117,17 +88,6 @@ static void mark_executed(GB *g)
     for (int i = 0; i < len && off + i < 0x4000; i++) executed[bank][off + i] = 1;
 }
 
-/* Cuántos bytes de una instrucción identifican su código. El resto son operandos que pueden
- * cambiar sin cambiar lo que la instrucción hace: el destino de un jp, un valor inmediato. En jr
- * el desplazamiento y en CB el segundo byte sí cambian el código */
-static int ram_key_len(u8 op)
-{
-    switch (op) {
-    case 0x18: case 0x20: case 0x28: case 0x30: case 0x38: case 0xCB: return 2;
-    default: return 1;
-    }
-}
-
 /* Instrucciones del intérprete por zona: ROM, RAM del cartucho, WRAM, HRAM. */
 static u64 interp_zone[4];
 
@@ -140,30 +100,7 @@ static void count_interp(GB *g)
     if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
     else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
     else {
-        RamHit *h = &ram_hits[pc - 0x8000];
-        u8 cur[3];
-        for (int i = 0; i < 3; i++) cur[i] = gb_peek(g, (u16)(pc + i));
-        if (!h->n)
-            for (unsigned i = 0; i < RAM_BYTES; i++) h->first[i] = gb_peek(g, (u16)(pc + i));
-        int len = insn_length(cur[0]), key = ram_key_len(cur[0]);
-        unsigned v;
-        for (v = 0; v < h->ngroups; v++)
-            if (memcmp(h->g[v].bytes, cur, (size_t)key) == 0) break;
-        if (v == h->ngroups) {
-            if (v < RAM_GROUPS) {
-                memcpy(h->g[v].bytes, cur, sizeof cur);
-                h->ngroups++;
-            } else {
-                h->overflow = 1;
-            }
-        }
-        if (v < h->ngroups) {
-            RamGroup *gr = &h->g[v];
-            for (int i = key; i < len; i++)
-                if (cur[i] != gr->bytes[i]) gr->vol |= (u8)(1u << i);
-            gr->n++;
-        }
-        h->n++;
+        ramtrace_observe(g, pc);
         return;
     }
     if (bank >= MAX_BANKS) return;
@@ -539,36 +476,10 @@ int main(int argc, char **argv)
             top_insert(top, &ntop, h);
         }
     }
-    /* Código que corrió desde WRAM ($C000-$DFFF) o HRAM ($FF80-$FFFE): una línea "ram DIRECCION
-     * BYTES" por versión de cada instrucción, con ?? en los operandos que cambiaron entre
-     * ejecuciones, para gbrecomp --trace. El lector común de trazas las ignora porque no empiezan
-     * con un dígito hexadecimal. Una dirección con más versiones de las que se guardan no se
-     * aprende */
-    unsigned ram_fixed = 0, ram_vol = 0, ram_multi = 0, ram_lost = 0;
-    for (u32 a = 0xC000; a < 0x10000; a++) {
-        if (a >= 0xE000 && a < 0xFF80) continue;
-        if (a == 0xFFFF) continue;
-        const RamHit *h = &ram_hits[a - 0x8000];
-        if (!h->n) continue;
-        if (h->overflow) {
-            ram_lost++;
-            continue;
-        }
-        if (h->ngroups > 1) ram_multi++;
-        else if (h->g[0].vol) ram_vol++;
-        else ram_fixed++;
-        if (!uf) continue;
-        for (unsigned v = 0; v < h->ngroups; v++) {
-            const RamGroup *gr = &h->g[v];
-            int len = insn_length(gr->bytes[0]);
-            fprintf(uf, "ram %04X", a);
-            for (int i = 0; i < len; i++) {
-                if (gr->vol & (1u << i)) fprintf(uf, " ??");
-                else fprintf(uf, " %02X", gr->bytes[i]);
-            }
-            fprintf(uf, "\n");
-        }
-    }
+    /* Código que corrió desde WRAM ($C000-$DFFF) o HRAM ($FF80-$FFFE): líneas "ram DIRECCION
+     * BYTES" para gbrecomp --trace (ramtrace.h). Con más versiones de las que se guardan, una
+     * dirección no se aprende */
+    RamSummary rs = ramtrace_write(uf);
     if (uf) fclose(uf);
     if (ntop) printf("Las más ejecutadas por el intérprete:\n");
     for (unsigned i = 0; i < ntop; i++)
@@ -603,9 +514,9 @@ int main(int argc, char **argv)
     }
     if (distinct) printf("Direcciones de ROM interpretadas: %u\n", distinct);
     if (rdistinct) printf("Direcciones de RAM interpretadas: %u\n", rdistinct);
-    if (ram_fixed || ram_vol || ram_multi || ram_lost)
+    if (rs.fixed || rs.vol || rs.multi || rs.lost)
         printf("Código en WRAM/HRAM: %u instrucciones fijas, %u con operandos variables, %u con varias "
-               "versiones, %u que cambian demasiado\n", ram_fixed, ram_vol, ram_multi, ram_lost);
+               "versiones, %u que cambian demasiado\n", rs.fixed, rs.vol, rs.multi, rs.lost);
 
     if (save_out && !gb_save_write(&rec, save_out, 0))
         fprintf(stderr, "no se pudo escribir %s\n", save_out);

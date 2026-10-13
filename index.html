@@ -215,7 +215,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <button id="bGStop" hidden>Detener</button>
      <label class="f cap-notrace" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px"><input type="checkbox" id="gNoTrace"> sin traza guionada</label>
     </div>
-    <div class="mut" style="font-size:12px">Usa los «Cuadros de pruebas» de arriba. Es <code>tests/recomp_game.sh</code>: <span class="cap-notrace">graba una traza guionada, </span>recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
+    <div class="mut" style="font-size:12px">Usa los «Cuadros de pruebas» de arriba y, si eliges unas «Entradas», las usa en lugar de las guionadas (útil si el juego no pasa del título). Es <code>tests/recomp_game.sh</code>: <span class="cap-notrace">graba una traza guionada, </span>recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
    </div>
    <div class="card">
     <h3>Avance del ciclo</h3>
@@ -515,7 +515,7 @@ $("#bPlayRc").onclick=()=>play(false);
 
 const job=(body)=>guard(async()=>{const j=await api("/api/job",body());watch(j.id)});
 $("#bRecomp").onclick=job(()=>({kind:"recomp",rom:S.rom,name:$("#rName").value,traces:[...S.checked],compile:$("#rCompile").checked}));
-$("#bGame").onclick=job(()=>({kind:"recomp_game",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value,notrace:$("#gNoTrace")?.checked}));
+$("#bGame").onclick=job(()=>({kind:"recomp_game",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value,input:$("#tInput").value,notrace:$("#gNoTrace")?.checked}));
 $("#bDiff").onclick=job(()=>({kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value,seed:$("#dSeed").value,input:$("#tInput").value,model:$("#aModel").value,uncovered:$("#dUnc").checked,uncovered_name:"difftest"}));
 $("#bBench").onclick=job(()=>({kind:"bench",rom:S.rom,frames:$("#tFrames").value,repeat:$("#bRepeat").value,input:$("#tInput").value,model:$("#aModel").value}));
 $("#bBenchRc").onclick=job(()=>({kind:"bench",rom:S.rom,name:$("#rName").value,frames:$("#tFrames").value,recompiled:true}));

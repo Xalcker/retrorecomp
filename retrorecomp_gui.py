@@ -974,6 +974,8 @@ def make_job(p):
         return start_job("bench", [{"argv": argv}], rid, "bench", cwd)
     if kind == "recomp_game":
         env = {"NOTRACE": "1"} if p.get("notrace") and sysm.caps["notrace"] else {}
+        if inp:     # unas «Entradas» elegidas (p. ej. una partida grabada) sustituyen a las guionadas del ciclo
+            env.update(INPUT_TRACE=posix_path(inp), INPUT_DIFFTEST=posix_path(inp))
         return start_job(f"ciclo completo {name}", [{"argv": sysm.game_argv(rp, name, frames(6000)), "env": env}], rid, "recomp_game", cwd)
     if kind in ("trace", "screenshot", "audio"):
         tn = safe_name(p.get("trace_name") or "guiada")

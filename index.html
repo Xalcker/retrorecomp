@@ -264,11 +264,12 @@ $("#roms").onclick=e=>{const li=e.target.closest("li[data-r]");if(li)selectRom(l
 $("#qsys").onchange=e=>{S.romsys=e.target.value;try{localStorage.setItem("romsys",S.romsys)}catch(err){}renderRoms()};
 $("#q").oninput=e=>{S.romq=e.target.value;renderRoms()};
 
-const guessName=n=>(n.replace(/\(.*?\)|\[.*?\]/g,"").replace(/\.[^.]*$/,"").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,16))||"juego";
+/* El nombre del proyecto lo decide el servidor (short_name: sin cortar el título y con un CRC si dos ROMs chocan) */
+const projName=r=>(S.state.roms.find(x=>x.id===r)||{}).project||"juego";
 async function selectRom(r){
   S.rom=r;S.sys=r.split(":")[0];S.checked=new Set();S.map=null;S.cellsel=null;
   $("#nosel").style.display="none";$("#app").style.display="";$("#romtitle").textContent=r.slice(r.indexOf(":")+1);
-  $("#rName").value=guessName(r.slice(r.indexOf(":")+1));
+  $("#rName").value=projName(r);
   $("#celllist").style.display="none";$("#why").hidden=true;$("#whytitle").hidden=true;$("#shot").style.display="none";
   await refresh();
   await loadMap();

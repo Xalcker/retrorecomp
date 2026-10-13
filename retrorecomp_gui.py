@@ -13,7 +13,7 @@ Dónde busca los recompiladores: --nes/--gb/--gen, las variables NESRECOMP_DIR/G
 la carpeta que contiene a retrorecomp si es uno de ellos (submódulo) o sus hermanas NESRecomp, GBRecomp y
 GENRecomp.
 """
-import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser
+import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -77,9 +77,22 @@ def stem(rom):
     return re.sub(r"[^A-Za-z0-9._-]+", "_", os.path.splitext(rom)[0]).strip("_") or "rom"
 
 
-def short_name(rom):
+CHOQUES = set()      # (sistema, nombre base) que comparten dos o más ROMs; lo llena list_roms()
+
+
+def base_short_name(rom):
     base = re.sub(r"\(.*?\)|\[.*?\]", "", os.path.splitext(rom)[0])
-    return re.sub(r"[^a-z0-9]+", "", base.lower())[:16] or "juego"
+    return re.sub(r"[^a-z0-9]+", "", base.lower())[:40] or "juego"
+
+
+def short_name(rom, sid=""):
+    """Nombre del proyecto (build/out/NOMBRE, --name): el título sin lo que va entre paréntesis. Antes se cortaba
+    a 16 caracteres y Sonic The Hedgehog 1, 2 y 3 daban el mismo; ahora solo se agrega un CRC del nombre del
+    archivo cuando otra ROM del mismo sistema da el mismo título (regiones, revisiones)."""
+    n = base_short_name(rom)
+    if (sid, n) in CHOQUES:
+        n += format(zlib.crc32(os.path.basename(rom).encode()) & 0xFFFFFF, "06x")
+    return n
 
 
 def safe_name(n, what="nombre"):
@@ -161,7 +174,7 @@ class System:
         raise NotImplementedError
 
     def project(self, rom):
-        name = short_name(rom)
+        name = short_name(rom, self.id)
         d = self.project_dir(name)
         return {"name": name, "dir": d, "generated": os.path.isfile(os.path.join(d, "Makefile")),
                 "built": os.path.isfile(os.path.join(d, name + EXE))}
@@ -616,10 +629,19 @@ def list_roms():
                     found[f"{sysm.id}:{os.path.basename(p)}"] = (sysm, p)
     ROMS.clear()
     ROMS.update(found)
+    vistos = {}
+    for s, p in found.values():
+        k = (s.id, base_short_name(os.path.basename(p)))
+        vistos[k] = vistos.get(k, 0) + 1
+    CHOQUES.clear()
+    CHOQUES.update(k for k, n in vistos.items() if n > 1)
     # built: el proyecto generado de esa ROM (build/out/NOMBRE) ya tiene su ejecutable
-    return [{"id": i, "system": s.id, "label": s.label, "name": os.path.basename(p), "size": os.path.getsize(p),
-             "built": s.project(os.path.basename(p))["built"]}
-            for i, (s, p) in sorted(found.items(), key=lambda x: x[1][1].lower())]
+    res = []
+    for i, (s, p) in sorted(found.items(), key=lambda x: x[1][1].lower()):
+        pr = s.project(os.path.basename(p))
+        res.append({"id": i, "system": s.id, "label": s.label, "name": os.path.basename(p), "size": os.path.getsize(p),
+                    "project": pr["name"], "built": pr["built"]})
+    return res
 
 
 def rom_of(rid):

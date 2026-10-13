@@ -1,7 +1,7 @@
 # GENRecomp
 
 Recompilador estático de juegos de Sega Genesis, con la misma arquitectura que
-[NESRecomp](https://github.com/Xalcker/NESrecomp) y [GBRecomp](https://github.com/Xalcker/GBRecomp):
+[NESRecomp](https://github.com/Xalcker/NESRecomp), [GBRecomp](https://github.com/Xalcker/GBRecomp) y [NEORecomp](https://github.com/Xalcker/NEORecomp):
 toma una ROM y genera un proyecto C99 portable que se compila en un ejecutable nativo con SDL2.
 Es híbrido (código recompilado más un intérprete 68000 de respaldo), sin datos de la ROM en el
 proyecto generado (valida su SHA1) y con `difftest` para comprobar el código recompilado contra el
@@ -37,7 +37,7 @@ y recompilados sin traza, sin diferencias con el intérprete: ver [docs/COMPATIB
 
 ## Compilar
 
-Los mismos paquetes que en NESRecomp y GBRecomp: compilador C99, `make`, `pkg-config` y SDL2.
+Los mismos paquetes que en NESRecomp, GBRecomp y NEORecomp: compilador C99, `make`, `pkg-config` y SDL2.
 
 | Sistema | Paquetes |
 |---|---|
@@ -55,7 +55,7 @@ make dist       # dist/genrecomp-<versión>-<sistema>.tar.gz
 
 **Versiones.** La versión es la etiqueta de git más cercana (`git describe`: `v0.1.0`, o `v0.1.0-3-gabc1234` con
 commits después de ella). Al subir una etiqueta `vX.Y.Z` de `main` (`git tag v0.2.0 && git push origin v0.2.0`), el CI
-publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual que en NESRecomp y GBRecomp.
+publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual que en NESRecomp, GBRecomp y NEORecomp.
 
 ## Lo que hace hoy
 
@@ -112,7 +112,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
 | `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `sh tests/coverage.sh` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
-| `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp y GBRecomp). |
+| `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp, GBRecomp y NEORecomp). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
 | `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
 | `genbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
@@ -134,9 +134,9 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
-| `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp y GBRecomp (submódulo). |
+| `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp, GBRecomp y NEORecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp y GBRecomp), `sst68k.sh`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los tres repos). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst68k.sh`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 
@@ -150,7 +150,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 ## Licencia
 
-GENRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp y retrorecomp.
+GENRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GBRecomp, NEORecomp y retrorecomp.
 La licencia cubre el código del recompilador y del runtime, no las ROMs ni el código que se genera a
 partir de ellas: ese código es una traducción del programa del juego, así que sirve para jugar tu
 propia copia, pero no distribuyas el proyecto ni el ejecutable de un juego comercial.

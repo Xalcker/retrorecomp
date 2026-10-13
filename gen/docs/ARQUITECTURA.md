@@ -4,8 +4,8 @@ GENRecomp toma una ROM de Sega Genesis y genera un proyecto C99 que se compila e
 ejecutable nativo. El ejecutable carga la ROM del usuario en tiempo de ejecución y valida su
 SHA1: nunca se distribuyen datos de la ROM.
 
-Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de NESRecomp y
-GBRecomp: lo que cambia entre las consolas queda dentro de cada una. Las que todavía no tienen
+Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de NESRecomp,
+GBRecomp y NEORecomp: lo que cambia entre las consolas queda dentro de cada una. Las que todavía no tienen
 contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 ## Piezas
@@ -99,8 +99,8 @@ genrecomp juego.bin [--info]
 ```
 
 `--trace` lee las trazas de `gentrace`, de la ventana con `--trace` y de `difftest --uncovered`: una
-línea `BANCO:DIRECCION` en hexadecimal por instrucción de ROM ejecutada, el mismo formato que NESRecomp y
-GBRecomp (`src/runtime/trace_line.h`, idéntico en los tres). El banco es el desplazamiento en la ROM
+línea `BANCO:DIRECCION` en hexadecimal por instrucción de ROM ejecutada, el mismo formato que NESRecomp,
+GBRecomp y NEORecomp (`src/runtime/trace_line.h`, idéntico en los cuatro). El banco es el desplazamiento en la ROM
 normalizada dividido entre 512 KB (las ventanas del mapper de SSF2) y la dirección es la del 68000 con la
 que se ejecutó: `01:0A1234` es el desplazamiento `01 × $80000 + ($0A1234 & $7FFFF)` = `$0A1234` (sin SSF2
 los dos coinciden). Se siguen leyendo las trazas viejas, `DESPLAZAMIENTO:DIRECCION` con 6 dígitos. Las marca
@@ -224,7 +224,7 @@ corrió en código recompilado.
 ### difftest
 
 `difftest rom.bin [cuadros] [--seed S] [--input archivo] [--uncovered archivo] [--screens carpeta]
-[--bench] [--executed archivo]`, las mismas opciones que en NESRecomp y GBRecomp. La máquina B corre
+[--bench] [--executed archivo]`, las mismas opciones que en NESRecomp, GBRecomp y NEORecomp. La máquina B corre
 función por función (recompilada, o el intérprete donde no hay código); tras cada función la A (solo
 intérprete) avanza hasta el mismo ciclo y se comparan el 68000, los ciclos, la RAM, el VDP (sin la
 imagen), la E/S, la EEPROM, los bancos y la SRAM, el Z80 y su RAM, el PSG, el YM2612, la mezcla de
@@ -462,7 +462,7 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
 
 - **`make dist`:** deja `dist/genrecomp-<versión>-<sistema>.tar.gz` con `genrecomp`, el README, la
   licencia y este documento. La versión sale de `git describe`.
-- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp y GBRecomp),
+- **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp, GBRecomp y NEORecomp),
   en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
 - **Contrato común** (`tests/contract.sh`, el mismo archivo en los tres repos): `gentrace`, `genshot`,
   `genaudio` y `genbench` aceptan `--frames`, `--input`, `--seed` (y `--repeat`); con la demo Overdrive,

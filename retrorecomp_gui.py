@@ -147,6 +147,8 @@ class System:
     tools = ()                       # (nombre, ¿qué hace)
     legend = ()                      # nombres de las categorías del mapa
     caps = {}
+    map_note = ""                    # qué es una celda y una fila del mapa
+    input_note = ""                  # botones del guion de entradas
 
     def __init__(self, root):
         self.root = root
@@ -210,6 +212,8 @@ class NES(System):
     trace_shift = 13                 # banco de la traza (trace_line.h): desplazamiento >> 13, ventanas de 8 KB
     window = "nes"                   # el intérprete con ventana
     bench_tool = "nesbench"
+    map_note = "como --viz: una celda = 256 bytes; una fila por cada 16 KB de PRG"
+    input_note = "A B SELECT START RIGHT LEFT UP DOWN unidos con +; la segunda columna es el jugador 2"
     trace_tools = {"trace": "nestrace", "screenshot": "nesshot", "audio": "nesaudio"}
 
     def project_dir(self, name):
@@ -371,6 +375,8 @@ class GEN(NES):
     trace_shift = 19                 # ventanas de 512 KB, las del mapper de SSF2
     window = "gen"
     bench_tool = "genbench"
+    map_note = "como --viz: una celda = 256 bytes; una fila por cada 16 KB de ROM"
+    input_note = "A B C X Y Z START MODE RIGHT LEFT UP DOWN unidos con + (sin SELECT); la segunda columna es el jugador 2"
     trace_tools = {"trace": "gentrace", "screenshot": "genshot", "audio": "genaudio"}
 
     def info(self, path):
@@ -464,10 +470,12 @@ class GB(System):
     id, label, exts = "gb", "Game Boy", (".gb", ".gbc", ".sgb")
     recomp = "gbrecomp"
     bench_tool = "gbbench"
+    map_note = "como --events: una celda = 256 bytes; una fila por banco de la ROM"
+    input_note = "A B SELECT START RIGHT LEFT UP DOWN unidos con +"
     tools = ("gbrecomp", "gb", "gbtrace", "gbshot", "gbaudio", "gbbench", "gbtest", "gbramdump", "linktest", "vgmcheck")
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
     caps = {"notrace": False, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
-            "game_frames": 6000}
+            "game_frames": 6000, "unresolved": True}
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
            0x0F: "MBC3+TIMER+BAT", 0x10: "MBC3+TIMER+RAM+BAT", 0x11: "MBC3", 0x12: "MBC3+RAM", 0x13: "MBC3+RAM+BAT",
            0x19: "MBC5", 0x1A: "MBC5+RAM", 0x1B: "MBC5+RAM+BAT", 0x1C: "MBC5+RUMBLE", 0x1E: "MBC5+RUMBLE+RAM+BAT",
@@ -819,6 +827,8 @@ class Job:
         self.status, self.rc = "running", None
         self.t0, self.t1 = time.time(), None
         self.proc, self.stopped, self.step_i = None, False, 0
+        self.step_rc = []
+        self.step_cmd = [" ".join(os.path.basename(a) if os.path.isabs(a) else a for a in st["argv"][:2]).replace(EXE, "") for st in steps]
 
     def emit(self, text):
         with lock:
@@ -852,6 +862,7 @@ class Job:
             except Exception as ex:  # noqa: BLE001
                 self.emit(f"error: {ex}\n")
                 rc = 127
+            self.step_rc.append(rc)
             if rc != 0:
                 break
         self.rc, self.t1 = rc, time.time()
@@ -887,7 +898,8 @@ class Job:
 
     def info(self):
         return {"id": self.id, "title": self.title, "rom": self.rid, "kind": self.kind, "status": self.status,
-                "rc": self.rc, "t0": self.t0, "t1": self.t1, "step": self.step_i, "steps": len(self.steps), "size": self.size}
+                "rc": self.rc, "t0": self.t0, "t1": self.t1, "step": self.step_i, "steps": len(self.steps), "size": self.size,
+                "step_list": [{"cmd": c, "rc": self.step_rc[i] if i < len(self.step_rc) else None} for i, c in enumerate(self.step_cmd)]}
 
 
 def start_job(title, steps, rid=None, kind="", cwd=None):
@@ -1094,7 +1106,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/state":
             rid = one("rom") or None
             st = {"systems": {s.id: {"label": s.label, "root": s.root, "git": s.git(), "tools": s.tools_status(), "caps": s.caps,
-                                     "bench_tool": s.bench_tool, "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
+                                     "bench_tool": s.bench_tool, "trace_tool": s.trace_tool("trace"), "map_note": s.map_note, "input_note": s.input_note,
+                                     "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
                   "roms": list_roms(), "progress": load_state(),
                   "jobs": [j.info() for j in sorted(jobs.values(), key=lambda j: -j.id)[:30]]}
             if rid:

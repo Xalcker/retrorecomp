@@ -77,6 +77,9 @@ pre{margin:0;font:12px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap;wo
 .banner{padding:10px 14px;border-radius:8px;margin-bottom:8px;font-weight:600;border:1px solid var(--line);border-left-width:5px}
 .banner.ok{border-left-color:var(--ok)}.banner.bad{border-left-color:var(--bad)}.banner.run{border-left-color:var(--sel)}
 summary{cursor:pointer;font-weight:600}
+#steps{margin-bottom:8px}#steps .step{padding:5px 9px}
+#settings{padding:8px 12px;margin-bottom:10px}
+#stepbar{padding:2px 10px;font-size:12px}
 .easy-only{display:none}
 body.easy .easy-only{display:block}
 body.easy .pro-only,body.easy #tabs,body.easy .pane,body.easy #dockbar{display:none!important}
@@ -118,6 +121,16 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
    <button id="eLog">Mostrar detalles</button>
   </div>
   <h2 id="romtitle" class="pro-only" style="margin:0 0 8px;font-size:17px"></h2>
+  <div class="steps pro-only" id="steps"></div>
+  <div class="card pro-only" id="settings">
+   <div class="row" style="margin:0">
+    <b style="font-size:13px">Ajustes de esta ROM</b>
+    <label class="f cap-frames" title="Ciclo completo y difftest">Cuadros de pruebas<input type="number" id="gFrames" value="6000" min="1" style="width:7em"></label>
+    <label class="f" title="Traza, captura, audio y velocidad">Cuadros de traza y velocidad<input type="number" id="tFrames" value="3000" min="1" style="width:7em"></label>
+    <label class="f" title="Guion de botones para traza, captura, audio, difftest y velocidad">Entradas<select id="tInput"></select></label>
+    <label class="f cap-model" title="Traza, captura, difftest y velocidad">Modelo<select id="aModel"><option value="">auto</option><option>dmg</option><option>cgb</option><option>sgb</option></select></label>
+   </div>
+  </div>
   <div class="tabs" id="tabs">
    <div class="tab on" data-p="p-ciclo">Ciclo</div>
    <div class="tab" data-p="p-avance">Avance y mapa</div>
@@ -125,10 +138,9 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
   </div>
 
   <div class="pane" id="p-avance">
-   <div class="steps" id="steps"></div>
    <div class="grid2">
     <div class="card">
-     <h3>Mapa del descubrimiento <span class="mut" style="font-weight:400">(como <code>--viz</code>: una celda = 256 bytes; una fila por banco de 16 KB)</span></h3>
+     <h3>Mapa del descubrimiento <span class="mut" style="font-weight:400" id="mapnote"></span></h3>
      <div class="legend" id="legend"></div>
      <div class="row">
       <label class="f">Trazas que se suman al análisis <span id="trsel" class="mut"></span></label>
@@ -154,12 +166,10 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
   <div class="pane" id="p-trazas">
    <div class="grid2">
     <div class="card">
-     <h3>Grabar una traza sin ventana (<code>nestrace</code> / <code>gbtrace</code>)</h3>
+     <h3>Grabar una traza sin ventana (<code id="trTool">nestrace</code>)</h3>
      <div class="mut" style="font-size:12px;margin-bottom:6px">Corre el intérprete y guarda las direcciones que ejecuta. Sin entradas ni semilla no se pulsa nada; no necesita el proyecto compilado.</div>
      <div class="row">
-      <label class="f">Cuadros<input type="number" id="tFrames" value="3000" min="1" style="width:7em"></label>
       <label class="f">Semilla (mando al azar)<input type="number" id="tSeed" style="width:7em"></label>
-      <label class="f">Entradas<select id="tInput"></select></label>
       <label class="f">Nombre<input type="text" id="tName" value="guiada" style="width:9em"></label>
      </div>
      <div class="row"><button class="pri" id="bTrace">Grabar traza</button><button id="bTraceD" title="difftest --uncovered: lo que el proyecto recompilado dejó al intérprete (necesita el proyecto compilado)">Con difftest (--uncovered)</button><button id="bShot">Captura PNG</button><button id="bAudio">Audio WAV</button></div>
@@ -186,7 +196,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
     </div>
    </div>
    <div class="card">
-    <h3>Entradas (guion de botones para <code>--input</code> / <code>--play</code>; en NES y Genesis, una segunda columna para el jugador 2)</h3>
+    <h3>Entradas (guion de botones para <code>--input</code> / <code>--play</code>)</h3>
     <div class="row">
      <label class="f">Ver o editar<select id="iSel"></select></label>
      <label class="f">Plantilla<select id="iTpl"></select></label>
@@ -194,7 +204,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <button id="iSave">Guardar</button><button id="iDel">Borrar</button>
     </div>
     <textarea id="iText" placeholder="0 -&#10;122 START&#10;129 -&#10;300 RIGHT+A"></textarea>
-    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (A B SELECT START RIGHT LEFT UP DOWN unidos con +; en Genesis también C X Y Z MODE y sin SELECT; en Neo Geo también C y D) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
+    <div class="mut" style="font-size:12px">Una línea por cambio: «cuadro BOTONES» (<span id="inNote"></span>) o «-» para ninguno. Las del repo (<code>repo:</code>) son de solo lectura.</div>
    </div>
   </div>
 
@@ -203,10 +213,9 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
     <div class="row">
      <button class="pri bigbtn" id="bGame">▶ Correr ciclo completo</button>
      <button id="bGStop" hidden>Detener</button>
-     <label class="f cap-frames">Cuadros por prueba<input type="number" id="gFrames" value="6000" min="1" style="width:7em"></label>
      <label class="f cap-notrace" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px"><input type="checkbox" id="gNoTrace"> sin traza guionada</label>
     </div>
-    <div class="mut" style="font-size:12px">Es <code>tests/recomp_game.sh</code>: graba una traza guionada, recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
+    <div class="mut" style="font-size:12px">Usa los «Cuadros de pruebas» de arriba. Es <code>tests/recomp_game.sh</code>: <span class="cap-notrace">graba una traza guionada, </span>recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
    </div>
    <div class="card">
     <h3>Avance del ciclo</h3>
@@ -229,16 +238,12 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <div class="card">
       <h3>Comparar contra el intérprete (<code>difftest</code>)</h3>
       <div class="row">
-       <label class="f">Cuadros<input type="number" id="dFrames" value="6000" min="1" style="width:7em"></label>
        <label class="f">Semilla<input type="number" id="dSeed" value="1" style="width:6em"></label>
-       <label class="f">Entradas<select id="dInput"></select></label>
-       <label class="f cap-model">Modelo<select id="dModel"><option value="">auto</option><option>dmg</option><option>cgb</option><option>sgb</option></select></label>
       </div>
       <div class="row"><label class="f" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="dUnc"> guardar lo no cubierto como traza «difftest»</label></div>
       <div class="row"><button class="pri" id="bDiff">Correr difftest</button></div>
       <h3 style="margin-top:14px">Velocidad del intérprete</h3>
       <div class="row">
-       <label class="f">Cuadros<input type="number" id="bFrames" value="3000" min="1" style="width:7em"></label>
        <label class="f">Repeticiones<input type="number" id="bRepeat" value="3" min="1" style="width:5em"></label>
       </div>
       <div class="row"><button id="bBench">Intérprete (bench)</button></div>
@@ -250,6 +255,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
 </main>
 <div id="dock">
  <div id="dockbar"></div>
+ <div id="stepbar"></div>
  <pre id="log"></pre>
 </div>
 <div class="toast" id="toast"></div>
@@ -346,6 +352,9 @@ function applyCaps(){
   const show=(sel,on)=>$$(sel).forEach(e=>e.classList.toggle("cap-hide",!on));
   show(".cap-model",c.model);show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);
   if($("#gFrames").dataset.sys!==S.sys){$("#gFrames").value=c.game_frames||6000;$("#gFrames").dataset.sys=S.sys}
+  $("#mapnote").textContent="("+(sy.map_note||"")+")";
+  $("#trTool").textContent=sy.trace_tool;
+  $("#inNote").textContent=sy.input_note||"";
   legend();
 }
 
@@ -368,7 +377,7 @@ function renderSteps(){
 
 function legend(){
   $("#legend").innerHTML=ORG.map((n,i)=>`<span><span class="sw" style="background:var(--c${i})"></span>${esc(n)}</span>`).join("")+
-   `<span><span class="sw" style="background:var(--miss)"></span>ejecutado y no descubierto</span><span><b style="color:var(--bad)">!</b> salto sin resolver (GB)</span><span class="mut">· la opacidad es la densidad de código</span>`;
+   `<span><span class="sw" style="background:var(--miss)"></span>ejecutado y no descubierto</span>${S.state?.systems[S.sys]?.caps.unresolved?'<span><b style="color:var(--bad)">!</b> salto sin resolver</span>':""}<span class="mut">· la opacidad es la densidad de código</span>`;
 }
 legend();
 
@@ -461,7 +470,7 @@ $("#bMerge").onclick=guard(async()=>{
 /* ---------- entradas ---------- */
 function renderInputs(){
   const ins=S.state.inputs||[], opt='<option value="">— ninguna / al azar —</option>'+ins.map(i=>`<option>${esc(i)}</option>`).join("");
-  for(const id of ["#tInput","#dInput"]){const c=$(id).value;$(id).innerHTML=opt;$(id).value=c}
+  for(const id of ["#tInput"]){const c=$(id).value;$(id).innerHTML=opt;$(id).value=c}
   const c=$("#iSel").value;$("#iSel").innerHTML='<option value="">— nueva —</option>'+ins.map(i=>`<option>${esc(i)}</option>`).join("");$("#iSel").value=c;
   $("#iTpl").dataset.s!==S.sys&&($("#iTpl").innerHTML="",$("#iTpl").dataset.s=S.sys);
   if(!$("#iTpl").options.length)$("#iTpl").innerHTML='<option value="">— plantilla —</option>'+Object.keys(S.state.systems[S.sys].presets).map(k=>`<option>${k}</option>`).join("");
@@ -480,7 +489,7 @@ $("#iDel").onclick=guard(async()=>{
 });
 
 /* ---------- acciones ---------- */
-const tbody=()=>({rom:S.rom,frames:$("#tFrames").value,seed:$("#tSeed").value,input:$("#tInput").value,trace_name:$("#tName").value});
+const tbody=()=>({rom:S.rom,frames:$("#tFrames").value,seed:$("#tSeed").value,input:$("#tInput").value,model:$("#aModel").value,trace_name:$("#tName").value});
 $("#bTrace").onclick=guard(async()=>{
   const j=await api("/api/job",{kind:"trace",...tbody()});
   watch(j.id,()=>{S.checked.add($("#tName").value.replace(/\.trace$/,"")+".trace");refresh().then(loadMap)});
@@ -507,9 +516,9 @@ $("#bPlayRc").onclick=()=>play(false);
 const job=(body)=>guard(async()=>{const j=await api("/api/job",body());watch(j.id)});
 $("#bRecomp").onclick=job(()=>({kind:"recomp",rom:S.rom,name:$("#rName").value,traces:[...S.checked],compile:$("#rCompile").checked}));
 $("#bGame").onclick=job(()=>({kind:"recomp_game",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value,notrace:$("#gNoTrace")?.checked}));
-$("#bDiff").onclick=job(()=>({kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#dFrames").value,seed:$("#dSeed").value,input:$("#dInput").value,model:$("#dModel").value,uncovered:$("#dUnc").checked,uncovered_name:"difftest"}));
-$("#bBench").onclick=job(()=>({kind:"bench",rom:S.rom,frames:$("#bFrames").value,repeat:$("#bRepeat").value,input:$("#dInput").value,model:$("#dModel").value}));
-$("#bBenchRc").onclick=job(()=>({kind:"bench",rom:S.rom,name:$("#rName").value,frames:$("#bFrames").value,recompiled:true}));
+$("#bDiff").onclick=job(()=>({kind:"difftest",rom:S.rom,name:$("#rName").value,frames:$("#gFrames").value,seed:$("#dSeed").value,input:$("#tInput").value,model:$("#aModel").value,uncovered:$("#dUnc").checked,uncovered_name:"difftest"}));
+$("#bBench").onclick=job(()=>({kind:"bench",rom:S.rom,frames:$("#tFrames").value,repeat:$("#bRepeat").value,input:$("#tInput").value,model:$("#aModel").value}));
+$("#bBenchRc").onclick=job(()=>({kind:"bench",rom:S.rom,name:$("#rName").value,frames:$("#tFrames").value,recompiled:true}));
 $("#bSync").onclick=job(()=>({kind:"git_sync"}));
 $("#bBuild").onclick=job(()=>({kind:"build"}));
 $("#bTest").onclick=job(()=>({kind:"test"}));
@@ -520,7 +529,15 @@ function renderJobs(){
   $("#dockbar").innerHTML='<b style="font-size:12px">Registro</b>'+(js.length?"":'<span class="mut" style="font-size:12px">sin trabajos todavía</span>')+js.slice(0,12).map(j=>{
     const t=j.t1?`${(j.t1-j.t0).toFixed(1)} s`:"…";
     return `<span class="chip jb ${j.id===S.job?"sel":""}" data-j="${j.id}"><span class="st-${j.status}">●</span> ${esc(j.title)} <span class="mut">${t}${j.status==="running"&&j.steps>1?` ${j.step+1}/${j.steps}`:""}</span></span>`}).join("")+
-    (S.job&&js.find(j=>j.id===S.job&&j.status==="running")?'<button id="bStop">Detener</button>':"");
+    (S.job&&js.find(j=>j.id===S.job&&j.status==="running")?'<button id="bStop">Detener</button>':"")+
+    `<button id="bLogT" style="margin-left:auto">${S.logHide?"Mostrar registro":"Ocultar registro"}</button>`;
+  $("#bLogT").onclick=()=>{S.logHide=!S.logHide;renderJobs()};
+  $("#log").style.display=S.logHide&&!document.body.classList.contains("easy")?"none":"";
+  // Un ✓ o ✗ por cada paso del trabajo elegido (make, recompilador, make del proyecto, …)
+  const cur=js.find(j=>j.id===S.job);
+  $("#stepbar").innerHTML=cur&&cur.step_list&&cur.step_list.length>1?cur.step_list.map((p,i)=>{
+    const ic=p.rc===null?(cur.status==="running"&&i===cur.step?'<span class="st-running">●</span>':'<span class="mut">○</span>'):(p.rc===0?'<span class="st-ok">✓</span>':'<span class="st-error">✗</span>');
+    return ic+" "+esc(p.cmd)}).join(' <span class="mut">›</span> '):"";
   const stop=$("#bStop");if(stop)stop.onclick=guard(()=>api("/api/job/stop",{id:S.job}));
 }
 $("#dockbar").onclick=e=>{const c=e.target.closest(".jb");if(c){S.job=+c.dataset.j;S.jobpos=0;$("#log").textContent="";pollJob()}};
@@ -569,7 +586,7 @@ async function renderCycle(){
   if(S.cyc.id!==j.id) return;
   const {rounds,res}=parseCycle(S.cyc.text);
   const icon={ok:'<span class="st-ok">✓</span>',bad:'<span class="st-error">✗</span>',run:'<span class="st-running">●</span>'};
-  const items=[[rounds.length?"ok":(running?"run":(j.status==="ok"?"ok":"bad")),"Traza guionada","El intérprete pulsa botones y guarda las direcciones que ejecuta (omitida con «sin traza guionada»).",""]];
+  const items=S.state.systems[S.sys].caps.notrace?[[rounds.length?"ok":(running?"run":(j.status==="ok"?"ok":"bad")),"Traza guionada","El intérprete pulsa botones y guarda las direcciones que ejecuta (omitida con «sin traza guionada»).",""]]:[];
   rounds.forEach((r,k)=>{
     const last=k===rounds.length-1, anyBad=r.seeds.some(x=>x.bad);
     const st=anyBad?"bad":(last&&running?"run":((last&&!res)?"bad":"ok"));

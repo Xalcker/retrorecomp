@@ -331,6 +331,35 @@ byte `$401` es la región que ven los juegos: Japón (0) en `neo-po.bin` y **Eur
 hay BIOS del AES de EE. UU. `bios_find` la busca en `$NEO_BIOS`, junto al juego y en `roms/`. En el AES no
 hay SFIX ni SM1: la capa fija y el Z80 salen siempre del cartucho.
 
+**La BIOS propia** (fase 10, `tools/neobios/`, MIT): `neobios.s`, escrita desde cero con la interfaz de la wiki
+de NeoGeoDev y lo que se ve desde afuera con la original (qué escribe en los registros y cuándo, qué variables
+de la RAM lee o escribe cada juego), sin traducir ni copiar el código de SNK. La ensambla `asm68k.py`, un
+ensamblador del 68000 hecho aquí (Python sin dependencias; `make neobios` deja `build/neobios.bin` en el orden
+de los chips, como `neo-epo.bin`), que se prueba contra el desensamblador (`tests/asm68k/`). El runtime la
+acepta por su firma (`"NEORECOMP BIOS"` en `$100`), no por el SHA1; `bios_find` la toma solo si no hay una de
+SNK (`neobios.bin` junto al juego o en `roms/`), o con `--bios`/`NEO_BIOS`. Se recompila como la original.
+Lo que hace:
+
+- **Arranque:** RAM en cero, paletas en negro, `FIX_CLEAR` y `LSP_1st`, las variables (`BIOS_COUNTRY_CODE` 2
+  como `neo-epo.bin`, `BIOS_MESS_POINT`...), los DIP por software con los valores por omisión de la tabla de su
+  región en la cabecera (los 6 bytes de los ajustes especiales y el nibble alto de cada ajuste simple: lo que
+  deja la original en `BIOS_GAME_DIP`), el comando `$03` al Z80 (como la original), y `USER` con
+  `USER_REQUEST` 0, 1 (si el juego hace su pantalla de arranque, `$114` = 1) y 2 para siempre, con los
+  vectores del cartucho y `BIOS_SYSTEM_MODE` en `$80` (el VBLANK del juego).
+- **Llamadas:** `SYSTEM_RETURN`, `SYSTEM_IO` (los dos mandos con flanco y repetición, Start y Select, y
+  `PLAYER_START` cuando un jugador que no está jugando aprieta Start), `SYSTEM_INT1` (el VBLANK de la BIOS:
+  `SYSTEM_IO` y `MESS_OUT`), `SYSTEM_INT2`, `MESS_OUT` (los 14 comandos, también el texto de 8 × 16, con la
+  mitad de abajo en la página siguiente de la fuente, y el japonés), `FIX_CLEAR`, `LSP_1st`,
+  `CONTROLLER_SETUP`. Las del MVS (créditos, calendario, HOW TO PLAY) vuelven sin hacer nada.
+- **Lo que piden los juegos y no está documentado:** una **tabla de azar** de 256 bytes en `$C04200` (KOF '98
+  saca números de ahí; es una permutación propia de 0-255, no la de SNK) y la bandera **`$10FE8C`**, que quien
+  quiere esperar un cuadro pone en 1 y el VBLANK de la BIOS vuelve a 0 (KOF '98, en su pantalla de arranque).
+  Las variables propias van en `$10FE90-$10FEBE`: ningún juego de `roms/` escribe ahí, y sí, por ejemplo, en
+  `$10FC00-$10FC7B` (KOF '98, como RAM propia).
+- **Todavía no:** la animación de la pantalla de SNK (con `$114` en 0 se salta: el juego empieza unos 470
+  cuadros antes que con la original) y la tarjeta de memoria (`CARD` contesta «no hay tarjeta»: el formato
+  está documentado a medias, falta la suma de control de la FAT).
+
 La **tabla L0** (`000-lo.lo`, un chip de la placa, ni de la BIOS ni del cartucho) dice qué línea de un
 sprite se dibuja con cada reducción vertical: 256 tablas de 256 bytes (mosaico en el nibble alto, línea en
 el bajo); el chip de 128 KB repite esa mitad. Se calcula (`l0_generate`): la tabla z tiene z + 1 líneas, las

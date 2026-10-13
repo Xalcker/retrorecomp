@@ -1,0 +1,613 @@
+{
+ "sistema": "neo",
+ "fecha": "2026-10-12",
+ "version": "12a5298+cambios",
+ "roms": [
+  {
+   "archivo": "kof97.zip",
+   "juego": "kof97",
+   "coleccion": "roms",
+   "slug": "gkof970c7216",
+   "sha1": "843642a9e5e75b49f066b79a8f61d37f3b214a48",
+   "nombre": "The King of Fighters '97 (MVS) (kof97, SNK 1997)",
+   "ngh": "0232",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof970c7216.png",
+   "interprete_s": 9.76,
+   "colores": 252,
+   "dominante": 0.305,
+   "capturas": [
+    17,
+    209,
+    252
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.5,
+      "instrucciones": 117473,
+      "pct_rom": 10.13,
+      "funciones": 366,
+      "compilacion_s": 102.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.8,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 20.6,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 146.0,
+    "velocidad_x": 101.6,
+    "velocidad_interp_x": 42.9
+   }
+  },
+  {
+   "archivo": "kof98.zip",
+   "juego": "kof98",
+   "coleccion": "roms",
+   "slug": "gkof985ce5c7",
+   "sha1": "e920d771c7df9248de2090e3e43bff68e9cd4623",
+   "nombre": "The King of Fighters '98 - The Slugfest (AES) (kof98h, SNK 1998)",
+   "ngh": "0242",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof985ce5c7.png",
+   "interprete_s": 15.08,
+   "colores": 491,
+   "dominante": 0.109,
+   "capturas": [
+    17,
+    381,
+    491
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 3.3,
+      "instrucciones": 127659,
+      "pct_rom": 11.13,
+      "funciones": 413,
+      "compilacion_s": 105.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 26.3,
+        "recompilado_pct": 99.2,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 25.7,
+        "recompilado_pct": 99.5,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 161.1,
+    "velocidad_x": 75.8,
+    "velocidad_interp_x": 44.5
+   }
+  },
+  {
+   "archivo": "lastblad.zip",
+   "juego": "lastblad",
+   "coleccion": "roms",
+   "slug": "glastbladbca64a",
+   "sha1": "7d1074ed50af973bc5df98b0b5d541372ae7c03d",
+   "nombre": "The Last Blade / Bakumatsu Roman - Gekka no Kenshi (lastblad, SNK 1997)",
+   "ngh": "0234",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glastbladbca64a.png",
+   "interprete_s": 10.27,
+   "colores": 215,
+   "dominante": 0.079,
+   "capturas": [
+    17,
+    215,
+    206
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.6,
+      "instrucciones": 109762,
+      "pct_rom": 8.12,
+      "funciones": 340,
+      "compilacion_s": 107.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 28.9,
+        "recompilado_pct": 100.0,
+        "interpretadas": 35
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 28.2,
+        "recompilado_pct": 100.0,
+        "interpretadas": 35
+       }
+      ],
+      "traza": 35
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.2,
+      "instrucciones": 109798,
+      "pct_rom": 8.12,
+      "funciones": 339,
+      "compilacion_s": 79.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 29.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 27.6,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 35
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 303.2,
+    "velocidad_x": 65.2,
+    "velocidad_interp_x": 39.8
+   }
+  },
+  {
+   "archivo": "mslug.zip",
+   "juego": "mslug",
+   "coleccion": "roms",
+   "slug": "gmslugfb756a",
+   "sha1": "582233c4d95e4a2d80dd78a9de29b92e0f60d40f",
+   "nombre": "Metal Slug - Super Vehicle-001 (mslug, Nazca 1996)",
+   "ngh": "0201",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmslugfb756a.png",
+   "interprete_s": 8.39,
+   "colores": 134,
+   "dominante": 0.1,
+   "capturas": [
+    76,
+    89,
+    134
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.1,
+      "instrucciones": 100739,
+      "pct_rom": 20.88,
+      "funciones": 362,
+      "compilacion_s": 94.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.5,
+        "recompilado_pct": 100.0,
+        "interpretadas": 51
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.2,
+        "recompilado_pct": 99.9,
+        "interpretadas": 58
+       }
+      ],
+      "traza": 58
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.8,
+      "instrucciones": 100873,
+      "pct_rom": 20.91,
+      "funciones": 366,
+      "compilacion_s": 83.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.5,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 58
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 252.9,
+    "velocidad_x": 67.5,
+    "velocidad_interp_x": 38.2
+   }
+  },
+  {
+   "archivo": "mslug2.zip",
+   "juego": "mslug2",
+   "coleccion": "roms",
+   "slug": "gmslug2adbbc5",
+   "sha1": "f0549c1556470ffc828f9d4e8c4e91b2d202a2bb",
+   "nombre": "Metal Slug 2 - Super Vehicle-001/II (mslug2, SNK 1998)",
+   "ngh": "0241",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmslug2adbbc5.png",
+   "interprete_s": 9.6,
+   "colores": 170,
+   "dominante": 0.071,
+   "capturas": [
+    170,
+    97,
+    165
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.2,
+      "instrucciones": 120541,
+      "pct_rom": 15.97,
+      "funciones": 437,
+      "compilacion_s": 99.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 22.3,
+        "recompilado_pct": 99.8,
+        "interpretadas": 169
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 33.1,
+        "recompilado_pct": 99.2,
+        "interpretadas": 140
+       }
+      ],
+      "traza": 261
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.2,
+      "instrucciones": 121051,
+      "pct_rom": 16.03,
+      "funciones": 438,
+      "compilacion_s": 101.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 22.3,
+        "recompilado_pct": 99.8,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 33.3,
+        "recompilado_pct": 99.2,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 261
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 313.7,
+    "velocidad_x": 55.9,
+    "velocidad_interp_x": 34.5
+   }
+  },
+  {
+   "archivo": "samsho2.zip",
+   "juego": "samsho2",
+   "coleccion": "roms",
+   "slug": "gsamsho2ca9b6e",
+   "sha1": "83af9153f655527de0f24c9bd1fa1543cb4d68c3",
+   "nombre": "Samurai Shodown II / Shin Samurai Spirits (samsho2, SNK 1994)",
+   "ngh": "0063",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsamsho2ca9b6e.png",
+   "interprete_s": 8.14,
+   "colores": 333,
+   "dominante": 0.188,
+   "capturas": [
+    109,
+    283,
+    333
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.0,
+      "instrucciones": 62366,
+      "pct_rom": 12.5,
+      "funciones": 381,
+      "compilacion_s": 65.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.6,
+        "recompilado_pct": 100.0,
+        "interpretadas": 175
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 22.6,
+        "recompilado_pct": 100.0,
+        "interpretadas": 201
+       }
+      ],
+      "traza": 201
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.7,
+      "instrucciones": 62695,
+      "pct_rom": 12.56,
+      "funciones": 381,
+      "compilacion_s": 51.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 23.1,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 201
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 207.0,
+    "velocidad_x": 76.7,
+    "velocidad_interp_x": 38.3
+   }
+  },
+  {
+   "archivo": "shocktro.zip",
+   "juego": "shocktro",
+   "coleccion": "roms",
+   "slug": "gshocktroa22c3a",
+   "sha1": "c06c42f8999fa5c284aa7e728574f15434e2a09a",
+   "nombre": "Shock Troopers (shocktro, Saurus 1997)",
+   "ngh": "0238",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "      salió solo en MVS: puede fallar con la BIOS del AES",
+   "interprete": "ok",
+   "thumb": "gshocktroa22c3a.png",
+   "interprete_s": 8.78,
+   "colores": 110,
+   "dominante": 0.241,
+   "capturas": [
+    92,
+    66,
+    110
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.9,
+      "instrucciones": 21019,
+      "pct_rom": 1.43,
+      "funciones": 205,
+      "compilacion_s": 16.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 16.0,
+        "recompilado_pct": 99.6,
+        "interpretadas": 112
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 18.3,
+        "recompilado_pct": 99.0,
+        "interpretadas": 147
+       }
+      ],
+      "traza": 147
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.8,
+      "instrucciones": 21683,
+      "pct_rom": 1.47,
+      "funciones": 210,
+      "compilacion_s": 14.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 16.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 17.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 147
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 100.3,
+    "velocidad_x": 88.4,
+    "velocidad_interp_x": 41.1
+   }
+  },
+  {
+   "archivo": "turfmast.zip",
+   "juego": "turfmast",
+   "coleccion": "roms",
+   "slug": "gturfmast7accb6",
+   "sha1": "6383d852c17c0eb770cd51c4fa8cb9b29874bbb2",
+   "nombre": "Neo Turf Masters / Big Tournament Golf (turfmast, Nazca 1996)",
+   "ngh": "0200",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gturfmast7accb6.png",
+   "interprete_s": 8.53,
+   "colores": 208,
+   "dominante": 0.123,
+   "capturas": [
+    65,
+    127,
+    208
+   ],
+   "version1": "12a5298+cambios",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.5,
+      "instrucciones": 34743,
+      "pct_rom": 6.96,
+      "funciones": 172,
+      "compilacion_s": 30.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.0,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 24.3,
+        "recompilado_pct": 99.1,
+        "interpretadas": 68
+       }
+      ],
+      "traza": 68
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.5,
+      "instrucciones": 34811,
+      "pct_rom": 6.96,
+      "funciones": 172,
+      "compilacion_s": 37.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.3,
+        "recompilado_pct": 100.0,
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 23.6,
+        "recompilado_pct": 99.4,
+        "interpretadas": 0
+       }
+      ],
+      "traza": 68
+     }
+    ],
+    "version": "12a5298+cambios",
+    "resultado": "ok",
+    "total_s": 152.5,
+    "velocidad_x": 48.7,
+    "velocidad_interp_x": 32.0
+   }
+  }
+ ]
+}

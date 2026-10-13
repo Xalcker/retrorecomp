@@ -97,6 +97,7 @@ typedef struct {
 } BiosVersion;
 extern const BiosVersion bios_versions[];
 extern const int bios_version_count;
+extern const BiosVersion bios_propia;   /* la de tools/neobios (por su firma, no por el SHA1) */
 
 typedef struct {
     u8   rom[BIOS_SIZE];            /* en el orden de bytes del chip, como P */

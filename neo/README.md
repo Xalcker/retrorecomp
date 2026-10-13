@@ -105,7 +105,9 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versiona).
 
 - **BIOS:** la del AES, `neo-epo.bin` (exportación) o `neo-po.bin` (Japón), sueltas o dentro del
-  `aes.zip` de MAME. No hay una BIOS del AES de EE. UU.: la de exportación declara la región Europa.
+  `aes.zip` de MAME. No hay una BIOS del AES de EE. UU.: la de exportación declara la región Europa. O la
+  propia (en desarrollo, fase 10): `make neobios` deja `build/neobios.bin`, que se usa con `--bios` o
+  `NEO_BIOS` (o como `neobios.bin` en `roms/`, si no hay una de SNK). Con ella corren los 8 juegos probados.
 - **Juegos:** `.neo`, zip de MAME o carpeta. Los juegos cifrados (NEO-CMC, SMA, PCM2, PVC: casi todos
   desde 1999) y los pocos con protección del programa todavía no.
 

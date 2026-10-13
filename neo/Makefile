@@ -69,7 +69,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms
+.PHONY: all clean test dist testroms neobios
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
@@ -128,6 +128,15 @@ DL_LIBS := -ldl
 endif
 $(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+
+# La BIOS propia (fase 10): asm68k la ensambla (make neobios: build/neobios.bin, en el orden de los chips como
+# neo-epo.bin; se usa con --bios o NEO_BIOS); dis68kbin prueba el ensamblador contra el desensamblador
+neobios: $(BUILD)/neobios.bin
+$(BUILD)/neobios.bin: tools/neobios/neobios.s tools/neobios/asm68k.py | $(BUILD)
+	python3 tools/neobios/asm68k.py tools/neobios/neobios.s $@ --swap --list $(BUILD)/neobios.lst
+
+$(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h $(RT) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -o $@ tools/neobios/dis68kbin.c src/neorecomp/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h trace_line.h sha1.h console.h $(RUNTIME)

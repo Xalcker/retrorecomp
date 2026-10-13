@@ -110,6 +110,24 @@ if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
 fi
 tiempo "cobertura"
 
+# La BIOS propia (fase 10): el ensamblador contra el desensamblador, el contrato con ella (no necesita la de
+# SNK) y, con Metal Slug, que arranque y que Start empiece la partida
+x=; [ -x ./neorecomp.exe ] && x=.exe
+if command -v python3 >/dev/null 2>&1 && make -s "build/dis68kbin$x" neobios >/dev/null 2>&1; then
+    if sh tests/asm68k/prueba.sh; then :; else fallas=$((fallas + 1)); fi
+    if NEO_BIOS="$PWD/build/neobios.bin" sh tests/contract.sh 2>&1 | grep -q "sin fallas"; then
+        echo "ok    contrato común con la BIOS propia"
+    else echo "FALLA contrato común con la BIOS propia"; fallas=$((fallas + 1)); fi
+    if [ -f roms/mslug.zip ]; then
+        r=$(NEO_BIOS="$PWD/build/neobios.bin" "$(exe neorun)" roms/mslug.zip --frames 1200 start:700-705 2>&1 | grep "BIOS (RAM)")
+        case "$r" in *"USER_REQUEST 2, USER_MODE 2"*) echo "ok    Metal Slug arranca con la BIOS propia y Start empieza la partida";;
+            *) echo "FALLA Metal Slug con la BIOS propia: $r"; fallas=$((fallas + 1));; esac
+    fi
+else
+    echo "(sin python3: no se prueba la BIOS propia)"
+fi
+tiempo "BIOS propia"
+
 # Con los juegos y la BIOS de roms/ (no se versionan)
 for r in roms/*.zip roms/*.neo; do
     [ -f "$r" ] || continue

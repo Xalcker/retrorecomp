@@ -277,6 +277,12 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     ×4,9, ADPCM-B ×1,3 y SSG ×5,5 respecto de la FM, y todo ×0,87 (el nivel de los oráculos): cada parte a
     menos de ~3 dB de los dos. Golden actualizado a propósito.
 - [ ] **10. (Opcional) BIOS de reemplazo propia.** Ver "BIOS". Se mide con `tools/compat` contra la original.
+  En curso. `tools/neobios/`: `asm68k.py` (un ensamblador del 68000 propio, probado contra el desensamblador) y
+  `neobios.s` (la BIOS, MIT, desde la interfaz documentada y lo que se ve desde afuera con la original). **Los 8
+  juegos de `roms/` corren con ella y salen recompilados sin diferencias** (`docs/compat-neobios/`), a 49-102×
+  el tiempo real; el contrato común pasa con ella. Lo que pidieron los juegos y no estaba documentado: la tabla
+  de azar de `$C04200` (propia) y la bandera de VBLANK `$10FE8C`. Falta: la tarjeta de memoria y la animación
+  de la pantalla de SNK.
 
 Después: **MVS** (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots, el reloj de 24 MHz), **juegos
 cifrados** (NEO-CMC, SMA, PCM2, PVC), **PAL**. Fuera de alcance: Neo Geo CD.

@@ -49,6 +49,15 @@ guiones pulsan Start y A desde el cuadro 1200.
   (`tools/oracles/oracle.py`, en modo AES); la imagen se compara en el área común (Geolith da 320 × 240 con los
   bordes, FBNeo 304 × 224).
 
+## Con la BIOS propia
+
+Los mismos 8 juegos con la BIOS propia (`make neobios`, fase 10) en lugar de `neo-epo.bin`
+(`NEO_BIOS=build/neobios.bin python3 tools/compat/run.py --salida build/compat-neobios`; el informe en
+[`compat-neobios/index.html`](compat-neobios/index.html)): **8 de 8 corren y salen recompilados sin
+diferencias**, con el 99,2-100 % de los ciclos en código recompilado y de 49× a 102× el tiempo real (más rápido
+que con la original: su VBLANK y su `SYSTEM_IO` hacen menos). Todavía no tiene la animación de la pantalla de
+SNK ni la tarjeta de memoria.
+
 ## Lo que no se probó todavía
 
 - Los juegos cifrados (NEO-CMC, SMA, PCM2, PVC: casi todos desde 1999) y los protegidos: se detectan y quedan sin

@@ -57,7 +57,7 @@ endif
 neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := neorecomp neotrace neoshot neoaudio neobench neoramdump neorun neo \
+PROGS := neorecomp neotrace neoshot neoaudio neobench neoramdump neorun neocard neo \
          carttest m68ktest z80test bustest lspctest audiotest statetest inputtest
 
 # SDL2 para el intérprete con ventana (neo). En Windows, enlazado de forma
@@ -108,6 +108,9 @@ lspctest$(EXE): src/tools/lspctest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
 
 neorun$(EXE): src/tools/neorun.c src/platform/png.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
+
+neocard$(EXE): src/tools/neocard.c src/platform/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola

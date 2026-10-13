@@ -56,7 +56,13 @@ Los mismos 8 juegos con la BIOS propia (`make neobios`, fase 10) en lugar de `ne
 [`compat-neobios/index.html`](compat-neobios/index.html)): **8 de 8 corren y salen recompilados sin
 diferencias**, con el 99,2-100 % de los ciclos en código recompilado y de 49× a 102× el tiempo real (más rápido
 que con la original: su VBLANK y su `SYSTEM_IO` hacen menos). Todavía no tiene la animación de la pantalla de
-SNK ni la tarjeta de memoria.
+SNK.
+
+**La tarjeta de memoria**, juego por juego, con una tarjeta recién formateada (`neorun --cardlog`, 4000
+cuadros): los 7 que la usan hacen las mismas llamadas y reciben las mismas respuestas con las dos BIOS, y la
+tarjeta queda igual. Metal Slug, Samurai Shodown II, Neo Turf Masters, KOF '97 y KOF '98 cargan su partida al
+empezar (no está: `$82`); Metal Slug 2 y The Last Blade buscan; Shock Troopers no la usa. Ninguno guardó en las
+corridas guionadas, así que guardar se probó por la interfaz (`tests/neobios/`) y no desde un juego.
 
 ## Lo que no se probó todavía
 

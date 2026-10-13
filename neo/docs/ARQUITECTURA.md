@@ -356,9 +356,72 @@ Lo que hace:
   quiere esperar un cuadro pone en 1 y el VBLANK de la BIOS vuelve a 0 (KOF '98, en su pantalla de arranque).
   Las variables propias van en `$10FE90-$10FEBE`: ningún juego de `roms/` escribe ahí, y sí, por ejemplo, en
   `$10FC00-$10FC7B` (KOF '98, como RAM propia).
+- **La tarjeta de memoria** (`CARD`, los comandos 0-7, y `CARD_ERROR`): con el formato que deja la original,
+  medido desde afuera con `neocard` (abajo). Bloques de 64 bytes:
+  - **Bloque 0, la cabecera:**
+    - `$0A`: el tamaño en el bus, el doble de los bytes (`$1000` en la de 2 KB);
+    - `$0D`/`$0E`: las sumas de las dos FAT;
+    - `$0F`: el nombre puesto (0: no; cualquier otro valor: sí), y desde `$10` los 16 bytes del nombre;
+    - `$20`: la marca `"NEO-GEO",$80` en los bytes pares (los impares no se miran);
+    - `$30`: la región.
+  - **Desde el bloque 1, el directorio:** una entrada de 4 bytes por bloque de la tarjeta (sub, `$FF` libre;
+    el NGH; el primer bloque).
+  - **Las dos FAT:** cada una ocupa bloques enteros, con un byte por bloque (0 libre, 1 el último, 2
+    reservado; si no, el siguiente). Después vienen los datos; en la de 2 KB, desde el bloque 5. Todo eso
+    sale del tamaño de la cabecera.
+
+  La **suma de una FAT** es la de todos sus bytes, también los de más allá de los bloques que hay. Al
+  cargar, guardar, borrar o leer un título, una copia que no da su suma se rehace con la otra; si las dos
+  están mal, `$83`. Si las dos están bien y son distintas, gana la FAT 1. Buscar no mira la FAT.
+
+  **El orden de los errores:**
+  - no hay tarjeta: `$80`;
+  - formatear, guardar o borrar con la tarjeta protegida: `$85`, antes de mirar el formato;
+  - sin formato: `$81` (buscar deja antes `BIOS_CARD_SUB` en 0);
+  - guardar el nombre con la tarjeta protegida: `$85`, después de mirar el formato;
+  - la FAT mal: `$83`.
+
+  **Guardar** escribe la cadena nueva en los bloques libres más bajos antes de soltar la vieja. Por eso hace
+  falta lugar para la cadena entera, también al reemplazar una partida (si no, `$84`). El byte `sub` de una
+  entrada nueva se escribe al final.
+
+  **Formatear** mide el tamaño por dónde se repite la tarjeta (2, 4 u 8 KB; si no, 16 KB). Borra la cabecera
+  primero y escribe la marca al final.
+
+  Un comando que no existe cuelga a la original; la propia vuelve sin tocar nada.
+
+  **`CARD_ERROR`**: la del AES solo atiende `$85`. Muestra el aviso con la letra de 8 × 16 de la ROM S del
+  juego (mosaicos `$100` + ASCII arriba y `$200` + ASCII abajo, la paleta 0) y espera un botón:
+  - guarda la capa fija y los colores que cambia en la zona de la BIOS (`$10F300`);
+  - esconde los sprites (los vuelve a poner el juego);
+  - deja todo lo demás como estaba.
+
+  El texto es propio.
 - **Todavía no:** la animación de la pantalla de SNK (con `$114` en 0 se salta: el juego empieza unos 470
-  cuadros antes que con la original) y la tarjeta de memoria (`CARD` contesta «no hay tarjeta»: el formato
-  está documentado a medias, falta la suma de control de la FAT).
+  cuadros antes que con la original).
+
+**`neocard`** usa la tarjeta por la interfaz de una BIOS, desde afuera, para ver qué hace cada una sin leer su
+código:
+- corre el juego hasta un cuadro;
+- pone las variables de `CARD` y llama a `$C00468` con las interrupciones enmascaradas;
+- muestra la respuesta y lo cargado.
+
+Tiene órdenes para dañar la tarjeta a propósito, sacarla o protegerla, y `error:RESP`, que llama a
+`CARD_ERROR` cuadro por cuadro y dice qué cambió en la VRAM, las paletas y la RAM. `tools/neobios/tarjeta.py`
+muestra lo que importa de un archivo de tarjeta: la cabecera, las partidas con su cadena y las FAT, sin los
+bytes libres, que cada BIOS deja a su manera. Así se comparan dos tarjetas.
+
+`neorun --cardlog` imprime las llamadas de un juego a `CARD` y a `CARD_ERROR`. Los 7 juegos de `roms/` que usan
+la tarjeta la leen al empezar la partida: Shock Troopers no la usa, Metal Slug 2 y The Last Blade buscan y los
+otros cargan. Ninguno guardó en las corridas guionadas: 30 000 cuadros cada uno, casi una hora de juego en total, quietos y
+sin llegar a perder del todo.
+
+**Prueba:** `tests/neobios/prueba_tarjeta.sh` (en `make test`) corre `tarjeta.guion` en el juego del contrato
+y lo compara con lo que dio la original:
+- 60 llamadas: formatear, guardar, reemplazar, sin lugar, protegida, sin tarjeta, FAT y cabeceras dañadas;
+- las respuestas, lo cargado y la estructura que queda.
+
+Las dos BIOS dan lo mismo también cruzadas: una tarjeta escrita por una y leída o modificada por la otra.
 
 La **tabla L0** (`000-lo.lo`, un chip de la placa, ni de la BIOS ni del cartucho) dice qué línea de un
 sprite se dibuja con cada reducción vertical: 256 tablas de 256 bytes (mosaico en el nibble alto, línea en

@@ -110,11 +110,13 @@ if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
 fi
 tiempo "cobertura"
 
-# La BIOS propia (fase 10): el ensamblador contra el desensamblador, el contrato con ella (no necesita la de
-# SNK) y, con Metal Slug, que arranque y que Start empiece la partida
+# La BIOS propia (fase 10): el ensamblador contra el desensamblador, la tarjeta de memoria contra lo que hace la
+# original, el contrato con ella (no necesita la de SNK) y, con Metal Slug, que arranque y que Start empiece la
+# partida
 x=; [ -x ./neorecomp.exe ] && x=.exe
-if command -v python3 >/dev/null 2>&1 && make -s "build/dis68kbin$x" neobios >/dev/null 2>&1; then
+if command -v python3 >/dev/null 2>&1 && make -s "build/dis68kbin$x" "neocard$x" neobios >/dev/null 2>&1; then
     if sh tests/asm68k/prueba.sh; then :; else fallas=$((fallas + 1)); fi
+    if sh tests/neobios/prueba_tarjeta.sh; then :; else fallas=$((fallas + 1)); fi
     if NEO_BIOS="$PWD/build/neobios.bin" sh tests/contract.sh 2>&1 | grep -q "sin fallas"; then
         echo "ok    contrato común con la BIOS propia"
     else echo "FALLA contrato común con la BIOS propia"; fallas=$((fallas + 1)); fi

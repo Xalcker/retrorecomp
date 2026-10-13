@@ -11,21 +11,26 @@
 ; software con los valores por omisión del juego, llama a USER con USER_REQUEST 0 (inicio), 1 (la pantalla de
 ; arranque del juego, si la hace él) y 2 (demo y partida, para siempre), y atiende las llamadas que hacen los
 ; juegos: SYSTEM_IO (mandos, Start y PLAYER_START), SYSTEM_INT1, MESS_OUT, FIX_CLEAR, LSP_1st... Lo que es
-; del MVS (créditos, calendario, cambiar de ranura, HOW TO PLAY) no hace nada. Todavía no: la animación de
-; la pantalla de SNK (con el byte $114 en 0 se salta) y la tarjeta de memoria (CARD contesta «no hay
-; tarjeta»).
+; del MVS (créditos, calendario, cambiar de ranura, HOW TO PLAY) no hace nada. La tarjeta de memoria (CARD y
+; CARD_ERROR) usa el formato que deja la original, medido desde afuera con tools/neocard: una tarjeta escrita
+; por una se lee con la otra. Todavía no: la animación de la pantalla de SNK (con el byte $114 en 0 se salta).
 
 ; --- Registros ---
 REG_P1CNT       equ     $300000
 REG_DIPSW       equ     $300001         ; escribir: patear al perro guardián
 REG_SOUND       equ     $320000
 REG_P2CNT       equ     $340000
-REG_STATUS_B    equ     $380000
+REG_STATUS_B    equ     $380000         ; bits 4-5: tarjeta (0 si está), bit 6: protegida
+REG_CRDBANK     equ     $380011
 REG_NOSHADOW    equ     $3A0001
 REG_SWPBIOS     equ     $3A0003
 REG_SWPROM      equ     $3A0013
 REG_PALBANK1    equ     $3A000F
 REG_PALBANK0    equ     $3A001F
+REG_CRDUNLOCK1  equ     $3A0005
+REG_CRDLOCK1    equ     $3A0015
+REG_CRDLOCK2    equ     $3A0007
+REG_CRDUNLOCK2  equ     $3A0017
 REG_VRAMADDR    equ     $3C0000
 REG_VRAMRW      equ     $3C0002
 REG_VRAMMOD     equ     $3C0004
@@ -33,6 +38,7 @@ REG_LSPCMODE    equ     $3C0006
 REG_IRQACK      equ     $3C000C
 PALETTES        equ     $400000
 BACKDROP        equ     $401FFE
+CARD_BASE       equ     $800001         ; tarjeta de 8 bits: el byte n en CARD_BASE + 2n
 
 ; --- La cabecera del juego ---
 CART_USER       equ     $000122
@@ -55,7 +61,12 @@ BIOS_START_FLAG         equ     $10FDB4
 BIOS_PLAYER_MOD1        equ     $10FDB6
 BIOS_MESS_POINT         equ     $10FDBE
 BIOS_MESS_BUSY          equ     $10FDC2
+BIOS_CARD_COMMAND       equ     $10FDC4
 BIOS_CARD_ANSWER        equ     $10FDC6
+BIOS_CARD_START         equ     $10FDC8
+BIOS_CARD_SIZE          equ     $10FDCC
+BIOS_CARD_FCB           equ     $10FDCE
+BIOS_CARD_SUB           equ     $10FDD0
 BIOS_STATCURNT_RAW      equ     $10FEDC
 BIOS_STATCHANGE_RAW     equ     $10FEDD
 BIOS_FRAME_COUNTER      equ     $10FE88
@@ -76,6 +87,12 @@ NB_INC          equ     $10FE98         ; .w MESS_OUT: incremento
 NB_FMT          equ     $10FE9A         ; .w MESS_OUT: formato (bit 9: palabras; bit 8: con tamaño)
 NB_FMT_ARG      equ     $10FE9C         ; .w MESS_OUT: byte alto y código de fin o tamaño
 NB_DATA         equ     $10FE9E         ; .l MESS_OUT: por dónde iban los datos
+NB_CARD_N       equ     $10FEA2         ; .w CARD: bloques de 64 bytes de la tarjeta
+NB_CARD_FATB    equ     $10FEA4         ; .w CARD: bloques de cada copia de la FAT
+NB_CARD_DATA    equ     $10FEA6         ; .w CARD: el primer bloque de datos
+; CARD_ERROR guarda lo que tapa del juego en la zona de la BIOS (la original también la usa para eso)
+NB_FIX_SAVE     equ     $10F300         ; 40 columnas × 28 filas de la capa fija: hasta $10FBBF
+NB_PAL_SAVE     equ     $10FBC0         ; .l los colores 1 y 2 de la paleta 0
 STACK_TOP       equ     $10F300
 
 ; ==========================================================================================================
@@ -132,7 +149,7 @@ vectors:
         jmp     do_rts                  ; $C0045C READ_CALENDAR (MVS)
         jmp     do_rts                  ; $C00462 SETUP_CALENDAR (MVS)
         jmp     card                    ; $C00468 CARD
-        jmp     do_rts                  ; $C0046E CARD_ERROR
+        jmp     card_error              ; $C0046E CARD_ERROR
         jmp     do_rts                  ; $C00474 HOW_TO_PLAY (MVS)
         jmp     ex_halt                 ; $C0047A suma de control y se queda
         jmp     do_rts                  ; $C00480
@@ -403,10 +420,598 @@ controller_setup:
         move.b  #1,BIOS_P2STATUS
         rts
 
-; CARD: todavía no hay tarjeta de memoria
+; ==========================================================================================================
+; CARD: la tarjeta de memoria. BIOS_CARD_COMMAND: 0 formatear, 1 buscar (BIOS_CARD_SUB: las partidas del juego
+; BIOS_CARD_FCB, un bit cada una), 2 cargar, 3 guardar, 4 borrar, 5 leer el título (20 bytes), 6 guardar el
+; nombre del usuario (16 bytes), 7 leerlo. La partida es FCB (el NGH) y el byte BIOS_CARD_SUB; los datos van de y a
+; BIOS_CARD_START (BIOS_CARD_SIZE bytes). La respuesta en BIOS_CARD_ANSWER: 0 bien, $80 no hay tarjeta, $81 sin
+; formato, $82 no está, $83 la FAT está mal, $84 no hay lugar, $85 protegida.
+;
+; El formato (bloques de 64 bytes; el tamaño en la cabecera es el que ocupa en el bus, el doble):
+;   bloque 0     cabecera: $0A tamaño (.w), $0D/$0E suma de la FAT 1/2, $0F nombre puesto (0: no), $10 nombre,
+;                $20 la marca "NEO-GEO",$80 en los bytes pares, $30 región
+;   bloque 1...  directorio: una entrada de 4 bytes por bloque (sub, $FF libre; NGH; primer bloque)
+;   luego        FAT 1 y FAT 2 (un byte por bloque: 0 libre, 1 el último, 2 reservado, si no el siguiente)
+; La suma de cada FAT es la de sus bytes. Si una copia no da su suma se rehace con la otra; si ninguna, $83.
+; Registros: a0 la tarjeta, a2/a3 las dos FAT (en el bus) durante todo el comando.
 card:
-        move.b  #$80,BIOS_CARD_ANSWER
+        movem.l d0-d7/a0-a6,-(sp)
+        moveq   #0,d6
+        move.b  BIOS_CARD_COMMAND,d6
+        cmpi.b  #7,d6
+        bhi.s   .out                    ; no es un comando: no se toca nada
+        move.b  #0,REG_CRDBANK
+        move.b  d0,REG_CRDUNLOCK1
+        move.b  d0,REG_CRDUNLOCK2
+        lea     CARD_BASE,a0
+        bsr.s   card_do
+        move.b  d0,BIOS_CARD_ANSWER
+        move.b  d0,REG_CRDLOCK1
+        move.b  d0,REG_CRDLOCK2
+.out:   movem.l (sp)+,d0-d7/a0-a6
         rts
+
+; El comando d6; la respuesta en d0. El orden de los errores es el de la original
+card_do:
+        move.b  REG_STATUS_B,d0
+        andi.b  #$30,d0
+        bne.s   .none
+        move.w  #%11001,d1              ; formatear, guardar y borrar miran primero la protección
+        btst    d6,d1
+        beq.s   .fmt
+        btst    #6,REG_STATUS_B
+        bne.s   .prot
+        tst.b   d6
+        beq.w   card_format
+.fmt:   cmpi.b  #1,d6
+        bne.s   .fmt2
+        move.w  #0,BIOS_CARD_SUB        ; buscar: SUB en 0 aunque no tenga formato (como la original)
+.fmt2:  bsr.w   card_formatted
+        bne.s   .unf
+        cmpi.b  #6,d6
+        blo.s   .lay
+        bne.w   card_user_load          ; 7
+        btst    #6,REG_STATUS_B         ; 6: el nombre
+        bne.s   .prot
+        bra.w   card_user_save
+.lay:   bsr.w   card_layout
+        bne.s   .bad
+        cmpi.b  #1,d6
+        beq.w   card_search             ; buscar no mira la FAT
+        bsr.w   card_fat_check
+        bne.s   .bad
+        cmpi.b  #3,d6
+        blo.w   card_load
+        beq.w   card_save
+        cmpi.b  #4,d6
+        beq.w   card_delete
+        bra.w   card_title
+.none:  move.b  #$80,d0
+        rts
+.unf:   move.b  #$81,d0
+        rts
+.bad:   move.b  #$83,d0
+        rts
+.prot:  move.b  #$85,d0
+        rts
+
+; Z si la tarjeta tiene la marca
+card_formatted:
+        lea     $40(a0),a1
+        lea     card_magic(pc),a2
+        moveq   #7,d1
+.l:     move.b  (a1),d0
+        cmp.b   (a2)+,d0
+        bne.s   .x
+        addq.l  #4,a1
+        dbf     d1,.l
+        cmp.b   d0,d0
+.x:     rts
+
+card_magic:
+        dc.b    "NEO-GEO",$80
+
+; Las zonas según el tamaño de la cabecera (2, 4, 8 o 16 KB): NB_CARD_*, a2 y a3. Z si el tamaño es uno de esos
+card_layout:
+        move.b  $14(a0),d0
+        lsl.w   #8,d0
+        move.b  $16(a0),d0
+        moveq   #0,d1
+        move.w  d0,d1
+        cmpi.w  #$1000,d1
+        beq.s   .ok
+        cmpi.w  #$2000,d1
+        beq.s   .ok
+        cmpi.w  #$4000,d1
+        beq.s   .ok
+        cmpi.w  #$8000,d1
+        bne.s   .x
+.ok:    lsr.w   #7,d1                   ; bloques
+        move.w  d1,NB_CARD_N
+        move.w  d1,d2
+        lsr.w   #4,d2
+        addq.w  #1,d2                   ; la FAT 1: tras la cabecera y el directorio (N × 4 bytes)
+        move.w  d1,d3
+        addi.w  #63,d3
+        lsr.w   #6,d3                   ; bloques de cada FAT
+        move.w  d3,NB_CARD_FATB
+        bsr.w   card_block
+        movea.l a1,a2
+        add.w   d3,d2
+        bsr.w   card_block
+        movea.l a1,a3
+        add.w   d3,d2
+        move.w  d2,NB_CARD_DATA
+        cmp.b   d0,d0
+.x:     rts
+
+; a1 = el bloque d2 (en el bus). Usa d5
+card_block:
+        moveq   #0,d5
+        move.w  d2,d5
+        lsl.l   #7,d5
+        lea     0(a0,d5.l),a1
+        rts
+
+; d0.b = FAT 1 del bloque d2. Usa d5
+fat_get:
+        move.w  d2,d5
+        add.w   d5,d5
+        move.b  0(a2,d5.w),d0
+        rts
+
+; FAT 1 del bloque d2 = d0.b (la 2 se copia al final, con fat_update). Usa d5
+fat_set:
+        move.w  d2,d5
+        add.w   d5,d5
+        move.b  d0,0(a2,d5.w)
+        rts
+
+; d0.b = la suma de la FAT que empieza en a1. Usa d1
+fat_sum:
+        move.w  NB_CARD_FATB,d1
+        lsl.w   #6,d1
+        subq.w  #1,d1
+        moveq   #0,d0
+.l:     add.b   (a1),d0
+        addq.l  #2,a1
+        dbf     d1,.l
+        rts
+
+; Copia la FAT de a4 a la de a5 (solo los bytes distintos). Usa d1, d4
+fat_copy:
+        move.w  NB_CARD_FATB,d1
+        lsl.w   #6,d1
+        subq.w  #1,d1
+.l:     move.b  (a4),d4
+        cmp.b   (a5),d4
+        beq.s   .n
+        move.b  d4,(a5)
+.n:     addq.l  #2,a4
+        addq.l  #2,a5
+        dbf     d1,.l
+        rts
+
+; Tras cambiar la FAT 1: su suma, y la FAT 2 igual a ella
+fat_update:
+        movea.l a2,a1
+        bsr.s   fat_sum
+        move.b  d0,$1A(a0)
+        movea.l a2,a4
+        movea.l a3,a5
+        bsr.s   fat_copy
+        move.b  d0,$1C(a0)
+        rts
+
+; Z si hay una FAT buena (y entonces las dos quedan iguales)
+card_fat_check:
+        movea.l a2,a1
+        bsr.s   fat_sum
+        cmp.b   $1A(a0),d0
+        bne.s   .bad1
+        movea.l a2,a4
+        movea.l a3,a5
+        bsr.s   fat_copy
+        cmp.b   $1C(a0),d0
+        beq.s   .ok
+        move.b  d0,$1C(a0)
+.ok:    cmp.b   d0,d0
+        rts
+.bad1:  movea.l a3,a1
+        bsr.s   fat_sum
+        cmp.b   $1C(a0),d0
+        bne.s   .x                      ; las dos mal
+        movea.l a3,a4
+        movea.l a2,a5
+        bsr.s   fat_copy
+        move.b  d0,$1A(a0)
+        cmp.b   d0,d0
+.x:     rts
+
+; Libera la cadena que empieza en el bloque d2 (en la FAT 1). Usa d0, d2, d4, d5, d7
+fat_free_chain:
+        move.w  NB_CARD_N,d7
+.l:     cmp.w   NB_CARD_DATA,d2
+        blo.s   .x
+        cmp.w   NB_CARD_N,d2
+        bhs.s   .x
+        bsr.w   fat_get
+        move.b  d0,d4
+        moveq   #0,d0
+        bsr.w   fat_set
+        moveq   #0,d2
+        move.b  d4,d2
+        dbf     d7,.l
+.x:     rts
+
+; a1 = la entrada de la partida d3.w (NGH), d4.b (sub); Z si está. Usa d0, d7
+dir_find:
+        lea     $80(a0),a1
+        move.w  NB_CARD_N,d7
+        subq.w  #1,d7
+.l:     cmp.b   (a1),d4
+        bne.s   .n
+        move.b  2(a1),d0
+        lsl.w   #8,d0
+        move.b  4(a1),d0
+        cmp.w   d0,d3
+        beq.s   .f
+.n:     addq.l  #8,a1
+        dbf     d7,.l
+        moveq   #1,d0
+.f:     rts
+
+; a1 = la primera entrada libre; Z si hay. Usa d0, d7
+dir_free:
+        lea     $80(a0),a1
+        move.w  NB_CARD_N,d7
+        subq.w  #1,d7
+.l:     cmpi.b  #$FF,(a1)
+        beq.s   .f
+        addq.l  #8,a1
+        dbf     d7,.l
+        moveq   #1,d0
+.f:     rts
+
+; 1: las partidas del juego FCB (sub 0-15) como bits en BIOS_CARD_SUB
+card_search:
+        move.w  BIOS_CARD_FCB,d3
+        moveq   #0,d2
+        lea     $80(a0),a1
+        move.w  NB_CARD_N,d7
+        subq.w  #1,d7
+.l:     moveq   #0,d1
+        move.b  (a1),d1
+        cmpi.b  #16,d1
+        bhs.s   .n
+        move.b  2(a1),d0
+        lsl.w   #8,d0
+        move.b  4(a1),d0
+        cmp.w   d0,d3
+        bne.s   .n
+        bset    d1,d2
+.n:     addq.l  #8,a1
+        dbf     d7,.l
+        move.w  d2,BIOS_CARD_SUB
+        moveq   #0,d0
+        rts
+
+; 2: carga SIZE bytes; 5: los 20 del título (el principio de los datos)
+card_load:
+        move.w  BIOS_CARD_SIZE,d6
+        bra.s   card_read
+card_title:
+        moveq   #20,d6
+card_read:
+        move.w  BIOS_CARD_FCB,d3
+        move.b  BIOS_CARD_SUB,d4
+        bsr.w   dir_find
+        bne.s   .none
+        moveq   #0,d2
+        move.b  6(a1),d2
+        movea.l BIOS_CARD_START,a4
+        move.w  NB_CARD_N,d7            ; tope, por si la cadena da vueltas
+.blk:   tst.w   d6
+        beq.s   .ok
+        cmp.w   NB_CARD_DATA,d2
+        blo.s   .ok                     ; se acabó la cadena
+        cmp.w   NB_CARD_N,d2
+        bhs.s   .ok
+        bsr.w   card_block
+        moveq   #63,d1
+.b:     move.b  (a1),(a4)+
+        addq.l  #2,a1
+        subq.w  #1,d6
+        dbeq    d1,.b
+        bsr.w   fat_get
+        moveq   #0,d2
+        move.b  d0,d2
+        dbf     d7,.blk
+.ok:    moveq   #0,d0
+        rts
+.none:  move.b  #$82,d0
+        rts
+
+; 3: guarda SIZE bytes. La cadena nueva se escribe antes de soltar la vieja (si la partida ya estaba), así que
+; tiene que haber lugar para ella entera; la entrada nueva vale desde que se escribe su sub, lo último
+card_save:
+        move.w  BIOS_CARD_FCB,d3
+        move.b  BIOS_CARD_SUB,d4
+        moveq   #0,d0
+        move.w  BIOS_CARD_SIZE,d0
+        addi.l  #63,d0
+        lsr.l   #6,d0                   ; bloques que hacen falta (al menos uno)
+        bne.s   .n1
+        moveq   #1,d0
+.n1:    move.w  d0,d6
+        moveq   #0,d1                   ; bloques libres
+        move.w  NB_CARD_DATA,d2
+.cnt:   cmp.w   NB_CARD_N,d2
+        bhs.s   .cnted
+        bsr.w   fat_get
+        tst.b   d0
+        bne.s   .used
+        addq.w  #1,d1
+.used:  addq.w  #1,d2
+        bra.s   .cnt
+.cnted: cmp.w   d6,d1
+        blo.w   .full
+        moveq   #0,d1                   ; d1: el primer bloque de la partida vieja (0: no había)
+        bsr.w   dir_find
+        bne.s   .new
+        move.b  6(a1),d1
+        bra.s   .alloc
+.new:   bsr.w   dir_free
+        bne.w   .full
+.alloc: movea.l a1,a6                   ; la entrada
+        movea.l BIOS_CARD_START,a4
+        move.w  BIOS_CARD_SIZE,d7       ; bytes que faltan
+        moveq   #0,d3                   ; el primer bloque nuevo
+        moveq   #0,d4                   ; el anterior (0: ninguno)
+        move.w  NB_CARD_DATA,d2
+.find:  bsr.w   fat_get
+        tst.b   d0
+        beq.s   .got
+        addq.w  #1,d2
+        bra.s   .find
+.got:   moveq   #1,d0                   ; por ahora el último
+        bsr.w   fat_set
+        tst.w   d4
+        bne.s   .link
+        move.w  d2,d3
+        bra.s   .wr
+.link:  move.w  d2,d0                   ; el anterior apunta a este
+        move.w  d4,d2
+        bsr.w   fat_set
+        move.w  d0,d2
+.wr:    move.w  d2,d4
+        bsr.w   card_block
+        moveq   #63,d5
+.b:     tst.w   d7
+        beq.s   .bd
+        move.b  (a4)+,(a1)
+        addq.l  #2,a1
+        subq.w  #1,d7
+        dbf     d5,.b
+.bd:    subq.w  #1,d6
+        bne.s   .find
+        move.w  d1,-(sp)
+        bsr.w   fat_update              ; la cadena nueva queda en las dos FAT (usa d1)
+        move.w  (sp)+,d1
+        move.b  d3,6(a6)
+        tst.w   d1
+        bne.s   .old
+        move.w  BIOS_CARD_FCB,d0
+        move.b  d0,4(a6)
+        lsr.w   #8,d0
+        move.b  d0,2(a6)
+        move.b  BIOS_CARD_SUB,(a6)
+        bra.s   .done
+.old:   move.w  d1,d2
+        bsr.w   fat_free_chain
+        bsr.w   fat_update
+.done:  moveq   #0,d0
+        rts
+.full:  move.b  #$84,d0
+        rts
+
+; 4: borra la partida
+card_delete:
+        move.w  BIOS_CARD_FCB,d3
+        move.b  BIOS_CARD_SUB,d4
+        bsr.w   dir_find
+        bne.s   .none
+        move.b  #$FF,(a1)
+        moveq   #0,d2
+        move.b  6(a1),d2
+        bsr.w   fat_free_chain
+        bsr.w   fat_update
+        moveq   #0,d0
+        rts
+.none:  move.b  #$82,d0
+        rts
+
+; 6 y 7: el nombre del usuario (16 bytes en START)
+card_user_save:
+        movea.l BIOS_CARD_START,a4
+        lea     $20(a0),a1
+        moveq   #15,d1
+.l:     move.b  (a4)+,(a1)
+        addq.l  #2,a1
+        dbf     d1,.l
+        move.b  #$FF,$1E(a0)
+        moveq   #0,d0
+        rts
+card_user_load:
+        tst.b   $1E(a0)
+        beq.s   .none
+        movea.l BIOS_CARD_START,a4
+        lea     $20(a0),a1
+        moveq   #15,d1
+.l:     move.b  (a1),(a4)+
+        addq.l  #2,a1
+        dbf     d1,.l
+        moveq   #0,d0
+        rts
+.none:  move.b  #$82,d0
+        rts
+
+; 0: formatea. El tamaño se mide por dónde se repite la tarjeta (2, 4 u 8 KB; si no, 16 KB). La cabecera se
+; borra primero y la marca se escribe al final: a medio formatear, la tarjeta queda sin formato
+card_format:
+        move.b  #0,(a0)
+        move.w  #$800,d1
+.sz:    moveq   #0,d5
+        move.w  d1,d5
+        add.l   d5,d5
+        move.b  #$5A,0(a0,d5.l)
+        cmpi.b  #$5A,(a0)
+        beq.s   .got
+        add.w   d1,d1
+        cmpi.w  #$4000,d1
+        blo.s   .sz
+.got:   add.w   d1,d1                   ; en la cabecera, lo que ocupa en el bus
+        movea.l a0,a1
+        moveq   #63,d0
+.z:     move.b  #0,(a1)
+        addq.l  #2,a1
+        dbf     d0,.z
+        move.w  d1,d0
+        move.b  d0,$16(a0)
+        lsr.w   #8,d0
+        move.b  d0,$14(a0)
+        lea     $20(a0),a1              ; el nombre: 16 espacios
+        moveq   #15,d0
+.sp:    move.b  #$20,(a1)
+        addq.l  #2,a1
+        dbf     d0,.sp
+        move.b  BIOS_COUNTRY_CODE,$60(a0)
+        bsr.w   card_layout
+        lea     $80(a0),a1              ; el directorio, libre
+        move.w  NB_CARD_N,d0
+        subq.w  #1,d0
+.d:     move.b  #$FF,(a1)
+        move.b  #0,2(a1)
+        move.b  #0,4(a1)
+        move.b  #0,6(a1)
+        addq.l  #8,a1
+        dbf     d0,.d
+        movea.l a2,a1                   ; la FAT: reservado hasta los datos, libre después
+        move.w  NB_CARD_FATB,d0
+        lsl.w   #6,d0
+        subq.w  #1,d0
+        moveq   #0,d2
+.f:     moveq   #0,d4
+        cmp.w   NB_CARD_DATA,d2
+        bhs.s   .fz
+        moveq   #2,d4
+.fz:    move.b  d4,(a1)
+        addq.l  #2,a1
+        addq.w  #1,d2
+        dbf     d0,.f
+        bsr.w   fat_update
+        lea     $40(a0),a1              ; la marca
+        lea     card_magic(pc),a4
+        moveq   #7,d0
+.m:     move.b  (a4)+,(a1)
+        addq.l  #4,a1
+        dbf     d0,.m
+        moveq   #0,d0
+        rts
+
+; CARD_ERROR: en el AES solo atiende «protegida» ($85): lo dice en la pantalla y espera un botón. Tapa la capa
+; fija (filas 2-29) y la deja como estaba al volver; esconde los sprites (los vuelve a poner el juego). El texto
+; va con la letra de 8 × 16 de la ROM S del juego (mosaicos $100 + ASCII arriba y $200 + ASCII abajo), la misma
+; que usa la original: en el AES la capa fija sale siempre del cartucho
+card_error:
+        cmpi.b  #$85,BIOS_CARD_ANSWER
+        bne.w   .x
+        movem.l d0-d7/a0-a6,-(sp)
+        move    sr,-(sp)
+        move    #$2700,sr
+        lea     NB_FIX_SAVE,a1          ; guarda la capa fija
+        move.w  #$7002,d2
+        moveq   #39,d0
+.sc:    move.w  d2,d3
+        moveq   #27,d1
+.sr:    move.w  d3,REG_VRAMADDR
+        addq.w  #1,d3
+        move.w  REG_VRAMRW,(a1)+
+        dbf     d1,.sr
+        addi.w  #32,d2
+        dbf     d0,.sc
+        move.l  PALETTES+2,NB_PAL_SAVE
+        move.l  #$7FFF8000,PALETTES+2   ; letra blanca, sombra negra
+        move.w  #1,REG_VRAMMOD
+        move.w  #$8200,REG_VRAMADDR     ; sin sprites
+        move.w  #380,d1
+.hs:    move.w  #0,REG_VRAMRW
+        dbf     d1,.hs
+        move.w  #$7002,d2               ; la capa fija en blanco
+        moveq   #39,d0
+.cc:    move.w  d2,REG_VRAMADDR
+        moveq   #27,d1
+.cr:    move.w  #$0020,REG_VRAMRW
+        dbf     d1,.cr
+        addi.w  #32,d2
+        dbf     d0,.cc
+        lea     msg_protect1(pc),a1
+        move.w  #$7000+5*32+12,d2       ; columna 5, filas 12-13
+        bsr.w   big_text
+        lea     msg_protect2(pc),a1
+        move.w  #$7000+12*32+16,d2      ; columna 12, filas 16-17
+        bsr.w   big_text
+.rel:   move.b  d0,REG_DIPSW            ; que suelten lo que tenían apretado
+        bsr.w   any_button
+        bne.s   .rel
+.prs:   move.b  d0,REG_DIPSW
+        bsr.w   any_button
+        beq.s   .prs
+        lea     NB_FIX_SAVE,a1          ; la capa fija como estaba
+        move.w  #$7002,d2
+        moveq   #39,d0
+.rc:    move.w  d2,REG_VRAMADDR
+        moveq   #27,d1
+.rr:    move.w  (a1)+,REG_VRAMRW
+        dbf     d1,.rr
+        addi.w  #32,d2
+        dbf     d0,.rc
+        move.l  NB_PAL_SAVE,PALETTES+2
+        move    (sp)+,sr
+        movem.l (sp)+,d0-d7/a0-a6
+.x:     rts
+
+msg_protect1:
+        dc.b    "MEMORY CARD IS WRITE PROTECTED",0
+msg_protect2:
+        dc.b    "PRESS A BUTTON",0
+        even
+
+; Texto de 8 × 16 desde a1 (termina en 0) en la dirección de la capa fija d2 (mosaico de arriba). Usa d0, d2
+big_text:
+        moveq   #0,d0
+        move.b  (a1)+,d0
+        beq.s   .x
+        move.w  d2,REG_VRAMADDR
+        addi.w  #$0100,d0
+        move.w  d0,REG_VRAMRW
+        addi.w  #$0100,d0
+        move.w  d0,REG_VRAMRW
+        addi.w  #32,d2
+        bra.s   big_text
+.x:     rts
+
+; Z si no hay ningún botón apretado (A-D de los dos mandos, los dos Start). Usa d0
+any_button:
+        move.b  REG_P1CNT,d0
+        and.b   REG_P2CNT,d0
+        not.b   d0
+        andi.b  #$F0,d0
+        bne.s   .x
+        move.b  REG_STATUS_B,d0
+        not.b   d0
+        andi.b  #$05,d0
+.x:     rts
 
 ; ==========================================================================================================
 ; FIX_CLEAR: la capa fija con el mosaico $FF y las columnas de los bordes con $20 (paleta 0). Usa d0, d1, a0

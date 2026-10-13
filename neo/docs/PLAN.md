@@ -281,8 +281,10 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   `neobios.s` (la BIOS, MIT, desde la interfaz documentada y lo que se ve desde afuera con la original). **Los 8
   juegos de `roms/` corren con ella y salen recompilados sin diferencias** (`docs/compat-neobios/`), a 49-102×
   el tiempo real; el contrato común pasa con ella. Lo que pidieron los juegos y no estaba documentado: la tabla
-  de azar de `$C04200` (propia) y la bandera de VBLANK `$10FE8C`. Falta: la tarjeta de memoria y la animación
-  de la pantalla de SNK.
+  de azar de `$C04200` (propia) y la bandera de VBLANK `$10FE8C`. **La tarjeta de memoria** (`CARD` y
+  `CARD_ERROR`) usa el formato que deja la original, medido por la interfaz con `neocard`: las tarjetas
+  escritas por una BIOS se leen con la otra, y 60 llamadas dan lo mismo (`tests/neobios/`). Falta la
+  animación de la pantalla de SNK.
 
 Después: **MVS** (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots, el reloj de 24 MHz), **juegos
 cifrados** (NEO-CMC, SMA, PCM2, PVC), **PAL**. Fuera de alcance: Neo Geo CD.

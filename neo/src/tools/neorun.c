@@ -10,6 +10,7 @@
  * Botones: up down left right a b c d start select (los cuadros en que se mantienen).
  * --watch DIR (hexadecimal, en la RAM: $100000-$10FFFF) imprime el byte cada vez que cambia.
  * --card ARCHIVO mete una tarjeta de memoria (la carga si existe) y la guarda al terminar.
+ * --cardlog imprime cada llamada a CARD ($C00468) y CARD_ERROR ($C0046E) con sus variables y la respuesta.
  * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
  * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y su nivel por segundo; --mute M
  *       silencia partes (bits 0-3 FM 1-4, 4 SSG, 5 ADPCM-A, 6 ADPCM-B; en hexadecimal).
@@ -53,10 +54,35 @@ static void hist_add(u32 pc)
 
 static u64 steps;
 static int last_frame;
+static u8 ram8(const Neo *g, u32 a) { return g->ram[a & 0xFFFF]; }
+static u16 ram16(const Neo *g, u32 a) { return (u16)(ram8(g, a) << 8 | ram8(g, a + 1)); }
+static u32 ram32(const Neo *g, u32 a) { return (u32)ram16(g, a) << 16 | ram16(g, a + 2); }
+
+/* --cardlog: la interfaz de CARD vista desde afuera (las variables de la RAM al entrar y la respuesta al volver) */
+static int cardlog;
+static u32 card_ret, card_sp;
+static const char *card_what;
+static void card_watch(const Neo *g)
+{
+    u32 pc = g->cpu.pc, sp = g->cpu.a[7];
+    if (card_ret && pc == card_ret && sp > card_sp) {
+        printf("cuadro %5llu:   %s -> respuesta $%02X, SUB $%04X\n", (unsigned long long)g->lspc.frame, card_what,
+               ram8(g, 0xFDC6), ram16(g, 0xFDD0));
+        card_ret = 0;
+    }
+    if (pc != 0xC00468 && pc != 0xC0046E) return;
+    card_what = pc == 0xC00468 ? "CARD" : "CARD_ERROR";
+    printf("cuadro %5llu: %s desde $%06X: comando %u, START $%06X, SIZE $%04X, FCB $%04X, SUB $%04X, respuesta $%02X\n",
+           (unsigned long long)g->lspc.frame, card_what, ram32(g, sp & 0xFFFF), ram8(g, 0xFDC4), ram32(g, 0xFDC8),
+           ram16(g, 0xFDCC), ram16(g, 0xFDCE), ram16(g, 0xFDD0), ram8(g, 0xFDC6));
+    card_ret = ram32(g, sp & 0xFFFF); card_sp = sp;
+}
+
 static int after(Neo *g)
 {
     neo_after_step(g);
     steps++;
+    if (cardlog) card_watch(g);
     if (last_frame) hist_add(g->cpu.pc);
     return g->lspc.frame_done || g->cpu.halted;
 }
@@ -76,8 +102,6 @@ static void print_fix(const Neo *g)
     }
 }
 
-static u8 ram8(const Neo *g, u32 a) { return g->ram[a & 0xFFFF]; }
-
 int main(int argc, char **argv)
 {
     console_utf8();
@@ -96,6 +120,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--bios") && i + 1 < argc) bios = argv[++i];
         else if (!strcmp(argv[i], "--card") && i + 1 < argc) card = argv[++i];
         else if (!strcmp(argv[i], "--fix")) fix = 1;
+        else if (!strcmp(argv[i], "--cardlog")) cardlog = 1;
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
         else if (!strcmp(argv[i], "--mute") && i + 1 < argc) mute = (unsigned)strtoul(argv[++i], NULL, 16);
@@ -114,7 +139,7 @@ int main(int argc, char **argv)
         else rom = argv[i];
     }
     if (!rom || frames <= 0) {
-        fprintf(stderr, "uso: neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR ...] [--fix]\n"
+        fprintf(stderr, "uso: neorun juego [--frames N] [--bios archivo] [--card archivo [--cardlog]] [--watch DIR ...] [--fix]\n"
                         "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav [--mute M]]\n"
                         "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c d start select\n");

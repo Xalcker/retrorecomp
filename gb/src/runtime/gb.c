@@ -730,6 +730,7 @@ void gb_run(GB *g, u64 until)
     g->next_event = 0;
 
     for (;;) {
+        int after_ei = 0;    /* este paso activó IME por un EI: la instrucción siguiente corre antes que cualquier interrupción */
         if (g->cyc >= g->next_event) {
             gb_sync(g);
             hdma_wait(g);
@@ -776,13 +777,19 @@ void gb_run(GB *g, u64 until)
                 c->ei_pend = 0;
                 c->ime = 1;
                 g->next_event = 0;
+                after_ei = 1;
             } else {
                 g->next_event = next_hw_event(g);
             }
         }
 
+        /* Tras un EI, IME ya está activo cuando se busca la función recompilada de la instrucción
+         * siguiente: su primer CHECK vería una interrupción pendiente y devolvería el control antes
+         * de ejecutarla, así que la interrupción se atendería una instrucción antes que en el
+         * hardware (con EI seguido de DI, se atendería cuando nunca debe). El intérprete ejecuta
+         * esa instrucción sin revisar nada y el siguiente paso del bucle atiende la interrupción */
         RecompFn fn = NULL;
-        if (g->recomp_lookup && !c->halt_bug && !dma_conflict(g, c->pc))
+        if (g->recomp_lookup && !after_ei && !c->halt_bug && !dma_conflict(g, c->pc))
             fn = g->recomp_lookup(g, c->pc);
         if (fn) fn(g);
         else gb_interp_step(g);

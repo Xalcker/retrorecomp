@@ -83,6 +83,12 @@ para forzar la revisión. El despacho de interrupción toma 5 M-ciclos y decide
 el vector después de empujar el byte alto de PC (si esa escritura cambió IE,
 salta a `$0000`).
 
+`EI` activa IME después de la instrucción siguiente. El despachador lo hace al reanudar tras el
+`EI`; si entrara directo a la función recompilada de esa instrucción, su primer `CHECK` vería IME
+activo con una interrupción pendiente y la atendería antes de ejecutarla, una instrucción antes
+que el hardware (con `EI` seguido de `DI`, una interrupción que nunca debe atenderse). Por eso
+esa instrucción corre en el intérprete (`after_ei` en `gb_run`).
+
 `HALT` adelanta el reloj directo al siguiente evento. Detenido, el CPU muestrea
 IF 2 ciclos dentro de cada M-ciclo (el primero tras `HALT`, al inicio) y
 despierta al terminar ese M-ciclo. El bug de HALT (IME=0 con
@@ -770,7 +776,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 137, con `sgb_controles`, los proyectos generados, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 138, con `sgb_controles`, los proyectos generados, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -818,10 +824,12 @@ para decidir qué falta compilar: una rutina en HRAM se reconoce por esos bytes.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **137 de 137** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **138 de 138** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, el proyecto generado de `cpu_instrs`
-comparado contra el intérprete con `difftest`, y los de `firstwhite` y `strikethrough`, que copian la
-rutina de DMA de OAM a HRAM y no deben pasar por el intérprete).
+comparado contra el intérprete con `difftest`, los de `firstwhite` y `strikethrough`, que copian la
+rutina de DMA de OAM a HRAM y no deben pasar por el intérprete, y `ei_di`, una ROM mínima que
+repite `ei` / `di` y comprueba que el código recompilado no atiende una interrupción antes de la
+instrucción que sigue a `ei`).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`. No hay un equivalente de `nestest` de NESRecomp

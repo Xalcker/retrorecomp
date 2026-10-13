@@ -167,6 +167,28 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     done
 fi
 
+# --- Recompilador: una interrupción no se atiende antes de la instrucción que sigue a ei. ROM
+#     mínima sin pantalla (IE = VBlank, luego ei / di en bucle): VBlank queda pendiente desde el
+#     primer cuadro y, como el di corre antes de que IME surta efecto, nunca se atiende. El código
+#     recompilado sí la atendía: el despachador activaba IME tras el ei y entraba a la función del
+#     di, cuyo CHECK ya veía la interrupción. La ROM se arma aquí mismo (checksum del encabezado:
+#     0xE7) para no depender de otra descarga ---
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    rom=build/ei_di.gb
+    mkdir -p build
+    { head -c 256 /dev/zero; printf '\000\303\120\001'; head -c 73 /dev/zero; printf '\347'; head -c 2 /dev/zero
+      printf '\076\001\340\377\373\363\030\374'; head -c $((32768 - 344)) /dev/zero; } > "$rom"
+    if ./gbrecomp$EXE "$rom" -o build/out/ei_di --name ei_di > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/ei_di -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/ei_di/difftest$EXE "$rom" --frames 120 --seed 1 >> /tmp/gbtest.out 2>&1; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp ei_di: $(tail -3 /tmp/gbtest.out)"
+    fi
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

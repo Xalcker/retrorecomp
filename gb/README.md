@@ -380,7 +380,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-137 de 137.
+138 de 138.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -390,6 +390,8 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 - Proyecto generado de `cpu_instrs`: se compila y `difftest` lo compara contra el intérprete.
 - Proyectos generados de `firstwhite` y `strikethrough`, que copian la rutina de DMA de OAM a HRAM: se
   compilan, esa rutina no pasa por el intérprete y `difftest` no encuentra diferencias.
+- Proyecto generado de `ei_di`, una ROM mínima que repite `ei` / `di`: el código recompilado no atiende
+  una interrupción antes de la instrucción que sigue a `ei`, y `difftest` no encuentra diferencias.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg

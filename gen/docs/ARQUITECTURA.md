@@ -521,7 +521,7 @@ botón. Sirven para medir si un cambio de temporización acerca o aleja (así se
 el refresco de la DRAM) y para encontrar diferencias grandes que no son de tiempos.
 
 `tools/compat/run.py [carpeta] [--oraculos]` corre la prueba de compatibilidad (etapa 1 con el
-intérprete y capturas; etapa 2 recompilando sin traza con `difftest` y `bench`; los oráculos) y
+intérprete y capturas; etapa 2 recompilando sin traza con `difftest` y `difftest --bench`; los oráculos) y
 `tools/compat/report.py` arma `docs/compat/index.html`. El resumen está en `docs/COMPATIBILIDAD.md`.
 
 ### Resultados con juegos

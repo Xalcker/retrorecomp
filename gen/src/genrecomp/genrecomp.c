@@ -139,6 +139,7 @@ static void print_info(const char *path, const Gen *g)
                c->sram_type & 0x40 ? ", con batería" : "");
     else
         printf("SRAM:        no\n");
+    if (c->has_eeprom) printf("EEPROM:      serie\n");
     if (c->rom_size > ROM_LINEAR) printf("mapper:      ROM de más de 4 MB (necesita el mapper de SSF2)\n");
     printf("vectores:\n");
     for (int n = 0; n < VEC_COUNT; n++) {

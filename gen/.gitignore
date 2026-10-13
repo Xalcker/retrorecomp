@@ -25,3 +25,4 @@ juegos/
 /genramdump
 /statetest
 /inputtest
+__pycache__/

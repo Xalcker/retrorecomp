@@ -37,10 +37,12 @@ int main(int argc, char **argv)
     if (!g) return 2;
     unsigned long long h_img = 0xCBF29CE484222325ULL, h_aud = 0xCBF29CE484222325ULL;
     static int16_t snd[AUDIO_BINS * 2];
+    int parado = 0;             /* la línea común de las herramientas *shot cuando el CPU se detiene */
     for (long f = 0; f < c.frames; f++) {
         g->pad[0] = cli_pad(&c, f, 0);
         g->pad[1] = cli_pad(&c, f, 1);
         gen_run_frame(g);
+        if (g->cpu.halted && !parado) { printf("CPU detenido en el cuadro %ld (doble falta)\n", f); parado = 1; }
         int n = gen_audio_take(g, snd, AUDIO_BINS);
         if (c.hash) {
             fnv(&h_img, g->vdp.fb, sizeof g->vdp.fb);

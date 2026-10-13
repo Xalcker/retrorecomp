@@ -2,6 +2,11 @@
 # comandos común con NESRecomp, corre las pruebas con las ROMs de prueba libres
 # y arma el paquete. Es el mismo flujo que el de NESRecomp: lo que cambia entre
 # los dos repos está en los Makefile (make testroms, make test, make dist).
+# Más corto: las pruebas completas, con las SingleStepTests (que son lo que más pesa), corren solo en Linux;
+# macOS y Windows compilan y corren todo lo demás (SKIP_SST). Un cambio que solo toca documentación (docs/,
+# README.md, LICENSE) salta los pasos pero los jobs terminan en verde: la regla de protección de main los exige,
+# y por eso el salto va dentro del job y no en un filtro de rutas (un filtro los dejaría pendientes para siempre).
+
 name: ci
 
 # Las ramas se prueban por su PR; los push solo en main (después del merge) y en
@@ -34,23 +39,40 @@ jobs:
     env:
       SDL_VIDEODRIVER: dummy
       SDL_AUDIODRIVER: dummy
+      # Sin las SingleStepTests fuera de Linux (tests/testroms.sh las salta y make test las omite)
+      SKIP_SST: ${{ matrix.os != 'ubuntu-latest' && '1' || '' }}
     steps:
       # Historia completa: git describe busca la etiqueta más cercana para la versión
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Si todos los archivos que cambia el PR (o el push) son documentación, el resto de los pasos se salta
+      - name: ¿Solo documentación?
+        id: cambios
+        shell: bash
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          docs=false
+          cambios=
+          if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            cambios=$(git diff --name-only "$base" HEAD)
+            if [ -n "$cambios" ] && ! echo "$cambios" | grep -qvE '^(docs/|README\.md$|LICENSE$)'; then docs=true; fi
+          fi
+          echo "docs=$docs" >> "$GITHUB_OUTPUT"
+          echo "Archivos cambiados: $(echo "$cambios" | grep -c .); solo documentación: $docs"
+
       - name: Dependencias (Linux)
-        if: runner.os == 'Linux'
+        if: steps.cambios.outputs.docs != 'true' && (runner.os == 'Linux')
         run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libsdl2-dev
 
       - name: Dependencias (macOS)
-        if: runner.os == 'macOS'
+        if: steps.cambios.outputs.docs != 'true' && (runner.os == 'macOS')
         run: brew install sdl2 pkg-config
 
       # git: para que la versión (git describe) salga también en Windows
       - name: Dependencias (Windows, MSYS2 UCRT64)
-        if: runner.os == 'Windows'
+        if: steps.cambios.outputs.docs != 'true' && (runner.os == 'Windows')
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -64,32 +86,39 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
 
       - name: Compilar
+        if: steps.cambios.outputs.docs != 'true'
         run: make -j4
 
       # Las ROMs de prueba tienen versiones fijas (Makefile / tests/testroms.sh): se guardan entre corridas en
       # vez de bajarlas cada vez. Sin restore-keys a propósito: un caché de otra versión haría que make testroms
       # creyera que ya están.
       - name: Caché de las ROMs de prueba
+        if: steps.cambios.outputs.docs != 'true'
         uses: actions/cache@v4
         with:
           path: testroms
           key: testroms-${{ runner.os }}-${{ hashFiles('Makefile', 'tests/testroms.sh') }}
 
       - name: ROMs de prueba
+        if: steps.cambios.outputs.docs != 'true'
         run: make testroms
 
       # Opciones y comportamiento (usa las ROMs de prueba)
       - name: Contrato de línea de comandos común
+        if: steps.cambios.outputs.docs != 'true'
         run: sh tests/contract.sh
 
       # Incluye recompilar una ROM de prueba y compararla contra el intérprete con difftest
       - name: Pruebas
+        if: steps.cambios.outputs.docs != 'true'
         run: make test
 
       - name: Paquete
+        if: steps.cambios.outputs.docs != 'true'
         run: make dist
 
       - uses: actions/upload-artifact@v4
+        if: steps.cambios.outputs.docs != 'true'
         with:
           name: ${{ github.event.repository.name }}-${{ runner.os }}
           path: dist/*.tar.gz

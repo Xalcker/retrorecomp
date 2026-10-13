@@ -98,6 +98,13 @@ Las trazas también: una línea `BANCO:DIRECCION` por instrucción ejecutada, es
 dirección es la del CPU. NES y Genesis siguen leyendo sus trazas viejas `DESPLAZAMIENTO:DIRECCION`, y `--why` acepta las
 dos formas.
 
+Una traza puede llevar además líneas de otra forma, que no empiezan con un número hexadecimal y dos puntos. Hoy son las
+`ram DIRECCION BYTES` de GBRecomp (con `??` en los operandos que cambian), el código que el juego ejecutó desde WRAM o HRAM
+y que `gbrecomp --trace` compila (ver «Código que el juego copia a WRAM o HRAM» en su `docs/ARQUITECTURA.md`, que también
+explica cómo llevarlo a otra consola). Los lectores de `BANCO:DIRECCION` las ignoran, así que el contrato no cambia, pero
+quien una, filtre o cuente trazas debe tratarlas por líneas enteras, no por palabras: `compat.py` las partía por espacios
+y las deshacía.
+
 `python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los tres mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
 mirando todos los repositorios que encuentre. Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
 

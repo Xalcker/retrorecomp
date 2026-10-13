@@ -130,8 +130,8 @@ def update_state(rid, **kv):
         os.replace(tmp, STATE_FILE)
 
 
-# Botones de los tres (C, X, Y, Z y MODE solo existen en el Genesis; SELECT no)
-BTN = r"(A|B|C|X|Y|Z|SELECT|START|MODE|RIGHT|LEFT|UP|DOWN)"
+# Botones de los cuatro (C, X, Y, Z y MODE solo existen en el Genesis; C y D en el Neo Geo; SELECT no está en el Genesis)
+BTN = r"(A|B|C|D|X|Y|Z|SELECT|START|MODE|RIGHT|LEFT|UP|DOWN)"
 PAD = r"(-|\$?[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|" + BTN + r"(\+" + BTN + r")*)"
 LINE_OK = re.compile(r"^(#.*|modelo (dmg|cgb|sgb)|paleta [A-Za-z+]+|\d+\s+" + PAD + r"(\s+" + PAD + r")?)?$", re.I)
 
@@ -415,6 +415,8 @@ class NEO(GEN):
     caps = {"notrace": True, "model": False, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
             "game_frames": 1800}         # la BIOS del AES tarda unos 20 s en dejar el juego en su demo
     mem = "P"
+    map_note = "como --viz: una fila por cada 16 KB del programa (P); la celda es de 256 bytes, más grande si P pasa de 1 MB"
+    input_note = "A B C D START SELECT RIGHT LEFT UP DOWN unidos con +; la segunda columna es el jugador 2"
     trace_shift = 20                 # bancos de 1 MB (P1 y cada banco de P2); la BIOS es el banco FF
     window = "neo"
     bench_tool = "neobench"
@@ -791,7 +793,7 @@ def save_input(rid, name, text):
     lines = [l.rstrip() for l in text.splitlines()]
     for i, l in enumerate(lines, 1):
         # Botones que esa consola no tiene (se revisan las palabras después del número de cuadro)
-        bad_btn = {"nes": {"C", "X", "Y", "Z", "MODE"}, "gb": {"C", "X", "Y", "Z", "MODE"}, "gen": {"SELECT"},
+        bad_btn = {"nes": {"C", "D", "X", "Y", "Z", "MODE"}, "gb": {"C", "D", "X", "Y", "Z", "MODE"}, "gen": {"SELECT", "D"},
                    "neo": {"X", "Y", "Z", "MODE"}}.get(sysm.id, set())
         words = set(re.split(r"[\s+]+", l.strip().upper())[1:]) if re.match(r"\d", l.strip()) else set()
         if (not LINE_OK.match(l.strip()) or (sysm.id != "gb" and re.match(r"(modelo|paleta)\b", l.strip(), re.I))

@@ -126,6 +126,8 @@ GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTON
 consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros suelto y
 `boton:desde-hasta` (`a b c x y z start mode up down left right`). `sh tests/contract.sh` lo comprueba.
 
+**Ciclo completo.** `sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]` es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
+
 ## Estructura
 
 | Ruta | Contenido |

@@ -5,7 +5,7 @@ genera un proyecto C99 que se compila en un ejecutable nativo. El ejecutable car
 ejecución (validando su SHA1): nunca se distribuyen datos de la ROM.
 
 Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md`
-de NESRecomp: lo que cambia entre las dos consolas queda dentro de cada una.
+de NESRecomp, GENRecomp y NEORecomp: lo que cambia entre las consolas queda dentro de cada una.
 
 ## Piezas
 

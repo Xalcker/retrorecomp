@@ -44,7 +44,7 @@ juego sin color ni SGB lo corre como Game Boy (DMG).
 ## Compilar GBRecomp
 
 Se necesita un compilador C99, `make`, `pkg-config` y SDL2 (para los juegos generados); `git` y `unzip` se usan
-para la versión y para `make testroms`. Son los mismos paquetes que en NESRecomp.
+para la versión y para `make testroms`. Son los mismos paquetes que en NESRecomp, GENRecomp y NEORecomp.
 
 | Sistema | Paquetes |
 |---|---|
@@ -59,7 +59,7 @@ make test       # opcional: Blargg, Mooneye, SameSuite, acid2, recompilado contr
 make dist       # dist/gbrecomp-<versión>-<sistema>.tar.gz (sistema: linux, macos o windows)
 ```
 
-Son los mismos objetivos que en NESRecomp, y el CI (`.github/workflows/ci.yml`, igual en los dos) corre
+Son los mismos objetivos que en NESRecomp, GENRecomp y NEORecomp, y el CI (`.github/workflows/ci.yml`, el mismo flujo en los cuatro) corre
 exactamente eso en Linux, macOS y Windows.
 
 **Probar una ROM con el intérprete, sin recompilar** (como `nes juego.nes` en NESRecomp):
@@ -229,12 +229,12 @@ El descubrimiento estático encuentra casi todo el código. Para lo que quede
 
 `tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`.
 
-**Contrato común con NESRecomp.** Las herramientas sin ventana (`gbtrace`, `gbshot`, `gbaudio`, `gbbench`,
+**Contrato común con NESRecomp, GENRecomp y NEORecomp.** Las herramientas sin ventana (`gbtrace`, `gbshot`, `gbaudio`, `gbbench`,
 `difftest`) tienen las mismas opciones que las de [NESRecomp](https://github.com/Xalcker/NESRecomp)
 (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común ([retrorecomp](https://github.com/Xalcker/retrorecomp))
 se apoya en eso. `sh tests/contract.sh` (el mismo archivo en los dos repos) comprueba que las
 herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé la misma traza,
-captura y audio (`--seed`, y `--input` con `--seed`); el CI lo corre en cada PR. Si cambias una opción aquí, cámbiala también en NESRecomp y en la tabla de retrorecomp.
+captura y audio (`--seed`, y `--input` con `--seed`); el CI lo corre en cada PR. Si cambias una opción aquí, cámbiala también en NESRecomp, GENRecomp, NEORecomp y en la tabla de retrorecomp.
 
 Para ver qué encontró el descubrimiento y de dónde salió cada parte:
 
@@ -313,7 +313,7 @@ NESRecomp: con la misma semilla, la misma secuencia de botones en las dos consol
 
 **GUI local.** `python3 tools/retrorecomp/retrorecomp_gui.py` abre en el navegador (solo Python
 estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior, común con
-NESRecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`:
+NESRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`:
 `git submodule update --init`): el mapa de cada banco como `--viz` con clic por celda y la cadena de
 `--why`, el avance por ROM (análisis, cobertura, proyecto, `difftest`, velocidad), trazas con
 `gbtrace`, `difftest --uncovered` o jugando, guiones de entradas (`--input`, `--play`, `--record`),
@@ -442,8 +442,8 @@ y se quedan en blanco o ejecutan un opcode ilegal; una usa HuC3, que no está
 soportado (issue #55). Las 31 que pasan por el recompilador quedan sin
 diferencias.
 Se genera con dos scripts de Python 3 sin dependencias, desde la raíz del
-repo y con todo compilado con `make`. El motor es el mismo de NESRecomp y
-GENRecomp, `tools/retrorecomp/compat.py`; `run.py` solo dice lo propio del
+repo y con todo compilado con `make`. El motor es el mismo de NESRecomp,
+GENRecomp y NEORecomp, `tools/retrorecomp/compat.py`; `run.py` solo dice lo propio del
 Game Boy (cabecera, MBC soportados, cupo por MBC):
 
 ```
@@ -486,7 +486,7 @@ proyectos generados; en macOS todavía no.
 
 ## Aspectos legales
 
-GBRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp y
+GBRecomp se distribuye con licencia [MIT](LICENSE), la misma que NESRecomp, GENRecomp, NEORecomp y
 retrorecomp. La licencia cubre el código del recompilador y del runtime, no
 las ROMs ni el código que se genera a partir de ellas.
 

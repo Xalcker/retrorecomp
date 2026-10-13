@@ -1,8 +1,9 @@
 /*
- * Una línea de traza, el formato común de NESRecomp, GBRecomp y GENRecomp (este archivo es idéntico
- * en los tres): "BANCO:DIRECCION" en hexadecimal.
+ * Una línea de traza, el formato común de NESRecomp, GBRecomp, GENRecomp y NEORecomp (este archivo es
+ * idéntico en los cuatro): "BANCO:DIRECCION" en hexadecimal.
  *   banco      desplazamiento en la ROM >> shift, en ventanas fijas de cada consola:
- *              GB 14 (bancos de 16 KB), NES 13 (8 KB del PRG), Genesis 19 (512 KB, las del mapper de SSF2)
+ *              GB 14 (bancos de 16 KB), NES 13 (8 KB del PRG), Genesis 19 (512 KB, las del mapper de SSF2),
+ *              Neo Geo 20 (1 MB, los bancos de P2; la BIOS va en el banco FF)
  *   dirección  la del CPU con que se ejecutó
  *   desplazamiento = banco << shift | (dirección & (ventana - 1))
  * Si la dirección no cae en la misma posición de su ventana que el desplazamiento (no pasa con los
@@ -31,7 +32,7 @@ static inline int trace_line_read(const char *line, unsigned shift, unsigned lon
     return 1;
 }
 
-/* Escribe una línea; addr_digits: 4 en GB y NES, 6 en Genesis */
+/* Escribe una línea; addr_digits: 4 en GB y NES, 6 en Genesis y Neo Geo */
 static inline void trace_line_write(FILE *f, unsigned shift, int addr_digits, unsigned long off, unsigned long addr)
 {
     unsigned long mask = (1ul << shift) - 1;

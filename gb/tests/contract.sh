@@ -1,15 +1,15 @@
 #!/bin/sh
-# Contrato de línea de comandos común con NESRecomp/GBRecomp/GENRecomp. Es el mismo archivo en los
-# tres repositorios (y retrorecomp/tests/contract.py los mira todos a la vez y comprueba que este
-# archivo sea idéntico en cada uno). Necesita `make` hecho.
+# Contrato de línea de comandos común con NESRecomp/GBRecomp/GENRecomp/NEORecomp. Es el mismo archivo
+# en los cuatro repositorios (y retrorecomp/tests/contract.py los mira todos a la vez y comprueba que
+# este archivo sea idéntico en cada uno): si lo cambias, cópialo a los otros tres. Necesita `make` hecho.
 #   sh tests/contract.sh
 #
 # 1. Opciones: las herramientas sin ventana aceptan las mismas (--frames, --input, --seed,
 #    --repeat; --seed también en bench); se ejecuta cada una sin argumentos y su ayuda debe mencionarlas.
 # 2. Comportamiento (con las ROMs de prueba de `make testroms`; sin ellas se omite): la traza, la
 #    captura y el audio salen iguales con la misma entrada (--seed, y --input con --seed, que se
-#    suman), con un mismo guion para todas las consolas; en NES y Genesis, --input da lo mismo que
-#    la sintaxis de antes (boton:desde-hasta).
+#    suman), con un mismo guion para todas las consolas; en NES, Genesis y Neo Geo, --input da lo
+#    mismo que la sintaxis de antes (boton:desde-hasta).
 cd "$(dirname "$0")/.." || exit 2
 if [ -f src/gbrecomp/gbrecomp.c ]; then
     P=gb
@@ -26,8 +26,13 @@ elif [ -f src/genrecomp/genrecomp.c ]; then
     CHECKS="gentrace:--frames,--input,--seed genshot:--frames,--input,--seed genaudio:--frames,--input,--seed genbench:--frames,--input,--repeat,--seed"
     ROM=testroms/demos/overdrive.bin
     TOOLS="gentrace:txt genshot:png genaudio:wav"
+elif [ -f src/neorecomp/neorecomp.c ]; then
+    P=neo
+    CHECKS="neotrace:--frames,--input,--seed neoshot:--frames,--input,--seed neoaudio:--frames,--input,--seed neobench:--frames,--input,--repeat,--seed"
+    ROM=testroms/neo/contrato.neo
+    TOOLS="neotrace:txt neoshot:png neoaudio:wav"
 else
-    echo "no es la raíz de NESRecomp, GBRecomp ni GENRecomp" >&2; exit 2
+    echo "no es la raíz de NESRecomp, GBRecomp, GENRecomp ni NEORecomp" >&2; exit 2
 fi
 fallas=0
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
@@ -54,7 +59,7 @@ igual() {   # descripción archivo1 archivo2: deben existir y ser idénticos
 }
 if [ -f "$ROM" ]; then
     rm -rf "$D"; mkdir -p "$D"
-    # El mismo guion en las dos consolas (inputs.h): Start en 30-35, abajo+A en 60-69
+    # El mismo guion en todas las consolas (inputs.h): Start en 30-35, abajo+A en 60-69
     printf '# contrato\n0 -\n30 START\n36 -\n60 DOWN+A\n70 -\n' > "$D/guion.txt"
     for t in $TOOLS; do
         n=${t%%:*}; x=${t#*:}; e=$(exe "$n")
@@ -65,7 +70,7 @@ if [ -f "$ROM" ]; then
         "$e" "$ROM" "$D/d.$x" --frames 120 --input "$D/guion.txt" --seed 7 >/dev/null 2>&1
         igual "$n: --input con --seed da lo mismo dos veces" "$D/c.$x" "$D/d.$x"
     done
-    if [ $P = nes ] || [ $P = gen ]; then
+    if [ $P = nes ] || [ $P = gen ] || [ $P = neo ]; then
         # Hash de todos los cuadros y de todo el audio (nesshot/genshot --hash): distingue un cuadro de diferencia
         e=$(exe ${P}shot)
         "$e" "$ROM" "$D/e.png" --frames 120 --input "$D/guion.txt" --hash 2>/dev/null | grep '^hash' > "$D/guion.hash"

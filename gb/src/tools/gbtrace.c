@@ -7,7 +7,8 @@
  * ROM donde corre y gbrecomp solo puede aprenderlo de lo que se ejecutó.
  *
  * Uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]
- * Con varias corridas se pueden juntar trazas (cat y sort -u, como tests/recomp_game.sh).
+ * Con varias corridas se pueden pasar todas las trazas a gbrecomp (--trace se puede repetir) o
+ * juntarlas con cat y sort -u, como hace tests/recomp_game.sh.
  */
 #include "cli.h"
 #include "../platform/ramtrace.h"

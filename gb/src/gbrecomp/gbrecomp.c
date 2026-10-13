@@ -62,7 +62,9 @@ static const char usage_text[] =
     "                     (por omisión, el título de la cabecera)\n"
     "  --trace archivo    direcciones ejecutadas que no se descubrieron (las que\n"
     "                     escribe el juego con --uncovered); se agregan como\n"
-    "                     puntos de entrada. Repite el ciclo hasta que no queden.\n"
+    "                     puntos de entrada, y el código que corrió desde WRAM o\n"
+    "                     HRAM (líneas ram) se compila. Se puede repetir: se leen\n"
+    "                     todas. Repite el ciclo hasta que no queden.\n"
     "  --codemap archivo  qué bytes se tomaron como código (para compararlo con\n"
     "                     un desensamblado)\n"
     "  --dis BB:AAAA:N    desensambla N instrucciones del banco BB en $AAAA\n"
@@ -1448,17 +1450,13 @@ static void ram_trace_line(const char *s)
     o->vol = vol;
 }
 
-/* Traza: líneas "BB:AAAA" (banco y dirección en hexadecimal) y "ram AAAA BYTES" */
+/* Una traza: líneas "BB:AAAA" (banco y dirección en hexadecimal) y "ram AAAA BYTES" */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
     if (!f) die("no se pudo abrir la traza %s", path);
     unsigned bank, addr, n = 0;
     char line[64];
-    trace_pass = 1;
-    ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_TRACE);
-    push_origin = ORG_TRACE;
-    push_from_bank = EV_NONE;
     while (fgets(line, sizeof line, f)) {
         if (strncmp(line, "ram ", 4) == 0) {
             ram_trace_line(line + 4);
@@ -1474,6 +1472,17 @@ static void load_trace(const char *path)
     }
     fclose(f);
     printf("traza: %u puntos de entrada\n", n);
+}
+
+/* Todas las trazas de la línea de comandos (--trace se puede repetir, como en nesrecomp): se leen
+ * todas antes de descubrir. El código de RAM de todas se junta y se compila al final (emit_ram) */
+static void load_traces(const char *const *paths, int n)
+{
+    trace_pass = 1;
+    ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_TRACE);
+    push_origin = ORG_TRACE;
+    push_from_bank = EV_NONE;
+    for (int i = 0; i < n; i++) load_trace(paths[i]);
     if (n_ram_obs) printf("traza: %zu instrucciones en WRAM/HRAM\n", n_ram_obs);
 }
 
@@ -2752,7 +2761,9 @@ static void sanitize(char *s)
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *rom_path = NULL, *out = NULL, *trace = NULL, *name = NULL, *codemap = NULL;
+    const char *rom_path = NULL, *out = NULL, *name = NULL, *codemap = NULL;
+    const char *traces[32];     /* --trace, se puede repetir */
+    int ntraces = 0;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
     const char *events = NULL, *coverage = NULL, *html = NULL;
     const char *why[16];
@@ -2772,7 +2783,10 @@ int main(int argc, char **argv)
     }
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out = argv[++i];
-        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) trace = argv[++i];
+        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) {
+            if (ntraces == 32) die("--trace: como mucho 32 archivos");
+            traces[ntraces++] = argv[++i];
+        }
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
@@ -2856,8 +2870,8 @@ int main(int argc, char **argv)
     ev_on = events || viz || nwhy || html;
     ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_VECTORS);
     discover();
-    if (trace) {
-        load_trace(trace);
+    if (ntraces) {
+        load_traces(traces, ntraces);
         discover();
     }
 

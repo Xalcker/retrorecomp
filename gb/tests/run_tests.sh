@@ -189,6 +189,25 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# --- Recompilador: --trace se puede repetir y se leen todas (la GUI de retrorecomp pasa varias, y
+#     antes solo contaba la última). Dos trazas sobre la ROM de ei_di, en este orden: una con código
+#     de RAM y otra con un punto de entrada de ROM. Si solo se leyera la última, el código de RAM
+#     no se aprendería ---
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    printf 'ram C000 06 03\nram C002 05\nram C003 20 FD\n' > build/varias_ram.trace
+    printf '00:0150\n' > build/varias_rom.trace
+    if ./gbrecomp$EXE build/ei_di.gb -o build/out/varias_trazas --name varias_trazas \
+            --trace build/varias_ram.trace --trace build/varias_rom.trace > /tmp/gbtest.out 2>&1 \
+        && grep -q 'traza: 1 puntos de entrada' /tmp/gbtest.out \
+        && grep -q 'código en WRAM/HRAM aprendido de la traza: 3 instrucciones' /tmp/gbtest.out; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp con varias --trace: $(tail -3 /tmp/gbtest.out)"
+    fi
+fi
+
 # --- Recompilador: código que el juego copia a WRAM, aprendido de la traza. Dos rondas, como
 #     tests/recomp_game.sh: sin traza, difftest interpreta ese código y apunta sus bytes
 #     (--uncovered); con esa traza, gbrecomp lo compila y difftest ya no lo interpreta. La primera

@@ -383,9 +383,10 @@ ciclo de trazas lo aprende:
    ejecución y otra. Salen como líneas `ram DIRECCIÓN B0 [B1 B2]`, con `??` en los operandos
    variables. Las demás líneas del archivo siguen siendo `BB:AAAA`, y los lectores anteriores ignoran
    las de RAM porque no empiezan con un dígito hexadecimal.
-2. `gbrecomp --trace` las lee, une las que son la misma instrucción vista en corridas distintas
-   (el operando que difiere pasa a ser variable) y descarta las direcciones con más de 8 versiones,
-   que son código que el juego genera con estructuras distintas cada vez.
+2. `gbrecomp --trace` (se puede repetir: las lee de todas las trazas que se den) las lee, une las que
+   son la misma instrucción vista en corridas distintas (el operando que difiere pasa a ser variable)
+   y descarta las direcciones con más de 8 versiones, que son código que el juego genera con
+   estructuras distintas cada vez.
 3. Arma **bloques**: cadenas de instrucciones que van una detrás de otra sin ambigüedad (hasta 1024; no
    cruzan `$D000`, porque los bancos de WRAM no son contiguos). Cada bloque se compila como el código
    de ROM, con sus direcciones reales: un salto constante dentro del bloque es `goto`, `CHECK(dirección)`
@@ -483,7 +484,7 @@ empieza `tests/recomp_game.sh`: el ciclo aprende el código de RAM desde la prim
 ### Proyecto generado
 
 ```
-gbrecomp juego.gb -o salida/ [--trace traza.txt] [--name nombre] [--viz] [--events archivo]
+gbrecomp juego.gb -o salida/ [--trace traza.txt]... [--name nombre] [--viz] [--events archivo]
          [--coverage archivo] [--why BB:AAAA]
 cd salida && make
 ./nombre rom.gb          # el juego (SDL2); valida el SHA1 de la ROM
@@ -892,7 +893,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     además crea el release con los paquetes de los tres sistemas.
 
 Probado a mano en Windows (MSYS2) y Linux (Ubuntu en WSL): la batería daba 130
-de 130 en ambos (hoy son 142, con `sgb_controles`, los proyectos generados, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
+de 130 en ambos (hoy son 143, con `sgb_controles`, los proyectos generados, `--html`, `gbramdump` y la ventana de `gb`), y los proyectos de Tetris, Pokémon Rojo y Pokémon Oro
 compilan sin advertencias y corren sin diferencias.
 
 ### Prueba diferencial
@@ -942,7 +943,7 @@ cambian demasiado.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **142 de 142** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **143 de 143** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`, los de `firstwhite` y `strikethrough`, que copian la
 rutina de DMA de OAM a HRAM y no deben pasar por el intérprete, `ei_di`, una ROM mínima que
@@ -950,9 +951,10 @@ repite `ei` / `di` y comprueba que el código recompilado no atiende una interru
 instrucción que sigue a `ei`, y dos del código aprendido en WRAM: una ROM mínima que copia una
 rutina a `$C000` y parcha un operando de ella, y `interrupt_time` de Blargg, que ejecuta unas 600
 instrucciones distintas desde WRAM; en las dos, la primera ronda interpreta ese código y la
-segunda, con la traza que deja, no interpreta ninguna; y dos más que comprueban que el ejecutable `gb`
+segunda, con la traza que deja, no interpreta ninguna; dos más que comprueban que el ejecutable `gb`
 (al jugar con `--uncovered`) y `gbtrace` anotan las mismas líneas de RAM que `difftest` en la ROM
-mínima).
+mínima; y una de `gbrecomp` con dos `--trace`, una de código de RAM y otra de ROM, que comprueba que
+se leen las dos).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`. No hay un equivalente de `nestest` de NESRecomp

@@ -213,12 +213,13 @@ recompilado sin traza), bastan los pasos 1, 2 y 6.
 ## Uso
 
 ```
-gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo] [--viz] [--events archivo]
+gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo]... [--viz] [--events archivo]
          [--coverage archivo] [--why BB:AAAA]
 ```
 
-`gbrecomp --help` lista todas, también `--codemap`, `--dis BB:AAAA:N` y
-`--verbose`.
+`--trace` se puede repetir: se leen todas las trazas (la guionada de `gbtrace` y la de `difftest`,
+por ejemplo), igual que en nesrecomp. `gbrecomp --help` lista todas las opciones, también
+`--codemap`, `--dis BB:AAAA:N` y `--verbose`.
 
 El descubrimiento estático encuentra casi todo el código. Para lo que quede
 (saltos por tablas que no se pudieron resolver), se hace un ciclo con trazas:
@@ -390,7 +391,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-142 de 142.
+143 de 143.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).
@@ -408,6 +409,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
   y `difftest` no encuentra diferencias.
 - El ejecutable (`gb`) con `--uncovered` y `gbtrace` anotan el mismo código de RAM que `difftest` en la
   ROM mínima.
+- `gbrecomp` con dos `--trace` (una de código de RAM y otra de ROM): se leen las dos.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg

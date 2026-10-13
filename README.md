@@ -48,7 +48,7 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | Herramienta (NES / GB / Genesis) | Uso |
 |---|---|
 | `nestrace` / `gbtrace` / `gentrace` | `rom traza [--frames N] [--input archivo] [--seed S]` |
-| `nesshot` / `gbshot` / `genshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]` |
+| `nesshot` / `gbshot` / `genshot` | `rom salida.png [--frames N] [--input archivo] [--seed S]`; si el CPU se detiene (opcode KIL / ilegal, doble falta) escribe `CPU detenido en el cuadro N (motivo)` |
 | `nesaudio` / `gbaudio` / `genaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
 | `nesbench` / `gbbench` / `genbench` | `rom [--frames N] [--repeat N] [--input archivo] [--seed S]` (sin entradas: Start y luego la derecha) |
 | `nesramdump` / `gbramdump` / `genramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
@@ -74,6 +74,26 @@ dos formas.
 
 `python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los tres mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
 mirando todos los repositorios que encuentre. Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
+
+## Prueba de compatibilidad
+
+`compat.py` es el motor común de la prueba de compatibilidad de los tres (solo la biblioteca estándar). Cada
+recompilador lo llama desde su `tools/compat/run.py`, que define solo lo propio de su consola (una subclase de
+`compat.Sistema`: leer la cabecera, la categoría de cada ROM —mapper, MBC o tipo de cartucho—, qué se soporta, los
+botones), y desde `tools/compat/report.py`, que arma el informe HTML. Usa solo la línea de comandos de la tabla:
+
+- **Etapa 1, todas las ROMs:** `*shot` con un guion de entradas, capturas a los cuadros 450, 900 y 1500.
+- **Etapa 2, una selección:** `*recomp` sin traza, `make difftest`, `difftest` con las semillas 1 y 2, una segunda
+  ronda con lo que `--uncovered` vio caer al intérprete y, al final y de una ROM a la vez, `difftest --bench`.
+
+```
+python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
+                            [--categoria A,B] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+python3 tools/compat/report.py [--salida DIR]
+```
+
+Los resultados (`docs/compat/results.json` y las miniaturas) se guardan después de cada ROM; la misma orden sigue
+donde iba y salta las ROMs que ya tienen resultado del mismo commit del recompilador (`--rehacer` las repite).
 
 ## Diferencias que la interfaz esconde
 

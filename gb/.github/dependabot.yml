@@ -1,0 +1,10 @@
+# Abre solo el PR que actualiza el submódulo tools/retrorecomp (la GUI y la prueba de compatibilidad
+# comunes) cuando cambia su rama principal.
+version: 2
+updates:
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "tools/retrorecomp"

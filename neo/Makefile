@@ -121,6 +121,14 @@ z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/mkcontrato.c $(RT) -lm
 
+# Oráculos: retro_run corre un núcleo libretro (Geolith, FBNeo) sin ventana; los núcleos los baja
+# tools/oracles/oracle.py a build/oracles/ (no van en el repo)
+ifeq ($(shell uname -s 2>/dev/null),Linux)
+DL_LIBS := -ldl
+endif
+$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h trace_line.h sha1.h console.h $(RUNTIME)
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \

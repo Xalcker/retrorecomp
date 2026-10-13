@@ -35,10 +35,15 @@
 
 #define PI 3.14159265358979323846
 #define BUSY_MCLK (32 * 6 * 3)          /* 32 ciclos internos después de escribir un dato */
-#define FM_GAIN 16.0f                   /* salida de 9 bits por canal a la escala de 16 bits */
-#define SSG_GAIN 3072.0f                /* un canal del SSG al máximo */
-#define ADPCMA_GAIN 4.0f                /* 12 bits por canal */
-#define ADPCMB_GAIN 0.5f                /* 16 bits */
+/* Ganancias de cada parte en la mezcla. La FM va en la escala de 16 bits (9 bits por canal × 16); las
+ * demás, en proporción a ella, medidas contra Geolith y FBNeo (tools/oracles/oracle.py mix con Metal Slug,
+ * Neo Turf Masters y Samurai Shodown II: el promedio de las seis mediciones). El SSG es lo menos seguro:
+ * Geolith lo pone unos 4 dB más fuerte que FBNeo; queda en el medio */
+#define MIX_GAIN 0.87f                  /* el nivel general: el de los dos oráculos, que no recortan */
+#define FM_GAIN (16.0f * MIX_GAIN)                  /* salida de 9 bits por canal */
+#define SSG_GAIN (3072.0f * 5.5f * MIX_GAIN)        /* un canal del SSG al máximo */
+#define ADPCMA_GAIN (4.0f * 4.9f * MIX_GAIN)        /* 12 bits por canal */
+#define ADPCMB_GAIN (0.5f * 1.3f * MIX_GAIN)        /* 16 bits */
 
 enum { EG_ATTACK, EG_DECAY, EG_SUSTAIN, EG_RELEASE };
 

@@ -441,9 +441,13 @@ vuelta se mide entre dos llegadas seguidas al comienzo.
     `HALT`); sus banderas y la IRQ.
 - **Mezcla** (`audio.c`, la de GENRecomp): cada muestra de salida (44 100 Hz, estéreo de 16 bits) es el
   promedio de lo que sonó durante ella; después, un pasa-altos de ~10 Hz como el acople de la salida de la
-  consola. El tiempo real sale del reloj del AES (740 muestras por cuadro). Los niveles relativos de FM,
-  SSG, ADPCM-A y ADPCM-B son provisionales (los picos de los juegos de validación llegan a 10 000-12 000,
-  sin recortes) y se ajustarán con los oráculos.
+  consola. El tiempo real sale del reloj del AES (740 muestras por cuadro). **Niveles** (fase 9, medidos
+  con `tools/oracles/oracle.py mix` contra Geolith y FBNeo en Metal Slug, Neo Turf Masters y Samurai
+  Shodown II): la FM en la escala de 16 bits (9 bits por canal × 16) y el resto en proporción, con el
+  promedio de las seis mediciones: ADPCM-A ×4,9 y ADPCM-B ×1,3 respecto de la escala de bits de antes, el
+  SSG ×5,5 (Geolith lo pone unos 4 dB más fuerte que FBNeo: queda en el medio). Antes el ADPCM-A (voces,
+  gritos, disparos) sonaba unos 13 dB más bajo. Todo por 0,87, el nivel general de los oráculos (que no
+  recortan). Después del ajuste, cada parte queda a menos de unos 3 dB de los dos.
 - **Pruebas:** `audiotest` maneja el chip como el Z80 y mide la afinación (FM y SSG a 440 Hz), el
   panorama, silenciar, los canales que no existen, el volumen y el ruido del SSG, dos formas de la
   envolvente, los primeros valores de una muestra de ADPCM-A (calculados a mano), el fin y su bandera con

@@ -267,11 +267,11 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     `latest/`: se guarda el SHA-256 de lo que se bajó.
   - `docs/COMPATIBILIDAD.md` y `docs/compat/`; `make dist`; el README y `ARQUITECTURA.md` completos.
   - Agregar Neo Geo a la GUI de retrorecomp: **es un cambio en ese repositorio, se pregunta antes.**
-  - **Niveles de la mezcla del YM2610** contra los oráculos (pedido al probar la fase 8: en Metal Slug las
-    voces y los gritos, ADPCM-A, suenan bajos). Hoy las ganancias salen de la escala de bits (FM 9 bits
-    × 16 por canal, ADPCM-A 12 bits × 4, ADPCM-B 16 bits × 0,5, SSG 3072 por canal) y nunca se midieron:
-    en 30 s de partida de Metal Slug la FM sola da un nivel medio de 2278 y el ADPCM-A solo 836 (≈9 dB
-    menos). Medir la proporción con Geolith y FBNeo y ajustar (golden cambia a propósito).
+  - [x] **Niveles de la mezcla del YM2610** (pedido al probar la fase 8: en Metal Slug las voces y los
+    gritos, ADPCM-A, sonaban bajos). `oracle.py mix` ajusta la energía de cada oráculo como suma de la
+    de cada parte de NEORecomp: los dos coinciden en que el ADPCM-A sonaba unos 13 dB bajo. Ahora ADPCM-A
+    ×4,9, ADPCM-B ×1,3 y SSG ×5,5 respecto de la FM, y todo ×0,87 (el nivel de los oráculos): cada parte a
+    menos de ~3 dB de los dos. Golden actualizado a propósito.
 - [ ] **10. (Opcional) BIOS de reemplazo propia.** Ver "BIOS". Se mide con `tools/compat` contra la original.
 
 Después: **MVS** (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots, el reloj de 24 MHz), **juegos

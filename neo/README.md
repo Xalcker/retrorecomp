@@ -72,7 +72,7 @@ busca el juego o lo pide una vez y comprueba su SHA1; la BIOS, como el intérpre
 vez por versión en `~/.neorecomp/bios/` (o `$NEO_BIOS_CACHE`) y la comparten todos los juegos. `difftest`
 corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
-`sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo.
+`sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla (en el Neo Geo van desplazadas 1200 cuadros, lo que tarda la BIOS del AES en dejar el juego, y los valores por omisión son 3000 cuadros por `difftest` y 3600 de traza); `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
 ## Herramientas
 

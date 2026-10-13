@@ -117,7 +117,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
    <div class="sub" id="eMsg"></div>
    <button id="eLog">Mostrar detalles</button>
   </div>
-  <h2 id="romtitle" style="margin:0 0 8px;font-size:17px"></h2>
+  <h2 id="romtitle" class="pro-only" style="margin:0 0 8px;font-size:17px"></h2>
   <div class="tabs" id="tabs">
    <div class="tab on" data-p="p-ciclo">Ciclo</div>
    <div class="tab" data-p="p-avance">Avance y mapa</div>
@@ -266,7 +266,7 @@ try{if(localStorage.getItem("mode")==="pro")MODE="pro"}catch(e){}
 function setMode(m){
   MODE=m;try{localStorage.setItem("mode",m)}catch(e){}
   document.body.classList.toggle("easy",m==="easy");
-  $("#modes button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+  $$("#modes button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
   if(m==="pro"&&S.rom)loadMap().catch(()=>{});
   if(S.state)renderRoms();
   renderEasy();

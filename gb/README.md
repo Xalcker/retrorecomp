@@ -378,7 +378,7 @@ juego, junto con la partida y los estados.
 Solo se exporta lo que el juego llega a cargar mientras juegas.
 
 Controles: flechas, Z = B, X = A, Enter = Start, Retroceso o Shift derecho =
-Select, o un control (A y B en la posición de Nintendo).
+Select, o un control (A y B en la posición de Nintendo). Tab (mantenido): avance rápido, sin audio.
 
 Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
 `--record archivo` / `--play archivo` (entradas grabadas, reproducibles en

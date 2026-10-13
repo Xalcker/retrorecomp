@@ -356,6 +356,7 @@ typedef struct {
     int pending_model;      /* consola elegida en el menú, a confirmar */
 
     int paused;
+    int fast;               /* Tab: avance rápido mientras se mantiene */
     int hold_input;         /* ignorar controles hasta que se suelten */
     int fullscreen;
     int running;
@@ -1313,7 +1314,7 @@ static void step(App *app)
             }
         }
     }
-    if (!app->audio || !app->cfg.sound) return;
+    if (!app->audio || !app->cfg.sound || app->fast) return;    /* avance rápido: sin audio */
     float vol = app->cfg.volume / 100.0f;
     for (int i = 0; i < n * 2; i++) samples[i] *= vol;
     audio_push(app->audio, samples, n);
@@ -1326,6 +1327,7 @@ static void update_title(App *app)
     if (app->notice[0] && SDL_TICKS_PASSED(SDL_GetTicks(), app->notice_until)) app->notice[0] = 0;
     if (app->notice[0]) detail = app->notice;
     else if (app->paused) detail = tr(T_TITLE_PAUSED);
+    else if (app->fast) detail = tr(T_TITLE_FAST);
     else if (app->linked) detail = tr(T_TITLE_LINKED);
     else if (music_active(&app->music)) detail = tr(T_TITLE_RECORDING);
     else if (app->tiles.active) {
@@ -1663,11 +1665,17 @@ int main(int argc, char *argv[])
         while (SDL_PollEvent(&ev)) handle_event(app, &ev);
         if (!app->running) break;
 
-        if (game_running(app)) step(app);
+        int running = game_running(app);
+        app->fast = running && SDL_GetKeyboardState(NULL)[SDL_SCANCODE_TAB];
+        if (running) {
+            if (app->fast) for (int i = 0; i < 3; i++) step(app);   /* avance rápido: sin audio */
+            step(app);
+        }
         update_title(app);
         render(app);
 
-        /* Ritmo: 59.7275 cuadros por segundo */
+        /* Ritmo: 59.7275 cuadros por segundo (sin límite en avance rápido) */
+        if (app->fast) { next = SDL_GetPerformanceCounter(); continue; }
         next += (Uint64)(frame_seconds * freq);
         Uint64 now = SDL_GetPerformanceCounter();
         if (now < next) {

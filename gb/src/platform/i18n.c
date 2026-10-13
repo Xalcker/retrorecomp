@@ -57,6 +57,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "  Select: Q, o el segundo control.\n"
         "\n"
         "Alt o F10: menús       P: pausa\n"
+        "Tab (mantener): avance rápido\n"
         "Ctrl+R: reiniciar      F11: pantalla completa\n"
         "F5: guardar estado     F8: cargar estado\n"
         "Ctrl+M: sonido         F2: cambiar paleta\n"
@@ -72,6 +73,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "  Select: Q, or the second controller.\n"
         "\n"
         "Alt or F10: menus      P: pause\n"
+        "Tab (hold): fast forward\n"
         "Ctrl+R: reset          F11: full screen\n"
         "F5: save state         F8: load state\n"
         "Ctrl+M: sound          F2: change palette\n"
@@ -180,6 +182,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_MODEL_SGB]    = { "Super Game Boy", "Super Game Boy" },
 
     [T_TITLE_PAUSED]     = { "Pausa", "Paused" },
+    [T_TITLE_FAST]       = { "Avance rápido", "Fast forward" },
     [T_LINK]             = { "Cable link (2 jugadores)", "Link cable (2 players)" },
     [T_TITLE_LINKED]     = { "Cable link", "Link cable" },
     [T_TITLE_LINK_ON]    = { "Cable conectado: el jugador 2 usa WASD", "Cable connected: player 2 uses WASD" },

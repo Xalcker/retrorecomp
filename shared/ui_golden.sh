@@ -18,8 +18,10 @@ captura() {    # clave opción número
     suma=$(cksum < "$out" | cut -d' ' -f1-2)
     echo "$1 $suma" >> "$nuevo"
     if [ -f "$ref" ] && [ -z "$UI_GOLDEN_UPDATE" ]; then
-        # Una línea "clave@Sistema" (uname -s: Darwin, Linux, MINGW...) pesa más que la general: macOS dibuja
-        # distinto los diálogos de texto largo
+        # Una línea "clave@Sistema" (uname -s: Darwin, Linux, MINGW...) pesa más que la general, por si un
+        # sistema dibuja distinto. Hoy ninguno de los cuatro la necesita: lo que GBRecomp sacaba distinto en
+        # macOS era la captura (la ventana oculta, no una superficie), y los diálogos que muestran rutas del
+        # sistema (Este juego) no se prueban
         esperada=$(grep "^$1@$(uname -s) " "$ref" | cut -d' ' -f2-3)
         [ -n "$esperada" ] || esperada=$(grep "^$1 " "$ref" | cut -d' ' -f2-3)
         if [ -z "$esperada" ]; then echo "FALLA ui $1: sin referencia en $ref"; fallas=$((fallas + 1))

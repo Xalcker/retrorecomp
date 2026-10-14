@@ -203,10 +203,12 @@ for r in mslug samsho2 turfmast; do
     else echo "FALLA $r no suena (nivel máximo ${m:-?})"; fallas=$((fallas + 1)); fi
 done
 if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ] && { [ -f tests/ui_golden.txt ] || [ -n "$UI_GOLDEN_UPDATE" ] || { echo "(sin tests/ui_golden.txt: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh lo crea)"; false; }; }; then
-    # Controles y Acerca de; contra la referencia tests/ui_golden.txt (UI_GOLDEN_UPDATE=1 la reescribe). Este
+    # Controles (17), Acerca de (19) y la barra oculta con F9 (38), y sin barra con --no-menu (aunque se pida un
+    # menú) y con --fullscreen; contra la referencia tests/ui_golden.txt (UI_GOLDEN_UPDATE=1 la reescribe). Este
     # juego (18) no, como en los otros tres: muestra la carpeta de datos, que cambia con el sistema
-    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe neo)" roms/mslug.zip tests/ui_golden.txt "0 1 2 3 4 5" "17 19" > build/ui_golden.out 2>&1; then
-        echo "ok    neo: cada menú y cada diálogo coinciden con la referencia (--ui-shot)"
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe neo)" roms/mslug.zip tests/ui_golden.txt "0 1 2 3 4 5" "17 19 38" \
+            "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
+        echo "ok    neo: cada menú, cada diálogo, la barra oculta, --no-menu y --fullscreen coinciden con la referencia (--ui-shot)"
     else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
 fi
 tiempo "juegos de roms/"

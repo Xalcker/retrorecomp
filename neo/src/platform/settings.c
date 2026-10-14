@@ -42,6 +42,7 @@ void settings_load(Settings *s, const char *path)
         else if (!strcmp(key, "aspect"))   s->aspect = atoi(value) != 0;
         else if (!strcmp(key, "integer"))  s->integer = atoi(value) != 0;
         else if (!strcmp(key, "card"))     s->card = atoi(value) != 0;
+        else if (!strcmp(key, "hide_menu")) s->hide_menu = atoi(value) != 0;
         else if (!strcmp(key, "mute"))     s->mute = clamp(atoi(value), 0, 127);
         else if (!strcmp(key, "language")) snprintf(s->language, sizeof s->language, "%.2s", value);
     }
@@ -53,7 +54,7 @@ void settings_save(const Settings *s, const char *path)
     FILE *f = u8_fopen(path, "w");
     if (!f) return;
     fprintf(f, "# Preferencias del juego; se reescribe al salir\n");
-    fprintf(f, "scale=%d\nsound=%d\nvolume=%d\nslot=%d\naspect=%d\ninteger=%d\ncard=%d\nmute=%d\nlanguage=%s\n",
-            s->scale, s->sound, s->volume, s->slot, s->aspect, s->integer, s->card, s->mute, s->language);
+    fprintf(f, "scale=%d\nsound=%d\nvolume=%d\nslot=%d\naspect=%d\ninteger=%d\ncard=%d\nhide_menu=%d\nmute=%d\nlanguage=%s\n",
+            s->scale, s->sound, s->volume, s->slot, s->aspect, s->integer, s->card, s->hide_menu, s->mute, s->language);
     fclose(f);
 }

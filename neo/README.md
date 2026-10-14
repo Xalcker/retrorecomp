@@ -41,9 +41,12 @@ make dist       # dist/neorecomp-<versión>-<sistema>.tar.gz
 ```
 
 El intérprete con ventana y sonido: menús de juego (abrir, reiniciar, pausa, tarjeta de memoria), video
-(tamaño, pantalla completa, escala entera, aspecto 4:3), audio (volumen y silenciar FM, SSG, ADPCM-A y
+(tamaño, pantalla completa, escala entera, aspecto 4:3, ocultar la barra de menús con F9: aparece con el ratón
+arriba o con Alt/F10), audio (volumen y silenciar FM, SSG, ADPCM-A y
 ADPCM-B), estados (F5/F8 en 4 ranuras), captura (F12) e idioma. `--record`/`--play archivo` graban y
-reproducen los botones y `--trace archivo` guarda qué instrucciones de ROM se ejecutaron. Teclado: flechas, Z X C V =
+reproducen los botones y `--trace archivo` guarda qué instrucciones de ROM se ejecutaron. `--fullscreen` arranca en
+pantalla completa y `--no-menu` sin barra de menús (los atajos siguen); el juego recompilado acepta las mismas.
+Teclado: flechas, Z X C V =
 A B C D, Enter = Start, Mayús = Select (Ayuda → Controles). La BIOS se busca junto al juego y en `roms/`
 (o `--bios archivo`); si no está, la pide una vez y guarda una copia en la carpeta de datos.
 

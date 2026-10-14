@@ -11,6 +11,7 @@ typedef struct {
     int aspect;             /* 0/1: imagen en 4:3 (los pixeles del Neo Geo no son cuadrados) */
     int integer;            /* 0/1: escala entera */
     int card;               /* 0/1: tarjeta de memoria puesta */
+    int hide_menu;          /* 0/1: barra de menús oculta (Video → Ocultar la barra de menús, F9) */
     int mute;               /* bits 0-3: FM 1-4, bit 4: SSG, bit 5: ADPCM-A, bit 6: ADPCM-B silenciados */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;

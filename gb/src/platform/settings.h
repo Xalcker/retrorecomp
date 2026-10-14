@@ -14,6 +14,7 @@ typedef struct {
     int slot;               /* ranura de estados: 1-4 */
     int link_audio;         /* con el cable: 0 jugador 1, 1 jugador 2, 2 los dos,
                              * 3 audífonos (jugador 1 a la izquierda, 2 a la derecha) */
+    int hide_menu;          /* 0/1: barra de menús oculta (Video → Ocultar la barra de menús, F9) */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;
 

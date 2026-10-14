@@ -382,7 +382,11 @@ Solo se exporta lo que el juego llega a cargar mientras juegas.
 Controles: flechas, Z = B, X = A, Enter = Start, Retroceso o Shift derecho =
 Select, o un control (A y B en la posición de Nintendo). Tab (mantenido): avance rápido, sin audio.
 
-Opciones de línea de comandos: `--scale N`, `--model`, `--palette`,
+Video → Ocultar la barra de menús (F9) quita la barra de la ventana; aparece con el ratón arriba o con Alt/F10,
+como en pantalla completa.
+
+Opciones de línea de comandos: `--scale N`, `--fullscreen` (arranca en pantalla completa), `--no-menu` (sin
+barra de menús; los atajos siguen), `--model`, `--palette`,
 `--record archivo` / `--play archivo` (entradas grabadas, reproducibles en
 `difftest --input`), `--link` (cable link), `--uncovered archivo` (lo que
 ejecutó el intérprete, ROM y código de RAM, para `gbrecomp --trace`), `--interp` (todo con el

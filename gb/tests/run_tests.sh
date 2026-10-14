@@ -106,8 +106,10 @@ GB=./gb
 [ -x ./gb.exe ] && GB=./gb.exe
 if [ -x "$GB" ] && { [ -z "$FILTRO" ] || case "interprete" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
     # Cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (si cambia a propósito:
-    # UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh interprete, y revisa build/shots/)
-    if sh tools/retrorecomp/shared/ui_golden.sh "$GB" "$T/dmg-acid2/dmg-acid2.gb" tests/ui_golden.txt "0 1 2 3 4 5 6" "47 49" > /tmp/gbtest.out 2>&1; then
+    # UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh interprete, y revisa build/shots/): Controles (47), Acerca de (49),
+    # la barra oculta con F9 (54), y sin barra con --no-menu (aunque se pida un menú) y con --fullscreen
+    if sh tools/retrorecomp/shared/ui_golden.sh "$GB" "$T/dmg-acid2/dmg-acid2.gb" tests/ui_golden.txt "0 1 2 3 4 5 6" "47 49 54" \
+            "--no-menu --no-menu,--ui-menu,1 --fullscreen" > /tmp/gbtest.out 2>&1; then
         pasa=$((pasa + 1))
     else
         falla=$((falla + 1)); fallidas="$fallidas

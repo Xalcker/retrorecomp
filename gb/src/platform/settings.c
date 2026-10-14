@@ -46,6 +46,7 @@ void settings_load(Settings *s, const char *path)
         else if (!strcmp(key, "volume"))         s->volume = clamp(atoi(value), 25, 100);
         else if (!strcmp(key, "slot"))           s->slot = clamp(atoi(value), 1, 4);
         else if (!strcmp(key, "link_audio"))     s->link_audio = clamp(atoi(value), 0, 3);
+        else if (!strcmp(key, "hide_menu"))      s->hide_menu = atoi(value) != 0;
         else if (!strcmp(key, "language"))       snprintf(s->language, sizeof s->language, "%.2s", value);
     }
     fclose(f);
@@ -57,8 +58,8 @@ void settings_save(const Settings *s, const char *path)
     if (!f) return;
     fprintf(f, "# Preferencias del juego recompilado; se reescribe al salir\n");
     fprintf(f, "model=%s\ndmg_palette=%d\ncompat_palette=%s\nsgb_border=%d\nscale=%d\n"
-               "sound=%d\nvolume=%d\nslot=%d\nlink_audio=%d\nlanguage=%s\n",
+               "sound=%d\nvolume=%d\nslot=%d\nlink_audio=%d\nhide_menu=%d\nlanguage=%s\n",
             s->model, s->dmg_palette, s->compat_palette, s->sgb_border, s->scale,
-            s->sound, s->volume, s->slot, s->link_audio, s->language);
+            s->sound, s->volume, s->slot, s->link_audio, s->hide_menu, s->language);
     fclose(f);
 }

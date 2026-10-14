@@ -38,6 +38,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_SGB_BORDER]     = { "Borde del Super Game Boy", "Super Game Boy border" },
     [T_SIZE_FMT]       = { "Tamaño ×%d", "Size ×%d" },
     [T_FULLSCREEN]     = { "Pantalla completa", "Full screen" },
+    [T_HIDE_MENU]      = { "Ocultar la barra de menús", "Hide the menu bar" },
     [T_SOUND]          = { "Sonido", "Sound" },
     [T_VOLUME_FMT]     = { "Volumen %d%%", "Volume %d%%" },
     [T_HELP_CONTROLS]  = { "Controles…", "Controls…" },
@@ -62,7 +63,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "F5: guardar estado     F8: cargar estado\n"
         "Ctrl+M: sonido         F2: cambiar paleta\n"
         "Ctrl+G: grabar música  Ctrl+T: juntar gráficos\n"
-        "F12: captura de pantalla",
+        "F12: captura           F9: ocultar menús",
 
         "Keyboard:\n"
         "  D-pad: arrows        A: X     B: Z\n"
@@ -78,7 +79,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "F5: save state         F8: load state\n"
         "Ctrl+M: sound          F2: change palette\n"
         "Ctrl+G: record music   Ctrl+T: collect graphics\n"
-        "F12: screenshot",
+        "F12: screenshot        F9: hide menus",
     },
     [T_GAME_TITLE] = { "Datos del juego", "Game info" },
     [T_GAME_TEXT_FMT] = {

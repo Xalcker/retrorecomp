@@ -9,6 +9,8 @@ CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
+# Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
+SHARED := tools/retrorecomp/shared
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -50,22 +52,22 @@ PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputte
 all: $(PROGS:%=%$(EXE))
 
 nestest$(EXE): src/tools/nestest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
-nesshot$(EXE): src/tools/nesshot.c src/platform/png.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesshot.c src/platform/png.c $(RT)
+nesshot$(EXE): src/tools/nesshot.c src/platform/png.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c src/platform/png.c $(RT)
 
-nesbench$(EXE): src/platform/bench.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+nesbench$(EXE): src/platform/bench.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
-nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
+nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h vrc7.c trace_line.h
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h random_pad.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
+EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h vrc7.c
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
 
@@ -73,14 +75,14 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
 
 $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
 nesrecomp$(EXE): src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
-	$(CC) $(CFLAGS) -DNESRECOMP_VERSION='"$(VERSION)"' -Isrc/nesrecomp -Isrc/runtime -o $@ \
+	$(CC) $(CFLAGS) -DNESRECOMP_VERSION='"$(VERSION)"' -Isrc/nesrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/nesrecomp/nesrecomp.c $(BUILD)/gen/embedded.c $(RT)
 
 # Paquete para distribuir: nesrecomp, la documentación y la licencia
@@ -93,23 +95,23 @@ dist: nesrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-nesramdump$(EXE): src/tools/nesramdump.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesramdump.c $(RT)
+nesramdump$(EXE): src/tools/nesramdump.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesramdump.c $(RT)
 
 inputtest$(EXE): src/tools/inputtest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
 mappertest$(EXE): src/tools/mappertest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
 statetest$(EXE): src/tools/statetest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
 sramtest$(EXE): src/tools/sramtest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
-nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h src/platform/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
+nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
 
 # (no se llama PLATFORM: ese nombre es el sistema del paquete de make dist, en el bloque común)
 NES_SRC := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
@@ -121,10 +123,10 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 endif
 
 nes$(EXE): $(NES_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NES_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(NES_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h $(SHARED)/trace_line.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(RT): $(RUNTIME_OBJ)
 	ar rcs $@ $^

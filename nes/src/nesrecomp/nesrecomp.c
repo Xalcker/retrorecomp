@@ -44,7 +44,7 @@
 #include "../runtime/cpu_ops.h"
 #include "../runtime/console.h"
 #include "../runtime/sha1.h"
-#include "../runtime/trace_line.h"
+#include "trace_line.h"
 #include "embedded.h"
 
 #ifndef NESRECOMP_VERSION

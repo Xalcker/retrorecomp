@@ -55,9 +55,12 @@ mkdir -p build/tests build/shots
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x "$(exe gen)" ]; then
-    # Cargar estado, Controles, Este juego, Acerca de (A_LOAD_STATE, A_HELP_CONTROLS... en main_sdl.c)
-    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe gen)" "$R" tests/ui_golden.txt "0 1 2 3 4 5 6" "5 37 39" > build/ui_golden.out 2>&1; then
-        echo "ok    gen: los 7 menús y 3 diálogos coinciden con la referencia"
+    # Cargar estado (5), Controles (37), Acerca de (39) y la barra oculta con F9 (40), los números de A_LOAD_STATE,
+    # A_HELP_CONTROLS... en main_sdl.c (Este juego, 38, no: muestra la carpeta de datos), y sin barra con
+    # --no-menu (aunque se pida un menú) y con --fullscreen
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe gen)" "$R" tests/ui_golden.txt "0 1 2 3 4 5 6" "5 37 39 40" \
+            "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
+        echo "ok    gen: los 7 menús, 3 diálogos, la barra oculta, --no-menu y --fullscreen coinciden con la referencia"
     else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
 fi
 tiempo "interfaz"

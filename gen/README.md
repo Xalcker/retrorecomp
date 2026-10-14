@@ -66,9 +66,11 @@ publica un release en GitHub con los paquetes de Linux, macOS y Windows. Igual q
 ```
 
 El intérprete con ventana y sonido: menús de juego (estados con F5/F8 en 4 ranuras), video (tamaño,
-pantalla completa, escala entera, aspecto 4:3), audio (volumen y canales), entrada (mando de 3 o 6
+pantalla completa, escala entera, aspecto 4:3, ocultar la barra de menús con F9: aparece con el ratón arriba o
+con Alt/F10), audio (volumen y canales), entrada (mando de 3 o 6
 botones), captura (F12) e idioma. `--record`/`--play archivo` graban y reproducen los botones y
-`--trace archivo` guarda qué instrucciones de ROM se ejecutaron. Teclado:
+`--trace archivo` guarda qué instrucciones de ROM se ejecutaron. `--fullscreen` arranca en pantalla completa y
+`--no-menu` sin barra de menús (los atajos siguen); el juego recompilado acepta las mismas. Teclado:
 flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode (Ayuda → Controles).
 
 ```

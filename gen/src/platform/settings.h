@@ -11,6 +11,7 @@ typedef struct {
     int aspect;             /* 0/1: imagen en 4:3 (los pixeles del Genesis no son cuadrados) */
     int integer;            /* 0/1: escala entera */
     int pad;                /* mando: 0 el que dice la cabecera, 3 de 3 botones, 6 de 6 botones */
+    int hide_menu;          /* 0/1: barra de menús oculta (Video → Ocultar la barra de menús, F9) */
     int mute;               /* bits 0-5: canales FM 1-6 silenciados, bit 6: PSG */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;

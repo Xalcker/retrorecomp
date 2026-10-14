@@ -3,13 +3,16 @@
  * mandos), sonido estéreo a 44 100 Hz, estados guardados y ritmo de 59.92 cuadros por segundo. La
  * usan el intérprete (`gen`) y los juegos que genera genrecomp (con -DGEN_RECOMP).
  *
- * Uso: gen [rom.bin] [--scale N] [--tmss] [--record archivo | --play archivo] [--trace archivo]
+ * Uso: gen [rom.bin] [--scale N] [--fullscreen] [--no-menu] [--tmss] [--record archivo | --play archivo]
+ *          [--trace archivo]
  * Recompilado: juego [rom.bin] [--interp] [--force] [--uncovered archivo] y las mismas opciones. La
  *   ROM se busca en el argumento, en la copia que se guarda la primera vez, en rom.bin junto al
  *   ejecutable o en la carpeta actual, y si no, se pide; debe tener el SHA1 que se recompiló.
  *   --interp     solo el intérprete (para comparar)
  *   --force      acepta otra ROM (corre con el intérprete)
  *   --uncovered  como --trace: lo que el intérprete tuvo que ejecutar (para genrecomp --trace)
+ *   --fullscreen  arranca en pantalla completa
+ *   --no-menu     sin barra de menús (ni con el ratón, Alt o F10); los atajos siguen
  *   --tmss    consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP)
  *   --record  graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
  *   --play    reproduce un archivo grabado (el teclado se ignora)
@@ -73,6 +76,7 @@ enum {
     A_PAD_AUTO, A_PAD_3, A_PAD_6,
     A_SCREENSHOT, A_OPEN_EXPORTS,
     A_HELP_CONTROLS, A_HELP_GAME, A_ABOUT,
+    A_HIDE_MENU,            /* antes de A_LANGUAGE_0 para no mover los números que prueba ui_golden */
     A_LANGUAGE_0,
 };
 
@@ -90,6 +94,7 @@ typedef struct {
     char rom_path[1024];
 
     int paused, hold_input, fullscreen, running, mouse_y, fast;
+    int menu_hidden;        /* MENU_SHOWN, MENU_HIDDEN o MENU_OFF (player_common.h) */
     Settings cfg;
     char *pref;
     char settings_path[1024], save_path[1024], export_dir[1100];
@@ -295,7 +300,8 @@ static void resize_window(App *app)
 {
     if (app->fullscreen) return;
     int w = (int)(display_w(app, 320, 224) * app->cfg.scale + 0.5);
-    SDL_SetWindowSize(app->win, w, 224 * app->cfg.scale + menubar_height(ui_scale(w)));
+    SDL_SetWindowMinimumSize(app->win, 320, 224 + bar_space(app, 1));
+    SDL_SetWindowSize(app->win, w, 224 * app->cfg.scale + bar_space(app, ui_scale(w)));
 }
 
 /* Convierte la imagen a ARGB */
@@ -411,6 +417,7 @@ static void build_menus(App *app)
     }
     SEPARATOR(menu_video, n);
     ITEM(menu_video, n, tr(T_FULLSCREEN), "F11", A_FULLSCREEN, ITEM_CHECK);
+    ITEM(menu_video, n, tr(T_HIDE_MENU), "F9", A_HIDE_MENU, ITEM_CHECK);
     ITEM(menu_video, n, tr(T_INTEGER), NULL, A_INTEGER, ITEM_CHECK);
     ITEM(menu_video, n, tr(T_ASPECT), NULL, A_ASPECT, ITEM_CHECK);
     menus[k++] = (Menu){ tr(T_MENU_VIDEO), menu_video, n };
@@ -467,6 +474,7 @@ static int menu_state(void *ctx, int action, int *checked)
     case A_LOAD_STATE:   return !replay;
     case A_PAUSE:        *checked = app->paused; return 1;
     case A_FULLSCREEN:   *checked = app->fullscreen; return 1;
+    case A_HIDE_MENU:    *checked = app->menu_hidden != MENU_SHOWN; return 1;
     case A_INTEGER:      *checked = app->cfg.integer; return 1;
     case A_ASPECT:       *checked = app->cfg.aspect; return 1;
     case A_PAD_AUTO:     *checked = app->cfg.pad == 0; return 1;
@@ -536,6 +544,7 @@ static void do_action(App *app, int action)
     case A_LOAD_STATE:   load_state(app); break;
     case A_QUIT:         app->running = 0; break;
     case A_FULLSCREEN:   toggle_fullscreen(app); break;
+    case A_HIDE_MENU:    toggle_menu(app); if (app->menu_hidden != MENU_OFF) app->cfg.hide_menu = app->menu_hidden == MENU_HIDDEN; break;
     case A_INTEGER:      app->cfg.integer = !app->cfg.integer; break;
     case A_ASPECT:       app->cfg.aspect = !app->cfg.aspect; resize_window(app); break;
     case A_PAD_AUTO:     app->cfg.pad = 0; apply_pad(app); break;
@@ -597,6 +606,7 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     case SDLK_m:      if (ctrl) { do_action(app, A_SOUND); return 1; } break;
     case SDLK_p:      do_action(app, A_PAUSE); return 1;
     case SDLK_F11:    do_action(app, A_FULLSCREEN); return 1;
+    case SDLK_F9:     do_action(app, A_HIDE_MENU); return 1;
     case SDLK_RETURN: if (alt) { do_action(app, A_FULLSCREEN); return 1; } break;
     case SDLK_F1:     do_action(app, A_HELP_CONTROLS); return 1;
     case SDLK_F12:    do_action(app, A_SCREENSHOT); return 1;
@@ -605,7 +615,6 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
     return 0;
 }
 
-/* ¿Se ve la barra? En pantalla completa, solo al acercar el ratón arriba */
 /* Reparte un evento entre el diálogo, la barra de menús y los atajos */
 static void handle_event(App *app, SDL_Event *e)
 {
@@ -650,7 +659,7 @@ static void handle_event(App *app, SDL_Event *e)
     }
 
     int action = 0;
-    if (bar_visible(app) && menubar_event(&app->bar, e, ui, &action)) {
+    if (bar_enabled(app) && menubar_event(&app->bar, e, ui, &action)) {
         if (action) do_action(app, action);
         app->hold_input = 1;
         return;
@@ -784,7 +793,7 @@ static void render(App *app)
     int w, h;
     SDL_GetRendererOutputSize(app->ren, &w, &h);
     int ui = ui_scale(w);
-    int bar = app->fullscreen ? 0 : menubar_height(ui);   /* en pantalla completa va encima */
+    int bar = bar_space(app, ui);   /* en pantalla completa o con la barra oculta va encima */
 
     int gw, gh;
     game_size(app, &gw, &gh);
@@ -855,10 +864,11 @@ int main(int argc, char *argv[])
     static App app_storage;
     App *app = &app_storage;
     const char *rom_arg = NULL, *record_path = NULL, *play_path = NULL;
-    int scale_arg = 0, shot_menu = -1, shot_action = 0, force = 0;
+    int scale_arg = 0, shot_menu = -1, shot_action = 0, force = 0, start_full = 0, no_menu = 0;
     long shot_frames = 300;
     char msg[4096];
     the_app = app;
+    app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
     app->gen = calloc(1, sizeof *app->gen);
     if (!app->gen) fail("sin memoria");
 
@@ -893,6 +903,8 @@ int main(int argc, char *argv[])
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--fullscreen")) start_full = 1;
+        else if (!strcmp(argv[i], "--no-menu")) no_menu = 1;
         else if (!strcmp(argv[i], "--tmss")) app->tmss = 1;
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
@@ -906,6 +918,8 @@ int main(int argc, char *argv[])
         else rom_arg = argv[i];
     }
     if (scale_arg > 0) app->cfg.scale = scale_arg > 6 ? 6 : scale_arg;
+    app->menu_hidden = no_menu ? MENU_OFF : app->cfg.hide_menu ? MENU_HIDDEN : MENU_SHOWN;
+    if (ui_shot_path) app->fullscreen = start_full;   /* la captura no cambia la ventana (oculta) */
 
     int w0 = (int)(display_w(app, 320, 224) * app->cfg.scale + 0.5);
     app->win = SDL_CreateWindow(app->title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -919,7 +933,7 @@ int main(int argc, char *argv[])
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
     if (ui_shot_path) {
         /* Captura de la interfaz: se dibuja en una superficie del tamaño de la ventana */
-        int sh = 224 * app->cfg.scale + menubar_height(ui_scale(w0));
+        int sh = 224 * app->cfg.scale + bar_space(app, ui_scale(w0));
         ui_shot_surface = SDL_CreateRGBSurfaceWithFormat(0, w0, sh, 32, SDL_PIXELFORMAT_ARGB8888);
         if (ui_shot_surface) app->ren = SDL_CreateSoftwareRenderer(ui_shot_surface);
     } else {
@@ -927,7 +941,7 @@ int main(int argc, char *argv[])
         if (!app->ren) app->ren = SDL_CreateRenderer(app->win, -1, 0);
     }
     if (!app->ren) fail(SDL_GetError());
-    SDL_SetWindowMinimumSize(app->win, 320, 224 + menubar_height(1));
+    SDL_SetWindowMinimumSize(app->win, 320, 224 + bar_space(app, 1));
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 0xFF);
     SDL_RenderClear(app->ren);
     SDL_RenderPresent(app->ren);
@@ -995,6 +1009,7 @@ int main(int argc, char *argv[])
 
     resize_window(app);
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    if (start_full && !ui_shot_path) toggle_fullscreen(app);
 
     SDL_AudioSpec want, have_spec;
     SDL_zero(want);

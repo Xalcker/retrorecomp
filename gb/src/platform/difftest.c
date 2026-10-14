@@ -21,7 +21,9 @@
  *   WRAM o HRAM (para alimentar gbrecomp --trace; ver ramtrace.h).
  *   --executed escribe qué bytes de ROM se ejecutaron (los registra la máquina
  *   de referencia; formato de gbrecomp --codemap).
- * Código de salida: 0 sin diferencias, 1 con diferencias.
+ * Salida y código de salida como en NESRecomp, GENRecomp y NEORecomp: sin diferencias,
+ * "difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de los ciclos)"
+ * y 0; con diferencias, líneas "DIFERENCIA ..." y 1; 2 si no pudo correr.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +71,29 @@ static void top_insert(Hit *top, unsigned *ntop, Hit h)
 /* Instrucciones del intérprete fuera de la ROM ($8000-$FFFF): cuántas veces, los bytes que
  * había en esa dirección la primera vez (para reconocer la rutina) y las versiones del código
  * que corrieron allí. Lo lleva ramtrace.h, que comparte con el ejecutable del juego */
+
+/* --- Llamadas y ciclos del código recompilado (el resumen de los cuatro recompiladores) ---
+ * El despachador del runtime llama a la función que le da recomp_lookup; esta versión la
+ * envuelve para contar sus ciclos. Las llamadas son las funciones recompiladas más las
+ * instrucciones del intérprete, como en NESRecomp. */
+
+static RecompFn counted_fn;
+static unsigned long recomp_calls;
+static u64 recomp_cycles;
+
+static void counted(GB *g)
+{
+    u64 c0 = g->cyc;
+    counted_fn(g);
+    recomp_calls++;
+    recomp_cycles += g->cyc - c0;
+}
+
+static RecompFn counting_lookup(GB *g, u16 pc)
+{
+    counted_fn = recomp_lookup(g, pc);
+    return counted_fn ? counted : NULL;
+}
 
 /* --- Bytes de ROM ejecutados (por la máquina de referencia) --- */
 
@@ -299,7 +324,7 @@ static void locate(long frame)
         gb_run(&rec, rec.cyc + 1);
         gb_run(&ref, ref.cyc + 1);
         if (!same_state(&rec, &ref)) {
-            printf("Primera diferencia en el cuadro %ld, instrucción %ld del cuadro,\n", frame, step);
+            printf("DIFERENCIA en el cuadro %ld, instrucción %ld del cuadro,\n", frame, step);
             printf("  tras ejecutar %02X:%04X (opcode $%02X, %s)\n", bank, pc, op,
                    recomp ? "recompilada" : "intérprete");
             printf("  %s\n", diff_msg);
@@ -390,7 +415,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC\n", palette);
         return 2;
     }
-    rec.recomp_lookup = recomp_lookup;
+    rec.recomp_lookup = bench ? recomp_lookup : counting_lookup;
     rec.trace = count_interp;
     if (executed_path) ref.trace = mark_executed;
     if (save_path) {
@@ -432,7 +457,7 @@ int main(int argc, char **argv)
         gb_run(&rec, target);
         gb_run(&ref, target);
         if (!same_state(&rec, &ref)) {
-            printf("Diferencia al final del cuadro %ld: %s\n", frame, diff_msg);
+            printf("DIFERENCIA al final del cuadro %ld: %s\n", frame, diff_msg);
             /* Repetir el cuadro con las mismas entradas */
             gb_copy_state(&rec, &snap_rec);
             gb_copy_state(&ref, &snap_ref);
@@ -451,8 +476,12 @@ int main(int argc, char **argv)
         }
     }
 
+    if (ok)
+        printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
+               frames, recomp_calls + (unsigned long)rec.instr_interp, recomp_calls,
+               rec.cyc ? 100.0 * (double)recomp_cycles / (double)rec.cyc : 0.0);
     u64 total = rec.instr_recomp + rec.instr_interp;
-    printf("Instrucciones: %llu recompiladas, %llu en el intérprete (%.3f%% recompilado)\n",
+    printf("Instrucciones: %llu recompiladas, %llu en el intérprete (%.3f%% de las instrucciones)\n",
            (unsigned long long)rec.instr_recomp, (unsigned long long)rec.instr_interp,
            total ? 100.0 * rec.instr_recomp / total : 0.0);
     if (rec.instr_interp)
@@ -512,7 +541,7 @@ int main(int argc, char **argv)
             }
         if (ef) fclose(ef);
     }
-    if (distinct) printf("Direcciones de ROM interpretadas: %u\n", distinct);
+    if (distinct) printf("Instrucciones de ROM interpretadas: %u\n", distinct);
     if (rdistinct) printf("Direcciones de RAM interpretadas: %u\n", rdistinct);
     if (rs.fixed || rs.vol || rs.multi || rs.lost)
         printf("Código en WRAM/HRAM: %u instrucciones fijas, %u con operandos variables, %u con varias "
@@ -521,6 +550,5 @@ int main(int argc, char **argv)
     if (save_out && !gb_save_write(&rec, save_out, 0))
         fprintf(stderr, "no se pudo escribir %s\n", save_out);
 
-    printf(ok ? "Sin diferencias.\n" : "HAY DIFERENCIAS.\n");
     return ok ? 0 : 1;
 }

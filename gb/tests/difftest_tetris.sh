@@ -21,7 +21,7 @@ corre() {
     printf '%-40s ' "$1"
     shift
     if build/out/tetris/difftest$EXE "$ROM" "$@" > build/out/tetris/difftest.log 2>&1; then
-        grep -o '[0-9.]*% recompilado' build/out/tetris/difftest.log
+        grep -oE '[0-9.]+% de los ciclos' build/out/tetris/difftest.log
     else
         echo "DIFERENCIA"
         cat build/out/tetris/difftest.log

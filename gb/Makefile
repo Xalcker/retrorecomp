@@ -51,8 +51,9 @@ gbtest$(EXE): src/tools/gbtest.c $(SHARED)/png.c $(SHARED)/png.h src/platform/in
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbtest.c $(SHARED)/png.c $(BUILD)/libgbrt.a
 
 # Velocidad del runtime sin ventana (tests/golden.sh comprueba que no cambie nada)
-gbbench$(EXE): src/tools/gbbench.c src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbbench.c $(BUILD)/libgbrt.a
+# (src/platform/bench.c: el mismo archivo es el bench de los proyectos generados, con -DGB_RECOMP)
+gbbench$(EXE): src/platform/bench.c src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/platform/bench.c $(BUILD)/libgbrt.a
 
 # Herramientas sin ventana con las mismas opciones que las de NESRecomp (--frames, --input, --seed, --model)
 gbtrace$(EXE): src/tools/gbtrace.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h src/platform/ramtrace.h $(BUILD)/libgbrt.a
@@ -98,7 +99,7 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
                   recomp.h console.h save.c sgb.c compat.c
-EMBED_PLATFORM := main_sdl.c difftest.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h \

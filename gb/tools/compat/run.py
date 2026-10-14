@@ -40,7 +40,6 @@ class GB(compat.Sistema):
     categoria_nombre = "MBC"
     botones = ("A", "B")
     cuadros_diff = 3600              # un minuto de juego por semilla
-    metrica, re_metrica = "instrucciones", r"\(([\d.]+)% recompilado\)"
     compara = "CPU, ciclos, RAM, VRAM, OAM, registros, timer, PPU y RAM del cartucho al final de cada cuadro"
     escala_mini = 1
     cupo = {"ROM": 3, "MBC1": 10, "MBC1M": 2, "MBC2": 3, "MBC3": 6, "MBC5": 11}

@@ -1,5 +1,5 @@
 /*
- * Velocidad del runtime (intérprete, PPU, APU...) sin ventana ni límite de
+ * bench: velocidad de emulación (CPU, PPU, APU...) sin ventana ni límite de
  * cuadros.
  *
  * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]
@@ -11,16 +11,25 @@
  *   Sin --input ni --seed: Start en los cuadros 121-124 y la derecha desde el 401,
  *   el mismo guion que nesbench y genbench.
  * El audio se genera y se saca de la cola en cada cuadro, como en la ventana.
- * Para el código recompilado: difftest --bench en el proyecto generado.
+ * Compilado con -DGB_RECOMP (el bench del proyecto generado, que solo acepta la
+ * ROM que se recompiló) mide el código recompilado; sin él (gbbench), el
+ * intérprete. Como nesbench y el bench de los proyectos de NESRecomp.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "../runtime/console.h"
-#include "../runtime/gb.h"
-#include "../platform/inputs.h"
+#include "console.h"
+#include "gb.h"
+#include "inputs.h"
+#ifdef GB_RECOMP
+#include "recomp.h"
+#include "sha1.h"
+#define BENCH_NAME "bench"
+#else
+#define BENCH_NAME "gbbench"
+#endif
 
 static unsigned char *read_file(const char *path, long *size)
 {
@@ -57,12 +66,20 @@ int main(int argc, char **argv)
         else rom_path = argv[i];
     }
     if (!rom_path || frames <= 0 || repeat <= 0) {
-        fprintf(stderr, "uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]\n");
+        fprintf(stderr, "uso: " BENCH_NAME " rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]\n");
         return 2;
     }
     long size;
     unsigned char *rom = read_file(rom_path, &size);
     if (!rom) { fprintf(stderr, "no se pudo leer %s\n", rom_path); return 2; }
+#ifdef GB_RECOMP
+    char sha1[41];
+    sha1_hex(rom, (size_t)size, sha1);
+    if (strcmp(sha1, recomp_rom_sha1) != 0) {
+        fprintf(stderr, "la ROM no coincide: SHA1 %s, se esperaba %s\n", sha1, recomp_rom_sha1);
+        return 2;
+    }
+#endif
     InputScript script;
     if (input_path) {
         const char *ierr = inputs_load(&script, input_path);
@@ -77,6 +94,9 @@ int main(int argc, char **argv)
         const char *err = gb_init_model(&g, rom, (u32)size, model);
         if (err) { fprintf(stderr, "%s: %s\n", rom_path, err); return 2; }
         g.apu.enabled = 1;          /* como en la ventana: el APU mezcla y genera muestras */
+#ifdef GB_RECOMP
+        g.recomp_lookup = recomp_lookup;
+#endif
         if (input_path) script.pos = 0;
         RandomPad rp;
         random_pad_init(&rp, seed);

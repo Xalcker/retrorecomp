@@ -2561,6 +2561,8 @@ static void emit_readme(const char *dir, const char *name, const char *title, co
         "\n"
         "Prueba diferencial (código recompilado contra el intérprete):\n"
         "  ./difftest rom.gb --frames 6000 --seed 1\n"
+        "Velocidad del código recompilado (sin ventana):\n"
+        "  ./bench rom.gb --frames 3600\n"
         "\n"
         "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
         "  make web\n"
@@ -2610,14 +2612,14 @@ static void emit_makefile(const char *dir, const char *name)
         "RT_OBJ  := $(patsubst runtime/%%.c,build/rt_%%.o,$(wildcard runtime/*.c))\n"
         "GEN_OBJ := $(patsubst gen/%%.c,build/gen_%%.o,$(wildcard gen/*.c))\n\n"
         ".PHONY: all clean dist\n"
-        "all: %s$(EXE) difftest$(EXE)\n\n"
+        "all: %s$(EXE) difftest$(EXE) bench$(EXE)\n\n"
         "build:\n\tmkdir -p build\n\n"
         "build/rt_%%.o: runtime/%%.c $(wildcard runtime/*.h) | build\n"
         "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
         "build/gen_%%.o: gen/%%.c runtime/recomp.h runtime/cpu_ops.h runtime/gb.h | build\n"
         "\t$(CC) $(CFLAGS) $(INC) -c -o $@ $<\n\n"
-        "# Plataforma: ventana, menús, controles (todo menos difftest)\n"
-        "PLAT_OBJ := $(patsubst platform/%%.c,build/pl_%%.o,$(filter-out platform/difftest.c,$(wildcard platform/*.c)))\n\n"
+        "# Plataforma: ventana, menús, controles (todo menos difftest y bench)\n"
+        "PLAT_OBJ := $(patsubst platform/%%.c,build/pl_%%.o,$(filter-out platform/difftest.c platform/bench.c,$(wildcard platform/*.c)))\n\n"
         "build/pl_%%.o: platform/%%.c $(wildcard platform/*.h) $(wildcard runtime/*.h) | build\n"
         "\t$(CC) $(CFLAGS) $(INC) $(SDL_CFLAGS) -c -o $@ $<\n\n"
         "# Windows: el ícono del .exe (platform/icono.rc)\n"
@@ -2635,6 +2637,9 @@ static void emit_makefile(const char *dir, const char *name)
         "# Prueba diferencial: código recompilado contra el intérprete\n"
         "difftest$(EXE): platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^\n\n"
+        "# Velocidad del código recompilado, sin ventana (como el bench de NESRecomp y GENRecomp)\n"
+        "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
+        "\t$(CC) $(CFLAGS) $(INC) -DGB_RECOMP -o $@ $^\n\n"
         "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk)\n"
         "WEB_NAME   := %s\n"
         "WEB_TITLE  := %s\n"
@@ -2642,7 +2647,7 @@ static void emit_makefile(const char *dir, const char *name)
         "WEB_CACHE  := rom.gb\n"
         "WEB_ACCEPT := .gb,.gbc\n"
         "include platform/web.mk\n\n"
-        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE)\n",
+        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE) bench$(EXE)\n",
         name, name, name, name, name, name, name);
     fclose(f);
 }

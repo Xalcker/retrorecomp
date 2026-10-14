@@ -38,7 +38,7 @@ cd juego && make
 | Ninguno de los dos | Game Boy Color en modo de compatibilidad, coloreado con la paleta que le asigna la boot ROM según el título |
 
 Es lo que hace el ejecutable del juego. Las herramientas sin ventana
-(`gbtest`, `gbbench`, `difftest`) usan el automático del runtime, que a un
+(`gbtest`, `gbbench`, `difftest`, `bench`) usan el automático del runtime, que a un
 juego sin color ni SGB lo corre como Game Boy (DMG).
 
 `--model dmg|cgb|sgb` fuerza otro modelo. En el modo de compatibilidad,
@@ -117,12 +117,18 @@ build/out/sfa2/difftest roms/sfa2.gbc --frames 6000 --seed 1
 ```
 
 `difftest` juega solo, con entradas al azar, y compara el código recompilado
-contra el intérprete cuadro por cuadro:
+contra el intérprete cuadro por cuadro. El resumen es el mismo que en NESRecomp,
+GENRecomp y NEORecomp (con diferencias, en cambio, imprime líneas `DIFERENCIA ...`
+y sale con 1):
 
 ```
-Instrucciones: 66950387 recompiladas, 15236996 en el intérprete (81.461% recompilado)
-Sin diferencias.
+difftest: 6000 cuadros iguales (20993550 llamadas, 713352 a código recompilado, 76.0% de los ciclos)
+Instrucciones: 61658128 recompiladas, 20280198 en el intérprete (75.249% de las instrucciones)
+Instrucciones de ROM interpretadas: 10299
 ```
+
+`build/out/sfa2/bench roms/sfa2.gbc` mide la velocidad del código recompilado sin
+ventana, con las mismas opciones que `gbbench` (el intérprete).
 
 **En el navegador** (WebAssembly): `make -C build/out/sfa2 web` compila el mismo proyecto con Emscripten si
 está instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
@@ -131,8 +137,8 @@ la ROM (no va en el build), comprueba el SHA1 y la guarda en el navegador con la
 preferencias (IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make
 webtest` compila la de `cpu_instrs`.
 
-Si el porcentaje recompilado pasa de ~98 % y dice "Sin diferencias", ya está:
-salta al paso 6. Si queda bajo (aquí, 75–81 % según la semilla), es que hay
+Si el porcentaje de los ciclos pasa de ~98 % y no hay diferencias, ya está:
+salta al paso 6. Si queda bajo (aquí, 76 %), es que hay
 código al que el análisis estático no llega (saltos por punteros, tablas que
 no reconoce...). Lo que falta lo ejecuta el intérprete, así que el juego
 funciona igual, solo más lento. La traza lo resuelve.
@@ -143,21 +149,25 @@ funciona igual, solo más lento. La traza lo resuelve.
 sh tests/recomp_game.sh roms/sfa2.gbc sfa2
 ```
 
-Corre `difftest` con 3 semillas de 6000 cuadros, junta en `build/sfa2.trace`
-las direcciones que tuvo que ejecutar el intérprete, vuelve a recompilar con
-esa traza (`--trace`) y prueba otra vez (unos 3 minutos):
+Graba una traza guionada, corre `difftest` con 3 semillas de 6000 cuadros, junta
+en `build/sfa2.trace` las direcciones que tuvo que ejecutar el intérprete, vuelve
+a recompilar con esa traza (`--trace`) y prueba otra vez (poco más de un minuto):
 
 ```
 sfa2: primera ronda
-código: 6248 instrucciones (10519 bytes, 1.00% de la ROM) en 51 funciones
-  semilla 1    81.461% recompilado Direcciones de ROM interpretadas: 13821
-  semilla 2    81.035% recompilado Direcciones de ROM interpretadas: 13543
-  semilla 3    75.002% recompilado Direcciones de ROM interpretadas: 16582
-sfa2: con la traza (   17668 direcciones)
-código: 34659 instrucciones (59648 bytes, 5.69% de la ROM) en 118 funciones
-  semilla 1    99.428% recompilado
-  semilla 2    99.428% recompilado
-  semilla 3    99.419% recompilado
+código en WRAM/HRAM aprendido de la traza: 6 instrucciones (0 con operandos variables) en 1 bloques
+código: 31756 instrucciones (54256 bytes, 5.17% de la ROM) en 113 funciones
+destinos de punteros a código guardados en RAM: 5
+  semilla 1    99.6% de los ciclos Instrucciones de ROM interpretadas: 1363
+  semilla 2    99.9% de los ciclos Instrucciones de ROM interpretadas: 1287
+  semilla 3    99.9% de los ciclos Instrucciones de ROM interpretadas: 482
+sfa2: con la traza (   20302 direcciones)
+código en WRAM/HRAM aprendido de la traza: 6 instrucciones (0 con operandos variables) en 1 bloques
+código: 37393 instrucciones (64859 bytes, 6.19% de la ROM) en 129 funciones
+destinos de punteros a código guardados en RAM: 5
+  semilla 1    100.0% de los ciclos Instrucciones de ROM interpretadas: 1
+  semilla 2    100.0% de los ciclos
+  semilla 3    100.0% de los ciclos
 Sin diferencias.
 ```
 
@@ -436,7 +446,9 @@ detectaría, porque el código recompilado y el intérprete usan la misma PPU y
 el mismo APU. Tarda unos 30 s. Tras un cambio que sí debe cambiar la salida, se
 revisa a ojo y se regenera con `sh tests/golden.sh --update`. La velocidad se
 mide con `gbbench rom.gb [--frames N] [--repeat N] [--input archivo]`
-(intérprete sin ventana, con audio; reporta la más rápida de N corridas).
+(intérprete sin ventana, con audio; reporta la más rápida de N corridas), y la
+del código recompilado con el `bench` del proyecto generado, que es el mismo
+programa (`src/platform/bench.c`) con las mismas opciones.
 
 **Velocidad** (`gbbench`, intérprete con audio, sin ventana): Tetris ~48x,
 Super Mario Land ~55x, Pokémon Rojo ~43x, Tetris DX ~44x, Super Mario Bros.

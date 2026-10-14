@@ -415,6 +415,7 @@ static int export_base(App *app, const char *kind, char *out, size_t size)
  * --ui-export, grabando música y gráficos), abre un menú o hace
  * una acción, guarda la imagen y sale */
 static const char *ui_shot_path;
+static SDL_Surface *ui_shot_surface;   /* --ui-shot: se dibuja en una superficie, sin ventana */
 
 /* ¿Puede correr el juego en esta consola? Depende de la cabecera */
 static int model_allowed(const Rom *rom, int model)
@@ -463,13 +464,21 @@ static void game_size(const App *app, int *w, int *h)
     *h = border ? SGB_SCREEN_H : GB_SCREEN_H;
 }
 
+/* Tamaño de la ventana: la imagen a la escala elegida y la barra de menús */
+static void window_size(const App *app, int *w, int *h)
+{
+    int gw, gh;
+    game_size(app, &gw, &gh);
+    *w = gw * app->cfg.scale;
+    *h = gh * app->cfg.scale + menubar_height(ui_scale(*w));
+}
+
 static void resize_window(App *app)
 {
     if (app->fullscreen) return;
-    int gw, gh;
-    game_size(app, &gw, &gh);
-    int w = gw * app->cfg.scale;
-    SDL_SetWindowSize(app->win, w, gh * app->cfg.scale + menubar_height(ui_scale(w)));
+    int w, h;
+    window_size(app, &w, &h);
+    SDL_SetWindowSize(app->win, w, h);
 }
 
 /* Paleta del modo de compatibilidad del GBC: la misma para los dos Game Boy
@@ -1572,6 +1581,20 @@ int main(int argc, char *argv[])
             app->bar.open = shot_menu;
             app->bar.hover = -1;
         }
+        /* Se dibuja en una superficie del tamaño de la ventana, como en NESRecomp y GENRecomp: macOS
+         * aplica tarde el tamaño nuevo de la ventana oculta y el juego salía con el de antes (escala 3
+         * y bordes negros) */
+        int sw, sh;
+        window_size(app, &sw, &sh);
+        ui_shot_surface = SDL_CreateRGBSurfaceWithFormat(0, sw, sh, 32, SDL_PIXELFORMAT_ARGB8888);
+        SDL_Renderer *sren = ui_shot_surface ? SDL_CreateSoftwareRenderer(ui_shot_surface) : NULL;
+        if (sren) {
+            if (app->tex) SDL_DestroyTexture(app->tex);
+            app->tex = NULL;
+            app->tex_w = app->tex_h = 0;
+            SDL_DestroyRenderer(app->ren);
+            app->ren = sren;
+        }
         render(app);
         app->running = 0;
     } else {
@@ -1624,6 +1647,7 @@ int main(int argc, char *argv[])
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
     SDL_DestroyRenderer(app->ren);
+    SDL_FreeSurface(ui_shot_surface);
     SDL_DestroyWindow(app->win);
     SDL_free(app->pref);
     SDL_Quit();

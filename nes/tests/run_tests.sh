@@ -82,17 +82,12 @@ if [ -x ./nesrecomp ] && ./nestrace $T/other/nestest.nes build/rt_nueva.trace --
         echo "ok   traza BANCO:DIRECCION y la vieja"
     else echo "FALLA traza BANCO:DIRECCION y la vieja"; fail=1; fi
 fi
-# Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
+# Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
+# ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x ./nes ]; then
-    for m in 0 1 2 3 4 5 6 7; do
-        ./nes $T/other/nestest.nes --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
-            && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; fail=1; }
-    done
-    for a in 40 41 42; do
-        ./nes $T/other/nestest.nes --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
-            && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; fail=1; }
-    done
-    echo "ok   interfaz (8 menús, 3 diálogos)"
+    if sh tools/retrorecomp/shared/ui_golden.sh ./nes $T/other/nestest.nes tests/ui_golden.txt "0 1 2 3 4 5 6 7" "40 42" > build/ui_golden.out 2>&1; then
+        echo "ok   interfaz (8 menús, 2 diálogos, contra la referencia; «Este juego» depende de la máquina y no entra)"
+    else cat build/ui_golden.out; fail=1; fi
 fi
 [ $fail = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"
 exit $fail

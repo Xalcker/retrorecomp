@@ -328,6 +328,12 @@ int  apu_take(NES *n, int16_t *dst, int max);    /* saca muestras mono de 44100 
 /* Traza de ejecución (para guiar al recompilador) */
 void nes_trace_start(NES *n);
 void nes_trace_note(NES *n, u16 pc);
+/* Con la traza activa, el intérprete también anota el código que ejecuta desde la RAM interna ($0000-$1FFF,
+ * con la dirección de sus espejos tal cual), en líneas "ram" de ram_code.h que la misma traza escribe y lee:
+ * nesrecomp --trace lo compila con una guarda. La tabla va aparte de NES (los estados guardados la copian
+ * entera y validan su tamaño) */
+void nes_ram_note(NES *n, u16 pc);
+void nes_ram_summary(const NES *n, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost);
 int  nes_trace_write(const NES *n, const char *path);     /* líneas "BANCO:DIRECCION" (trace_line.h) */
 #define NES_TRACE_SHIFT 13                                /* bancos de la traza: ventanas de 8 KB del PRG */
 

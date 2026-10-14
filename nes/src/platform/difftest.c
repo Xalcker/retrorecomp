@@ -159,6 +159,7 @@ int main(int argc, char **argv)
 
     unsigned long calls = 0, recomp_calls = 0;
     u64 recomp_cycles = 0;
+    u64 interp_zone[4] = { 0 };     /* ciclos del intérprete por zona del PC: PRG, RAM, RAM del cartucho, otra */
     for (long f = 0; f < frames; f++) {
         A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
         A.pad[1] = B.pad[1] = cli_pad(&c, f, 1);
@@ -167,7 +168,10 @@ int main(int argc, char **argv)
             u16 pc0 = B.cpu.pc; u64 c0 = B.cyc;
             RecompFn fn = recomp_lookup(&B, B.cpu.pc);
             if (fn && !B.cpu.jammed) { fn(&B); recomp_calls++; recomp_cycles += B.cyc - c0; }
-            else cpu_step(&B);
+            else {
+                cpu_step(&B);
+                interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
+            }
             calls++;
             while (A.cyc < B.cyc) cpu_step(&A);
             if (compare(0) || A.ppu.frame_done != B.ppu.frame_done) {
@@ -188,6 +192,11 @@ int main(int argc, char **argv)
             if (!save_screen(&B, path)) fprintf(stderr, "no pude escribir %s\n", path);
         }
     }
+    u64 interp = interp_zone[0] + interp_zone[1] + interp_zone[2] + interp_zone[3];
+    if (interp)
+        printf("Intérprete por zona: PRG %.1f%%, RAM %.1f%%, RAM del cartucho %.1f%%, otra %.1f%%\n",
+               100.0 * interp_zone[0] / interp, 100.0 * interp_zone[1] / interp,
+               100.0 * interp_zone[2] / interp, 100.0 * interp_zone[3] / interp);
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * recomp_cycles / B.cyc : 0.0);
     if (uncovered) {
@@ -195,6 +204,11 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;
         if (!nes_trace_write(&B, uncovered)) { fprintf(stderr, "no pude escribir %s\n", uncovered); return 2; }
         printf("Instrucciones de PRG interpretadas: %zu\n", cnt);
+        unsigned fixed, vol, multi, lost;
+        nes_ram_summary(&B, &fixed, &vol, &multi, &lost);
+        if (fixed || vol || lost)
+            printf("Código en RAM: %u instrucciones fijas, %u con operandos variables, %u direcciones con varias versiones, "
+                   "%u que cambian demasiado\n", fixed, vol, multi, lost);
     }
     if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
     return 0;

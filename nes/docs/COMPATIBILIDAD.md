@@ -70,10 +70,10 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   **Impacto real: despreciable.** En las ROMs aprobadas, la mediana de ciclos que cae al intérprete es 0 %; MMC1 (6 ROMs)
   y MMC3 (8) quedan en 0,0 % y 0,1 % como máximo, y el peor caso sin contar 3-D WorldRunner es 1,1 % (Gemfire, MMC5).
   Por eso no se justifica la complejidad de emitir una función por cada par (desplazamiento, dirección).
-- **3-D WorldRunner** (mapper 2) corre solo el 57-62 % de los ciclos en código recompilado, con 0 instrucciones de PRG
-  interpretadas. Medido con un sondeo que cuenta ciclos por página de PC (1500 cuadros): ~28 % de los ciclos se ejecutan en
-  `$0000-$0FFF`, es decir, desde RAM (el juego copia rutinas ahí), que el recompilador no puede cubrir. Es un límite del
-  método (código generado en tiempo de ejecución), no un fallo; los demás juegos pasan del 98 %.
+- **3-D WorldRunner** (mapper 2) corría solo el 57-62 % de los ciclos en código recompilado, con 0 instrucciones de PRG
+  interpretadas: el resto era un bucle de espera del NMI en la RAM (`$0760`). Ahora ese código se aprende de la traza
+  (ver «Código que el juego copia a la RAM» en `ARQUITECTURA.md`) y el ciclo de `tests/recomp_game.sh` llega al 100 %
+  (1500 cuadros, semilla 1, sin diferencias).
 - **Velocidad** del proyecto generado (MinGW, `-O2`, un solo hilo, medida sin otra carga): mediana 21× tiempo real; entre
   10,7× (juegos MMC5, MMC1 grandes) y 39× (R.C. Pro-Am). Varía de una corrida a otra (una medición anterior dio la mitad
   con la máquina ocupada). El README cita 39× para Super Mario Bros. en otra

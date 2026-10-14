@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "nes.h"
+#include "cpu_ops.h"
+#include "ram_code.h"
 #include "trace_line.h"
 
 int nes_load(NES *n, const u8 *d, size_t len, const char **err)
@@ -386,9 +388,49 @@ int nes_sram_dirty(const NES *n)
 
 /* ---- Traza de ejecución ---- */
 
+/* Código ejecutado desde la RAM interna, por máquina (difftest tiene dos) */
+static struct { const NES *n; RcTable t; } ram_tabs[4];
+
+static RcTable *ram_table(const NES *n, int create)
+{
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (ram_tabs[i].n == n) return &ram_tabs[i].t;
+    if (!create) return NULL;
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (!ram_tabs[i].n) {
+            if (!rc_init(&ram_tabs[i].t, 0x0000, 0x2000)) return NULL;
+            ram_tabs[i].n = n;
+            return &ram_tabs[i].t;
+        }
+    return NULL;
+}
+
+/* Lo que identifica una instrucción del 6502 es su opcode (la longitud depende solo de él) y, en los saltos
+ * relativos, el desplazamiento: el código generado calcula el destino y si cruza de página al compilar. Los
+ * demás operandos los lee de RAM al ejecutar, como el intérprete */
+void nes_ram_note(NES *n, u16 pc)
+{
+    RcTable *t = ram_table(n, 0);
+    if (!t) return;
+    const Ins *in = &ins_tab[n->ram[pc & 0x7FF]];
+    unsigned len = mode_len[in->mode];
+    u8 b[3];
+    for (unsigned i = 0; i < len; i++) b[i] = n->ram[(pc + i) & 0x7FF];
+    if (pc + len <= 0x2000) rc_observe(t, pc, b, len, in->mode == REL ? 2 : 1);
+}
+
+void nes_ram_summary(const NES *n, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost)
+{
+    RcTable *t = ram_table(n, 0);
+    RcSummary s = { 0, 0, 0, 0 };
+    if (t) s = rc_summary(t);
+    *fixed = s.fixed; *vol = s.vol; *multi = s.multi; *lost = s.lost;
+}
+
 void nes_trace_start(NES *n)
 {
     if (!n->trace) n->trace = calloc(n->cart.prg_size, sizeof *n->trace);
+    ram_table(n, 1);
 }
 
 void nes_trace_note(NES *n, u16 pc)
@@ -404,6 +446,8 @@ int nes_trace_write(const NES *n, const char *path)
     if (!f) return 0;
     for (size_t i = 0; i < n->cart.prg_size; i++)
         if (n->trace[i]) trace_line_write(f, NES_TRACE_SHIFT, 4, i, n->trace[i] & 0xFFFF);
+    RcTable *t = ram_table(n, 0);
+    if (t) rc_write(t, f, 4);
     return fclose(f) == 0;
 }
 
@@ -415,9 +459,14 @@ int nes_trace_load(NES *n, const char *path)
     char line[64];
     unsigned long off, addr;
     int k = 0;
+    RcTable *t = ram_table(n, 0);
+    RcIns in;
     while (fgets(line, sizeof line, f))
-        if (trace_line_read(line, NES_TRACE_SHIFT, &off, &addr) && off < n->cart.prg_size && !n->trace[off]) {
-            n->trace[off] = 0x10000u | (u32)addr; k++;
+        if (trace_line_read(line, NES_TRACE_SHIFT, &off, &addr)) {
+            if (off < n->cart.prg_size && !n->trace[off]) { n->trace[off] = 0x10000u | (u32)addr; k++; }
+        } else if (t && rc_parse(line, &in)) {
+            in.key = ins_tab[in.bytes[0]].mode == REL ? 2 : 1;
+            if (!(in.vol & 1) && in.len == mode_len[ins_tab[in.bytes[0]].mode]) rc_add(t, &in);
         }
     fclose(f);
     return k;

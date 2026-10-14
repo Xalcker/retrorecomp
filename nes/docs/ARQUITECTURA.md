@@ -75,9 +75,9 @@ Super Mario Bros. corre a ~55x tiempo real en el código recompilado y ~42x en e
 ## Interrupciones y despachador
 
 `nes_run_frame` corre hasta que la PPU termina el cuadro. En cada vuelta busca la función
-recompilada que contiene el PC (`recomp_lookup`); si no hay (código en RAM o que el descubrimiento
-no encontró, o `--interp`), ejecuta una instrucción con el intérprete (`cpu_step`) y vuelve a
-buscar. Así el código recompilado y el intérprete se alternan sin perder un ciclo.
+recompilada que contiene el PC (`recomp_lookup`; en la RAM interna, `ram_lookup`, ver «Código que el
+juego copia a la RAM»); si no hay (código que el descubrimiento no encontró ni aprendió la traza, o
+`--interp`), ejecuta una instrucción con el intérprete (`cpu_step`) y vuelve a buscar. Así el código recompilado y el intérprete se alternan sin perder un ciclo.
 
 `recomp_lookup` (generado en `gen/dispatch.c`) traduce el PC a desplazamiento de PRG con el mapeo
 actual (`mapper_prg_offset`) y busca en la tabla de funciones ordenada por desplazamiento, empezando
@@ -187,6 +187,39 @@ L_8000: /* lda #$10 */
   `MAPCHK` revisa `cart.map_ver` (sube con cada escritura al mapper) y sale al despachador si el
   mapeo cambió.
 - Las funciones no cruzan un múltiplo del tamaño mínimo de ventana (`mapper_prg_granule`).
+
+### Código que el juego copia a la RAM
+
+Algunos juegos copian código a la RAM interna y lo ejecutan desde ahí: 3-D WorldRunner espera el NMI en un
+bucle en `$0760` (`bit $2002` / `bvc` y un `jmp` sobre sí mismo), y eso era el 38 % de sus ciclos, todos en
+el intérprete. No está en el PRG, así que el descubrimiento no llega. Se aprende de la traza con el módulo
+común de retrorecomp, `shared/ram_code.h`, que salió de lo que hizo GBRecomp:
+
+1. Con la traza activa (`difftest --uncovered`, el ejecutable con `--uncovered`, `nestrace`), `cpu_step`
+   anota con `nes_ram_note` cada instrucción que ejecuta en `$0000-$1FFF` (con la dirección del espejo tal
+   cual): hasta 4 versiones por dirección y qué bytes cambiaron entre ejecuciones. La tabla va aparte de
+   `NES`, porque los estados guardados la copian entera y comprueban su tamaño. Salen como líneas
+   `ram DIRECCION B0 [B1 B2]` (`??` en los bytes que cambiaron) en el mismo archivo de la traza, que
+   `trace_line_read` ignora; el ejecutable, que carga el archivo y lo vuelve a escribir, conserva las que
+   traía.
+2. **Qué identifica una instrucción:** su opcode y, en los saltos relativos, el desplazamiento (el destino y si
+   cruza de página se deciden al compilar). Los demás operandos pueden cambiar sin que sea otra instrucción:
+   un inmediato o una dirección que el juego parcha se leen de RAM al ejecutar (`ram_b`), y un `jmp`/`jsr` con
+   destino variable sale al despachador con el que haya.
+3. `nesrecomp --trace` une lo visto en varias corridas, descarta las direcciones con más de 8 versiones y
+   arma **bloques**: cadenas de instrucciones sin ambigüedad. Cada bloque es una función de `gen/ram.c` que se
+   emite con el mismo cuerpo que las del PRG (`emit_ins_body`, que recibe los operandos como expresiones:
+   literales en el PRG, lecturas de RAM en lo variable). El código de las funciones del PRG no cambia.
+4. **La guarda:** `ram_lookup`, al que `recomp_lookup` pregunta por `$0000-$1FFF`, elige el primer bloque cuyos
+   bytes fijos (opcodes y desplazamientos) siguen en RAM; si no, el intérprete. Se comprueba al entrar al
+   bloque, no por instrucción: un bloque que reescribe un opcode propio mientras corre sigue con lo aprendido
+   hasta la siguiente entrada; `difftest` lo delataría.
+
+La RAM del cartucho (`$6000-$7FFF`) sigue en el intérprete: en los juegos medidos pesa poco (Gradius 2, ~1.7 % de
+los ciclos; Zelda, 0.3 %) y depende del mapper. `tests/run_tests.sh` lo prueba con una ROM NROM hecha ahí mismo que
+copia una rutina a `$0300`, la llama en un bucle y parcha el inmediato de su `lda`: la segunda ronda compila 6
+instrucciones (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `nestrace` y el
+ejecutable anotan las mismas líneas que `difftest`.
 
 ### Proyecto generado
 

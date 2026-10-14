@@ -19,8 +19,10 @@
  *      mismo orden, que el intérprete; las operaciones son las de cpu_ops.h.
  *
  * Las instrucciones se identifican por su desplazamiento en la ROM, no por la
- * dirección del CPU: lo que no se descubrió, o está en RAM, lo ejecuta el
- * intérprete. Descubrir de más no rompe nada; de menos, tampoco.
+ * dirección del CPU: lo que no se descubrió lo ejecuta el intérprete.
+ * Descubrir de más no rompe nada; de menos, tampoco. El código que el juego
+ * copia a la RAM interna se aprende de las líneas "ram" de la traza y va a
+ * gen/ram.c con una guarda (emit_ram).
  */
 #ifndef _WIN32
 #define _DEFAULT_SOURCE
@@ -45,6 +47,7 @@
 #include "../runtime/console.h"
 #include "sha1.h"
 #include "trace_line.h"
+#include "ram_code.h"
 #include "embedded.h"
 
 #ifndef NESRECOMP_VERSION
@@ -610,15 +613,32 @@ static size_t why_arg(const char *arg)
     return trace_line_read(arg, TRACE_SHIFT, &off, &addr) ? off : strtoul(arg, NULL, 16);
 }
 
-/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION") */
+static RcList ram_list;              /* instrucciones de RAM de las trazas (líneas "ram") */
+
+/* Una línea "ram" válida: en la RAM interna ($0000-$1FFF), con la longitud que pide su opcode y sin variar lo que
+ * identifica la instrucción (el opcode; en los saltos relativos, también el desplazamiento) */
+static void add_ram_line(RcIns *in)
+{
+    const Ins *ins = &ins_tab[in->bytes[0]];
+    in->key = ins->mode == REL ? 2 : 1;
+    if (in->addr + in->len > 0x2000 || in->len != mode_len[ins->mode] || (in->vol & ((1u << in->key) - 1))) return;
+    if (!rc_list_add(&ram_list, in)) die("sin memoria");
+}
+
+/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION"), más las líneas
+ * "ram" del código que corrió desde la RAM */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
     if (!f) die("no se pudo abrir %s", path);
     char line[64];
     unsigned long off, addr;
+    RcIns in;
     while (fgets(line, sizeof line, f)) {
-        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr)) continue;
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr)) {
+            if (rc_parse(line, &in)) add_ram_line(&in);
+            continue;
+        }
         if (off >= prg_size || addr < 0x8000) continue;
         seed(off, (u16)addr, HOW_TRACE);
         stat_trace++;
@@ -696,11 +716,9 @@ static void upper(char *dst, const char *src)
     *dst = 0;
 }
 
-static void disasm(size_t off, char *out, size_t sz)
+static void disasm_bytes(u8 opc, u16 a, u8 b1, u8 b2, char *out, size_t sz)
 {
-    const Ins *in = &ins_tab[site[off].opc];
-    u16 a = site[off].addr;
-    u8 b1 = cart->prg[off + 1 < prg_size ? off + 1 : off], b2 = cart->prg[off + 2 < prg_size ? off + 2 : off];
+    const Ins *in = &ins_tab[opc];
     u16 w = b1 | (b2 << 8);
     const char *m = op_names[in->op];
     switch (in->mode) {
@@ -718,6 +736,12 @@ static void disasm(size_t off, char *out, size_t sz)
     case IZY: snprintf(out, sz, "%s ($%02X),y", m, b1); break;
     default:  snprintf(out, sz, "%s $%04X", m, (u16)(a + 2 + (int8_t)b1)); break;
     }
+}
+
+static void disasm(size_t off, char *out, size_t sz)
+{
+    disasm_bytes(site[off].opc, site[off].addr, cart->prg[off + 1 < prg_size ? off + 1 : off],
+                 cart->prg[off + 2 < prg_size ? off + 2 : off], out, sz);
 }
 
 /* ¿El destino 'target' (visto desde la instrucción en off) es una instrucción de la misma función? */
@@ -744,70 +768,79 @@ static int may_write_mapper(size_t off)
     }
 }
 
-static void emit_ins(FILE *f, size_t off)
-{
-    const Site *s = &site[off];
-    const Ins *in = &ins_tab[s->opc];
-    int op = in->op, mode = in->mode, len = mode_len[mode], kind = op_kind(op);
-    u16 addr = s->addr, next = (u16)(addr + len);
-    u8 b1 = len > 1 ? cart->prg[off + 1] : 0;
-    u16 w = b1 | (len > 2 ? cart->prg[off + 2] << 8 : 0);
-    char dis[64], opn[8];
-    disasm(off, dis, sizeof dis);
-    upper(opn, op_names[op]);
-    int terminal = 0;
+/* Una instrucción para emitir: la de la ROM, o una de RAM aprendida de la traza (emit_ram). Los operandos van
+ * como expresiones de C: literales en la ROM; en RAM, los que el juego cambia se leen al ejecutar */
+typedef struct {
+    u8 opc;
+    u16 addr;
+    u8 b1;                       /* primer byte de operando (constante) */
+    u16 w;                       /* los dos (constante) */
+    const char *B1, *W, *WH;     /* b1, w y el byte alto de w como expresiones */
+    int w_const;                 /* w es constante: un JMP o un JSR tienen destino fijo */
+    int (*here)(const void *ctx, u16 target);   /* ¿target es una instrucción de esta función o bloque? */
+    const void *ctx;
+} EmitIns;
 
-    fprintf(f, "L_%04X: /* %s */\n    FRAME(0x%04X);\n", addr, dis, addr);
+/* El cuerpo de la instrucción; 1 si termina el flujo (ya salió o saltó: no sigue con la siguiente) */
+static int emit_ins_body(FILE *f, const EmitIns *e)
+{
+    const Ins *in = &ins_tab[e->opc];
+    int op = in->op, mode = in->mode, kind = op_kind(op);
+    u16 addr = e->addr;
+    char opn[8];
+    upper(opn, op_names[op]);
 
     switch (op) {
     case JSR: {
         u16 ret = (u16)(addr + 2);
-        fprintf(f, "    TICKS(3);\n    push(n, 0x%02X); push(n, 0x%02X);\n    TICK();\n    LEAVE(0x%04X);\n",
-                ret >> 8, ret & 0xFF, mapper_prg_canon(cart, w));
-        return; }
+        fprintf(f, "    TICKS(3);\n    push(n, 0x%02X); push(n, 0x%02X);\n    TICK();\n", ret >> 8, ret & 0xFF);
+        if (e->w_const) fprintf(f, "    LEAVE(0x%04X);\n", mapper_prg_canon(cart, e->w));
+        else fprintf(f, "    LEAVE(%s);\n", e->W);
+        return 1; }
     case RTS:
         fprintf(f, "    TICKS(3);\n"
                    "    { u16 lo = pull(n); u16 hi = pull(n); c->pc = (u16)((hi << 8) | lo); }\n"
                    "    RD(c->pc); c->pc++;\n"
                    "    if (UNLIKELY(n->prev_need_nmi | n->prev_run_irq)) nes_interrupt(n, 0);\n    return;\n");
-        return;
+        return 1;
     case RTI:
         fprintf(f, "    TICKS(3);\n"
                    "    c->p = (pull(n) & ~FLAG_B) | FLAG_U;\n"
                    "    { u16 lo = pull(n); u16 hi = pull(n); c->pc = (u16)((hi << 8) | lo); }\n"
                    "    if (UNLIKELY(n->prev_need_nmi | n->prev_run_irq)) nes_interrupt(n, 0);\n    return;\n");
-        return;
+        return 1;
     case BRK:
         fprintf(f, "    TICK();\n    c->pc = 0x%04X; nes_interrupt(n, 1);\n    return;\n", (u16)(addr + 1));
-        return;
+        return 1;
     case JAM:
         fprintf(f, "    TICK();\n    c->jammed = 1;\n    LEAVE(0x%04X);\n", addr);
-        return;
+        return 1;
     case PHA: fprintf(f, "    TICKS(2);\n    push(n, c->a);\n"); break;
     case PHP: fprintf(f, "    TICKS(2);\n    push(n, c->p | FLAG_B | FLAG_U);\n"); break;
     case PLA: fprintf(f, "    TICKS(3);\n    c->a = pull(n); set_nz(c, c->a);\n"); break;
     case PLP: fprintf(f, "    TICKS(3);\n    c->p = (pull(n) & ~FLAG_B) | FLAG_U;\n"); break;
     case BCC: case BCS: case BEQ: case BMI: case BNE: case BPL: case BVC: case BVS: {
-        u16 tgt = (u16)(addr + 2 + (int8_t)b1);
+        u16 tgt = (u16)(addr + 2 + (int8_t)e->b1);       /* el desplazamiento es parte de la instrucción: constante */
         int cross = ((addr + 2) ^ tgt) & 0xFF00;
         fprintf(f, "    TICKS(2);\n    if (op_branch_taken(c, %s)) {\n", opn);
         if (!cross) fprintf(f, "        if (UNLIKELY(n->run_irq & !n->prev_run_irq)) n->run_irq = 0;   /* ignora un IRQ recién llegado */\n");
         fprintf(f, "        TICK();%s\n", cross ? " TICK();" : "");
-        if (in_func(off, tgt)) fprintf(f, "        ICHK(0x%04X);\n        goto L_%04X;\n    }\n", tgt, tgt);
+        if (e->here(e->ctx, tgt)) fprintf(f, "        ICHK(0x%04X);\n        goto L_%04X;\n    }\n", tgt, tgt);
         else fprintf(f, "        LEAVE(0x%04X);\n    }\n", tgt);
         break; }
     case JMP:
         fprintf(f, "    TICKS(3);\n");
-        if (mode == ABS) {
-            u16 t = mapper_prg_canon(cart, w);
-            if (in_func(off, t)) fprintf(f, "    ICHK(0x%04X);\n    goto L_%04X;\n", t, t);
+        if (mode == ABS && e->w_const) {
+            u16 t = mapper_prg_canon(cart, e->w);
+            if (e->here(e->ctx, t)) fprintf(f, "    ICHK(0x%04X);\n    goto L_%04X;\n", t, t);
             else fprintf(f, "    LEAVE(0x%04X);\n", t);
+        } else if (mode == ABS) {
+            fprintf(f, "    LEAVE(%s);\n", e->W);
         } else {
-            fprintf(f, "    { u16 p = 0x%04X; u16 ea = RD(p); ea |= RD((p & 0xFF00) | ((p + 1) & 0xFF)) << 8;\n"
-                       "      LEAVE(ea); }\n", w);
+            fprintf(f, "    { u16 p = %s; u16 ea = RD(p); ea |= RD((p & 0xFF00) | ((p + 1) & 0xFF)) << 8;\n"
+                       "      LEAVE(ea); }\n", e->W);
         }
-        terminal = 1;
-        break;
+        return 1;
     default: {
         /* Direccionamiento */
         int store_unstable = op == AHX || op == TAS || op == SHY || op == SHX;
@@ -816,29 +849,29 @@ static void emit_ins(FILE *f, size_t off)
         switch (mode) {
         case IMP: case ACC: fprintf(f, "        TICKS(2);\n"); has_ea = 0; break;
         case IMM: fprintf(f, "        TICKS(2);\n"); has_ea = 0; break;
-        case ZP:  fprintf(f, "        TICKS(2);\n        u16 ea = 0x%02X;\n", b1); break;
+        case ZP:  fprintf(f, "        TICKS(2);\n        u16 ea = %s;\n", e->B1); break;
         case ZPX: case ZPY:
-            fprintf(f, "        TICKS(3);\n        u16 ea = (u8)(0x%02X + c->%c);\n", b1, mode == ZPX ? 'x' : 'y');
+            fprintf(f, "        TICKS(3);\n        u16 ea = (u8)(%s + c->%c);\n", e->B1, mode == ZPX ? 'x' : 'y');
             break;
-        case ABS: fprintf(f, "        TICKS(3);\n        n->bus = 0x%02X;                  /* bus abierto: lo último que se leyó fue el byte alto */\n        u16 ea = 0x%04X;\n", w >> 8, w); break;
+        case ABS: fprintf(f, "        TICKS(3);\n        n->bus = %s;                  /* bus abierto: lo último que se leyó fue el byte alto */\n        u16 ea = %s;\n", e->WH, e->W); break;
         case ABX: case ABY:
             fprintf(f, "        TICKS(3);\n"
-                       "        u16 ea = (u16)(0x%04X + c->%c);\n"
-                       "        int cross = (0x%04X ^ ea) & 0xFF00;\n", w, mode == ABX ? 'x' : 'y', w);
-            if (kind == K_READ) fprintf(f, "        if (cross) RD((0x%04X & 0xFF00) | (ea & 0xFF)); else n->bus = 0x%02X;\n", w, w >> 8);
-            else fprintf(f, "        RD((0x%04X & 0xFF00) | (ea & 0xFF));\n", w);
+                       "        u16 ea = (u16)(%s + c->%c);\n"
+                       "        int cross = (%s ^ ea) & 0xFF00;\n", e->W, mode == ABX ? 'x' : 'y', e->W);
+            if (kind == K_READ) fprintf(f, "        if (cross) RD((%s & 0xFF00) | (ea & 0xFF)); else n->bus = %s;\n", e->W, e->WH);
+            else fprintf(f, "        RD((%s & 0xFF00) | (ea & 0xFF));\n", e->W);
             if (!store_unstable) fprintf(f, "        (void)cross;\n");
             break;
         case IZX:
             fprintf(f, "        TICKS(3);\n"
-                       "        u8 z = (u8)(0x%02X + c->x);\n"
-                       "        u16 ea = RD(z); ea |= RD((u8)(z + 1)) << 8;\n", b1);
+                       "        u8 z = (u8)(%s + c->x);\n"
+                       "        u16 ea = RD(z); ea |= RD((u8)(z + 1)) << 8;\n", e->B1);
             break;
         case IZY:
             fprintf(f, "        TICKS(2);\n"
-                       "        u16 base = RD(0x%02X); base |= RD((u8)(0x%02X + 1)) << 8;\n"
+                       "        u16 base = RD(%s); base |= RD((u8)(%s + 1)) << 8;\n"
                        "        u16 ea = (u16)(base + c->y);\n"
-                       "        int cross = (base ^ ea) & 0xFF00;\n", b1, b1);
+                       "        int cross = (base ^ ea) & 0xFF00;\n", e->B1, e->B1);
             if (kind == K_READ) fprintf(f, "        if (cross) RD((base & 0xFF00) | (ea & 0xFF));\n");
             else fprintf(f, "        RD((base & 0xFF00) | (ea & 0xFF));\n");
             if (!store_unstable) fprintf(f, "        (void)cross; (void)base;\n");
@@ -846,16 +879,11 @@ static void emit_ins(FILE *f, size_t off)
         }
         switch (kind) {
         case K_READ:
-            if (mode == IMM) fprintf(f, "        op_read(c, %s, 0x%02X);\n", opn, b1);
+            if (mode == IMM) fprintf(f, "        op_read(c, %s, %s);\n", opn, e->B1);
             else if (has_ea) fprintf(f, "        op_read(c, %s, RD(ea));\n", opn);
             break;
         case K_WRITE:
-            if (store_unstable)
-            {
-                char bs[16];
-                if (mode == IZY) snprintf(bs, sizeof bs, "base"); else snprintf(bs, sizeof bs, "0x%04X", w);
-                fprintf(f, "        cpu_unstable_store(n, %s, %s, ea, cross);\n", opn, bs);
-            }
+            if (store_unstable) fprintf(f, "        cpu_unstable_store(n, %s, %s, ea, cross);\n", opn, mode == IZY ? "base" : e->W);
             else fprintf(f, "        WR(ea, op_store(c, %s));\n", opn);
             break;
         case K_RMW:
@@ -869,8 +897,28 @@ static void emit_ins(FILE *f, size_t off)
         fprintf(f, "    }\n");
         break; }
     }
+    return 0;
+}
 
-    if (terminal) return;
+static int rom_here(const void *ctx, u16 target) { return in_func(*(const size_t *)ctx, target); }
+
+static void emit_ins(FILE *f, size_t off)
+{
+    const Site *s = &site[off];
+    const Ins *in = &ins_tab[s->opc];
+    int len = mode_len[in->mode];
+    u16 addr = s->addr, next = (u16)(addr + len);
+    u8 b1 = len > 1 ? cart->prg[off + 1] : 0;
+    u16 w = b1 | (len > 2 ? cart->prg[off + 2] << 8 : 0);
+    char dis[64], B1[8], W[8], WH[8];
+    disasm(off, dis, sizeof dis);
+    snprintf(B1, sizeof B1, "0x%02X", b1);
+    snprintf(W, sizeof W, "0x%04X", w);
+    snprintf(WH, sizeof WH, "0x%02X", w >> 8);
+    EmitIns e = { s->opc, addr, b1, w, B1, W, WH, 1, rom_here, &off };
+
+    fprintf(f, "L_%04X: /* %s */\n    FRAME(0x%04X);\n", addr, dis, addr);
+    if (emit_ins_body(f, &e)) return;
     fprintf(f, "    ICHK(0x%04X);\n", next);
     PrgWin w2; mapper_prg_window(cart, addr, &w2);
     if (!w2.fixed && may_write_mapper(off)) fprintf(f, "    MAPCHK(0x%04X);\n", next);
@@ -898,6 +946,7 @@ static void emit_code(const char *dir)
     FILE *h = open_out(dir, "gen/gen.h");
     fprintf(h, "/* Generado por nesrecomp: no editar. */\n#ifndef GEN_H\n#define GEN_H\n#include \"recomp.h\"\n\n");
     for (size_t i = 0; i < nfuncs; i++) fprintf(h, "void f_%06zX(NES *n);\n", funcs[i].lo);
+    fprintf(h, "RecompFn ram_lookup(NES *n, u16 pc);     /* gen/ram.c: el código aprendido de RAM */\n");
     fprintf(h, "\n#endif\n");
     fclose(h);
 
@@ -943,11 +992,104 @@ static void emit_dispatch(const char *dir)
     fprintf(f, "\n};\n\n"
                "RecompFn recomp_lookup(NES *n, u16 pc)\n{\n"
                "    long off = mapper_prg_offset(&n->cart, pc);\n"
-               "    if (off < 0) return 0;\n"
+               "    if (off < 0) return pc < 0x2000 ? ram_lookup(n, pc) : 0;\n"
                "    u32 i = page_first[off >> 8];\n"
                "    while (i < NFUNCS && f_hi[i] < (u32)off) i++;\n"
                "    return (i < NFUNCS && f_lo[i] <= (u32)off) ? f_fn[i] : 0;\n}\n");
     fclose(f);
+}
+
+/* Código que el juego copia a la RAM interna y ejecuta desde ahí (3-D WorldRunner espera el NMI en un bucle en
+ * $0760). No está en el PRG, así que se aprende de las líneas "ram" de la traza (ram_code.h, en retrorecomp). Las
+ * instrucciones que van una detrás de otra sin ambigüedad forman un bloque, que se compila con sus direcciones
+ * como el código del PRG (emit_ins_body). La guarda: ram_lookup elige el primer bloque cuyos opcodes (y
+ * desplazamientos de los saltos relativos) siguen en RAM; si el juego cambió el código, cae al intérprete. Los
+ * operandos que cambiaron entre ejecuciones se leen de RAM al ejecutar, como en el intérprete */
+static int ram_here(const void *ctx, u16 target) { return rc_block_has(&ram_list, ctx, target); }
+
+static void emit_ram(const char *dir)
+{
+    FILE *f = open_out(dir, "gen/ram.c");
+    fprintf(f, "/* Generado por nesrecomp: no editar. El código que el juego ejecuta desde la RAM, aprendido de la\n"
+               " * traza (líneas \"ram\"); sin ellas, ram_lookup no tiene nada y la RAM sigue en el intérprete. */\n"
+               "#include \"gen.h\"\n\n");
+    size_t dropped = rc_list_finish(&ram_list);
+    RcBlock *blocks = NULL;
+    size_t nb = ram_list.n ? rc_blocks(&ram_list, &blocks, NULL) : 0;
+    if (nb == (size_t)-1) die("sin memoria");
+    if (!nb) {
+        fprintf(f, "RecompFn ram_lookup(NES *n, u16 pc)\n{\n    (void)n;\n    (void)pc;\n    return 0;\n}\n");
+        fclose(f);
+        if (dropped) printf("código en RAM: %zu instrucciones descartadas por cambiar de estructura\n", dropped);
+        return;
+    }
+    size_t nvol = 0;
+    for (size_t i = 0; i < ram_list.n; i++) nvol += ram_list.ins[i].vol != 0;
+    printf("código en RAM aprendido de la traza: %zu instrucciones (%zu con operandos variables) en %zu bloques",
+           ram_list.n, nvol, nb);
+    if (dropped) printf(" (%zu descartadas por cambiar de estructura)", dropped);
+    printf("\n");
+
+    fprintf(f, "static inline u8 ram_b(const NES *n, u16 a) { return n->ram[a & 0x7FF]; }\n\n");
+    for (size_t bi = 0; bi < nb; bi++) {
+        const RcBlock *b = &blocks[bi];
+        fprintf(f, "/* RAM $%04X-$%04X (%zu instrucciones) */\nstatic int m_%zu(const NES *n)\n{\n    return", b->start,
+                b->start + b->len - 1, b->n, bi);
+        int first = 1, k3 = 0;
+        for (size_t k = 0; k < b->n; k++) {
+            const RcIns *in = &ram_list.ins[b->node[k]];
+            for (unsigned j = 0; j < in->key; j++, k3++) {
+                fprintf(f, "%s ram_b(n, 0x%04X) == 0x%02X", first ? "" : (k3 % 4 ? " &&" : " &&\n          "), in->addr + j, in->bytes[j]);
+                first = 0;
+            }
+        }
+        fprintf(f, ";\n}\n\nstatic void r_%zu(NES *n)\n{\n    Cpu *c = &n->cpu;\n    switch (c->pc) {\n", bi);
+        for (size_t k = 0; k < b->n; k++) {
+            u32 a = ram_list.ins[b->node[k]].addr;
+            fprintf(f, "    case 0x%04X: goto L_%04X;\n", a, a);
+        }
+        fprintf(f, "    default: cpu_step(n); return;\n    }\n");
+        for (size_t k = 0; k < b->n; k++) {
+            const RcIns *in = &ram_list.ins[b->node[k]];
+            u16 a = (u16)in->addr, next = (u16)(a + in->len);
+            u8 b1 = in->len > 1 ? in->bytes[1] : 0, b2 = in->len > 2 ? in->bytes[2] : 0;
+            int wvar = (in->vol & 6) != 0;
+            char dis[64], B1[32], W[64], WH[32];
+            disasm_bytes(in->bytes[0], a, b1, b2, dis, sizeof dis);
+            if (in->vol & 2) snprintf(B1, sizeof B1, "ram_b(n, 0x%04X)", (u16)(a + 1));
+            else snprintf(B1, sizeof B1, "0x%02X", b1);
+            if (wvar) {
+                snprintf(W, sizeof W, "(u16)(ram_b(n, 0x%04X) | ram_b(n, 0x%04X) << 8)", (u16)(a + 1), (u16)(a + 2));
+                snprintf(WH, sizeof WH, "ram_b(n, 0x%04X)", (u16)(a + 2));
+            } else {
+                snprintf(W, sizeof W, "0x%04X", (u16)(b1 | b2 << 8));
+                snprintf(WH, sizeof WH, "0x%02X", b2);
+            }
+            EmitIns e = { in->bytes[0], a, b1, (u16)(b1 | b2 << 8), B1, W, WH, !wvar, ram_here, b };
+            fprintf(f, "L_%04X: /* RAM %s%s */\n    FRAME(0x%04X);\n", a, dis, in->vol ? " (operandos variables)" : "", a);
+            if (emit_ins_body(f, &e)) continue;
+            fprintf(f, "    ICHK(0x%04X);\n", next);
+            if (k + 1 == b->n || ram_list.ins[b->node[k + 1]].addr != next) fprintf(f, "    c->pc = 0x%04X;\n    return;\n", next);
+        }
+        fprintf(f, "}\n\n");
+    }
+
+    /* El lookup: por cada dirección, los bloques que la tienen, en orden; el primero cuya guarda pasa */
+    fprintf(f, "RecompFn ram_lookup(NES *n, u16 pc)\n{\n    switch (pc) {\n");
+    for (u32 a = 0; a < 0x2000; a++) {
+        int any = 0;
+        for (size_t bi = 0; bi < nb; bi++)
+            if (rc_block_has(&ram_list, &blocks[bi], a)) {
+                if (!any) fprintf(f, "    case 0x%04X:", a);
+                fprintf(f, " if (m_%zu(n)) return r_%zu;", bi, bi);
+                any = 1;
+            }
+        if (any) fprintf(f, " break;\n");
+    }
+    fprintf(f, "    }\n    return 0;\n}\n");
+    fclose(f);
+    for (size_t bi = 0; bi < nb; bi++) free(blocks[bi].node);
+    free(blocks);
 }
 
 static void emit_info(const char *dir, const char *sha1, const char *name)
@@ -1495,6 +1637,7 @@ int main(int argc, char **argv)
     }
     emit_code(out_dir);
     emit_dispatch(out_dir);
+    emit_ram(out_dir);
     emit_info(out_dir, sha1, nm);
     write_embedded(out_dir);
     emit_makefile(out_dir, nm);

@@ -73,7 +73,7 @@ EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_fon
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
                   AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
              $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
@@ -83,7 +83,7 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h \
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h \
 	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/gen:
@@ -134,7 +134,7 @@ endif
 nes$(EXE): $(call plat,$(NES_SRC)) $(wildcard src/platform/*.h) $(RT) $(WINRES)
 	$(CC) $(CFLAGS) -I$(SHARED) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(call plat,$(NES_SRC)) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h $(SHARED)/trace_line.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

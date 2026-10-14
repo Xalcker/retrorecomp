@@ -82,6 +82,44 @@ if [ -x ./nesrecomp ] && ./nestrace $T/other/nestest.nes build/rt_nueva.trace --
         echo "ok   traza BANCO:DIRECCION y la vieja"
     else echo "FALLA traza BANCO:DIRECCION y la vieja"; fail=1; fi
 fi
+# Código que el juego copia a la RAM (retrorecomp shared/ram_code.h): una ROM NROM hecha aquí copia a $0300 una rutina
+# de 12 bytes (lda #, sta, un bucle con bne y un jmp), la llama en un bucle y parcha el inmediato del lda (inc $0301).
+# Primera ronda: la RAM va al intérprete y la traza la anota (?? en el byte parchado); segunda, con esa traza: nada de
+# RAM en el intérprete y sin diferencias. difftest, nestrace y el ejecutable escriben las mismas líneas "ram", y el
+# ejecutable conserva las que traía el archivo.
+if [ -x ./nesrecomp ]; then
+    hex() { for b in "$@"; do printf "\\$(printf %03o "0x$b")"; done; }
+    RR=build/ram.nes
+    { printf 'NES\032\001\001'; head -c 10 /dev/zero
+      hex A2 00  BD 30 C0  9D 00 03  E8  E0 0C  D0 F5  20 00 03  EE 01 03  4C 0D C0; head -c 26 /dev/zero
+      hex A9 05  85 10  C6 10  D0 FC  4C 0B 03  60; head -c 16318 /dev/zero
+      hex 00 C0 00 C0 00 C0; head -c 8192 /dev/zero; } > "$RR"
+    d=build/out/ram; ok=0
+    x=; [ -x ./nesrecomp.exe ] && x=.exe      # en Windows el objetivo del Makefile generado es difftest.exe
+    rm -rf "$d" build/ram.unc build/ram2.unc
+    if ./nesrecomp "$RR" -o "$d" --name ram >/dev/null 2>&1 && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
+            && "$d/difftest" "$RR" --frames 60 --seed 1 --uncovered build/ram.unc > build/ram1.out 2>&1 \
+            && grep -q "RAM 100.0%" build/ram1.out && grep -q "^ram 0300 A9 ??$" build/ram.unc \
+            && [ "$(grep -c '^ram' build/ram.unc)" -eq 6 ]; then
+        sleep 1     # el make de macOS compara fechas con precisión de un segundo
+        if ./nesrecomp "$RR" -o "$d" --name ram --trace build/ram.unc 2>&1 | grep -q "aprendido de la traza: 6 instrucciones (1 con operandos variables) en 1 bloques" \
+                && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
+                && "$d/difftest" "$RR" --frames 60 --seed 1 --uncovered build/ram2.unc > build/ram2.out 2>&1 \
+                && grep -q "cuadros iguales.*100.0% de los ciclos" build/ram2.out && ! grep -q "^ram" build/ram2.unc; then ok=1; fi
+    fi
+    if [ $ok = 1 ]; then echo "ok   código en RAM: la segunda ronda lo compila (6 instrucciones, 1 parchada) y no queda nada en el intérprete"
+    else cat build/ram1.out build/ram2.out 2>/dev/null; echo "FALLA código en RAM"; fail=1; fi
+    ./nestrace "$RR" build/ram_nestrace.txt --frames 60 >/dev/null 2>&1
+    if [ "$(grep '^ram' build/ram_nestrace.txt)" = "$(grep '^ram' build/ram.unc)" ]; then echo "ok   nestrace anota el mismo código de RAM que difftest"
+    else echo "FALLA nestrace y el código de RAM"; fail=1; fi
+    if [ -x ./nes ]; then
+        printf 'ram 0500 60\n' > build/ram_exe.txt
+        SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./nes "$RR" --ui-shot build/ram_exe.png --ui-frames 60 --uncovered build/ram_exe.txt >/dev/null 2>&1
+        if [ "$(grep '^ram' build/ram_exe.txt | grep -v '^ram 0500')" = "$(grep '^ram' build/ram.unc)" ] && grep -q "^ram 0500 60$" build/ram_exe.txt; then
+            echo "ok   el ejecutable anota el mismo código de RAM y conserva las líneas que traía"
+        else echo "FALLA el ejecutable y el código de RAM"; fail=1; fi
+    fi
+fi
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x ./nes ]; then

@@ -191,7 +191,7 @@ typedef struct {
     u8   s5b;                   /* el cartucho tiene el audio del Sunsoft 5B (estado en NES.s5b) */
     u8   n163;                  /* el cartucho tiene el audio del Namco 163 (estado en NES.n163) */
     u8   vrc7;                  /* el cartucho tiene el audio del VRC7 (estado en NES.vrc7) */
-    double rate_mul;                    /* ajuste fino del ritmo (sincronía con el video) */
+    double rate_mul;                    /* ya no se usa: se queda para que carguen los estados guardados */
     double hp1, hp2, lp, in1, in2;      /* filtros del hardware */
     int16_t buf[APU_BUF]; int nbuf;
 } Apu;

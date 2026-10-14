@@ -70,7 +70,6 @@ void apu_reset(NES *n)
     for (int i = 30; i >= 1; i--) s5b_lvl[i] = s5b_lvl[i + 1] * 0.8413951416f;
     a->d.rate = dmc_tab[0]; a->d.timer = dmc_tab[0]; a->d.buf_empty = 1; a->d.silence = 1; a->d.bits = 8;
     a->cps = CPU_HZ / APU_RATE;
-    a->rate_mul = 1.0;
     a->next = a->cps;
     a->delay = 0;                       /* como si $4017 = 0 se hubiera escrito ~10 ciclos antes de la primera instrucción */
 }
@@ -480,7 +479,7 @@ static void apu_cycle(NES *n)
     if (--a->next <= 0) {
         float x = (float)(a->acc / a->acc_n);
         a->acc = 0; a->acc_n = 0;
-        a->next += a->cps / a->rate_mul;
+        a->next += a->cps;
         /* filtros: paso alto 90 y 440 Hz, paso bajo 14 kHz */
         static double k1, k2, kl;
         static int filters_ready;

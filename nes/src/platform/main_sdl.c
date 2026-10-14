@@ -61,6 +61,7 @@
 #include "ui_font.h"
 #include "ui_menu.h"
 #include "player_util.h"
+#include "player_audio.h"
 
 #define SCREEN_W 256
 #define SCREEN_H 240
@@ -112,7 +113,7 @@ typedef struct {
     SDL_Renderer *ren;
     SDL_Texture *tex;
     int tex_h;
-    SDL_AudioDeviceID audio;
+    PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
     SDL_GameController *pads[4];
     SDL_Rect game_rect;     /* dónde se dibuja el juego en la ventana (para el Zapper) */
     SDL_Cursor *cross;      /* mira del Zapper */
@@ -134,7 +135,6 @@ typedef struct {
     long frame;
     const char *uncovered_path;
     WavRecorder wav;
-    int audio_was_running;
 } App;
 
 /* Las funciones de la ventana iguales en los cuatro recompiladores (retrorecomp/shared) */
@@ -904,17 +904,13 @@ static void step(App *app, int audible)
     static int16_t samples[APU_BUF];
     int n = apu_take(&app->nes, samples, APU_BUF);
     wav_samples(&app->wav, samples, n);          /* el WAV se graba aunque esté sin sonido */
-    if (!app->audio || !app->cfg.sound || !audible) return;
+    if (!app->cfg.sound || !audible) {
+        player_audio_stop(&app->audio);
+        return;
+    }
     int vol = app->cfg.volume;
     if (vol != 100) for (int i = 0; i < n; i++) samples[i] = (int16_t)(samples[i] * vol / 100);
-    /* La cola se mantiene cerca de 'target' ajustando el ritmo de las muestras del APU */
-    const int target = 1600;
-    int queued = (int)(SDL_GetQueuedAudioSize(app->audio) / 2);
-    double err = (double)(target - queued) / target;
-    if (err > 1) err = 1;
-    if (err < -1) err = -1;
-    app->nes.apu.rate_mul = 1.0 + 0.01 * err;
-    if (queued < target * 4) SDL_QueueAudio(app->audio, samples, (Uint32)n * 2);
+    player_audio_push_s16(&app->audio, samples, n, 1);
 }
 
 static void update_title(App *app)
@@ -1001,13 +997,11 @@ static void frame_run(App *app)
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     app->fast = running && keys[SDL_SCANCODE_TAB];
     if (running) {
-        if (!app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-        if (app->fast) {
-            for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin audio */
-            if (app->audio) SDL_ClearQueuedAudio(app->audio);
-        } else step(app, 1);
-    } else if (app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-    app->audio_was_running = running;
+        if (app->fast) for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin audio */
+        else step(app, 1);
+    } else {
+        player_audio_stop(&app->audio);
+    }
 }
 
 static void frame_draw(App *app)
@@ -1029,7 +1023,7 @@ static void finish(App *app, int save_settings)
         fail(msg);
     }
     write_uncovered(app);
-    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    player_audio_close(&app->audio);
     for (int i = 0; i < 4; i++)
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
@@ -1256,14 +1250,7 @@ int main(int argc, char *argv[])
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     if (start_full && !ui_shot_path) toggle_fullscreen(app);
 
-    SDL_AudioSpec want, have_spec;
-    SDL_zero(want);
-    want.freq = APU_RATE;
-    want.format = AUDIO_S16SYS;
-    want.channels = 1;
-    want.samples = 1024;
-    app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
-    if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
+    player_audio_open(&app->audio, APU_RATE);
 
     if (ui_shot_path) {
         for (long i = 0; i < shot_frames; i++) step(app, 0);

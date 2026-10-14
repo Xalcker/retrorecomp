@@ -9,6 +9,8 @@ CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
+# Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
+SHARED := tools/retrorecomp/shared
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -55,7 +57,7 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 endif
 
 neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 PROGS := neorecomp neotrace neoshot neoaudio neobench neoramdump neorun neocard neo \
          carttest m68ktest z80test bustest lspctest audiotest statetest inputtest
@@ -73,56 +75,56 @@ endif
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 bustest$(EXE): src/tools/bustest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 # Herramientas sin ventana con las opciones comunes (cli.h)
-TOOL_DEPS := src/platform/cli.h src/platform/inputs.h src/platform/random_pad.h src/tools/romload.h $(RT)
+TOOL_DEPS := src/platform/cli.h src/platform/inputs.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
 neotrace$(EXE): src/tools/neotrace.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neotrace.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neotrace.c $(RT) -lm
 
 neoshot$(EXE): src/tools/neoshot.c src/platform/png.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoshot.c src/platform/png.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoshot.c src/platform/png.c $(RT) -lm
 
 neoaudio$(EXE): src/tools/neoaudio.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoaudio.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoaudio.c $(RT) -lm
 
 neobench$(EXE): src/platform/bench.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
 neoramdump$(EXE): src/tools/neoramdump.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/neoramdump.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoramdump.c $(RT) -lm
 
 statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/statetest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
 
 inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
 
 audiotest$(EXE): src/tools/audiotest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 lspctest$(EXE): src/tools/lspctest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 neorun$(EXE): src/tools/neorun.c src/platform/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
 neocard$(EXE): src/tools/neocard.c src/platform/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola
 m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/m68ktest.c $(RT) -lm
 
 z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/z80test.c $(RT) -lm
 
 # El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/neo/contrato.neo)
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/mkcontrato.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/mkcontrato.c $(RT) -lm
 
 # Oráculos: retro_run corre un núcleo libretro (Geolith, FBNeo) sin ventana; los núcleos los baja
 # tools/oracles/oracle.py a build/oracles/ (no van en el repo)
@@ -130,7 +132,7 @@ ifeq ($(shell uname -s 2>/dev/null),Linux)
 DL_LIBS := -ldl
 endif
 $(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
 
 # La BIOS propia (fase 10): asm68k la ensambla (make neobios: build/neobios.bin, en el orden de los chips como
 # neo-epo.bin; se usa con --bios o NEO_BIOS); dis68kbin prueba el ensamblador contra el desensamblador
@@ -139,14 +141,14 @@ $(BUILD)/neobios.bin: tools/neobios/neobios.s tools/neobios/asm68k.py | $(BUILD)
 	python3 tools/neobios/asm68k.py tools/neobios/neobios.s $@ --swap --list $(BUILD)/neobios.lst
 
 $(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h $(RT) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -o $@ tools/neobios/dis68kbin.c src/neorecomp/dis68k.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c src/neorecomp/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h trace_line.h sha1.h console.h $(RUNTIME)
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h sha1.h console.h $(RUNTIME)
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h export.c export.h png.c png.h icono.h icono.rc icono.ico inputs.h cli.h \
-                  random_pad.h difftest.c bench.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
+                  difftest.c bench.c
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
 
@@ -154,7 +156,7 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -162,7 +164,7 @@ $(BUILD)/gen:
 # El recompilador: un solo ejecutable, con el runtime adentro
 neorecomp$(EXE): src/neorecomp/neorecomp.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h src/neorecomp/visor_html.h \
                  src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
-	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -o $@ \
+	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/neorecomp/neorecomp.c src/neorecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Paquete para distribuir: neorecomp, la documentación y la licencia
@@ -175,8 +177,8 @@ dist: neorecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h $(SHARED)/trace_line.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<

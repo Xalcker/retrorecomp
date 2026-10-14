@@ -1034,8 +1034,15 @@ static void emit_makefile(const char *dir, const char *name)
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        cart->mapper, name, name, name, name);
+        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk)\n"
+        "WEB_NAME   := %s\n"
+        "WEB_TITLE  := %s\n"
+        "WEB_PREF   := /libsdl/NESRecomp/%s/\n"
+        "WEB_CACHE  := rom.nes\n"
+        "WEB_ACCEPT := .nes\n"
+        "include platform/web.mk\n\n"
+        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        cart->mapper, name, name, name, name, name, name, name);
     fclose(f);
 }
 
@@ -1056,7 +1063,11 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "%s.\n"
         "Si se ejecuta sin argumentos busca un .nes con ese SHA1 en la carpeta actual.\n\n"
         "Prueba diferencial (código recompilado contra el intérprete):\n"
-        "  ./difftest juego.nes 600\n", name, sha1);
+        "  ./difftest juego.nes 600\n\n"
+        "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
+        "  make web\n"
+        "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
+        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n", name, sha1, name);
     fclose(f);
 }
 

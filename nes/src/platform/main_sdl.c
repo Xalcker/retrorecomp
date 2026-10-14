@@ -35,6 +35,9 @@
  * juego se pausa.
  */
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -980,6 +983,99 @@ static void render(App *app)
 /* Icono de la ventana: el control de NES, recortado al dibujo y centrado en un cuadrado */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Bucle                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Un cuadro de la ventana en tres partes: los eventos, la emulación (un cuadro, o cuatro sin audio en avance
+ * rápido) y el dibujo. El bucle de escritorio las llama con su ritmo; en el navegador, web_frame */
+static void frame_input(App *app)
+{
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) handle_event(app, &ev);
+}
+
+static void frame_run(App *app)
+{
+    int running = game_running(app);
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    app->fast = running && keys[SDL_SCANCODE_TAB];
+    if (running) {
+        if (!app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
+        if (app->fast) {
+            for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin audio */
+            if (app->audio) SDL_ClearQueuedAudio(app->audio);
+        } else step(app, 1);
+    } else if (app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
+    app->audio_was_running = running;
+}
+
+static void frame_draw(App *app)
+{
+    update_title(app);
+    render(app);
+}
+
+/* Al salir: guarda la partida, las preferencias (salvo en las capturas de prueba) y lo no cubierto, y
+ * libera todo */
+static void finish(App *app, int save_settings)
+{
+    char msg[1200];
+    stop_audio_rec(app, 0);
+    if (save_settings) settings_save(&app->cfg, app->settings_path);
+    if (app->record) fclose(app->record);
+    if (!save_game(app)) {
+        snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
+        fail(msg);
+    }
+    write_uncovered(app);
+    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    for (int i = 0; i < 4; i++)
+        if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
+    if (app->tex) SDL_DestroyTexture(app->tex);
+    SDL_DestroyRenderer(app->ren);
+    SDL_DestroyWindow(app->win);
+    SDL_free(app->pref);
+    SDL_Quit();
+    nes_free(&app->nes);
+    free(app->rom.data);
+}
+
+#ifdef __EMSCRIPTEN__
+/* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
+ * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
+ * día de golpe al volver a una pestaña). Cada dos segundos guarda las preferencias si cambiaron y copia la
+ * carpeta de datos (IDBFS) a IndexedDB, porque una pestaña cerrada no avisa */
+static void web_frame(void *arg)
+{
+    App *app = arg;
+    static double last, pending;
+    static Settings saved;
+    static unsigned ticks;
+    const double frame_ms = 1000.0 / NTSC_FPS;
+    double now = emscripten_get_now();
+    pending += last ? now - last : frame_ms;
+    last = now;
+    if (pending > 4 * frame_ms) pending = frame_ms;
+    frame_input(app);
+    if (!app->running) {
+        finish(app, 1);
+        emscripten_run_script("FS.syncfs(false, function () {})");
+        emscripten_cancel_main_loop();
+        return;
+    }
+    for (int n = 0; pending >= frame_ms && n < 4; n++, pending -= frame_ms) frame_run(app);
+    frame_draw(app);
+    if (++ticks % 120 == 0) {
+        if (memcmp(&saved, &app->cfg, sizeof saved)) {
+            settings_save(&app->cfg, app->settings_path);
+            saved = app->cfg;
+        }
+        emscripten_run_script("if (!Module.syncing) { Module.syncing = 1; FS.syncfs(false, function () { Module.syncing = 0; }); }");
+    }
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     static App app_storage;
@@ -1182,28 +1278,21 @@ int main(int argc, char *argv[])
         app->running = 1;
     }
 
+#ifdef __EMSCRIPTEN__
+    if (app->running) {
+        emscripten_set_main_loop_arg(web_frame, app, 0, 1);    /* no vuelve */
+        return 0;
+    }
+#endif
     const double frame_seconds = 1.0 / NTSC_FPS;
     const Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
 
     while (app->running) {
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) handle_event(app, &ev);
+        frame_input(app);
         if (!app->running) break;
-
-        int running = game_running(app);
-        const Uint8 *keys = SDL_GetKeyboardState(NULL);
-        app->fast = running && keys[SDL_SCANCODE_TAB];
-        if (running) {
-            if (!app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-            if (app->fast) {
-                for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin audio */
-                if (app->audio) SDL_ClearQueuedAudio(app->audio);
-            } else step(app, 1);
-        } else if (app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-        app->audio_was_running = running;
-        update_title(app);
-        render(app);
+        frame_run(app);
+        frame_draw(app);
 
         /* Ritmo: 60.0988 cuadros por segundo (sin límite en avance rápido) */
         if (app->fast) { next = SDL_GetPerformanceCounter(); continue; }
@@ -1218,23 +1307,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    stop_audio_rec(app, 0);
-    if (!shot_mode) settings_save(&app->cfg, app->settings_path);
-    if (app->record) fclose(app->record);
-    if (!save_game(app)) {
-        snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
-        fail(msg);
-    }
-    write_uncovered(app);
-    if (app->audio) SDL_CloseAudioDevice(app->audio);
-    for (int i = 0; i < 4; i++)
-        if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
-    if (app->tex) SDL_DestroyTexture(app->tex);
-    SDL_DestroyRenderer(app->ren);
-    SDL_DestroyWindow(app->win);
-    SDL_free(app->pref);
-    SDL_Quit();
-    nes_free(&app->nes);
-    free(rom->data);
+    finish(app, !shot_mode);
     return 0;
 }

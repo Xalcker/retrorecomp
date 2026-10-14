@@ -51,7 +51,7 @@ RT := $(BUILD)/libnesrt.a
 
 PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest nesramdump nesbench nes nesrecomp
 
-.PHONY: all clean test dist testroms
+.PHONY: all clean test dist testroms webtest
 all: $(PROGS:%=%$(EXE))
 
 nestest$(EXE): src/tools/nestest.c $(RT)
@@ -70,7 +70,8 @@ nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(SHARED)/random_pad.h $
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_rom.h inputs.h icono.h icono.rc icono.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
+             $(SHARED)/web/shell.html $(SHARED)/web/web.mk
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
@@ -78,7 +79,8 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h \
+	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -143,6 +145,14 @@ $(BUILD):
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
 	sh tests/run_tests.sh
+
+# El juego recompilado en el navegador (retrorecomp#44): el proyecto de nestest con make web (Emscripten, o
+# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
+webtest: nesrecomp$(EXE)
+	rm -rf $(BUILD)/proy_web
+	./nesrecomp$(EXE) testroms/nes-test-roms/other/nestest.nes -o $(BUILD)/proy_web --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_web web
+	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (nestest)"
 
 # ROMs de prueba libres en testroms/ (no se versionan): christopherpow/nes-test-roms
 # en un commit fijo (el repositorio no tiene releases)

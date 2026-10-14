@@ -130,6 +130,18 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 
 `sh tests/recomp_game.sh rom nombre [cuadros] [semillas...]` hace los pasos 3, 4 y 5 de una vez, con los mismos argumentos que en GBRecomp, GENRecomp y NEORecomp (`cuadros`: los de cada `difftest`, 1500; `TRACE_FRAMES=N`: los de la traza guionada, 2400; `NOTRACE=1`: solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`, por omisión 1 2 3), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
+**En el navegador** (WebAssembly): el mismo proyecto se compila con `make web`, con Emscripten si está instalado o
+si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`):
+
+```
+make -C juegos/smb web
+python3 -m http.server -d juegos/smb/web      # y abrir http://localhost:8000/smb.html
+```
+
+La página pide la ROM (no va en el build), comprueba el SHA1 como el ejecutable y la guarda en el navegador junto
+con la partida, los estados y las preferencias (IndexedDB), así que la siguiente vez basta con «Jugar». La página
+es la misma en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la de nestest.
+
 **8. Entender qué encontró el recompilador**
 
 ```

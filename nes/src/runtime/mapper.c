@@ -676,6 +676,8 @@ static int low_write(NES *n, u16 a, u8 v)
             return 1;
         }
         break;
+    default:    /* en un juego recompilado MAPPER(c) es una constante: sin esto, clang avisa si no hay su case */
+        break;
     }
     return 0;
 }
@@ -854,6 +856,8 @@ void mapper_cpu_write(NES *n, u16 a, u8 v)
         c->reg[0] = v;
         c->mirroring = (v & 0x10) ? MIRROR_SINGLE1 : MIRROR_SINGLE0;
         break;
+    default:    /* en un juego recompilado MAPPER(c) es una constante (ver arriba) */
+        break;
     }
     mapper_remap(c);
 }
@@ -994,6 +998,8 @@ int mapper_prg_window(const Cart *c, u16 addr, PrgWin *w)
         }
         return 1;
     case 7: *w = (PrgWin){ 0x8000, 0x8000, 0, 0 }; return 1;
+    default:    /* en un juego recompilado MAPPER(c) es una constante (ver arriba) */
+        break;
     }
     return 0;
 }

@@ -56,6 +56,7 @@
 #include "settings.h"
 #include "ui_font.h"
 #include "ui_menu.h"
+#include "player_util.h"
 
 #define AES_FPS (24167829.0 / (M68K_PER_FRAME * MCLK_PER_M68K))      /* 59.60 */
 
@@ -113,6 +114,10 @@ typedef struct {
     const char *trace_path;
 } App;
 
+/* Las funciones de la ventana iguales en los cuatro recompiladores (retrorecomp/shared) */
+static void resize_window(App *app);
+#include "player_common.h"
+
 static App *the_app;
 static const char *ui_shot_path;
 static SDL_Surface *ui_shot_surface;   /* --ui-shot: se dibuja en una superficie, sin ventana */
@@ -133,14 +138,6 @@ static void inform(const char *msg)
 /* Nombres y carpetas                                                  */
 /* ------------------------------------------------------------------ */
 
-static const char *file_name(const char *path)
-{
-    const char *s = path;
-    for (const char *p = path; *p; p++)
-        if (*p == '/' || *p == '\\') s = p + 1;
-    return s;
-}
-
 /* Nombre del juego (para archivos y título) a partir del de su archivo, sin la extensión */
 static void set_game(App *app, const char *path, const char *title)
 {
@@ -159,21 +156,6 @@ static void set_game(App *app, const char *path, const char *title)
 /* ------------------------------------------------------------------ */
 
 /* Espera a que arrastren un archivo a la ventana (o a que la cierren) */
-static int wait_for_drop(char *out, size_t size)
-{
-    SDL_Event ev;
-    while (SDL_WaitEvent(&ev)) {
-        if (ev.type == SDL_QUIT) return 0;
-        if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_ESCAPE) return 0;
-        if (ev.type == SDL_DROPFILE) {
-            snprintf(out, size, "%s", ev.drop.file);
-            SDL_free(ev.drop.file);
-            return 1;
-        }
-    }
-    return 0;
-}
-
 /* Pide un archivo con el diálogo nativo o arrastrándolo. 0 si el usuario cancela */
 static int ask_file(const char *choose, const char *drop, int first, char *out, size_t size)
 {
@@ -326,11 +308,6 @@ static int switch_game(App *app, const char *path)
 /* Imagen                                                              */
 /* ------------------------------------------------------------------ */
 
-static int ui_scale(int width)
-{
-    return width >= 640 ? 2 : 1;
-}
-
 /* Ancho en pantalla: con el aspecto corregido, la imagen ocupa un 4:3 (como en un televisor) */
 static double display_w(const App *app, int gw, int gh)
 {
@@ -347,18 +324,6 @@ static void resize_window(App *app)
 /* ------------------------------------------------------------------ */
 /* Avisos, exportación                                                 */
 /* ------------------------------------------------------------------ */
-
-static void message(App *app, const char *title, const char *text)
-{
-    menubar_close(&app->bar);
-    dialog_open(&app->dlg, DIALOG_MESSAGE, TAG_INFO, title, text);
-}
-
-static void notify(App *app, const char *text)
-{
-    snprintf(app->notice, sizeof app->notice, "%.120s", text);
-    app->notice_until = SDL_GetTicks() + 2500;
-}
 
 static int export_base(App *app, const char *kind, char *out, size_t size)
 {
@@ -433,19 +398,6 @@ static void load_state(App *app)
         message(app, tr(T_STATE_TITLE), text);
     }
     free(data);
-}
-
-static void open_exports(App *app)
-{
-    u8_mkdir(app->export_dir);
-#if SDL_VERSION_ATLEAST(2, 0, 14)
-    char url[1300];
-    const char *p = app->export_dir;
-    /* file:///C:/... en Windows, file:///home/... en los demás */
-    snprintf(url, sizeof url, "file://%s%s", p[0] == '/' ? "" : "/", p);
-    for (char *c = url; *c; c++) if (*c == '\\') *c = '/';
-    SDL_OpenURL(url);
-#endif
 }
 
 /* ------------------------------------------------------------------ */
@@ -565,13 +517,6 @@ static int menu_state(void *ctx, int action, int *checked)
     }
 }
 
-static void toggle_fullscreen(App *app)
-{
-    app->fullscreen = !app->fullscreen;
-    SDL_SetWindowFullscreen(app->win, app->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-    if (!app->fullscreen) resize_window(app);
-}
-
 static void ask_open_game(App *app)
 {
     char path[1024];
@@ -681,15 +626,6 @@ static int shortcut(App *app, const SDL_KeyboardEvent *k)
 }
 
 /* ¿Se ve la barra? En pantalla completa, solo al acercar el ratón arriba */
-static int bar_visible(const App *app)
-{
-    if (!app->fullscreen) return 1;
-    int w, h;
-    SDL_GetRendererOutputSize(app->ren, &w, &h);
-    return menubar_is_open(&app->bar) || app->dlg.kind != DIALOG_NONE ||
-           app->mouse_y < 2 * menubar_height(ui_scale(w));
-}
-
 /* Reparte un evento entre el diálogo, la barra de menús y los atajos */
 static void handle_event(App *app, SDL_Event *e)
 {
@@ -819,11 +755,6 @@ static void player_pads(App *app, u16 pads[2])
 /* ------------------------------------------------------------------ */
 
 /* ¿Avanza el juego? Con un menú o diálogo abierto, o en pausa, no */
-static int game_running(const App *app)
-{
-    return !app->paused && !menubar_is_open(&app->bar) && app->dlg.kind == DIALOG_NONE;
-}
-
 static void step(App *app, int audible)
 {
     u16 pads[2];
@@ -939,25 +870,6 @@ static void set_window_icon(App *app)
         }
     }
     free(px);
-}
-
-static Language detect_language(void)
-{
-    Language found = LANG_EN;
-#if SDL_VERSION_ATLEAST(2, 0, 14)
-    SDL_Locale *locales = SDL_GetPreferredLocales();
-    if (locales) {
-        for (SDL_Locale *l = locales; l->language; l++) {
-            Language lang = i18n_from_code(l->language);
-            if (lang < LANG_COUNT) {
-                found = lang;
-                break;
-            }
-        }
-        SDL_free(locales);
-    }
-#endif
-    return found;
 }
 
 /* ------------------------------------------------------------------ */

@@ -39,7 +39,9 @@ El interruptor de la barra superior elige entre dos modos (se recuerda en el nav
 
 - **Fácil** (por omisión): lista de ROMs y un solo botón, «Jugar». Si falta algo, primero lo prepara solo
   (compila las herramientas, recompila la ROM y compila el proyecto, con las trazas que ya existan) y luego abre
-  la versión recompilada nativa. «Mostrar detalles» muestra el registro del trabajo.
+  la versión recompilada nativa. «Mostrar detalles» muestra el registro del trabajo. Las casillas «pantalla completa»
+  y «sin menús» (también en los ajustes de Experto; se recuerdan en el navegador) abren el juego con `--fullscreen` y
+  `--no-menu`.
 - **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
   (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
   el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son

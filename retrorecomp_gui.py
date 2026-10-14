@@ -1062,6 +1062,11 @@ def play(p):
         rec_in = os.path.join(input_dir(rid), safe_name(p.get("input_name") or "jugada") + ".txt")
     argv = sysm.play_argv(rp, proj, bool(p.get("interp")), (model_args(p) or [None, None])[1], env, trace, rec_in,
                           resolve_input(rid, p.get("input")))
+    # Iguales en los cuatro (retrorecomp#43); un ejecutable anterior tomaría la opción como la ROM
+    if p.get("fullscreen"):
+        argv.append("--fullscreen")
+    if p.get("no_menu"):
+        argv.append("--no-menu")
     subprocess.Popen(argv, cwd=sysm.root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return {"ok": True, "trace": trace}
 

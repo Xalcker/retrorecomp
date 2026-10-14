@@ -166,6 +166,8 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
   pausa, avance rápido (Tab), 2 jugadores (teclado y mandos), **Four Score** (4 jugadores, con mandos), **Zapper** (ratón: apuntar y clic izquierdo; verificado con Duck Hunt: un programa que apunta a los patos los derriba y suma puntos), tamaños 1x-6x, pantalla completa, escala entera, aspecto 8:7,
   overscan, paletas (predeterminada, grises, saturada y `paleta.pal` propia), volumen y silenciar canales del APU,
   captura PNG, grabación de audio WAV, grabar/reproducir entradas (`--record`/`--play`), arrastrar una ROM a la ventana.
+  Barra de menús oculta (Video → Ocultar la barra de menús, F9: aparece con el ratón arriba o con Alt/F10), y al
+  arrancar `--fullscreen` (pantalla completa) y `--no-menu` (sin barra de menús; los atajos siguen).
   El juego recompilado pide la ROM una sola vez (valida el SHA1) y guarda una copia en su carpeta de datos.
 - **Recompilador**: descubrimiento desde los vectores y una traza de ejecución, emisión de C por
   instrucción con los mismos accesos al bus que el intérprete, despacho por desplazamiento de PRG

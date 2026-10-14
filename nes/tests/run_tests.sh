@@ -85,8 +85,11 @@ fi
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x ./nes ]; then
-    if sh tools/retrorecomp/shared/ui_golden.sh ./nes $T/other/nestest.nes tests/ui_golden.txt "0 1 2 3 4 5 6 7" "40 42" > build/ui_golden.out 2>&1; then
-        echo "ok   interfaz (8 menús, 2 diálogos, contra la referencia; «Este juego» depende de la máquina y no entra)"
+    # Diálogos Controles (40) y Acerca de (42), la barra oculta con F9 (43), y sin barra con --no-menu (aunque se
+    # pida un menú) y con --fullscreen
+    if sh tools/retrorecomp/shared/ui_golden.sh ./nes $T/other/nestest.nes tests/ui_golden.txt "0 1 2 3 4 5 6 7" "40 42 43" \
+            "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
+        echo "ok   interfaz (8 menús, 2 diálogos, barra oculta, --no-menu y --fullscreen, contra la referencia; «Este juego» depende de la máquina y no entra)"
     else cat build/ui_golden.out; fail=1; fi
 fi
 [ $fail = 0 ] && echo "TODO BIEN" || echo "HAY FALLAS"

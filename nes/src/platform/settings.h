@@ -14,6 +14,7 @@ typedef struct {
     int integer;            /* 0/1: escala entera */
     int zapper;             /* 0/1: Zapper en el puerto 2 */
     int fourscore;          /* 0/1: Four Score (4 jugadores) */
+    int hide_menu;          /* 0/1: barra de menús oculta (Video → Ocultar la barra de menús, F9) */
     int mute;               /* bits 0-4: canales silenciados (pulso 1, pulso 2, triángulo, ruido, DMC) */
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;

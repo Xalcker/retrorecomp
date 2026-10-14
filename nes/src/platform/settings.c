@@ -44,6 +44,7 @@ void settings_load(Settings *s, const char *path)
         else if (!strcmp(key, "integer"))  s->integer = atoi(value) != 0;
         else if (!strcmp(key, "zapper"))   s->zapper = atoi(value) != 0;
         else if (!strcmp(key, "fourscore")) s->fourscore = atoi(value) != 0;
+        else if (!strcmp(key, "hide_menu")) s->hide_menu = atoi(value) != 0;
         else if (!strcmp(key, "mute"))     s->mute = clamp(atoi(value), 0, 31);
         else if (!strcmp(key, "language")) snprintf(s->language, sizeof s->language, "%.2s", value);
     }
@@ -56,8 +57,8 @@ void settings_save(const Settings *s, const char *path)
     if (!f) return;
     fprintf(f, "# Preferencias del juego; se reescribe al salir\n");
     fprintf(f, "scale=%d\nsound=%d\nvolume=%d\nslot=%d\npalette=%d\noverscan=%d\naspect=%d\ninteger=%d\n"
-               "zapper=%d\nfourscore=%d\nmute=%d\nlanguage=%s\n",
+               "zapper=%d\nfourscore=%d\nhide_menu=%d\nmute=%d\nlanguage=%s\n",
             s->scale, s->sound, s->volume, s->slot, s->palette, s->overscan, s->aspect, s->integer,
-            s->zapper, s->fourscore, s->mute, s->language);
+            s->zapper, s->fourscore, s->hide_menu, s->mute, s->language);
     fclose(f);
 }

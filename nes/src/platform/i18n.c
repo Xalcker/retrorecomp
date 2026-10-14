@@ -27,6 +27,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
 
     [T_SIZE_FMT]       = { "Tamaño %dx", "Size %dx" },
     [T_FULLSCREEN]     = { "Pantalla completa", "Fullscreen" },
+    [T_HIDE_MENU]      = { "Ocultar la barra de menús", "Hide the menu bar" },
     [T_OVERSCAN]       = { "Ocultar bordes (overscan)", "Hide borders (overscan)" },
     [T_ASPECT]         = { "Corregir aspecto (8:7)", "Correct aspect ratio (8:7)" },
     [T_INTEGER]        = { "Escala entera", "Integer scaling" },
@@ -68,7 +69,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "F5 guardar estado   F8 cargar estado\n"
         "Ctrl+R reiniciar   Ctrl+M sonido\n"
         "F11 pantalla completa   F12 captura   Ctrl+G grabar audio\n"
-        "F2 siguiente paleta   Esc cierra el menú",
+        "F2 siguiente paleta   F9 ocultar menús   Esc cierra el menú",
         "Player 1:   arrows, Z = B, X = A,\n"
         "            Enter = Start, Shift or Backspace = Select\n"
         "Player 2:   WASD, F = B, G = A, C = Start, V = Select\n"
@@ -81,7 +82,7 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
         "F5 save state   F8 load state\n"
         "Ctrl+R reset   Ctrl+M sound\n"
         "F11 fullscreen   F12 screenshot   Ctrl+G record audio\n"
-        "F2 next palette   Esc closes the menu",
+        "F2 next palette   F9 hide menus   Esc closes the menu",
     },
     [T_GAME_TITLE]    = { "Este juego", "This game" },
     [T_GAME_TEXT_FMT] = {

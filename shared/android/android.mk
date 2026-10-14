@@ -16,7 +16,7 @@
 #                APK_KEY_ALIAS y APK_KEY_PASS en el entorno. La keystore nunca va al repositorio; con Docker, la ruta
 #                es relativa a la carpeta del proyecto (el contenedor solo ve esa carpeta)
 # Compila aquí si hay SDK de Android (ANDROID_HOME o ANDROID_SDK_ROOT) y un JDK 17 o más nuevo (JAVA_HOME o java);
-# Gradle baja lo que falte del SDK y el NDK si las licencias están aceptadas (ANDROID_NDK_HOME elige otro NDK).
+# Gradle baja lo que falte del SDK y el NDK si las licencias están aceptadas.
 # Si no hay SDK, usa Docker con la imagen de platform/android/Dockerfile (versiones fijas), que construye la primera
 # vez (unos 3 GB). SDL2 sale de su código fuente, que se baja una vez a APK_CACHE_DIR. En Docker, esa caché, la de
 # Gradle y la clave de depuración quedan en el volumen retrorecomp-android; como dos Gradle en contenedores distintos no
@@ -52,8 +52,8 @@ APK_JAVA := $(if $(JAVA_HOME),$(if $(filter Windows_NT,$(OS)),$(shell cygpath -u
 ifneq ($(APK_SDK),)
 apk: $(APK_SDL)/CMakeLists.txt
 	@v=$$("$(APK_JAVA)" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n 1); \
-	if [ "$${v:-0}" -lt 17 ]; then \
-	    echo "make apk necesita un JDK 17 o más nuevo: define JAVA_HOME (por ejemplo, el JBR de Android Studio)" >&2; exit 1; fi
+	if [ "$${v:-0}" -lt 17 ] || [ "$${v:-0}" -gt 23 ]; then \
+	    echo "make apk necesita un JDK de 17 a 23 (Gradle 8.13 no corre con uno más nuevo); hay $${v:-ninguno}: define JAVA_HOME (por ejemplo, el JBR de Android Studio)" >&2; exit 1; fi
 	@if [ -n "$(APK_RELEASE)" ] && [ -z "$$APK_KEYSTORE" ]; then \
 	    echo "APK_RELEASE=1 necesita tu keystore: APK_KEYSTORE, APK_KEYSTORE_PASS, APK_KEY_ALIAS y APK_KEY_PASS" >&2; exit 1; fi
 	rm -rf $(APK_DIR)/assets
@@ -83,7 +83,8 @@ $(APK_SDL)/CMakeLists.txt:
 else ifneq ($(shell command -v docker 2>/dev/null),)
 # Sin SDK: el mismo make dentro de la imagen. La ROM de ROM= se copia antes al proyecto, que es lo único que ve el
 # contenedor. En Linux los archivos salen del contenedor como root: se devuelven al usuario. En Windows (MSYS2)
-# Docker quiere la ruta con letra de unidad.
+# Docker quiere la ruta con letra de unidad, y MSYS2_ARG_CONV_EXCL evita que MSYS2 convierta /src y /cache en rutas
+# de Windows al llamar a docker.exe.
 APK_HOST_DIR := $(if $(filter Windows_NT,$(OS)),$(shell cygpath -m "$(CURDIR)"),$(CURDIR))
 apk:
 	docker image inspect $(APK_IMAGE) > /dev/null 2>&1 || docker build --platform linux/amd64 -t $(APK_IMAGE) platform/android
@@ -92,7 +93,7 @@ apk:
 	$(if $(ROM),cp "$(ROM)" build/apk-rom)
 	@while docker container inspect retrorecomp-android > /dev/null 2>&1; do \
 	    echo "esperando a que termine otro make apk (el contenedor retrorecomp-android)"; sleep 10; done
-	docker run --rm --name retrorecomp-android --platform linux/amd64 -v "$(APK_HOST_DIR)":/src -w /src -v retrorecomp-android:/cache \
+	MSYS2_ARG_CONV_EXCL='*' docker run --rm --name retrorecomp-android --platform linux/amd64 -v "$(APK_HOST_DIR)":/src -w /src -v retrorecomp-android:/cache \
 	    -e APK_CACHE_DIR=/cache -e GRADLE_USER_HOME=/cache/gradle -e ANDROID_USER_HOME=/cache/android $(if $(APK_RELEASE),-e APK_KEYSTORE -e APK_KEYSTORE_PASS -e APK_KEY_ALIAS -e APK_KEY_PASS) \
 	    $(APK_IMAGE) sh -c 'make apk APK_ABIS="$(APK_ABIS)" $(if $(ROM),ROM=build/apk-rom) $(if $(APK_RELEASE),APK_RELEASE=1); r=$$?; \
 	        chown -R $(shell id -u):$(shell id -g) build $$([ -d apk ] && echo apk); exit $$r'

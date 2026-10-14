@@ -43,8 +43,7 @@ android {
     namespace = 'io.github.xalcker.retrorecomp'
     compileSdk = 35
     buildToolsVersion = '35.0.0'
-    ndkVersion = '27.3.13750724'
-    if (System.getenv('ANDROID_NDK_HOME')) ndkPath = System.getenv('ANDROID_NDK_HOME')
+    ndkVersion = '27.3.13750724'      // del SDK (Gradle la baja si falta); no ANDROID_NDK_HOME, que puede ser otra versión
 
     defaultConfig {
         applicationId = "io.github.xalcker.${idPart(property('appSystem').toString())}.${idPart(property('appName').toString())}"

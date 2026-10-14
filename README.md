@@ -30,8 +30,88 @@ propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
 
 En Windows, `make` y `sh` (compilar, pruebas, ciclo completo, compilar el proyecto generado) corren dentro de MSYS2
 UCRT64, como se compila a mano: la GUI los lanza con su `bash` (`MSYSTEM=UCRT64`) y pasa las rutas como `C:/...`.
-Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:msys64`, y al arrancar dice cuál usa. Los ejecutables de los
+Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:\msys64`, y al arrancar dice cuál usa. Los ejecutables de los
 recompiladores y `git` se lanzan directo.
+
+## Qué instalar en Windows
+
+**Para compilar y jugar.** [MSYS2](https://www.msys2.org) en `C:\msys64` (`winget install --id MSYS2.MSYS2 -e`). Abre
+la terminal «MSYS2 UCRT64» (no MSYS ni MINGW64), corre `pacman -Syu` (otra vez si la ventana se cierra) y luego:
+
+```
+pacman -S --needed make git unzip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-pkgconf
+pacman -S --needed mingw-w64-ucrt-x86_64-python diffutils
+```
+
+La primera línea son los paquetes del CI de Windows. La segunda la pide NEORecomp (su BIOS propia y sus pruebas); si
+make encuentra un `python3` que no funciona, como el alias de Microsoft Store, el `make` entero de NEORecomp falla.
+`make` es el de MSYS (no `mingw32-make`) y `gcc` el de UCRT64. curl, tar, sha256sum y cygpath ya vienen con MSYS2.
+SDL2 se enlaza estático: el `.exe` no pide `SDL2.dll`.
+
+Hay dos `git`. El de MSYS2 solo da la versión (`git describe`; sin él sale «dev»). La GUI usa el del PATH de Windows,
+[Git for Windows](https://git-scm.com) (`winget install --id Git.Git -e`), para el estado de cada repo y para
+«sincronizar»; sin él solo fallan esas dos cosas. Cada uno tiene su propio `.gitconfig`, así que un `git config
+--global submodule.recurse true` hecho en uno no vale para el otro. Clona con `--recursive` (ver «Código compartido»
+más abajo). Después de un `winget install`, abre otro PowerShell para que se vea el PATH nuevo.
+
+**La GUI.** uv (`winget install --id astral-sh.uv -e`) y el comando de arriba, o cualquier Python 3 de Windows: solo
+usa la biblioteca estándar. make no ve ese Python; por eso NEORecomp pide además el de pacman.
+
+**`make web` («Jugar en el navegador»), opcional.** Lo más simple es el Emscripten de MSYS2:
+
+```
+pacman -S --needed mingw-w64-ucrt-x86_64-emscripten
+```
+
+Pone `emcc` en el PATH de los shells de login, que es lo que usa la GUI (`bash -lc`); una terminal hay que abrirla de
+nuevo. La primera compilación baja el port de SDL2 y necesita internet. Un emsdk instalado aparte no sirve: make no
+lo ve. La otra opción es Docker Desktop (ver las trampas).
+
+**`make apk` («Crear APK»), opcional.** [Android Studio](https://developer.android.com/studio) instala el SDK (por
+omisión en `%LOCALAPPDATA%\Android\Sdk`) con Platform-Tools y acepta las licencias. make apk pide además Android 15
+(API 35), Build-Tools 35.0.0, NDK 27.3.13750724 y CMake 3.22.1 (`shared/android/app.gradle`). Con las licencias
+aceptadas, Gradle los baja en el primer make apk (varios minutos, con internet). Si no, se instalan en el SDK
+Manager: API 35 en «SDK Platforms», y lo demás en «SDK Tools» con «Show Package Details». Sin Android Studio: las
+Command-line Tools en `<sdk>\cmdline-tools\latest`, un JDK aparte y, desde PowerShell, `sdkmanager.bat --licenses` y
+`sdkmanager.bat "platform-tools"`.
+
+Android Studio no define las variables que necesita make apk. Créalas como variables de usuario, en PowerShell:
+
+```
+[Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", 'User')
+[Environment]::SetEnvironmentVariable('JAVA_HOME', 'C:\Program Files\Android\Android Studio\jbr', 'User')
+```
+
+ANDROID_HOME (o ANDROID_SDK_ROOT) apunta al SDK; sin ella, make apk busca Docker. JAVA_HOME es obligatoria (en MSYS2
+no hay `java`) y tiene que ser un JDK de 17 a 23: Gradle 8.13 no corre con Java 24 ni 25, y make apk lo avisa.
+Compruébalo con `& 'C:\Program Files\Android\Android Studio\jbr\bin\java.exe' -version`; si dice 24 o más, instala
+Temurin 21 (`winget install EclipseAdoptium.Temurin.21.JDK`) y apunta JAVA_HOME a él, sin `\` al final.
+
+Para que «Crear APK» la instale, adb (el de `%ANDROID_HOME%\platform-tools`; no hace falta en el PATH) tiene que ver
+el dispositivo **antes** de pulsar el botón; uno «unauthorized» no cuenta. En el teléfono: Opciones de desarrollador
+→ Depuración por USB, y acepta la huella del PC; en Windows hace falta el driver USB (Google USB Driver, en SDK
+Tools, para un Pixel; el del fabricante para otras marcas). Para un emulador: un AVD x86_64 en el Device Manager, con
+la virtualización activa en la BIOS y la «Plataforma del hipervisor de Windows». Una APK de depuración hecha en otra
+máquina no se instala encima de la anterior: hay que desinstalar esa primero.
+
+**Trampas de Windows.**
+
+- La GUI pasa su entorno a cada trabajo: después de crear una variable, abre otro PowerShell (o reinicia VS Code)
+  antes de `uv run`.
+- El `bash -lc` de MSYS2 no hereda el PATH de Windows (`MSYS2_PATH_TYPE=minimal`), así que make no ve `java`,
+  `docker`, emsdk ni el Python de Windows. Las variables como JAVA_HOME y ANDROID_HOME sí llegan.
+- Docker Desktop (para `make web` sin emcc o `make apk` sin SDK; usa WSL 2): para que make lo vea, crea la variable
+  de usuario `MSYS2_PATH_TYPE=inherit`. Con ella, el `python3` de Windows (o su alias) también entra al PATH: instala
+  el de pacman. Este camino no está probado en Windows; Emscripten y el SDK son los recomendados.
+- Rutas sin espacios: los Makefile usan `$(CURDIR)` sin comillas. Clona en algo corto, como `C:\dev\NESRecomp`; con
+  el NDK, una ruta larga puede pasar el límite de 250 caracteres de CMake.
+- Si tu usuario de Windows tiene espacios, el SDK por omisión y la caché de make apk (`$(HOME)/.cache/retrorecomp`)
+  también. Elige en Android Studio un SDK como `C:\Android\Sdk` (y apunta ANDROID_HOME ahí), y crea la variable de
+  usuario `APK_CACHE_DIR` con una ruta POSIX sin espacios, como `/c/rrcache`.
+- `make testroms` de GENRecomp y NEORecomp baja las SingleStepTests del 68000 y del Z80 (unos 450 MB por repo; las
+  del Z80 se recomprimen una por una), que en MSYS2 tardan mucho. `SKIP_SST=1 make testroms` las salta, como el CI de
+  Windows.
+- `make web` y `make apk` solo los prueba el CI de Linux; en Windows están sin probar.
 
 ## Modos
 

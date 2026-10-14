@@ -19,7 +19,7 @@
 
 #include "../runtime/console.h"
 #include "../runtime/gb.h"
-#include "../platform/png.h"
+#include "png.h"
 #include "../platform/inputs.h"
 
 #ifdef _WIN32

@@ -4,7 +4,7 @@
  * Uso: gbshot rom.gb salida.png [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]
  */
 #include "cli.h"
-#include "../platform/png.h"
+#include "png.h"
 
 static const unsigned char shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
 

@@ -198,17 +198,11 @@ for r in mslug samsho2 turfmast; do
     if [ "${m:-0}" -ge 300 ]; then echo "ok    $r suena (nivel máximo $m en 30 s, build/wav/$r.wav)"
     else echo "FALLA $r no suena (nivel máximo ${m:-?})"; fallas=$((fallas + 1)); fi
 done
-if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then
-    ui=0
-    for m in 0 1 2 3 4 5; do
-        "$(exe neo)" roms/mslug.zip --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
-            && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
-    done
-    for a in 17 18 19; do          # Controles, Este juego, Acerca de
-        "$(exe neo)" roms/mslug.zip --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
-            && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui acción $a"; ui=1; }
-    done
-    if [ $ui = 0 ]; then echo "ok    neo dibuja cada menú y cada diálogo (--ui-shot)"; else fallas=$((fallas + 1)); fi
+if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ] && { [ -f tests/ui_golden.txt ] || [ -n "$UI_GOLDEN_UPDATE" ] || { echo "(sin tests/ui_golden.txt: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh lo crea)"; false; }; }; then
+    # Controles, Este juego, Acerca de; contra la referencia tests/ui_golden.txt (UI_GOLDEN_UPDATE=1 la reescribe)
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe neo)" roms/mslug.zip tests/ui_golden.txt "0 1 2 3 4 5" "17 18 19" > build/ui_golden.out 2>&1; then
+        echo "ok    neo: cada menú y cada diálogo coinciden con la referencia (--ui-shot)"
+    else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
 fi
 tiempo "juegos de roms/"
 

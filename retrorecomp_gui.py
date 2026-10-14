@@ -13,7 +13,7 @@ Dónde busca los recompiladores: --nes/--gb/--gen/--neo, las variables
 NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR, la carpeta que contiene a retrorecomp si es uno de
 ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp y NEORecomp.
 """
-import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zlib
+import argparse, glob, json, os, re, secrets, shlex, shutil, subprocess, sys, threading, time, webbrowser, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
@@ -180,7 +180,8 @@ class System:
         d = self.project_dir(name)
         return {"name": name, "dir": d, "generated": os.path.isfile(os.path.join(d, "Makefile")),
                 "built": os.path.isfile(os.path.join(d, name + EXE)),
-                "web": os.path.isfile(os.path.join(d, "web", name + ".wasm"))}
+                "web": os.path.isfile(os.path.join(d, "web", name + ".wasm")),
+                "apk": os.path.isfile(os.path.join(d, "apk", name + "-debug.apk"))}
 
     def git(self):
         def g(*a):
@@ -948,6 +949,21 @@ class Job:
                 "step_list": [{"cmd": c, "rc": self.step_rc[i] if i < len(self.step_rc) else None} for i, c in enumerate(self.step_cmd)]}
 
 
+def find_adb():
+    """adb del SDK de Android (ANDROID_HOME o ANDROID_SDK_ROOT) o del PATH; None si no hay."""
+    for root in (os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")):
+        p = os.path.join(root, "platform-tools", "adb" + EXE) if root else ""
+        if p and os.path.isfile(p):
+            return p
+    return shutil.which("adb")
+
+
+def adb_device(adb):
+    """¿Hay un teléfono o un emulador conectado y autorizado?"""
+    rc, out = run_quiet([adb, "devices"], None, timeout=10)
+    return rc == 0 and any(ln.rstrip().endswith("\tdevice") for ln in out.splitlines()[1:])
+
+
 def start_job(title, steps, rid=None, kind="", cwd=None):
     j = Job(title, steps, rid, kind, cwd)
     with lock:
@@ -1010,6 +1026,21 @@ def make_job(p):
             steps += bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
         steps.append({"argv": ["make", "-C", pdir, "web"]})
         return start_job(f"web {name}", steps, rid, "web", cwd)
+    if kind == "apk":
+        # Crear APK (retrorecomp#45): make apk en el proyecto (el SDK de Android o Docker) y, si hay un teléfono o un
+        # emulador conectado, adb install. Un proyecto generado antes de make apk se vuelve a generar
+        steps = []
+        if not all(sysm.tools_status().values()):
+            steps.append({"argv": ["make", "-j8"], "cwd": sysm.root})
+        if not os.path.isfile(os.path.join(pdir, "platform", "android", "android.mk")):
+            traces = [t["name"] for t in list_traces(rid)]
+            tflags = [x for t in trace_files(rid, traces) for x in ("--trace", t)]
+            steps += bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
+        steps.append({"argv": ["make", "-C", pdir, "apk"]})
+        adb = find_adb()
+        if adb and adb_device(adb):
+            steps.append({"argv": [adb, "install", "-r", os.path.join(pdir, "apk", name + "-debug.apk")]})
+        return start_job(f"apk {name}", steps, rid, "apk", cwd)
     if kind == "recomp":
         steps = bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
         if p.get("compile", True):

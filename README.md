@@ -44,7 +44,9 @@ El interruptor de la barra superior elige entre dos modos (se recuerda en el nav
   `--no-menu`. «Jugar en el navegador» (en Fácil y en Experto → Trazas y entradas) compila el juego con `make web`
   (Emscripten, o Docker con la imagen fija de `shared/web/web.mk`) y lo abre en otra pestaña con la ROM de tu disco:
   la GUI lo sirve en `/play/<token>/<rom>/`, solo en 127.0.0.1. En Neo Geo hace falta que el proyecto se haya
-  recompilado con la BIOS propia, que va dentro del build.
+  recompilado con la BIOS propia, que va dentro del build. «Crear APK» (en los mismos dos lugares) compila el juego
+  para Android con `make apk` (el SDK de Android si `ANDROID_HOME` lo dice, o Docker con la imagen fija de
+  `shared/android`) y, si `adb` ve un teléfono o un emulador conectado, lo instala; la APK queda en `apk/` del proyecto.
 - **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
   (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
   el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son

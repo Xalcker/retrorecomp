@@ -43,11 +43,13 @@ apk_empty :=
 apk_space := $(apk_empty) $(apk_empty)
 apk_path = $(if $(filter Windows_NT,$(OS)),$(shell cygpath -m "$(1)"),$(1))
 APK_SHA256 := $(if $(shell command -v sha256sum 2>/dev/null),sha256sum,shasum -a 256)
+# El java con el que se comprueba la versión (en MSYS2, JAVA_HOME viene como C:\...)
+APK_JAVA := $(if $(JAVA_HOME),$(if $(filter Windows_NT,$(OS)),$(shell cygpath -u "$(JAVA_HOME)"),$(JAVA_HOME))/bin/java,java)
 
 .PHONY: apk
 ifneq ($(APK_SDK),)
 apk: $(APK_SDL)/CMakeLists.txt
-	@v=$$("$(if $(JAVA_HOME),$(JAVA_HOME)/bin/java,java)" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n 1); \
+	@v=$$("$(APK_JAVA)" -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | head -n 1); \
 	if [ "$${v:-0}" -lt 17 ]; then \
 	    echo "make apk necesita un JDK 17 o más nuevo: define JAVA_HOME (por ejemplo, el JBR de Android Studio)" >&2; exit 1; fi
 	@if [ -n "$(APK_RELEASE)" ] && [ -z "$$APK_KEYSTORE" ]; then \

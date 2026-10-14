@@ -37,8 +37,14 @@ static int ui_scale(int width)
     return width >= 640 ? 2 : 1;
 }
 
+/* Espera a que se arrastre un archivo a la ventana (0 si se cierra o con Esc). En el navegador no se puede
+ * esperar sin colgar la página: devuelve 0 enseguida (la página da la ROM antes de arrancar) */
 static int wait_for_drop(char *out, size_t size)
 {
+#ifdef __EMSCRIPTEN__
+    (void)out; (void)size;
+    return 0;
+#endif
     SDL_Event ev;
     while (SDL_WaitEvent(&ev)) {
         if (ev.type == SDL_QUIT) return 0;

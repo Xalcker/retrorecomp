@@ -142,6 +142,17 @@ La página pide la ROM (no va en el build), comprueba el SHA1 como el ejecutable
 con la partida, los estados y las preferencias (IndexedDB), así que la siguiente vez basta con «Jugar». La página
 es la misma en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la de nestest.
 
+**En Android** (APK): `make -C juegos/smb apk` deja `juegos/smb/apk/<nombre>-debug.apk`, que se instala con `adb
+install -r`. Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en
+`JAVA_HOME`; el JBR de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de
+`platform/android/Dockerfile`, que se construye la primera vez (unos 3 GB). En el teléfono el juego arranca
+horizontal y en pantalla completa, con un mando en pantalla (o un mando Bluetooth); Atrás o el botón de las tres
+rayas abren el menú. La primera vez pide la ROM con el selector de archivos del teléfono y la guarda; las partidas y
+las preferencias se guardan también al dejar la app en segundo plano. `make apk ROM=smb.nes` mete la ROM en la APK
+(solo para uso personal: esa APK no se comparte) y `APK_RELEASE=1` firma una de release con tu keystore (ver
+`platform/android/android.mk`). Es la misma plantilla en los cuatro recompiladores (`retrorecomp/shared/android`);
+`make apktest` compila la de nestest.
+
 **8. Entender qué encontró el recompilador**
 
 ```

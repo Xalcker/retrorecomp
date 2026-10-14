@@ -16,7 +16,8 @@
  *                 intérprete (en el intérprete `nes`: todas); sirve de --trace para nesrecomp
  *
  * Jugador 1: flechas, Z = B, X = A, Enter = Start, Mayús/Retroceso = Select. Jugador 2: WASD,
- * F = B, G = A, C = Start, V = Select. Mandos: el primero es el jugador 1 y el segundo el 2.
+ * F = B, G = A, C = Start, V = Select. Mandos: el primero es el jugador 1 y el segundo el 2. En una pantalla
+ * táctil, el mando en pantalla (player_touch.h) es el jugador 1; en Android, Atrás abre el menú.
  *
  * Un juego recompilado pide la ROM una sola vez. Se busca, en orden: el argumento, la copia
  * guardada en la carpeta de datos del juego, "rom.nes" junto al ejecutable o en la carpeta
@@ -62,6 +63,7 @@
 #include "ui_menu.h"
 #include "player_util.h"
 #include "player_audio.h"
+#include "player_touch.h"
 
 #define SCREEN_W 256
 #define SCREEN_H 240
@@ -114,6 +116,7 @@ typedef struct {
     SDL_Texture *tex;
     int tex_h;
     PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
+    TouchPad touch;         /* el mando en pantalla (player_touch.h) */
     SDL_GameController *pads[4];
     SDL_Rect game_rect;     /* dónde se dibuja el juego en la ventana (para el Zapper) */
     SDL_Cursor *cross;      /* mira del Zapper */
@@ -216,6 +219,9 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     for (;;) {
         int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path_out, path_size);
         if (!got) {
+#ifdef __ANDROID__
+            return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
+#endif
             /* Sin diálogo nativo (o cancelado en Windows: se ofrece arrastrar) */
             snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), app->title[0] ? app->title : "NES");
             if (first) inform(msg);
@@ -750,6 +756,7 @@ static void handle_event(App *app, SDL_Event *e)
         SDL_free(e->drop.file);
         return;
     }
+    if (touch_and_back(app, e)) return;
     if (e->type == SDL_MOUSEMOTION)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
@@ -790,6 +797,16 @@ static void handle_event(App *app, SDL_Event *e)
 /* ------------------------------------------------------------------ */
 /* Controles                                                           */
 /* ------------------------------------------------------------------ */
+
+/* El mando en pantalla (player_touch.h): B y A abajo a la derecha, como en el control; Select y Start arriba de la
+ * cruz y de los botones */
+static const TouchButton touch_keys[] = {
+    { "B", BTN_B, TOUCH_RIGHT, 0, -2.75f, -1.3f },
+    { "A", BTN_A, TOUCH_RIGHT, 0, -1.15f, -1.8f },
+    { "SELECT", BTN_SELECT, TOUCH_LEFT, 1, 1.65f, -3.6f },
+    { "START", BTN_START, TOUCH_RIGHT, 1, -1.95f, -3.6f },
+};
+static const TouchLayout touch_layout = { BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, touch_keys, 4 };
 
 static u8 read_pad(SDL_GameController *pad)
 {
@@ -834,7 +851,7 @@ static void player_pads(App *app, u8 pads[4])
     if (k[SDL_SCANCODE_S]) p2 |= BTN_DOWN;
     if (k[SDL_SCANCODE_A]) p2 |= BTN_LEFT;
     if (k[SDL_SCANCODE_D]) p2 |= BTN_RIGHT;
-    pads[0] = p1 | read_pad(app->pads[0]);
+    pads[0] = p1 | read_pad(app->pads[0]) | (u8)touch_buttons(&app->touch);
     pads[1] = p2 | read_pad(app->pads[1]);
     pads[2] = read_pad(app->pads[2]);                       /* jugadores 3 y 4 (Four Score): solo con mandos */
     pads[3] = read_pad(app->pads[3]);
@@ -963,6 +980,7 @@ static void render(App *app)
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
     SDL_RenderClear(app->ren);
     SDL_RenderCopy(app->ren, app->tex, NULL, &dst);
+    touch_draw(&app->touch, app->ren, w, h);
 
     if (bar_visible(app))
         menubar_draw(&app->bar, app->ren, w, ui);
@@ -988,6 +1006,7 @@ static void render(App *app)
 static void frame_input(App *app)
 {
     SDL_Event ev;
+    background_poll(app);
     while (SDL_PollEvent(&ev)) handle_event(app, &ev);
 }
 
@@ -1035,6 +1054,15 @@ static void finish(App *app, int save_settings)
     free(app->rom.data);
 }
 
+#ifdef __ANDROID__
+/* Al irse a segundo plano (player_common.h): la partida y las preferencias, como al salir */
+static void app_save(App *app)
+{
+    settings_save(&app->cfg, app->settings_path);
+    save_game(app);
+}
+#endif
+
 #ifdef __EMSCRIPTEN__
 /* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
  * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
@@ -1081,6 +1109,7 @@ int main(int argc, char *argv[])
     the_app = app;
     app->last_pad[0] = app->last_pad[1] = -1;
     app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
+    touch_init(&app->touch, &touch_layout);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 

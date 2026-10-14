@@ -1041,8 +1041,15 @@ static void emit_makefile(const char *dir, const char *name)
         "WEB_CACHE  := rom.nes\n"
         "WEB_ACCEPT := .nes\n"
         "include platform/web.mk\n\n"
-        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        cart->mapper, name, name, name, name, name, name, name);
+        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk)\n"
+        "APK_NAME   := %s\n"
+        "APK_TITLE  := %s\n"
+        "APK_SYSTEM := nesrecomp\n"
+        "APK_CACHE  := rom.nes\n"
+        "APK_ICON   := platform/icono.h\n"
+        "include platform/android/android.mk\n\n"
+        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        cart->mapper, name, name, name, name, name, name, name, name, name);
     fclose(f);
 }
 
@@ -1067,7 +1074,11 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
         "  make web\n"
         "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
-        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n", name, sha1, name);
+        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n\n"
+        "En Android (necesita el SDK de Android y un JDK 17, o Docker):\n"
+        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
+        "La primera vez el juego pide la ROM con el selector de archivos del teléfono y la guarda.\n"
+        "make apk ROM=juego.nes la mete en la APK (solo para uso personal: no compartas esa APK).\n", name, sha1, name, name);
     fclose(f);
 }
 

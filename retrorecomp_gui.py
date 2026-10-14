@@ -159,6 +159,12 @@ class System:
     def run(self, argv, timeout=60):
         return run_quiet(argv, self.root, timeout)
 
+    def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
+        """El bench de la consola (intérprete) o el del proyecto generado (recompilado): las mismas opciones"""
+        exe = os.path.join(pdir, "bench" + EXE) if recompiled else self.tool(self.bench_tool)
+        argv = [exe, rp, "--frames", str(frames), "--repeat", str(repeat)]
+        return argv + (["--input", inp] if inp else [])
+
     def tools_status(self):
         return {n: os.path.isfile(self.tool(n)) for n in self.tools}
 
@@ -327,11 +333,6 @@ class NES(System):
 
     def trace_tool(self, kind):
         return self.trace_tools[kind]
-
-    def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
-        exe = os.path.join(pdir, "bench" + EXE) if recompiled else self.tool(self.bench_tool)
-        argv = [exe, rp, "--frames", str(frames), "--repeat", str(repeat)]
-        return argv + (["--input", inp] if inp else [])
 
     def visor(self, rp, tflags, cov):
         out = os.path.join(WORK, f"visor_{self.id}_{stem(os.path.basename(rp))}.html")
@@ -611,10 +612,7 @@ class GB(System):
         return {"trace": "gbtrace", "screenshot": "gbshot", "audio": "gbaudio"}[kind]
 
     def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
-        if recompiled:
-            return [os.path.join(pdir, "difftest" + EXE), rp, "--frames", str(frames), "--bench"]
-        argv = [self.tool(self.bench_tool), rp, "--frames", str(frames), "--repeat", str(repeat)]
-        return argv + (["--input", inp] if inp else []) + (["--model", model] if model else [])
+        return super().bench_argv(rp, pdir, frames, repeat, inp, model, recompiled) + (["--model", model] if model else [])
 
     def visor(self, rp, tflags, cov):
         out = os.path.join(WORK, f"eventos_{self.id}_{stem(os.path.basename(rp))}.txt")
@@ -924,13 +922,13 @@ class Job:
         text = "".join(self.log)
         rec = {"when": int(time.time()), "status": self.status}
         if self.kind == "difftest":
-            m = re.search(r"([\d.]+)% (recompilado|de los ciclos)", text)
+            m = re.search(r"([\d.]+)% de los ciclos", text)
             if m:
                 rec["pct_recomp"] = float(m.group(1))
             m = re.search(r"(\d+) cuadros", text)
             if m:
                 rec["frames"] = int(m.group(1))
-            rec["ok"] = self.status == "ok" and ("Sin diferencias" in text or "cuadros iguales" in text)
+            rec["ok"] = self.status == "ok" and "cuadros iguales" in text
             update_state(self.rid, difftest=rec)
         elif self.kind == "bench":
             m = re.findall(r"([\d.]+)x tiempo real", text)

@@ -30,7 +30,7 @@ SHARED = (os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_ga
 # Lo que antes se copiaba en cada repo y ahora se toma de shared/ por el submódulo tools/retrorecomp
 MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
            os.path.join("src", "runtime", "sha1.c"), os.path.join("src", "runtime", "sha1.h"),
-           *(os.path.join("src", "platform", f) for f in ("ui_menu.c", "ui_menu.h", "ui_font.c", "ui_font.h", "png.c", "png.h", "files.h")))
+           *(os.path.join("src", "platform", f) for f in ("ui_menu.c", "ui_menu.h", "ui_font.c", "ui_font.h", "png.c", "png.h", "files.h", "export.c", "export.h")))
 
 # Las entradas guionadas del ciclo son las mismas en NES, Game Boy y Genesis; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)

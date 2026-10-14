@@ -52,18 +52,13 @@ mkdir -p build/tests build/shots
 { printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '
   head -c 240 /dev/zero; printf '\140\376'; head -c 510 /dev/zero; } > "$R"
 
-# Interfaz: cada menú y cada diálogo se dibuja sin fallar (--ui-shot, sin ventana)
+# Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
+# ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x "$(exe gen)" ]; then
-    ui=0
-    for m in 0 1 2 3 4 5 6; do
-        "$(exe gen)" "$R" --ui-shot build/shots/ui_$m.png --ui-frames 5 --ui-menu $m >/dev/null 2>&1 \
-            && [ -s build/shots/ui_$m.png ] || { echo "FALLA ui menú $m"; ui=1; }
-    done
-    for a in 5 37 38 39; do     # Cargar estado, Controles, Este juego, Acerca de (A_LOAD_STATE, A_HELP_CONTROLS... en main_sdl.c)
-        "$(exe gen)" "$R" --ui-shot build/shots/ui_a$a.png --ui-frames 5 --ui-action $a >/dev/null 2>&1 \
-            && [ -s build/shots/ui_a$a.png ] || { echo "FALLA ui diálogo $a"; ui=1; }
-    done
-    if [ $ui -eq 0 ]; then echo "ok    gen: los 7 menús y los 4 diálogos se dibujan"; else fallas=$((fallas + 1)); fi
+    # Cargar estado, Controles, Este juego, Acerca de (A_LOAD_STATE, A_HELP_CONTROLS... en main_sdl.c)
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe gen)" "$R" tests/ui_golden.txt "0 1 2 3 4 5 6" "5 37 39" > build/ui_golden.out 2>&1; then
+        echo "ok    gen: los 7 menús y 3 diálogos coinciden con la referencia"
+    else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
 fi
 tiempo "interfaz"
 

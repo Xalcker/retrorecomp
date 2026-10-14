@@ -6,7 +6,8 @@
 #   WEB_CACHE   la copia de la ROM que guarda el juego en esa carpeta (rom.nes, juego.neo...)
 #   WEB_ACCEPT  las extensiones del selector de la página (.nes)
 #   INC         los -I y -D del proyecto
-#   WEB_EXTRA   (opcional) más opciones de emcc, p. ej. -sSUPPORT_LONGJMP=wasm
+#   WEB_EXTRA   (opcional) más opciones de emcc, p. ej. --embed-file para meter un archivo en el build
+# Compila runtime/, gen/, platform/ (menos difftest y bench) y, si el proyecto la tiene, bios/ (NEORecomp).
 # Con emcc (Emscripten) instalado se usa ese; si no, Docker con la imagen de abajo (versión fija, la misma
 # del CI). Docker guarda los ports de Emscripten (SDL2) en el volumen retrorecomp-emcache.
 
@@ -24,7 +25,7 @@ WEB_PLAT := $(filter-out platform/difftest.c platform/bench.c,$(wildcard platfor
 WEB_OBJ  := $(patsubst runtime/%.c,build/web/rt_%.o,$(wildcard runtime/*.c)) \
             $(patsubst gen/%.c,build/web/gen_%.o,$(wildcard gen/*.c)) \
             $(patsubst platform/%.c,build/web/pl_%.o,$(WEB_PLAT)) \
-            $(WEB_OBJ_EXTRA)
+            $(patsubst bios/%.c,build/web/bios_%.o,$(wildcard bios/*.c))
 
 .PHONY: web
 ifneq ($(shell command -v $(EMCC) 2>/dev/null),)
@@ -49,6 +50,9 @@ build/web/rt_%.o: runtime/%.c $(wildcard runtime/*.h) | build/web
 	$(EMCC) $(WEB_CFLAGS) $(INC) -c -o $@ $<
 
 build/web/gen_%.o: gen/%.c $(wildcard runtime/*.h) $(wildcard gen/*.h) | build/web
+	$(EMCC) $(WEB_CFLAGS) $(INC) -c -o $@ $<
+
+build/web/bios_%.o: bios/%.c $(wildcard runtime/*.h) $(wildcard bios/*.h) | build/web
 	$(EMCC) $(WEB_CFLAGS) $(INC) -c -o $@ $<
 
 build/web/pl_%.o: platform/%.c $(wildcard platform/*.h) $(wildcard runtime/*.h) | build/web

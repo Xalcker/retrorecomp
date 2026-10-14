@@ -1,10 +1,10 @@
 # make apk: el juego recompilado como APK de Android. Es el mismo en los cuatro recompiladores
 # (retrorecomp/shared/android); lo incluye el Makefile del proyecto, que antes define:
-#   APK_NAME    el juego: apk/$(APK_NAME).apk
+#   APK_NAME    el juego: apk/$(APK_NAME)-debug.apk (la de release, apk/$(APK_NAME).apk)
 #   APK_TITLE   el nombre que muestra el teléfono
 #   APK_SYSTEM  el recompilador en minúsculas (nesrecomp...): el paquete es io.github.xalcker.<sistema>.<juego>
 #   APK_CACHE   la copia de la ROM que guarda el juego en su carpeta de datos (rom.nes, juego.neo...)
-#   APK_ICON    el archivo con el ícono en PNG como arreglo de C (archivo o archivo:arreglo)
+#   APK_ICON    el ícono, un arreglo de C con un PNG o los pixeles RGBA de un cuadrado (archivo o archivo:arreglo)
 #   INC         los -I y -D del proyecto
 #   APK_DATA    (opcional) archivos que van en la APK y que el juego encuentra en su carpeta de datos la primera
 #               vez, como origen=nombre (bios/neobios.bin=bios.bin)
@@ -16,11 +16,12 @@
 #                APK_KEY_ALIAS y APK_KEY_PASS en el entorno. La keystore nunca va al repositorio
 # Compila aquí si hay SDK de Android (ANDROID_HOME o ANDROID_SDK_ROOT) y un JDK 17 o más nuevo (JAVA_HOME o java);
 # Gradle baja lo que falte del SDK y el NDK si las licencias están aceptadas (ANDROID_NDK_HOME elige otro NDK).
-# Si no hay SDK, usa Docker con la imagen de platform/android/Dockerfile, que construye la primera vez (unos 3 GB;
-# versiones fijas, la misma del CI). SDL2 sale de su código fuente, que se baja una vez a APK_CACHE_DIR; en Docker,
-# esa caché, la de Gradle y la clave de depuración quedan en el volumen retrorecomp-android. La APK de depuración va
-# firmada con la clave de depuración de cada máquina: una APK de otra máquina no se instala encima de la anterior
-# (hay que desinstalarla, y con ella se van las partidas); con APK_RELEASE y tu keystore no pasa.
+# Si no hay SDK, usa Docker con la imagen de platform/android/Dockerfile (versiones fijas), que construye la primera
+# vez (unos 3 GB). SDL2 sale de su código fuente, que se baja una vez a APK_CACHE_DIR. En Docker, esa caché, la de
+# Gradle y la clave de depuración quedan en el volumen retrorecomp-android; como dos Gradle en contenedores distintos no
+# pueden compartir esa caché, un make apk espera a que termine el otro (el contenedor se llama retrorecomp-android).
+# La APK de depuración va firmada con la clave de depuración de cada máquina: la de otra máquina no se instala encima
+# de la anterior (hay que desinstalarla, y con ella se van las partidas). Con APK_RELEASE y tu keystore no pasa.
 
 ifeq ($(APK_NAME),apk)
 $(error un juego llamado "apk" choca con make apk: recompílalo con otro --name)
@@ -88,10 +89,12 @@ apk:
 	mkdir -p build
 	rm -f build/apk-rom
 	$(if $(ROM),cp "$(ROM)" build/apk-rom)
-	docker run --rm --platform linux/amd64 -v "$(APK_HOST_DIR)":/src -w /src -v retrorecomp-android:/cache \
+	@while docker container inspect retrorecomp-android > /dev/null 2>&1; do \
+	    echo "esperando a que termine otro make apk (el contenedor retrorecomp-android)"; sleep 10; done
+	docker run --rm --name retrorecomp-android --platform linux/amd64 -v "$(APK_HOST_DIR)":/src -w /src -v retrorecomp-android:/cache \
 	    -e APK_CACHE_DIR=/cache -e GRADLE_USER_HOME=/cache/gradle -e ANDROID_USER_HOME=/cache/android $(if $(APK_RELEASE),-e APK_KEYSTORE -e APK_KEYSTORE_PASS -e APK_KEY_ALIAS -e APK_KEY_PASS) \
 	    $(APK_IMAGE) sh -c 'make apk APK_ABIS="$(APK_ABIS)" $(if $(ROM),ROM=build/apk-rom) $(if $(APK_RELEASE),APK_RELEASE=1); r=$$?; \
-	        chown -R $(shell id -u):$(shell id -g) apk build; exit $$r'
+	        chown -R $(shell id -u):$(shell id -g) build $$([ -d apk ] && echo apk); exit $$r'
 else
 apk:
 	@echo "make apk necesita el SDK de Android (ANDROID_HOME y un JDK 17) o Docker (con la imagen de platform/android/Dockerfile)" >&2; exit 1

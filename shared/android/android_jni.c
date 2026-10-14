@@ -8,7 +8,7 @@
 
 #include <SDL.h>
 
-#include "files.h"
+#include "../files.h"        /* platform/files.h: no todos los proyectos tienen -Iplatform */
 
 /* El hilo del juego espera a Java (player_common.h no le pide que guarde al irse a segundo plano) */
 SDL_atomic_t android_in_java;

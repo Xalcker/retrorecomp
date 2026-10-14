@@ -174,7 +174,7 @@ static int touch_event(TouchPad *t, const SDL_Event *e, int w, int h, int ui_ope
 #ifdef __ANDROID__
     /* Al recibir el foco, SDL repite como ratón el último toque (o (0, 0) al arrancar): mostraría la barra oculta */
     case SDL_WINDOWEVENT:
-        if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) t->focus_motion = 1;
+        if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED || e->window.event == SDL_WINDOWEVENT_ENTER) t->focus_motion = 1;
         return 0;
 #endif
     case SDL_MOUSEMOTION:

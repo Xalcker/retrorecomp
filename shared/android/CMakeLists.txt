@@ -13,8 +13,9 @@ file(GLOB RECOMP_SRC ${RECOMP_DIR}/runtime/*.c ${RECOMP_DIR}/gen/*.c ${RECOMP_DI
 list(FILTER RECOMP_SRC EXCLUDE REGEX "/platform/(difftest|bench)\\.c$")
 add_library(main SHARED ${RECOMP_SRC} ${CMAKE_CURRENT_LIST_DIR}/android_jni.c)
 set_target_properties(main PROPERTIES C_STANDARD 99 C_EXTENSIONS OFF)
-# -O2 va después del -O0 de la variante de depuración: el juego tiene que ir a velocidad
-target_compile_options(main PRIVATE -O2 -Wall -Wno-unused-label)
+# -O2 y -g0 van después del -O0 -g de la variante de depuración: el juego tiene que ir a velocidad, y con información
+# de depuración el código generado (que puede ser enorme) deja a clang sin memoria. El escritorio tampoco la lleva
+target_compile_options(main PRIVATE -O2 -g0 -Wall -Wno-unused-label)
 separate_arguments(RECOMP_FLAGS UNIX_COMMAND "${RECOMP_INC}")
 foreach(flag IN LISTS RECOMP_FLAGS)
     if(flag MATCHES "^-I(.+)$")

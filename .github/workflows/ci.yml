@@ -28,6 +28,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
       - name: Mando en pantalla común (shared/player_touch.h) con toques simulados
         run: |
-          cc -std=c99 -O2 -Wall -Wextra -Werror -Ishared $(pkg-config --cflags sdl2) -o player_touch_test \
-             tests/player_touch_test.c shared/ui_font.c $(pkg-config --libs sdl2) -lm
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Ishared -Itests/stub $(pkg-config --cflags sdl2) -o player_touch_test \
+             tests/player_touch_test.c shared/ui_font.c shared/ui_menu.c $(pkg-config --libs sdl2) -lm
           ./player_touch_test

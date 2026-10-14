@@ -36,7 +36,7 @@ typedef struct {
     int shown;              /* se dibuja y recibe los toques */
     int menu;               /* tocaron el botón del menú: lo atiende el bucle */
     int mouse_pass;         /* el toque que SDL también manda como ratón va a la barra de menús */
-    int focus_motion;       /* Android: la ventana acaba de recibir el foco (ver touch_event) */
+    int real_mouse;         /* Android: se apretó un ratón de verdad (ver touch_event) */
     int w, h;               /* la pantalla del último toque */
     struct { SDL_FingerID id; int zone; float x, y; } finger[TOUCH_FINGERS];
     int fingers;
@@ -171,21 +171,19 @@ static int touch_event(TouchPad *t, const SDL_Event *e, int w, int h, int ui_ope
                 return 1;
             }
         return 0;
-#ifdef __ANDROID__
-    /* Al recibir el foco, SDL repite como ratón el último toque (o (0, 0) al arrancar): mostraría la barra oculta */
-    case SDL_WINDOWEVENT:
-        if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED || e->window.event == SDL_WINDOWEVENT_ENTER) t->focus_motion = 1;
-        return 0;
-#endif
     case SDL_MOUSEMOTION:
-        if (t->focus_motion) {
-            t->focus_motion = 0;
-            if (e->motion.which != SDL_TOUCH_MOUSEID && !e->motion.state) return 1;
-        }
+#ifdef __ANDROID__
+        /* Al recibir el foco, SDL mueve el ratón a (0, 0) o al último toque, y mostraría la barra oculta: el ratón que
+         * no viene de un toque se ignora hasta que se aprieta el botón de un ratón de verdad */
+        if (e->motion.which != SDL_TOUCH_MOUSEID && !t->real_mouse) return 1;
+#endif
         if (e->motion.which != SDL_TOUCH_MOUSEID) return 0;
         return !(ui_open || (e->motion.y < top && touch_zone(t, w, h, (float)e->motion.x, (float)e->motion.y) == TOUCH_NONE));
     case SDL_MOUSEBUTTONDOWN:
-        if (e->button.which != SDL_TOUCH_MOUSEID) return 0;
+        if (e->button.which != SDL_TOUCH_MOUSEID) {
+            t->real_mouse = 1;
+            return 0;
+        }
         t->mouse_pass = ui_open || (e->button.y < top && touch_zone(t, w, h, (float)e->button.x, (float)e->button.y) == TOUCH_NONE);
         return !t->mouse_pass;
     case SDL_MOUSEBUTTONUP:

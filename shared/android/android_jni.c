@@ -5,6 +5,8 @@
  */
 #include <jni.h>
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <SDL.h>
 
@@ -29,7 +31,14 @@ int ask_rom_path(const char *title, char *out, size_t size)
         if (path) {
             const char *s = (*env)->GetStringUTFChars(env, path, NULL);
             if (s) {
-                ok = snprintf(out, size, "%s", s) < (int)size;
+                /* La copia está en la caché de la app, con una ruta larga: se pasa a su carpeta y se devuelve solo el
+                 * nombre, que es lo que muestran los mensajes ("juego.nes no es la ROM...") */
+                const char *name = s, *slash = strrchr(s, '/');
+                char dir[1024];
+                if (slash && slash != s && snprintf(dir, sizeof dir, "%.*s", (int)(slash - s), s) < (int)sizeof dir &&
+                    chdir(dir) == 0)
+                    name = slash + 1;
+                ok = snprintf(out, size, "%s", name) < (int)size;
                 (*env)->ReleaseStringUTFChars(env, path, s);
             }
             (*env)->DeleteLocalRef(env, path);

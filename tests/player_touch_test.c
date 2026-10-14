@@ -2,10 +2,11 @@
  * Prueba de shared/player_touch.h (el mando en pantalla) con toques simulados en una pantalla de 2400x1080, como
  * la de un teléfono en horizontal: la cruz en ocho direcciones, varios dedos a la vez, deslizar de un botón a otro,
  * los dos botones entre ellos, el botón del menú, qué toques del ratón de SDL pasan a la barra de menús y cuándo
- * se esconde. También lo dibuja en un renderer de software. Usa SDL2 sin ventana.
+ * se esconde. También lo dibuja en un renderer de software, y comprueba que en la barra de menús (ui_menu.c) tocar
+ * el título de otro menú lo abra. Usa SDL2 sin ventana.
  *
- *   cc -std=c99 -Wall -Wextra -Werror -Ishared $(pkg-config --cflags sdl2) -o player_touch_test \
- *       tests/player_touch_test.c shared/ui_font.c $(pkg-config --libs sdl2) -lm && ./player_touch_test
+ *   cc -std=c99 -Wall -Wextra -Werror -Ishared -Itests/stub $(pkg-config --cflags sdl2) -o player_touch_test \
+ *       tests/player_touch_test.c shared/ui_font.c shared/ui_menu.c $(pkg-config --libs sdl2) -lm && ./player_touch_test
  */
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <SDL.h>
 
 #include "ui_font.h"
+#include "ui_menu.h"
 #include "player_touch.h"
 
 enum { UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8, KEY_A = 16, KEY_B = 32, SELECT = 64, START = 128 };
@@ -151,6 +153,37 @@ int main(void)
         SDL_DestroyRenderer(ren);
     }
     SDL_FreeSurface(s);
+
+    /* La barra de menús con el dedo: SDL manda el movimiento al punto del toque justo antes del clic. Con el ratón,
+     * pasar por otro título abre ese menú; con un toque no, para que el clic lo abra en vez de cerrarlo */
+    static const MenuItem items[] = { { "Uno", NULL, 1, ITEM_ACTION } };
+    static const Menu menus[] = { { "Juego", items, 1 }, { "Video", items, 1 } };
+    MenuBar bar = { menus, 2, NULL, NULL, -1, -1, 0, 0 };
+    int action, x1 = -1;
+    SDL_Event ev;
+    memset(&ev, 0, sizeof ev);
+    bar.open = 0;
+    for (int x = 0; x < 600 && x1 < 0; x++) {        /* dónde está el título de Video: ahí el ratón lo abre */
+        ev.type = SDL_MOUSEMOTION;
+        ev.motion.which = 0;
+        ev.motion.x = x;
+        ev.motion.y = 5;
+        menubar_event(&bar, &ev, 2, &action);
+        if (bar.open == 1) x1 = x;
+    }
+    check(x1 >= 0, "con el ratón, pasar por otro título abre ese menú");
+    bar.open = 0;
+    ev.motion.which = SDL_TOUCH_MOUSEID;
+    ev.motion.x = x1;
+    menubar_event(&bar, &ev, 2, &action);
+    check(bar.open == 0, "el movimiento de un toque no cambia de menú");
+    memset(&ev, 0, sizeof ev);
+    ev.type = SDL_MOUSEBUTTONDOWN;
+    ev.button.which = SDL_TOUCH_MOUSEID;
+    ev.button.x = x1;
+    ev.button.y = 5;
+    menubar_event(&bar, &ev, 2, &action);
+    check(bar.open == 1, "y tocar el título abre ese menú");
 
     printf("%d fallas\n", fails);
     return fails ? 1 : 0;

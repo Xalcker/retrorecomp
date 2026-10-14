@@ -13,7 +13,8 @@
 #                lleva la ROM y no se comparte
 #   APK_ABIS     las arquitecturas (arm64-v8a x86_64: teléfonos y el emulador)
 #   APK_RELEASE=1  la APK de release, firmada con tu keystore: APK_KEYSTORE (ruta), APK_KEYSTORE_PASS,
-#                APK_KEY_ALIAS y APK_KEY_PASS en el entorno. La keystore nunca va al repositorio
+#                APK_KEY_ALIAS y APK_KEY_PASS en el entorno. La keystore nunca va al repositorio; con Docker, la ruta
+#                es relativa a la carpeta del proyecto (el contenedor solo ve esa carpeta)
 # Compila aquí si hay SDK de Android (ANDROID_HOME o ANDROID_SDK_ROOT) y un JDK 17 o más nuevo (JAVA_HOME o java);
 # Gradle baja lo que falte del SDK y el NDK si las licencias están aceptadas (ANDROID_NDK_HOME elige otro NDK).
 # Si no hay SDK, usa Docker con la imagen de platform/android/Dockerfile (versiones fijas), que construye la primera

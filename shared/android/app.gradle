@@ -80,7 +80,7 @@ android {
     signingConfigs {
         if (System.getenv('APK_KEYSTORE')) {
             propia {
-                storeFile = file(System.getenv('APK_KEYSTORE'))
+                storeFile = recompDir.toPath().resolve(System.getenv('APK_KEYSTORE')).toFile()   // relativa al proyecto
                 storePassword = System.getenv('APK_KEYSTORE_PASS')
                 keyAlias = System.getenv('APK_KEY_ALIAS')
                 keyPassword = System.getenv('APK_KEY_PASS')

@@ -18,7 +18,10 @@ captura() {    # clave opción número
     suma=$(cksum < "$out" | cut -d' ' -f1-2)
     echo "$1 $suma" >> "$nuevo"
     if [ -f "$ref" ] && [ -z "$UI_GOLDEN_UPDATE" ]; then
-        esperada=$(grep "^$1 " "$ref" | cut -d' ' -f2-3)
+        # Una línea "clave@Sistema" (uname -s: Darwin, Linux, MINGW...) pesa más que la general: macOS dibuja
+        # distinto los diálogos de texto largo
+        esperada=$(grep "^$1@$(uname -s) " "$ref" | cut -d' ' -f2-3)
+        [ -n "$esperada" ] || esperada=$(grep "^$1 " "$ref" | cut -d' ' -f2-3)
         if [ -z "$esperada" ]; then echo "FALLA ui $1: sin referencia en $ref"; fallas=$((fallas + 1))
         elif [ "$esperada" != "$suma" ]; then echo "FALLA ui $1: la captura cambió (esperada $esperada, salió $suma; build/shots/ui_$1.png)"; fallas=$((fallas + 1)); fi
     fi

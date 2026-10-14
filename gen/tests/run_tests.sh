@@ -90,6 +90,46 @@ recompila() {   # nombre rom cuadros [traza]
 }
 recompila minima "$R" 60
 tiempo "proyecto generado: minima"
+
+# Código que el juego copia a RAM (retrorecomp shared/ram_code.h): una ROM hecha aquí copia una rutina a $00FF0000 y a
+# $FFFF8000 (con JSR ($8000).w el PC queda en $FFFF8000), las llama en un bucle y parcha un operando de la primera
+# (addq.b #1,$FF0003). Primera ronda: todo lo de RAM va al intérprete y la traza lo anota (con ?? en el byte
+# parchado); segunda, con esa traza: nada de RAM en el intérprete y sin diferencias. difftest, gentrace y el
+# ejecutable escriben las mismas líneas "ram", y el ejecutable conserva las que traía el archivo.
+hex() { for b in "$@"; do printf "\\$(printf %03o "0x$b")"; done; }
+RR=build/tests/ram.bin
+{ printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '; head -c 240 /dev/zero
+  hex 41 F9 00 00 02 40  43 F9 00 FF 00 00  30 3C 00 09  32 D8  51 C8 FF FC \
+      41 F9 00 00 02 40  43 F8 80 00  30 3C 00 09  32 D8  51 C8 FF FC \
+      4E B9 00 FF 00 00  4E B8 80 00  52 39 00 FF 00 03  60 EE  4E 71 4E 71 \
+      30 3C 00 05  72 00  D2 40  51 C8 FF FC  33 C1 00 FF 10 00  4E 75
+  head -c 428 /dev/zero; } > "$RR"
+d=build/tests/proy_ram; x=; [ -x ./genrecomp.exe ] && x=.exe
+rm -rf "$d" "$D/ram.unc" "$D/ram2.unc"
+ok=0
+if "$(exe genrecomp)" "$RR" -o "$d" --name ram >/dev/null 2>&1 && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
+        && "$d/difftest$x" "$RR" --frames 60 --seed 1 --uncovered "$D/ram.unc" > "$D/ram1.out" 2>&1 \
+        && grep -q "RAM 100.0%" "$D/ram1.out" && grep -q "^ram 00FF0000 30 3C 00 ??$" "$D/ram.unc" \
+        && [ "$(grep -c '^ram FFFF80' "$D/ram.unc")" -eq 6 ]; then
+    sleep 1     # el make de macOS compara fechas con precisión de un segundo
+    if "$(exe genrecomp)" "$RR" -o "$d" --name ram --trace "$D/ram.unc" 2>&1 | grep -q "aprendido de la traza: 12 instrucciones (1 con operandos variables) en 2 bloques" \
+            && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
+            && "$d/difftest$x" "$RR" --frames 60 --seed 1 --uncovered "$D/ram2.unc" > "$D/ram2.out" 2>&1 \
+            && grep -q "cuadros iguales.*100.0% de los ciclos" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
+fi
+if [ $ok -eq 1 ]; then echo "ok    código en RAM: la segunda ronda lo compila (12 instrucciones, 1 parchada) y no queda nada en el intérprete"
+else echo "FALLA código en RAM"; cat "$D/ram1.out" "$D/ram2.out" 2>/dev/null; fallas=$((fallas + 1)); fi
+"$(exe gentrace)" "$RR" "$D/ram_gentrace.txt" --frames 60 >/dev/null 2>&1
+if [ "$(grep '^ram' "$D/ram_gentrace.txt")" = "$(grep '^ram' "$D/ram.unc")" ]; then echo "ok    gentrace anota el mismo código de RAM que difftest"
+else echo "FALLA gentrace y el código de RAM"; fallas=$((fallas + 1)); fi
+if [ -x "$(exe gen)" ]; then
+    printf 'ram 00FF2000 4E 75\n' > "$D/ram_exe.txt"
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$(exe gen)" "$RR" --ui-shot "$D/ram_exe.png" --ui-frames 60 --uncovered "$D/ram_exe.txt" >/dev/null 2>&1
+    if [ "$(grep '^ram' "$D/ram_exe.txt" | grep -v 00FF2000)" = "$(grep '^ram' "$D/ram.unc")" ] && grep -q "^ram 00FF2000 4E 75$" "$D/ram_exe.txt"; then
+        echo "ok    el ejecutable anota el mismo código de RAM y conserva las líneas que traía"
+    else echo "FALLA el ejecutable y el código de RAM"; fallas=$((fallas + 1)); fi
+fi
+tiempo "código en RAM"
 [ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
 tiempo "proyecto generado: overdrive"
 for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do

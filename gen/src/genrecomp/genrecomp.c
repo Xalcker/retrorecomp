@@ -19,8 +19,11 @@
  *      intérprete) con el opcode, las palabras de extensión y el PC constantes.
  *
  * Las instrucciones se identifican por su desplazamiento en la ROM, no por la dirección del CPU: lo
- * que no se descubrió, o está en RAM, lo ejecuta el intérprete. Descubrir de más no rompe nada (lo
- * que se recompila es lo que hay en esa dirección); de menos, tampoco.
+ * que no se descubrió lo ejecuta el intérprete. Descubrir de más no rompe nada (lo que se recompila
+ * es lo que hay en esa dirección); de menos, tampoco.
+ *
+ * El código que el juego copia a RAM y ejecuta desde ahí no está en la ROM: se aprende de las
+ * líneas "ram" de la traza (ram_code.h) y va a gen/ram.c con una guarda (emit_ram).
  */
 #ifndef _WIN32
 #define _DEFAULT_SOURCE
@@ -43,6 +46,7 @@
 #include "m68k_ops.h"
 #include "console.h"
 #include "trace_line.h"
+#include "ram_code.h"
 #include "embedded.h"
 #include "dis68k.h"
 
@@ -724,18 +728,37 @@ static u32 why_arg(const char *arg)
     return (u32)(trace_line_read(arg, TRACE_SHIFT, &off, &addr) ? off : strtoul(arg, NULL, 16));
 }
 
-/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION") */
+static RcList ram_list;              /* instrucciones de RAM de las trazas (líneas "ram") */
+
+/* Una línea "ram" válida: en la RAM del 68000 ($00FFxxxx o $FFFFxxxx: el PC lleva sus 32 bits, ver
+ * gen.h), par, y con la longitud que pide su opcode */
+static void add_ram_line(RcIns *in)
+{
+    u32 hi = in->addr >> 16;
+    if (in->len < 2 || (hi != 0x00FF && hi != 0xFFFF) || (in->addr & 1)) return;
+    if (in->vol & 3) return;                /* el opcode nunca es variable */
+    u16 op = (u16)(in->bytes[0] << 8 | in->bytes[1]);
+    if (in->len != 2 + 2 * m68k_ext_words(op) || (in->addr & 0xFFFF) + in->len > 0x10000) return;
+    in->key = 2;
+    if (!rc_list_add(&ram_list, in)) die("sin memoria");
+}
+
+/* Traza "BANCO:DIRECCION" (trace_line.h; también el formato viejo "DESPLAZAMIENTO:DIRECCION"),
+ * más las líneas "ram" del código que corrió desde RAM */
 static void load_trace(const char *path)
 {
     FILE *f = fopen(path, "r");
     if (!f) die("no se pudo abrir la traza %s", path);
     char line[128];
     unsigned long off, addr;
+    RcIns in;
     while (fgets(line, sizeof line, f))
-        if (trace_line_read(line, TRACE_SHIFT, &off, &addr) && off < rom_size && !(off & 1)) {
-            if (!is_ins[off >> 1]) stat_trace++;
-            seed((u32)off, (u32)addr & 0xFFFFFF, HOW_TRACE);
-        }
+        if (trace_line_read(line, TRACE_SHIFT, &off, &addr)) {
+            if (off < rom_size && !(off & 1)) {
+                if (!is_ins[off >> 1]) stat_trace++;
+                seed((u32)off, (u32)addr & 0xFFFFFF, HOW_TRACE);
+            }
+        } else if (rc_parse(line, &in)) add_ram_line(&in);
     fclose(f);
 }
 
@@ -1116,6 +1139,7 @@ static void emit_code(const char *dir)
     FILE *h = open_out(dir, "gen/gen.h");
     fprintf(h, "/* Generado por genrecomp: no editar. */\n#ifndef GEN_GEN_H\n#define GEN_GEN_H\n#include \"m68k_ops.h\"\n#include \"recomp.h\"\n\n");
     for (size_t i = 0; i < nfuncs; i++) fprintf(h, "int f_%06X(Gen *g);\n", funcs[i].lo);
+    fprintf(h, "RecompFn ram_lookup(Gen *g, u32 pc);     /* gen/ram.c: el código aprendido de RAM */\n");
     fprintf(h, "\n#endif\n");
     fclose(h);
 
@@ -1162,11 +1186,163 @@ static void emit_dispatch(const char *dir)
     fprintf(f, "\n};\n\n"
                "RecompFn recomp_lookup(Gen *g, u32 pc)\n{\n"
                "    long off = gen_code_offset(g, pc);\n"
-               "    if (off < 0) return 0;\n"
+               "    if (off < 0) return (pc & 0xFF0000) == 0xFF0000 ? ram_lookup(g, pc) : 0;\n"
                "    u32 i = page_first[off >> 10];\n"
                "    while (i < NFUNCS && f_hi[i] < (u32)off) i++;\n"
                "    return (i < NFUNCS && f_lo[i] <= (u32)off) ? f_fn[i] : 0;\n}\n");
     fclose(f);
+}
+
+/* Código que el juego copia a RAM ($FF0000-$FFFFFF, con el PC en $00FFxxxx o $FFFFxxxx) y ejecuta desde ahí: manejadores de interrupción,
+ * rutinas que corren mientras la ROM no está (o más rápido), descompresores, saltos por vectores en
+ * RAM. No está en la ROM donde corre, así que se aprende de las líneas "ram" de la traza (ram_code.h).
+ * Las instrucciones que van una detrás de otra sin ambigüedad forman un bloque, que se compila con
+ * sus direcciones como el código de ROM. La guarda: ram_lookup elige el primer bloque cuyas palabras
+ * de opcode siguen en RAM; si el juego cambió el código, cae al intérprete. Las palabras de
+ * extensión no se comparan: se leen de RAM cuando la instrucción corre (como el intérprete), así
+ * que el código que parcha sus propios inmediatos, direcciones o destinos sigue funcionando */
+static void ram_dis(const RcIns *in, char *out, size_t size)
+{
+    u16 w[5] = { 0 };
+    for (unsigned i = 0; i < 5 && 2 * i + 1 < in->len; i++) w[i] = (u16)(in->bytes[2 * i] << 8 | in->bytes[2 * i + 1]);
+    dis68k(w, in->addr, out, size);
+}
+
+static int ram_word_fixed(const RcIns *in, unsigned word)     /* la palabra i de la instrucción no es variable */
+{
+    return 2 * word + 1 < in->len && !(in->vol >> (2 * word) & 3);
+}
+
+static u16 ram_word(const RcIns *in, unsigned word)
+{
+    return (u16)(in->bytes[2 * word] << 8 | in->bytes[2 * word + 1]);
+}
+
+static void emit_ram_ins(FILE *f, const RcBlock *b, const RcIns *in)
+{
+    u16 op = ram_word(in, 0);
+    int kind = m68k_decode(op), n = m68k_ext_words(op);
+    u32 addr = in->addr, next = addr + in->len;
+    char dis[96];
+    ram_dis(in, dis, sizeof dis);
+    fprintf(f, "L_%08X: /* RAM $%08X  %s%s */\n", addr, addr, dis, in->vol ? " (operandos variables)" : "");
+    if (n) fprintf(f, "    { u16 e[%d]; ram_ext(g, 0x%08X, e, %d);\n      npc = k_%s(g, 0x%04X, e, 0x%08X); }\n",
+                   n, addr + 2, n, kind_name(kind), op, addr);
+    else fprintf(f, "    npc = k_%s(g, 0x%04X, noext, 0x%08X);\n", kind_name(kind), op, addr);
+    fprintf(f, "    AFTER(npc);\n");
+
+    /* Sucesores dentro del bloque: solo los que no dependen de una palabra variable. Con los 32 bits
+     * del PC, como los calcula el CPU */
+    u32 succ[2];
+    int ns = 0, fall = 1;
+    switch (kind) {
+    case K_BCC: {
+        u32 d8 = op & 0xFF;
+        if (d8) succ[ns++] = addr + 2 + sx8(d8);
+        else if (ram_word_fixed(in, 1)) succ[ns++] = addr + 2 + sx16(ram_word(in, 1));
+        if ((op >> 8 & 15) <= 1) fall = 0;         /* BRA, BSR */
+        break; }
+    case K_DBCC:
+        if (ram_word_fixed(in, 1)) succ[ns++] = addr + 2 + sx16(ram_word(in, 1));
+        break;
+    case K_JMP: case K_JSR: {
+        int mode = op >> 3 & 7, reg = op & 7;
+        if (mode == 7 && reg == 0 && ram_word_fixed(in, 1)) succ[ns++] = sx16(ram_word(in, 1));
+        else if (mode == 7 && reg == 1 && ram_word_fixed(in, 1) && ram_word_fixed(in, 2))
+            succ[ns++] = (u32)ram_word(in, 1) << 16 | ram_word(in, 2);
+        else if (mode == 7 && reg == 2 && ram_word_fixed(in, 1)) succ[ns++] = addr + 2 + sx16(ram_word(in, 1));
+        fall = 0;
+        break; }
+    case K_RTS: case K_RTE: case K_RTR: case K_ILLEGAL: case K_LINEA: case K_LINEF: case K_STOP:
+        fall = 0;
+        break;
+    default: break;
+    }
+    if (fall) succ[ns++] = next;
+    for (int i = 0; i < ns; i++)
+        if (rc_block_has(&ram_list, b, succ[i]))
+            fprintf(f, "    if (npc == 0x%08X) goto L_%08X;\n", succ[i], succ[i]);
+    fprintf(f, "    LEAVE(npc);\n");
+}
+
+typedef struct { u32 addr; size_t block; } RamEntry;
+
+static int ram_entry_cmp(const void *a, const void *b)
+{
+    const RamEntry *x = a, *y = b;
+    if (x->addr != y->addr) return x->addr < y->addr ? -1 : 1;
+    return x->block < y->block ? -1 : x->block > y->block;
+}
+
+static void emit_ram(const char *dir)
+{
+    FILE *f = open_out(dir, "gen/ram.c");
+    fprintf(f, "/* Generado por genrecomp: no editar. El código que el juego ejecuta desde RAM, aprendido de la traza\n"
+               " * (líneas \"ram\"); sin ellas, ram_lookup no tiene nada y la RAM sigue en el intérprete. */\n"
+               "#include \"gen.h\"\n\n");
+    size_t dropped = rc_list_finish(&ram_list);
+    RcBlock *blocks = NULL;
+    size_t nb = ram_list.n ? rc_blocks(&ram_list, &blocks, NULL) : 0;
+    if (nb == (size_t)-1) die("sin memoria");
+    if (!nb) {
+        fprintf(f, "RecompFn ram_lookup(Gen *g, u32 pc)\n{\n    (void)g;\n    (void)pc;\n    return 0;\n}\n");
+        fclose(f);
+        if (dropped) printf("código en RAM: %zu instrucciones descartadas por cambiar de estructura\n", dropped);
+        return;
+    }
+    size_t nvol = 0;
+    for (size_t i = 0; i < ram_list.n; i++) nvol += ram_list.ins[i].vol != 0;
+    printf("código en RAM aprendido de la traza: %zu instrucciones (%zu con operandos variables) en %zu bloques",
+           ram_list.n, nvol, nb);
+    if (dropped) printf(" (%zu descartadas por cambiar de estructura)", dropped);
+    printf("\n");
+
+    fprintf(f, "static const u16 noext[1];\n\n"
+               "static inline u16 ram_w(const Gen *g, u32 a)\n{\n    return (u16)(g->ram[a & 0xFFFF] << 8 | g->ram[(a + 1) & 0xFFFF]);\n}\n\n"
+               "/* Las palabras de extensión, de RAM al ejecutar (como las lee el intérprete) */\n"
+               "static inline void ram_ext(const Gen *g, u32 a, u16 *e, int n)\n{\n"
+               "    for (int i = 0; i < n; i++) e[i] = ram_w(g, a + 2 * (u32)i);\n}\n\n");
+    for (size_t bi = 0; bi < nb; bi++) {
+        const RcBlock *b = &blocks[bi];
+        /* La guarda: las palabras de opcode del bloque */
+        fprintf(f, "/* RAM $%08X-$%08X (%zu instrucciones) */\nstatic int m_%zu(const Gen *g)\n{\n    return", b->start,
+                b->start + b->len - 1, b->n, bi);
+        for (size_t k = 0; k < b->n; k++) {
+            const RcIns *in = &ram_list.ins[b->node[k]];
+            fprintf(f, "%s ram_w(g, 0x%08X) == 0x%04X", k ? (k % 3 ? " &&" : " &&\n          ") : "", in->addr, ram_word(in, 0));
+        }
+        fprintf(f, ";\n}\n\nstatic int r_%zu(Gen *g)\n{\n    M68k *c = &g->cpu;\n    u32 npc;\n    (void)c;\n    switch (c->pc) {\n", bi);
+        for (size_t k = 0; k < b->n; k++) {
+            u32 a = ram_list.ins[b->node[k]].addr;
+            fprintf(f, "    case 0x%08X: goto L_%08X;\n", a, a);
+        }
+        fprintf(f, "    default: return 0;\n    }\n");
+        for (size_t k = 0; k < b->n; k++) emit_ram_ins(f, b, &ram_list.ins[b->node[k]]);
+        fprintf(f, "}\n\n");
+    }
+
+    /* El lookup: por cada dirección, los bloques que la tienen, en orden; el primero cuya guarda pasa */
+    size_t ne = 0;
+    for (size_t bi = 0; bi < nb; bi++) ne += blocks[bi].n;
+    RamEntry *ent = malloc(ne * sizeof *ent);
+    if (!ent) die("sin memoria");
+    ne = 0;
+    for (size_t bi = 0; bi < nb; bi++)
+        for (size_t k = 0; k < blocks[bi].n; k++) ent[ne++] = (RamEntry){ ram_list.ins[blocks[bi].node[k]].addr, bi };
+    qsort(ent, ne, sizeof *ent, ram_entry_cmp);
+    fprintf(f, "RecompFn ram_lookup(Gen *g, u32 pc)\n{\n    switch (pc) {\n");
+    for (size_t i = 0; i < ne;) {
+        fprintf(f, "    case 0x%08X:", ent[i].addr);
+        size_t j = i;
+        for (; j < ne && ent[j].addr == ent[i].addr; j++) fprintf(f, " if (m_%zu(g)) return r_%zu;", ent[j].block, ent[j].block);
+        fprintf(f, " break;\n");
+        i = j;
+    }
+    fprintf(f, "    }\n    return 0;\n}\n");
+    fclose(f);
+    free(ent);
+    for (size_t bi = 0; bi < nb; bi++) free(blocks[bi].node);
+    free(blocks);
 }
 
 static void emit_info(const char *dir, const char *sha1, const char *name)
@@ -1452,6 +1628,7 @@ int main(int argc, char **argv)
     write_embedded(out);
     emit_code(out);
     emit_dispatch(out);
+    emit_ram(out);
     emit_info(out, cart->sha1, name);
     emit_makefile(out, name);
     emit_readme(out, name, cart->sha1);

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "gen.h"
+#include "ram_code.h"
 #include "trace_line.h"
 #include "sha1.h"
 
@@ -155,9 +156,51 @@ int gen_sram_dirty(const Gen *g)
 
 /* --- Traza --- */
 
+/* Código ejecutado desde RAM, por máquina (difftest tiene dos): t[0] con el PC en $00FFxxxx y t[1] en
+ * $FFFFxxxx (gen.h) */
+static struct { const Gen *g; RcTable t[2]; } ram_tabs[4];
+
+static RcTable *ram_table(const Gen *g, int create)
+{
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (ram_tabs[i].g == g) return ram_tabs[i].t;
+    if (!create) return NULL;
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (!ram_tabs[i].g) {
+            if (!rc_init(&ram_tabs[i].t[0], 0x00FF0000, 0x10000) || !rc_init(&ram_tabs[i].t[1], 0xFFFF0000, 0x10000))
+                return NULL;
+            ram_tabs[i].g = g;
+            return ram_tabs[i].t;
+        }
+    return NULL;
+}
+
+/* Lo que identifica una instrucción del 68000 es su opcode: la longitud depende solo de él, y las
+ * palabras de extensión (inmediatos, direcciones, desplazamientos) las lee el código recompilado de
+ * RAM al ejecutar, como el intérprete */
+void gen_ram_note(Gen *g, u32 pc)
+{
+    RcTable *t = ram_table(g, 0);
+    u32 a = pc & 0xFFFF;
+    if (!t || (a & 1) || ((pc >> 24) != 0x00 && (pc >> 24) != 0xFF)) return;
+    unsigned len = 2 + 2 * (unsigned)m68k_ext_words((u16)(g->ram[a] << 8 | g->ram[a + 1]));
+    if (a + len <= sizeof g->ram) rc_observe(&t[pc >> 24 ? 1 : 0], pc, g->ram + a, len, 2);
+}
+
+void gen_ram_summary(const Gen *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost)
+{
+    RcTable *t = ram_table(g, 0);
+    *fixed = *vol = *multi = *lost = 0;
+    for (int k = 0; t && k < 2; k++) {
+        RcSummary s = rc_summary(&t[k]);
+        *fixed += s.fixed; *vol += s.vol; *multi += s.multi; *lost += s.lost;
+    }
+}
+
 void gen_trace_start(Gen *g)
 {
     if (!g->trace) g->trace = calloc(g->cart.rom_size / 2 + 1, sizeof *g->trace);
+    if (ram_table(g, 1)) m68k_ram_trace = gen_ram_note;
 }
 
 int gen_trace_load(Gen *g, const char *path)
@@ -167,9 +210,16 @@ int gen_trace_load(Gen *g, const char *path)
     gen_trace_start(g);
     unsigned long off, addr;
     char line[128];
+    RcTable *t = ram_table(g, 0);
+    RcIns in;
     while (fgets(line, sizeof line, f))
-        if (trace_line_read(line, GEN_TRACE_SHIFT, &off, &addr) && off < g->cart.rom_size && !(off & 1) && !g->trace[off >> 1])
-            g->trace[off >> 1] = 0x80000000u | (addr & 0xFFFFFF);
+        if (trace_line_read(line, GEN_TRACE_SHIFT, &off, &addr)) {
+            if (off < g->cart.rom_size && !(off & 1) && !g->trace[off >> 1])
+                g->trace[off >> 1] = 0x80000000u | (addr & 0xFFFFFF);
+        } else if (t && rc_parse(line, &in) && in.len >= 2) {
+            in.key = 2;
+            rc_add(&t[in.addr >> 24 ? 1 : 0], &in);
+        }
     fclose(f);
     return 1;
 }
@@ -181,6 +231,8 @@ int gen_trace_write(const Gen *g, const char *path)
     if (!f) return 0;
     for (size_t i = 0; i < g->cart.rom_size / 2; i++)
         if (g->trace[i]) trace_line_write(f, GEN_TRACE_SHIFT, 6, i * 2, g->trace[i] & 0xFFFFFF);
+    RcTable *t = ram_table(g, 0);
+    for (int k = 0; t && k < 2; k++) rc_write(&t[k], f, 8);
     return fclose(f) == 0;
 }
 

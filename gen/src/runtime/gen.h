@@ -259,6 +259,14 @@ void gen_trace_start(Gen *g);
 int  gen_trace_load(Gen *g, const char *path);  /* suma lo de una traza anterior; 1 si se leyó */
 int  gen_trace_write(const Gen *g, const char *path);
 size_t gen_trace_count(const Gen *g);
+/* Con la traza activa, el intérprete también anota el código que ejecuta desde la RAM del 68000
+ * ($FF0000-$FFFFFF), en líneas "ram" de ram_code.h que la misma traza escribe y lee: genrecomp
+ * --trace lo compila con una guarda. La dirección va con sus 32 bits: el PC los guarda (JSR ($8000).w
+ * salta a $FFFF8000, JMP $FF8000 a $00FF8000) y llegan a la pila, así que son dos lugares distintos
+ * para el código. La tabla va aparte de Gen (los estados guardados la copian entera y validan su
+ * tamaño) */
+void gen_ram_note(Gen *g, u32 pc);      /* la llama el intérprete antes de ejecutar en pc */
+void gen_ram_summary(const Gen *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost);
 
 /* Estados guardados: la consola entera. Solo los lee la misma versión con la misma ROM. */
 u8  *gen_state_save(const Gen *g, size_t *size);   /* malloc; NULL si falla */

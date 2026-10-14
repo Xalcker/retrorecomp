@@ -88,8 +88,13 @@ etapa 1, contra Genesis Plus GX y BlastEm (`tools/oracles/`, ver `ARQUITECTURA.m
 
 - **Recompilador.** Ninguna diferencia entre el código recompilado y el intérprete en ningún juego, ni en la
   primera ronda (sin traza). El análisis estático encuentra casi todo (fase 7): después de la segunda ronda no
-  queda ninguna instrucción de ROM en el intérprete; lo que no corre recompilado es código copiado a la RAM
-  (Gunstar Heroes, Vectorman, Contra Hard Corps, Comix Zone), que el método no puede cubrir.
+  queda ninguna instrucción de ROM en el intérprete; lo que no corría recompilado era código copiado a la RAM
+  (Gunstar Heroes, Vectorman, Contra Hard Corps, Comix Zone). Ahora ese código se aprende de la traza (ver
+  «Código que el juego copia a RAM» en `ARQUITECTURA.md`). Con el ciclo de `tests/recomp_game.sh` (1500 cuadros,
+  semilla 1) en los 23 juegos de `roms/`, sin diferencias en ninguno: Gunstar Heroes pasa del 90.8 % de los
+  ciclos recompilados al 96.8 %, Vectorman del 92.7 % al 98.3 %, Comix Zone del 97.2 % al 99.3 % y Ecco del 99.9 %
+  al 100 % (antes: una ronda con la traza guionada). Lo que queda casi siempre es la espera de `STOP` y la entrada
+  a las interrupciones, que hace el intérprete.
 - **Temporización contra los oráculos.** Los oráculos mostraron que el 68000 corría algo más rápido que en la
   consola (Sonic 1 terminaba su suma de verificación del arranque unos cuadros antes). Se agregaron la FIFO
   del VDP y el refresco de la DRAM, que acercaron el resultado a los dos emuladores (ver «Temporización» en

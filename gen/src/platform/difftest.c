@@ -200,6 +200,7 @@ int main(int argc, char **argv)
 
     unsigned long calls = 0, recomp_calls = 0;
     u64 recomp_cycles = 0;
+    u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
     for (long f = 0; f < frames; f++) {
         A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
         A.pad[1] = B.pad[1] = cli_pad(&c, f, 1);
@@ -209,6 +210,7 @@ int main(int argc, char **argv)
             u64 c0 = B.cyc;
             int native = step_b();
             if (native) { recomp_calls++; recomp_cycles += B.cyc - c0; }
+            else interp_zone[pc0 < 0x400000 ? 0 : pc0 >= 0xE00000 ? 1 : 2] += B.cyc - c0;
             calls++;
             while (A.cyc < B.cyc && !A.vdp.frame_done) { m68k_step(&A); gen_after_step(&A); }
             if (compare(0) || A.vdp.frame_done != B.vdp.frame_done) {
@@ -229,12 +231,21 @@ int main(int argc, char **argv)
             if (!save_screen(&B, path)) fprintf(stderr, "no pude escribir %s\n", path);
         }
     }
+    u64 interp = interp_zone[0] + interp_zone[1] + interp_zone[2];
+    if (interp)
+        printf("Intérprete por zona: ROM %.1f%%, RAM %.1f%%, otra %.1f%%\n", 100.0 * (double)interp_zone[0] / (double)interp,
+               100.0 * (double)interp_zone[1] / (double)interp, 100.0 * (double)interp_zone[2] / (double)interp);
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * (double)recomp_cycles / (double)B.cyc : 0.0);
     if (c.uncovered) {
         size_t cnt = gen_trace_count(&B);
         if (!gen_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }
         printf("Instrucciones de ROM interpretadas: %zu\n", cnt);
+        unsigned fixed, vol, multi, lost;
+        gen_ram_summary(&B, &fixed, &vol, &multi, &lost);
+        if (fixed || vol || lost)
+            printf("Código en RAM: %u instrucciones fijas, %u con operandos variables, %u direcciones con varias versiones, "
+                   "%u que cambian demasiado\n", fixed, vol, multi, lost);
     }
     if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
     return 0;

@@ -43,7 +43,8 @@ prefetch, la RAM y los ciclos antes y después). `m68ktest` las corre **por los 
 intérprete y el del código generado (`--recomp`). Pasan las 1 000 058 por los dos; se omiten 2 de
 ASL.b con datos malos conocidos ([issue #4](https://github.com/SingleStepTests/680x0/issues/4)). En
 `--recomp` no se compara la cola de prefetch cuando la instrucción escribe sobre ella (código que se
-modifica a sí mismo: en ROM no pasa y el código en RAM lo corre el intérprete).
+modifica a sí mismo: en ROM no pasa, y el código de RAM que se compila (ver «Código que el juego copia a
+RAM») es el que no se reescribe así; `difftest` lo delataría).
 
 Comportamientos poco documentados que siguen a las pruebas: banderas N/V de ABCD/SBCD/NBCD; CHK
 compara primero con el límite (38 ciclos, N = signo) y luego el signo (40 ciclos, N = 1), y si no
@@ -206,13 +207,59 @@ constante: queda la instrucción sola.
 
 `gen/dispatch.c` tiene las funciones ordenadas por desplazamiento y una tabla por KB de ROM con la
 primera candidata; `recomp_lookup` traduce el PC con `gen_code_offset` y busca la función que lo
-contiene.
+contiene. Si el PC está en la RAM, pregunta a `ram_lookup` (siguiente sección).
+
+### Código que el juego copia a RAM
+
+Muchos juegos copian rutinas de la ROM a la RAM del 68000 y las ejecutan desde ahí: manejadores de
+interrupción (el de VBlank de Gunstar Heroes está en `$FFFFEE00`), trampolines `JMP` por vectores,
+rutinas que corren mientras se cambia el banco o el DMA. No están en la ROM donde corren, así que el
+descubrimiento no llega. Se aprenden de la traza con el módulo común de retrorecomp,
+`shared/ram_code.h`, que salió de lo que hizo GBRecomp (su `ARQUITECTURA.md` explica por qué de la traza
+y no del análisis):
+
+1. Con la traza activa (`difftest --uncovered`, el ejecutable con `--uncovered`, `gentrace`), el
+   intérprete anota, por cada instrucción que ejecuta desde la RAM, sus bytes: hasta 4 versiones por
+   dirección y qué bytes cambiaron entre ejecuciones. `gen_ram_note` (`gen.c`) lo hace por el puntero
+   `m68k_ram_trace` del CPU, que pone `gen_trace_start`; la tabla va aparte de `Gen`, porque los
+   estados guardados la copian entera y comprueban su tamaño. Salen como líneas
+   `ram DIRECCION B0 B1 ...` (`??` en los bytes que cambiaron) en el mismo archivo de la traza, que
+   `trace_line_read` ignora. El ejecutable carga el archivo y lo vuelve a escribir: conserva las líneas
+   `ram` que traía.
+2. **La dirección lleva los 32 bits del PC.** El 68000 no los recorta: `JSR ($8000).w` deja el PC en
+   `$FFFF8000` y `JMP $FF0000` en `$00FF0000`, y esos bits llegan a la pila con la dirección de retorno.
+   Son dos lugares distintos para el código (`$00FFxxxx` y `$FFFFxxxx`); los espejos de `$E00000` siguen
+   en el intérprete.
+3. **Qué identifica una instrucción: su opcode.** La longitud depende solo de él (`m68k_ext_words`), y las
+   palabras de extensión (inmediatos, direcciones, desplazamientos, la palabra de los modos indexados) las
+   lee el código generado de RAM al ejecutar, con `ram_ext`, como el intérprete. Así el código que parcha
+   sus propios inmediatos o destinos sigue funcionando sin contarlo como otra instrucción.
+4. `genrecomp --trace` une lo visto en varias corridas, descarta las direcciones con más de 8 versiones
+   (código que el juego genera con estructuras distintas) y arma **bloques**: cadenas de instrucciones que
+   van una detrás de otra sin ambigüedad, de hasta 1024. Cada bloque es una función de `gen/ram.c` como las
+   de ROM (un `switch` de entrada, una etiqueta por instrucción, `AFTER` y `goto` a los sucesores que no
+   dependen de una palabra variable).
+5. **La guarda.** `ram_lookup` elige, para el PC, el primer bloque cuyas palabras de opcode siguen en RAM
+   (`m_N`); si ninguno coincide, o el juego cambió el código, cae al intérprete. Se comprueba al entrar al
+   bloque, no por instrucción: un bloque que reescribe un opcode de sí mismo mientras corre sigue con lo
+   aprendido hasta la siguiente entrada, y si escribe sobre la cola de prefetch el 68000 real ejecuta lo
+   viejo. `difftest` lo delata si ocurre en lo que probó.
+
+`genrecomp` imprime «código en RAM aprendido de la traza: N instrucciones (M con operandos variables) en K
+bloques» y `difftest --uncovered`, «Código en RAM: ...» con lo que todavía interpretó. `difftest` también
+dice qué parte del tiempo del intérprete fue ROM o RAM («Intérprete por zona»). Sin líneas `ram`,
+`gen/ram.c` es un `ram_lookup` que devuelve 0.
+
+`tests/run_tests.sh` lo prueba con una ROM hecha ahí mismo que copia una rutina a `$00FF0000` y a
+`$FFFF8000`, la llama en un bucle y parcha un inmediato de la primera: la primera ronda la interpreta (con
+`??` en el byte parchado), la segunda compila 12 instrucciones en 2 bloques y corre el 100 % de los ciclos
+recompilado, sin diferencias; `gentrace` y el ejecutable anotan las mismas líneas que `difftest`.
 
 ### El proyecto generado
 
 `genrecomp -o carpeta` escribe `runtime/` (el runtime de este repo, que va dentro de `genrecomp`),
 `platform/` (la ventana, `difftest`, `bench`), `gen/` (`code_NNN.c` de unas 3000 instrucciones cada
-uno, para compilar en paralelo, `dispatch.c`, `info.c` con el SHA1 y el nombre, `gen.h`), un
+uno, para compilar en paralelo, `dispatch.c`, `ram.c` con el código aprendido de RAM, `info.c` con el SHA1 y el nombre, `gen.h`), un
 `Makefile` (con `-DGEN_RECOMP`) y `LEEME.txt`. No lleva datos de la ROM: el ejecutable la busca (el
 argumento, la copia que guarda la primera vez en su carpeta de datos, `rom.bin` junto al ejecutable o
 en la carpeta actual, o cualquier `.bin/.md/.gen/.smd` de la carpeta actual con el SHA1 correcto) o la

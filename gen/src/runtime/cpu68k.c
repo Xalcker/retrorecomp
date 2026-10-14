@@ -265,6 +265,10 @@ static void interrupt(struct Gen *g, int lvl)
     jump(&xs, rd(&xs, (u32)(VEC_AUTO1 + lvl - 1) * 4, 2));
 }
 
+/* Con la traza activa, lo que el intérprete ejecuta desde RAM (gen_trace_start pone gen_ram_note; un
+ * puntero para que el CPU no dependa del resto de la consola, como en m68ktest) */
+void (*m68k_ram_trace)(struct Gen *g, u32 pc);
+
 /* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
 static void step_body(struct Gen *g)
 {
@@ -283,6 +287,8 @@ static void step_body(struct Gen *g)
             u32 off = cart_rom_offset(&g->cart, c->pc);
             if (g->cart.mapper == MAPPER_NONE) off &= g->cart.rom_mask;
             if (off < g->cart.rom_size && !g->trace[off >> 1]) g->trace[off >> 1] = 0x80000000u | c->pc;
+        } else if (g->trace && (c->pc & 0xFF0000) == 0xFF0000 && m68k_ram_trace) {
+            m68k_ram_trace(g, c->pc);                   /* y en RAM (gen_ram_note) */
         }
         kind_fn[kind_tab[op]](g, op, NULL, c->pc);
         if (trace) {

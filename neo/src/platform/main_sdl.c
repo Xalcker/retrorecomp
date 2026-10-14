@@ -119,20 +119,11 @@ static void resize_window(App *app);
 #include "player_common.h"
 
 static App *the_app;
+
+#define PLAYER_NAME "NEORecomp"
+#include "player_rom.h"
 static const char *ui_shot_path;
 static SDL_Surface *ui_shot_surface;   /* --ui-shot: se dibuja en una superficie, sin ventana */
-
-static void fail(const char *msg)
-{
-    fprintf(stderr, "%s\n", msg);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, the_app ? the_app->title : "NEORecomp", msg, NULL);
-    exit(1);
-}
-
-static void inform(const char *msg)
-{
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, the_app ? the_app->title : "NEORecomp", msg, NULL);
-}
 
 /* ------------------------------------------------------------------ */
 /* Nombres y carpetas                                                  */
@@ -325,17 +316,6 @@ static void resize_window(App *app)
 /* Avisos, exportación                                                 */
 /* ------------------------------------------------------------------ */
 
-static int export_base(App *app, const char *kind, char *out, size_t size)
-{
-    if (!u8_mkdir(app->export_dir)) return 0;
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    char stamp[32] = "0";
-    if (t) strftime(stamp, sizeof stamp, "%Y%m%d_%H%M%S", t);
-    snprintf(out, size, "%s%s_%s_%s", app->export_dir, app->name, kind, stamp);
-    return 1;
-}
-
 static void screenshot(App *app)
 {
     char base[1300], path[1400], text[1500];
@@ -357,11 +337,6 @@ static void screenshot(App *app)
 /* ------------------------------------------------------------------ */
 /* Estados guardados                                                   */
 /* ------------------------------------------------------------------ */
-
-static void state_path(const App *app, int slot, char *out, size_t size)
-{
-    snprintf(out, size, "%s%s.estado%d", app->pref, app->name, slot);
-}
 
 static void save_state(App *app)
 {
@@ -842,36 +817,6 @@ static void render(App *app)
 }
 
 /* Icono de la ventana: el mando del AES, recortado al dibujo y centrado en un cuadrado */
-static void set_window_icon(App *app)
-{
-    int w, h;
-    unsigned char *px = png_decode_rgba(icono_png, sizeof icono_png, &w, &h);
-    if (!px) return;
-    int x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-            if (px[((size_t)y * w + x) * 4 + 3] > 16) {
-                if (x < x0) x0 = x;
-                if (x > x1) x1 = x;
-                if (y < y0) y0 = y;
-                if (y > y1) y1 = y;
-            }
-    if (x1 >= x0 && y1 >= y0) {
-        int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
-        int side = (cw > ch ? cw : ch) + (cw > ch ? cw : ch) / 8;     /* un margen del ~6% por lado */
-        unsigned char *sq = calloc((size_t)side * side, 4);
-        if (sq) {
-            int ox = (side - cw) / 2, oy = (side - ch) / 2;
-            for (int y = 0; y < ch; y++)
-                memcpy(sq + ((size_t)(y + oy) * side + ox) * 4, px + ((size_t)(y + y0) * w + x0) * 4, (size_t)cw * 4);
-            SDL_Surface *icon = SDL_CreateRGBSurfaceWithFormatFrom(sq, side, side, 32, side * 4, SDL_PIXELFORMAT_RGBA32);
-            if (icon) { SDL_SetWindowIcon(app->win, icon); SDL_FreeSurface(icon); }
-            free(sq);
-        }
-    }
-    free(px);
-}
-
 /* ------------------------------------------------------------------ */
 
 static unsigned char *sdl_read_file(const char *path, size_t *size) { return u8_read_file(path, size); }

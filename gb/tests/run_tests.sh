@@ -96,7 +96,7 @@ if [ -x ./gbrecomp ] || [ -x ./gbrecomp.exe ]; then
         else
             falla=$((falla + 1))
             fallidas="$fallidas
-  gbrecomp --html/--viz --color/--codemap: $(tail -3 /tmp/gbtest.out)"
+  gbrecomp --html/--viz --color/--codemap: $(tail -16 /tmp/gbtest.out)"
         fi
     fi
 fi
@@ -105,14 +105,14 @@ fi
 GB=./gb
 [ -x ./gb.exe ] && GB=./gb.exe
 if [ -x "$GB" ] && { [ -z "$FILTRO" ] || case "interprete" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
-    ok=1
-    for m in 0 1 2 3 4 5 6; do
-        rm -f build/gb_ui.png
-        "$GB" "$T/dmg-acid2/dmg-acid2.gb" --ui-shot build/gb_ui.png --ui-frames 5 --ui-menu $m > /tmp/gbtest.out 2>&1 \
-            && [ -s build/gb_ui.png ] || { ok=0; echo "  menú $m" >> /tmp/gbtest.out; }
-    done
-    if [ $ok = 1 ]; then pasa=$((pasa + 1)); else falla=$((falla + 1)); fallidas="$fallidas
-  gb (intérprete con ventana): $(tail -3 /tmp/gbtest.out)"; fi
+    # Cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (si cambia a propósito:
+    # UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh interprete, y revisa build/shots/)
+    if sh tools/retrorecomp/shared/ui_golden.sh "$GB" "$T/dmg-acid2/dmg-acid2.gb" tests/ui_golden.txt "0 1 2 3 4 5 6" "47 49" > /tmp/gbtest.out 2>&1; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1)); fallidas="$fallidas
+  gb (ventana, capturas): $(tail -16 /tmp/gbtest.out)"
+    fi
 fi
 
 # --- gbramdump: WRAM y HRAM tras correr la ROM (el equivalente de ramdump de NESRecomp) ---
@@ -125,7 +125,7 @@ if [ -z "$FILTRO" ] || case "gbramdump" in *"$FILTRO"*) true ;; *) false ;; esac
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  gbramdump: $(tail -3 /tmp/gbtest.out)"
+  gbramdump: $(tail -16 /tmp/gbtest.out)"
     fi
 fi
 
@@ -142,7 +142,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  recomp cpu_instrs: $(tail -3 /tmp/gbtest.out)"
+  recomp cpu_instrs: $(tail -16 /tmp/gbtest.out)"
     fi
 fi
 
@@ -162,7 +162,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
         else
             falla=$((falla + 1))
             fallidas="$fallidas
-  recomp DMA en HRAM $n: $(tail -3 /tmp/gbtest.out)"
+  recomp DMA en HRAM $n: $(tail -16 /tmp/gbtest.out)"
         fi
     done
 fi
@@ -185,7 +185,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  recomp ei_di: $(tail -3 /tmp/gbtest.out)"
+  recomp ei_di: $(tail -16 /tmp/gbtest.out)"
     fi
 fi
 
@@ -204,7 +204,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  recomp con varias --trace: $(tail -3 /tmp/gbtest.out)"
+  recomp con varias --trace: $(tail -16 /tmp/gbtest.out)"
     fi
 fi
 
@@ -244,7 +244,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  recomp código en WRAM (ROM mínima): $(tail -3 /tmp/gbtest.out)"
+  recomp código en WRAM (ROM mínima): $(tail -16 /tmp/gbtest.out)"
     fi
     # El ejecutable del juego (aquí gb, el intérprete con ventana) también anota ese código cuando se
     # juega con --uncovered, y con las mismas líneas que difftest: las dos herramientas comparten
@@ -280,7 +280,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     else
         falla=$((falla + 1))
         fallidas="$fallidas
-  recomp código en WRAM (interrupt_time): $(tail -3 /tmp/gbtest.out)"
+  recomp código en WRAM (interrupt_time): $(tail -16 /tmp/gbtest.out)"
     fi
 fi
 

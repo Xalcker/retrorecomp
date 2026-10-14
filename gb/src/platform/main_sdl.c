@@ -1503,9 +1503,18 @@ int main(int argc, char *argv[])
     snprintf(app->save_path2, sizeof app->save_path2, "%s%s_jugador2.sav", app->pref, recomp_name);
     snprintf(app->settings_path, sizeof app->settings_path, "%ssettings.ini", app->pref);
     snprintf(app->export_dir, sizeof app->export_dir, "%sexportado%c", app->pref, app->pref[strlen(app->pref) - 1]);
-    settings_load(&app->cfg, app->settings_path);
-    Language lang = i18n_from_code(app->cfg.language);
-    i18n_set(lang < LANG_COUNT ? lang : detect_language());
+    /* --ui-shot (pruebas de interfaz): ajustes de fábrica, en español y sin tocar settings.ini, para que la
+     * misma captura salga igual en cualquier máquina y usuario */
+    int shot_mode = 0;
+    for (int i = 1; i < argc; i++) if (!strcmp(argv[i], "--ui-shot")) shot_mode = 1;
+    if (shot_mode) {
+        settings_defaults(&app->cfg);
+        i18n_set(LANG_ES);
+    } else {
+        settings_load(&app->cfg, app->settings_path);
+        Language lang = i18n_from_code(app->cfg.language);
+        i18n_set(lang < LANG_COUNT ? lang : detect_language());
+    }
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--scale") && i + 1 < argc) scale_arg = atoi(argv[++i]);
@@ -1690,7 +1699,7 @@ int main(int argc, char *argv[])
 
     stop_music(app, 0);
     stop_tiles(app, 0);
-    settings_save(&app->cfg, app->settings_path);
+    if (!shot_mode) settings_save(&app->cfg, app->settings_path);
     if (app->record) fclose(app->record);
     link_stop(app);         /* guarda la partida del jugador 2 */
     if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {

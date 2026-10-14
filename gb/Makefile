@@ -93,12 +93,12 @@ gb$(EXE): $(GB_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(BUILD)/libgb
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
-EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
+EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
                   recomp.h console.h save.c sgb.c compat.c
 EMBED_PLATFORM := main_sdl.c difftest.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h png.c png.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f)) \
               platform/random_pad.h=$(SHARED)/random_pad.h \
@@ -109,13 +109,13 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h
 
 # El recompilador: un solo ejecutable, con el runtime adentro
 gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz.c src/gbrecomp/viz.h \
-                src/emit/sm83_emit.c src/emit/sm83_emit.h src/runtime/sha1.c $(BUILD)/gen/embedded.c
-	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -o $@ \
-		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c src/runtime/sha1.c $(BUILD)/gen/embedded.c
+                src/emit/sm83_emit.c src/emit/sm83_emit.h $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
+	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -I$(SHARED) -o $@ \
+		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
 
 # Paquete para distribuir: gbrecomp, la documentación y la licencia
 DIST := dist/gbrecomp-$(VERSION)-$(PLATFORM)
@@ -159,6 +159,9 @@ $(BUILD)/rt_interp.o: src/runtime/interp.c $(BUILD)/gen/interp_ops.inc src/runti
 
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gb.h src/runtime/cpu_ops.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^

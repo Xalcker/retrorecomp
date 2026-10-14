@@ -44,7 +44,7 @@
 
 #include "../emit/sm83_emit.h"
 #include "../runtime/console.h"
-#include "../runtime/sha1.h"
+#include "sha1.h"
 #include "embedded.h"
 #include "viz.h"
 

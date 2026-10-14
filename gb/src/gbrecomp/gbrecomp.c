@@ -2453,6 +2453,8 @@ static void write_embedded(const char *dir)
     for (const EmbeddedFile *e = embedded_files; e->name; e++) {
         if (!strncmp(e->name, "tools/", 6)) continue;     /* lo usa gbrecomp, no el proyecto */
         snprintf(to, sizeof to, "%s/%s", dir, e->name);
+        char *slash = strrchr(to, '/');     /* platform/android/... */
+        if (slash) { *slash = 0; make_dir(to); *slash = '/'; }
         FILE *f = fopen(to, "wb");
         if (!f) die("no se pudo crear %s", to);
         if (fwrite(e->data, 1, e->size, f) != e->size) die("no se pudo escribir %s", to);
@@ -2569,6 +2571,11 @@ static void emit_readme(const char *dir, const char *name, const char *title, co
         "  python3 -m http.server -d web     y abrir http://localhost:8000/<nombre>.html\n"
         "  La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n"
         "\n"
+        "En Android (necesita el SDK de Android y un JDK 17, o Docker):\n"
+        "  make apk                       y luego  adb install -r apk/<nombre>-debug.apk\n"
+        "  La primera vez el juego pide la ROM con el selector de archivos del teléfono y la guarda.\n"
+        "  make apk ROM=rom.gb la mete en la APK (solo para uso personal: no compartas esa APK).\n"
+        "\n"
         "El código en gen/ es una traducción del programa de la ROM: úsalo para\n"
         "jugar tu propia copia; no lo distribuyas si el juego es comercial.\n"
         "\n"
@@ -2626,7 +2633,7 @@ static void emit_makefile(const char *dir, const char *name)
         "build/icono.o: platform/icono.rc $(wildcard platform/*.ico) | build\n"
         "\twindres -I platform $< -O coff -o $@\n\n"
         "%s$(EXE): $(PLAT_OBJ) $(RT_OBJ) $(GEN_OBJ) $(ICON_OBJ)\n"
-        "\t$(CC) -o $@ $^ $(SDL_LIBS)\n\n"
+        "\t$(CC) -o $@ $^ $(SDL_LIBS) -lm\n\n"
         "# dist/: el ejecutable (y, si en Windows no quedó estático, las DLL de MSYS2 que pida); se puede copiar a otro equipo\n"
         "dist: %s$(EXE)\n"
         "\tmkdir -p dist\n"
@@ -2647,8 +2654,15 @@ static void emit_makefile(const char *dir, const char *name)
         "WEB_CACHE  := rom.gb\n"
         "WEB_ACCEPT := .gb,.gbc\n"
         "include platform/web.mk\n\n"
-        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name, name, name, name);
+        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk)\n"
+        "APK_NAME   := %s\n"
+        "APK_TITLE  := %s\n"
+        "APK_SYSTEM := gbrecomp\n"
+        "APK_CACHE  := rom.gb\n"
+        "APK_ICON   := platform/iconos.c:%s\n"
+        "include platform/android/android.mk\n\n"
+        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name, name, name, name, name, (rom[0x143] & 0x80) ? "icono_gbc" : "icono_gb", name);
     fclose(f);
 }
 

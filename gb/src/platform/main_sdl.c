@@ -30,7 +30,8 @@
  * (y el segundo control), el 3 y el 4 el tercer y cuarto control. Con el cable
  * link hay un segundo Game Boy a la derecha, que maneja el jugador 2, con su
  * propia partida (<juego>_jugador2.sav). En el Super Game Boy, los juegos de
- * varios jugadores leen los controles 2-4.
+ * varios jugadores leen los controles 2-4. En una pantalla táctil, el mando en
+ * pantalla (player_touch.h) es el jugador 1; en Android, Atrás abre el menú.
  *
  * La ROM se pide una sola vez. Se busca, en orden: el argumento, la copia
  * guardada en la carpeta de datos del juego, y "rom.gb" junto al ejecutable o
@@ -90,6 +91,7 @@ static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[4
 #include "ui_menu.h"
 #include "player_util.h"
 #include "player_audio.h"
+#include "player_touch.h"
 
 static void fail(const char *msg)
 {
@@ -167,6 +169,9 @@ static int ask_for_rom(Rom *rom)
     for (;;) {
         int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path, sizeof path);
         if (!got) {
+#ifdef __ANDROID__
+            return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
+#endif
             /* Sin diálogo nativo (o cancelado en Windows: se ofrece arrastrar) */
             snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), recomp_rom_title);
             if (first) inform(msg);
@@ -250,6 +255,16 @@ static void load_game(GB *g, const char *path)
  * Botones del jugador `player` (0-3): el teclado (el jugador 1 con las
  * flechas, el 2 con WASD) y el control número `player` que se haya conectado.
  */
+/* El mando en pantalla (player_touch.h): B y A abajo a la derecha, como en el Game Boy; Select y Start arriba de la
+ * cruz y de los botones */
+static const TouchButton touch_keys[] = {
+    { "B", PAD_B, TOUCH_RIGHT, 0, -2.75f, -1.3f },
+    { "A", PAD_A, TOUCH_RIGHT, 0, -1.15f, -1.8f },
+    { "SELECT", PAD_SELECT, TOUCH_LEFT, 1, 1.65f, -3.6f },
+    { "START", PAD_START, TOUCH_RIGHT, 1, -1.95f, -3.6f },
+};
+static const TouchLayout touch_layout = { PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, touch_keys, 4 };
+
 static u8 read_pad(SDL_GameController *pad, int player)
 {
     const Uint8 *k = SDL_GetKeyboardState(NULL);
@@ -365,6 +380,7 @@ typedef struct {
     SDL_Texture *tex;
     int tex_w, tex_h;
     PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
+    TouchPad touch;         /* el mando en pantalla (player_touch.h) */
     SDL_GameController *pads[4];    /* control de cada jugador, en orden de conexión */
 
     /* Cable link local: un segundo Game Boy con la misma ROM, a la derecha */
@@ -1109,6 +1125,7 @@ static void handle_event(App *app, SDL_Event *e)
         SDL_free(e->drop.file);
         return;
     }
+    if (touch_and_back(app, e)) return;
     if (e->type == SDL_MOUSEMOTION)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
@@ -1162,6 +1179,7 @@ static void player_pads(App *app, u8 pads[4])
 {
     u8 any = 0;
     for (int i = 0; i < 4; i++) any |= pads[i] = read_pad(app->pads[i], i);
+    any |= pads[0] |= (u8)touch_buttons(&app->touch);
     if (app->hold_input) {
         if (any) {
             memset(pads, 0, 4);
@@ -1330,6 +1348,7 @@ static void render(App *app)
             ui_draw_text(app->ren, x + pad, y + pad, ui, label, (SDL_Color){ 255, 255, 255, 255 });
         }
     }
+    touch_draw(&app->touch, app->ren, w, h);
     if (bar_visible(app))
         menubar_draw(&app->bar, app->ren, w, ui);
     dialog_draw(&app->dlg, app->ren, w, h, ui);
@@ -1373,6 +1392,7 @@ static void render(App *app)
 static void frame_input(App *app)
 {
     SDL_Event ev;
+    background_poll(app);
     while (SDL_PollEvent(&ev)) handle_event(app, &ev);
 }
 
@@ -1422,6 +1442,16 @@ static void finish(App *app, int save_settings)
     free(app->rom.data);
 }
 
+#ifdef __ANDROID__
+/* Al irse a segundo plano (player_common.h): las partidas de los dos jugadores y las preferencias, como al salir */
+static void app_save(App *app)
+{
+    settings_save(&app->cfg, app->settings_path);
+    if (gb_has_battery(&app->gb)) save_game(&app->gb, app->save_path);
+    if (app->linked && gb_has_battery(&app->gb2)) save_game(&app->gb2, app->save_path2);
+}
+#endif
+
 #ifdef __EMSCRIPTEN__
 /* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
  * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
@@ -1470,6 +1500,7 @@ int main(int argc, char *argv[])
     the_app = app;
     app->last_pad = -1;
     app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
+    touch_init(&app->touch, &touch_layout);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) fail(SDL_GetError());
 

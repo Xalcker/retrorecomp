@@ -58,6 +58,7 @@
 #include "ui_font.h"
 #include "ui_menu.h"
 #include "player_util.h"
+#include "player_audio.h"
 
 #define NTSC_FPS (53693175.0 / (MCLK_PER_LINE * LINES_NTSC))      /* 59.92 */
 
@@ -107,8 +108,7 @@ typedef struct {
     SDL_Texture *tex;
     int tex_w, tex_h;
     SDL_GameController *pads[2];
-    SDL_AudioDeviceID audio;
-    int audio_was_running;
+    PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
 
     MenuBar bar;
     Dialog dlg;
@@ -765,12 +765,13 @@ static void step(App *app, int audible)
 
     static int16_t samples[AUDIO_BINS * 2];
     int n = gen_audio_take(app->gen, samples, AUDIO_BINS);
-    if (!app->audio || !app->cfg.sound || !audible) return;
+    if (!app->cfg.sound || !audible) {
+        player_audio_stop(&app->audio);
+        return;
+    }
     int vol = app->cfg.volume;
     if (vol != 100) for (int i = 0; i < n * 2; i++) samples[i] = (int16_t)(samples[i] * vol / 100);
-    /* Se mantiene una cola corta: si el audio se adelanta (relojes distintos), se descarta un cuadro */
-    Uint32 queued = SDL_GetQueuedAudioSize(app->audio) / 4;
-    if (queued < AUDIO_RATE / 10) SDL_QueueAudio(app->audio, samples, (Uint32)n * 4);
+    player_audio_push_s16(&app->audio, samples, n, 2);
 }
 
 static void update_title(App *app)
@@ -880,13 +881,11 @@ static void frame_run(App *app)
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     app->fast = running && keys[SDL_SCANCODE_TAB];
     if (running) {
-        if (!app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-        if (app->fast) {
-            for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin sonido */
-            if (app->audio) SDL_ClearQueuedAudio(app->audio);
-        } else step(app, 1);
-    } else if (app->audio_was_running && app->audio) SDL_ClearQueuedAudio(app->audio);
-    app->audio_was_running = running;
+        if (app->fast) for (int i = 0; i < 4; i++) step(app, 0);       /* avance rápido: sin sonido */
+        else step(app, 1);
+    } else {
+        player_audio_stop(&app->audio);
+    }
 }
 
 static void frame_draw(App *app)
@@ -906,7 +905,7 @@ static void finish(App *app, int save_settings)
         snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);
     }
-    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    player_audio_close(&app->audio);
     for (int i = 0; i < 2; i++)
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
@@ -1106,14 +1105,7 @@ int main(int argc, char *argv[])
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     if (start_full && !ui_shot_path) toggle_fullscreen(app);
 
-    SDL_AudioSpec want, have_spec;
-    SDL_zero(want);
-    want.freq = AUDIO_RATE;
-    want.format = AUDIO_S16SYS;
-    want.channels = 2;
-    want.samples = 1024;
-    if (!ui_shot_path) app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
-    if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
+    if (!ui_shot_path) player_audio_open(&app->audio, AUDIO_RATE);
 
     if (ui_shot_path) {
         for (long i = 0; i < shot_frames; i++) step(app, 0);

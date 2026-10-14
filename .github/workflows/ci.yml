@@ -20,6 +20,14 @@ jobs:
         run: |
           cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -o player_audio_test tests/player_audio_test.c -lm
           ./player_audio_test
+  ram_code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Código que el juego ejecuta desde RAM (shared/ram_code.h) sin consola
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -o ram_code_test tests/ram_code_test.c
+          ./ram_code_test
   touch:
     runs-on: ubuntu-latest
     steps:

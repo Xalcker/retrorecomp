@@ -10,6 +10,10 @@
 # Con emcc (Emscripten) instalado se usa ese; si no, Docker con la imagen de abajo (versión fija, la misma
 # del CI). Docker guarda los ports de Emscripten (SDL2) en el volumen retrorecomp-emcache.
 
+ifeq ($(WEB_NAME),web)
+$(error un juego llamado "web" choca con make web: recompílalo con otro --name)
+endif
+
 EMSDK_IMAGE := emscripten/emsdk:6.0.10
 EMCC        ?= emcc
 WEB_CFLAGS  := -std=c99 -O2 -Wall -Wno-unused-label

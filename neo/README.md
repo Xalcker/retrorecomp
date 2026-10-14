@@ -80,6 +80,15 @@ corre el código recompilado y el intérprete lado a lado y se detiene en la pri
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
 `sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla (en el Neo Geo van desplazadas 1200 cuadros, lo que tarda la BIOS del AES en dejar el juego, y los valores por omisión son 3000 cuadros por `difftest` y 3600 de traza); `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
+**En el navegador** (WebAssembly): `make -C mslug web` compila el mismo proyecto con Emscripten si está instalado,
+o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
+`python3 -m http.server -d mslug/web` lo sirve (abrir `http://localhost:8000/mslug.html`). Hace falta haberlo
+recompilado con la BIOS propia (`NEO_BIOS=build/neobios.bin`, o la que se busca primero), que `neorecomp` deja en
+`mslug/bios/neobios.bin` y va dentro del build; la de SNK nunca. La página pide el juego (no va en el build),
+comprueba el SHA1 y lo guarda en el navegador con la tarjeta de memoria, los estados y las preferencias
+(IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
+del juego del contrato.
+
 ## Herramientas
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y

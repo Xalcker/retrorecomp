@@ -74,7 +74,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms neobios
+.PHONY: all clean test dist testroms neobios webtest
 # La BIOS propia (build/neobios.bin, la primera que se busca) se ensambla con make si hay python3
 NEOBIOS_ALL := $(if $(shell command -v python3 2>/dev/null),$(BUILD)/neobios.bin)
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE) $(NEOBIOS_ALL)
@@ -153,7 +153,8 @@ EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h console.h $(fil
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_rom.h icono.h icono.rc icono.ico inputs.h cli.h \
                   difftest.c bench.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
+             $(SHARED)/web/shell.html $(SHARED)/web/web.mk
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
@@ -161,7 +162,8 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h \
+	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -208,6 +210,16 @@ test: all
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del 68000 y
 # del Z80 (ver tests/testroms.sh)
+# El juego recompilado en el navegador (retrorecomp#44): el proyecto del juego del contrato, recompilado con la
+# BIOS propia (que va dentro del build), con make web (Emscripten, o Docker con la imagen fija de
+# platform/web.mk). El CI lo corre en Linux
+webtest: neorecomp$(EXE) $(BUILD)/neobios.bin
+	rm -rf $(BUILD)/proy_web
+	NEO_BIOS=$(BUILD)/neobios.bin ./neorecomp$(EXE) testroms/neo/contrato.neo -o $(BUILD)/proy_web --name prueba >/dev/null
+	test -s $(BUILD)/proy_web/bios/neobios.bin
+	$(MAKE) -C $(BUILD)/proy_web web
+	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (contrato, BIOS propia)"
+
 testroms:
 	sh tests/testroms.sh
 

@@ -9,6 +9,8 @@ CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
+# Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
+SHARED := tools/retrorecomp/shared
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -52,7 +54,7 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 endif
 
 gen$(EXE): $(GEN_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(GEN_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 PROGS := genrecomp gentrace genshot genaudio genbench genramdump genrun gen \
          carttest m68ktest z80test bustest vdptest audiotest statetest inputtest
@@ -70,56 +72,56 @@ endif
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 bustest$(EXE): src/tools/bustest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 vdptest$(EXE): src/tools/vdptest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 audiotest$(EXE): src/tools/audiotest.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 # Herramientas sin ventana con las opciones comunes (cli.h)
-TOOL_DEPS := src/platform/cli.h src/platform/inputs.h src/platform/random_pad.h src/tools/romload.h $(RT)
+TOOL_DEPS := src/platform/cli.h src/platform/inputs.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
 gentrace$(EXE): src/tools/gentrace.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/gentrace.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/gentrace.c $(RT) -lm
 
 genshot$(EXE): src/tools/genshot.c src/platform/png.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genshot.c src/platform/png.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/genshot.c src/platform/png.c $(RT) -lm
 
 genaudio$(EXE): src/tools/genaudio.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genaudio.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/genaudio.c $(RT) -lm
 
 genbench$(EXE): src/platform/bench.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
 genramdump$(EXE): src/tools/genramdump.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/genramdump.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/genramdump.c $(RT) -lm
 
 statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/statetest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
 
 inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
 
 genrun$(EXE): src/tools/genrun.c src/platform/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $^ -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan bus.c ni z80bus.c
 m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/m68ktest.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/m68ktest.c $(RT) -lm
 
 z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/z80test.c $(RT) -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/z80test.c $(RT) -lm
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h recomp.h trace_line.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c sha1.c sha1.h console.h recomp.h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h export.c export.h png.c png.h icono.h icono.rc icono.ico inputs.h cli.h \
-                  random_pad.h difftest.c bench.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%)
+                  difftest.c bench.c
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
 
@@ -127,7 +129,7 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS)
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -135,7 +137,7 @@ $(BUILD)/gen:
 # El recompilador: un solo ejecutable, con el runtime adentro
 genrecomp$(EXE): src/genrecomp/genrecomp.c src/genrecomp/dis68k.c src/genrecomp/dis68k.h src/genrecomp/visor_html.h \
                  src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
-	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -o $@ \
+	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/genrecomp/genrecomp.c src/genrecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, BlastEm) sin ventana; los núcleos los
@@ -144,7 +146,7 @@ ifeq ($(shell uname -s 2>/dev/null),Linux)
 DL_LIBS := -ldl
 endif
 $(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
 
 # Paquete para distribuir: genrecomp, la documentación y la licencia
 DIST := dist/genrecomp-$(VERSION)-$(PLATFORM)
@@ -156,8 +158,8 @@ dist: genrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h $(SHARED)/trace_line.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -1,3 +1,5 @@
+
+Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cuatro recompiladores (`random_pad.h`, `trace_line.h`): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El ZIP de GitHub no lo incluye.
 # GENRecomp
 
 Recompilador estático de juegos de Sega Genesis, con la misma arquitectura que

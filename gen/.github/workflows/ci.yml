@@ -46,6 +46,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: true
 
       # Si todos los archivos que cambia el PR (o el push) son documentación, el resto de los pasos se salta
       - name: ¿Solo documentación?

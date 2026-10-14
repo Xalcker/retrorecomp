@@ -114,6 +114,12 @@ jobs:
         if: steps.cambios.outputs.docs != 'true'
         run: make test
 
+      # El juego recompilado en el navegador (WebAssembly): make webtest compila el proyecto de una ROM de prueba
+      # con make web, que sin Emscripten usa Docker (la imagen fija de platform/web.mk); los runners de Linux lo traen
+      - name: Web (WebAssembly)
+        if: steps.cambios.outputs.docs != 'true' && runner.os == 'Linux'
+        run: make webtest
+
       - name: Paquete
         if: steps.cambios.outputs.docs != 'true'
         run: make dist

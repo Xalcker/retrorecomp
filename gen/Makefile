@@ -71,7 +71,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms
+.PHONY: all clean test dist testroms webtest
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
@@ -124,7 +124,8 @@ EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_rom.h icono.h icono.rc icono.ico inputs.h cli.h \
                   difftest.c bench.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
+             $(SHARED)/web/shell.html $(SHARED)/web/web.mk
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
@@ -132,7 +133,8 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h \
+	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -184,6 +186,14 @@ $(BUILD):
 
 test: all
 	sh tests/run_tests.sh
+
+# El juego recompilado en el navegador (retrorecomp#44): el proyecto de la demo del contrato con make web
+# (Emscripten, o Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
+webtest: genrecomp$(EXE)
+	rm -rf $(BUILD)/proy_web
+	./genrecomp$(EXE) testroms/demos/overdrive.bin -o $(BUILD)/proy_web --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_web web
+	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (overdrive)"
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del
 # 68000 y las demos Overdrive de Titan (ver tests/testroms.sh)

@@ -87,6 +87,13 @@ y `bench`. El ejecutable no lleva la ROM: la busca o la pide una vez y comprueba
 corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
 
+**En el navegador** (WebAssembly): `make -C juego web` compila el mismo proyecto con Emscripten si está
+instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
+`python3 -m http.server -d juego/web` lo sirve (abrir `http://localhost:8000/juego.html`). La página pide la ROM (no
+va en el build), comprueba el SHA1 y la guarda en el navegador con la partida, los estados y las preferencias
+(IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
+de la demo del contrato.
+
 ```
 ./genrecomp "roms/juego.bin"
 ```

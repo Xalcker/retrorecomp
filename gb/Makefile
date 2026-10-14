@@ -9,6 +9,8 @@ CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
+# Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
+SHARED := tools/retrorecomp/shared
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -39,33 +41,33 @@ all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gb
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/vgmcheck.c $(BUILD)/libgbrt.a -lm
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/vgmcheck.c $(BUILD)/libgbrt.a -lm
 
 # Corredor de ROMs de prueba sin ventana
 gbtest$(EXE): src/tools/gbtest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtest.c src/platform/png.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbtest.c src/platform/png.c $(BUILD)/libgbrt.a
 
 # Velocidad del runtime sin ventana (tests/golden.sh comprueba que no cambie nada)
 gbbench$(EXE): src/tools/gbbench.c src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbbench.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbbench.c $(BUILD)/libgbrt.a
 
 # Herramientas sin ventana con las mismas opciones que las de NESRecomp (--frames, --input, --seed, --model)
-gbtrace$(EXE): src/tools/gbtrace.c src/tools/cli.h src/platform/random_pad.h src/platform/inputs.h src/platform/ramtrace.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbtrace.c $(BUILD)/libgbrt.a
+gbtrace$(EXE): src/tools/gbtrace.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h src/platform/ramtrace.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbtrace.c $(BUILD)/libgbrt.a
 
 # RAM de trabajo tras correr la ROM (el equivalente de ramdump de NESRecomp)
-gbramdump$(EXE): src/tools/gbramdump.c src/tools/cli.h src/platform/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbramdump.c $(BUILD)/libgbrt.a
+gbramdump$(EXE): src/tools/gbramdump.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbramdump.c $(BUILD)/libgbrt.a
 
-gbshot$(EXE): src/tools/gbshot.c src/tools/cli.h src/platform/random_pad.h src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbshot.c src/platform/png.c $(BUILD)/libgbrt.a
+gbshot$(EXE): src/tools/gbshot.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbshot.c src/platform/png.c $(BUILD)/libgbrt.a
 
-gbaudio$(EXE): src/tools/gbaudio.c src/tools/cli.h src/platform/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/gbaudio.c $(BUILD)/libgbrt.a -lm
+gbaudio$(EXE): src/tools/gbaudio.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbaudio.c $(BUILD)/libgbrt.a -lm
 
 # Dos Game Boy conectados por cable link, sin ventana
 linktest$(EXE): src/tools/linktest.c src/platform/png.c src/platform/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -Isrc/runtime -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/linktest.c src/platform/png.c $(BUILD)/libgbrt.a
 
 # El intérprete con ventana: gb juego.gb (como nes juego.nes en NESRecomp). Es la misma
 # plataforma que la de los juegos generados, compilada con -DGB_INTERP. SDL2 como en
@@ -86,19 +88,20 @@ $(WINRES): src/platform/icono_gb.ico | $(BUILD)
 endif
 
 gb$(EXE): $(GB_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -DGB_INTERP -Isrc/runtime -Isrc/platform -o $@ \
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -DGB_INTERP -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ \
 		$(GB_SRC:%=src/platform/%) $(BUILD)/libgbrt.a $(WINRES) $(SDL_LIBS) -lm
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c sha1.c sha1.h \
                   recomp.h console.h save.c sgb.c compat.c
-EMBED_PLATFORM := main_sdl.c difftest.c inputs.h random_pad.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
+EMBED_PLATFORM := main_sdl.c difftest.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h png.c png.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(BUILD)/gen/interp_ops.inc tools/visor.html
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f)) \
+              platform/random_pad.h=$(SHARED)/random_pad.h \
               runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
               tools/visor.html=tools/visor.html
 

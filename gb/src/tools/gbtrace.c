@@ -12,7 +12,7 @@
  */
 #include "cli.h"
 #include "../platform/ramtrace.h"
-#include "../runtime/trace_line.h"
+#include "trace_line.h"
 
 #define MAX_BANKS 512
 static unsigned char *executed[MAX_BANKS];

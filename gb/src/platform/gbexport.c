@@ -1,4 +1,4 @@
-#include "export.h"
+#include "gbexport.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -299,19 +299,4 @@ int tiles_stop(TileCollector *t, const char *base)
     free(t->table);
     memset(t, 0, sizeof *t);
     return sheets;
-}
-
-int screenshot_write(const char *path, const u32 *argb, int w, int h)
-{
-    u8 *rgb = malloc((size_t)w * h * 3);
-    if (!rgb) return 0;
-    for (int i = 0; i < w * h; i++) {
-        rgb[i * 3] = (u8)(argb[i] >> 16);
-        rgb[i * 3 + 1] = (u8)(argb[i] >> 8);
-        rgb[i * 3 + 2] = (u8)argb[i];
-    }
-    png_open_file = u8_fopen;
-    int ok = png_write_rgb(path, rgb, w, h);
-    free(rgb);
-    return ok;
 }

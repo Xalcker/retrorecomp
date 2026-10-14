@@ -62,6 +62,7 @@
 #include <time.h>
 
 #include "export.h"
+#include "gbexport.h"
 #include "files.h"
 #include "i18n.h"
 #include "iconos.h"

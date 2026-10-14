@@ -16,8 +16,8 @@
  *
  * Todo va a una carpeta "exportado" dentro de la carpeta de datos del juego.
  */
-#ifndef EXPORT_H
-#define EXPORT_H
+#ifndef GBEXPORT_H
+#define GBEXPORT_H
 
 #include <stdio.h>
 
@@ -58,8 +58,5 @@ void tiles_start(TileCollector *t);
 void tiles_scan(TileCollector *t, const GB *g);
 /* Escribe las hojas `base`_1.png, `base`_2.png... Devuelve cuántas */
 int  tiles_stop(TileCollector *t, const char *base);
-
-/* Captura de la imagen que se ve (RGB de 8 bits por canal) */
-int  screenshot_write(const char *path, const u32 *argb, int w, int h);
 
 #endif

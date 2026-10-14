@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -81,7 +81,7 @@ SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdl
 else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
-GB_SRC := main_sdl.c files.c i18n.c settings.c ui_menu.c ui_font.c export.c png.c iconos.c
+GB_SRC := main_sdl.c files.c i18n.c settings.c ui_menu.c ui_font.c export.c gbexport.c png.c iconos.c
 # Windows: el ícono del .exe (el del Game Boy)
 ifeq ($(OS),Windows_NT)
 WINRES := $(BUILD)/gb_icono.o
@@ -99,7 +99,7 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
                   recomp.h console.h save.c sgb.c compat.c
 EMBED_PLATFORM := main_sdl.c difftest.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
-                  ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h png.c png.h \
+                  ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \

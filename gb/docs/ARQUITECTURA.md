@@ -864,9 +864,12 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     hash. Al detener se escriben hojas PNG de 16 × 64 mosaicos en gris.
     También entran los mosaicos que el juego usa para mandar datos a la SNES
     en SGB (parecen ruido).
-- **Audio:** callback de SDL con búfer circular (como gb-recompiled). Espera a
-  juntar 50 ms antes de sonar, también después de quedarse sin muestras, y
-  descarta lo que pase de 200 ms.
+- **Audio:** la salida común de los cuatro recompiladores
+  (`tools/retrorecomp/shared/player_audio.h`): una cola de SDL con silencio
+  delante al empezar o al volver de una pausa, rampas de 5 ms para no
+  chasquear y control de ritmo (remuestrea cada cuadro, ±1 % a lo más, para
+  que la cola no crezca ni se vacíe). Con el cable, la mezcla de los dos
+  Game Boy se hace antes.
 - **Pruebas sin ventana:** `--ui-shot archivo.png [--ui-frames N] [--ui-menu N]
   [--ui-action N] [--ui-export]` corre N cuadros con la ventana oculta (con
   `--ui-export`, exportando música y gráficos), abre un menú o hace

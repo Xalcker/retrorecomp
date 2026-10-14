@@ -89,6 +89,7 @@ static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[4
 #include "ui_font.h"
 #include "ui_menu.h"
 #include "player_util.h"
+#include "player_audio.h"
 
 static void fail(const char *msg)
 {
@@ -363,7 +364,7 @@ typedef struct {
     SDL_Renderer *ren;
     SDL_Texture *tex;
     int tex_w, tex_h;
-    SDL_AudioDeviceID audio;
+    PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
     SDL_GameController *pads[4];    /* control de cada jugador, en orden de conexión */
 
     /* Cable link local: un segundo Game Boy con la misma ROM, a la derecha */
@@ -1170,52 +1171,6 @@ static void player_pads(App *app, u8 pads[4])
     }
 }
 
-/*
- * Salida de audio (como en gb-recompiled): SDL pide muestras con un callback
- * y las toma de un búfer circular. Al empezar, y tras quedarse sin muestras,
- * espera a juntar ~50 ms antes de sonar, para que un cuadro que tarde un poco
- * más no se oiga como un chasquido. Si se juntan más de ~200 ms (el video va
- * más rápido que la tarjeta de sonido), lo nuevo se descarta.
- */
-#define AUDIO_RING   (GB_SAMPLE_RATE / 2)           /* pares estéreo: medio segundo */
-#define AUDIO_START  (GB_SAMPLE_RATE / 20)          /* 50 ms */
-#define AUDIO_MAX    (GB_SAMPLE_RATE / 5)           /* 200 ms */
-static float audio_ring[AUDIO_RING * 2];
-static int audio_head, audio_tail, audio_playing;   /* protegidos por el candado de SDL */
-
-static int audio_fill(void)
-{
-    return (audio_head - audio_tail + AUDIO_RING) % AUDIO_RING;
-}
-
-static void SDLCALL audio_callback(void *user, Uint8 *stream, int len)
-{
-    (void)user;
-    float *out = (float *)stream;
-    int want = len / (int)(2 * sizeof(float)), i = 0;
-    if (!audio_playing && audio_fill() >= AUDIO_START) audio_playing = 1;
-    if (audio_playing) {
-        for (; i < want && audio_tail != audio_head; i++) {
-            out[i * 2] = audio_ring[audio_tail * 2];
-            out[i * 2 + 1] = audio_ring[audio_tail * 2 + 1];
-            audio_tail = (audio_tail + 1) % AUDIO_RING;
-        }
-        if (i < want) audio_playing = 0;     /* se acabó: volver a juntar */
-    }
-    for (; i < want; i++) out[i * 2] = out[i * 2 + 1] = 0.0f;
-}
-
-static void audio_push(SDL_AudioDeviceID dev, const float *samples, int n)
-{
-    SDL_LockAudioDevice(dev);
-    for (int i = 0; i < n && audio_fill() < AUDIO_MAX; i++) {
-        audio_ring[audio_head * 2] = samples[i * 2];
-        audio_ring[audio_head * 2 + 1] = samples[i * 2 + 1];
-        audio_head = (audio_head + 1) % AUDIO_RING;
-    }
-    SDL_UnlockAudioDevice(dev);
-}
-
 static void step(App *app)
 {
     u8 pads[4];
@@ -1266,10 +1221,13 @@ static void step(App *app)
             }
         }
     }
-    if (!app->audio || !app->cfg.sound || app->fast) return;    /* avance rápido: sin audio */
+    if (!app->cfg.sound || app->fast) {     /* avance rápido: sin audio */
+        player_audio_stop(&app->audio);
+        return;
+    }
     float vol = app->cfg.volume / 100.0f;
     for (int i = 0; i < n * 2; i++) samples[i] *= vol;
-    audio_push(app->audio, samples, n);
+    player_audio_push(&app->audio, samples, n);
 }
 
 static void update_title(App *app)
@@ -1425,6 +1383,8 @@ static void frame_run(App *app)
     if (running) {
         if (app->fast) for (int i = 0; i < 3; i++) step(app);   /* avance rápido: sin audio */
         step(app);
+    } else {
+        player_audio_stop(&app->audio);
     }
 }
 
@@ -1449,7 +1409,7 @@ static void finish(App *app, int save_settings)
         fail(msg);
     }
     if (app->uncovered_path) write_uncovered(app->uncovered_path);
-    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    player_audio_close(&app->audio);
     for (int i = 0; i < 4; i++)
         if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
     if (app->tex) SDL_DestroyTexture(app->tex);
@@ -1661,15 +1621,7 @@ int main(int argc, char *argv[])
     SDL_SetWindowPosition(app->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     if (start_full && !ui_shot_path) toggle_fullscreen(app);
 
-    SDL_AudioSpec want, have_spec;
-    SDL_zero(want);
-    want.freq = GB_SAMPLE_RATE;
-    want.format = AUDIO_F32SYS;
-    want.channels = 2;
-    want.samples = 1024;
-    want.callback = audio_callback;
-    app->audio = SDL_OpenAudioDevice(NULL, 0, &want, &have_spec, 0);
-    if (app->audio) SDL_PauseAudioDevice(app->audio, 0);
+    player_audio_open(&app->audio, GB_SAMPLE_RATE);
 
     if (ui_shot_path) {
         if (shot_export) {

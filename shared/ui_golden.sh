@@ -33,5 +33,9 @@ if [ -n "$UI_GOLDEN_UPDATE" ]; then
 elif [ ! -f "$ref" ]; then
     echo "FALLA ui: no existe $ref (UI_GOLDEN_UPDATE=1 sh $0 ... la crea)"; fallas=$((fallas + 1))
 fi
+if [ $fallas -ne 0 ]; then
+    echo "valores de esta corrida, por si es la referencia de este sistema:"
+    while read -r clave a b; do echo "$clave@$(uname -s) $a $b"; done < "$nuevo"
+fi
 [ "$nuevo" = build/shots/ref_nuevo.txt ] || rm -f "$nuevo"
 [ $fallas -eq 0 ]

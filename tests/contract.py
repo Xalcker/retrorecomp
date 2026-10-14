@@ -22,11 +22,13 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
             "neoaudio": ("--frames", "--input", "--seed"), "neobench": ("--frames", "--input", "--repeat", "--seed")},
 }
 
-# Archivos que todos tienen tal cual (hasta que se muevan aquí): el mando aleatorio de --seed, el
-# formato de las trazas, la propia prueba de contrato de cada uno y el ciclo completo (script y entradas)
-SHARED = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
-          os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_game.sh"),
+# Archivos que todos tienen tal cual: los envoltorios de las pruebas comunes (el código vive en shared/) y las
+# entradas guionadas del ciclo
+SHARED = (os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_game.sh"),
           os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
+
+# Lo que antes se copiaba en cada repo y ahora se toma de shared/ por el submódulo tools/retrorecomp
+MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"))
 
 # Las entradas guionadas del ciclo son las mismas en NES, Game Boy y Genesis; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)
@@ -84,6 +86,13 @@ def main():
         else:
             print(f"FALLA {shared}: {', '.join(distintos)} no es igual que en {found[0]}")
             fails += 1
+    # Los archivos movidos a shared/ no deben seguir copiados en los repos
+    for s, root in roots.items():
+        for m in MOVIDOS:
+            if root and os.path.exists(os.path.join(root, m)):
+                print(f"FALLA {s}: {m} ya vive en retrorecomp/shared; quita la copia")
+                fails += 1
+            checked += 1
     print(f"{checked} herramientas y archivos revisados, {fails} fallas")
     return 1 if fails else 0
 

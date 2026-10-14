@@ -1,0 +1,3 @@
+// El proyecto de Gradle que arma make apk en build/android (retrorecomp/shared/android)
+rootProject.name = 'recomp'
+include ':app'

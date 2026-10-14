@@ -30,8 +30,88 @@ propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
 
 En Windows, `make` y `sh` (compilar, pruebas, ciclo completo, compilar el proyecto generado) corren dentro de MSYS2
 UCRT64, como se compila a mano: la GUI los lanza con su `bash` (`MSYSTEM=UCRT64`) y pasa las rutas como `C:/...`.
-Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:msys64`, y al arrancar dice cuál usa. Los ejecutables de los
+Busca MSYS2 en `--msys DIR`, en `MSYS2_ROOT` o en `C:\msys64`, y al arrancar dice cuál usa. Los ejecutables de los
 recompiladores y `git` se lanzan directo.
+
+## Qué instalar en Windows
+
+**Para compilar y jugar.** [MSYS2](https://www.msys2.org) en `C:\msys64` (`winget install --id MSYS2.MSYS2 -e`). Abre
+la terminal «MSYS2 UCRT64» (no MSYS ni MINGW64), corre `pacman -Syu` (otra vez si la ventana se cierra) y luego:
+
+```
+pacman -S --needed make git unzip mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-pkgconf
+pacman -S --needed mingw-w64-ucrt-x86_64-python diffutils
+```
+
+La primera línea son los paquetes del CI de Windows. La segunda la pide NEORecomp (su BIOS propia y sus pruebas); si
+make encuentra un `python3` que no funciona, como el alias de Microsoft Store, el `make` entero de NEORecomp falla.
+`make` es el de MSYS (no `mingw32-make`) y `gcc` el de UCRT64. curl, tar, sha256sum y cygpath ya vienen con MSYS2.
+SDL2 se enlaza estático: el `.exe` no pide `SDL2.dll`.
+
+Hay dos `git`. El de MSYS2 solo da la versión (`git describe`; sin él sale «dev»). La GUI usa el del PATH de Windows,
+[Git for Windows](https://git-scm.com) (`winget install --id Git.Git -e`), para el estado de cada repo y para
+«sincronizar»; sin él solo fallan esas dos cosas. Cada uno tiene su propio `.gitconfig`, así que un `git config
+--global submodule.recurse true` hecho en uno no vale para el otro. Clona con `--recursive` (ver «Código compartido»
+más abajo). Después de un `winget install`, abre otro PowerShell para que se vea el PATH nuevo.
+
+**La GUI.** uv (`winget install --id astral-sh.uv -e`) y el comando de arriba, o cualquier Python 3 de Windows: solo
+usa la biblioteca estándar. make no ve ese Python; por eso NEORecomp pide además el de pacman.
+
+**`make web` («Jugar en el navegador»), opcional.** Lo más simple es el Emscripten de MSYS2:
+
+```
+pacman -S --needed mingw-w64-ucrt-x86_64-emscripten
+```
+
+Pone `emcc` en el PATH de los shells de login, que es lo que usa la GUI (`bash -lc`); una terminal hay que abrirla de
+nuevo. La primera compilación baja el port de SDL2 y necesita internet. Un emsdk instalado aparte no sirve: make no
+lo ve. La otra opción es Docker Desktop (ver las trampas).
+
+**`make apk` («Crear APK»), opcional.** [Android Studio](https://developer.android.com/studio) instala el SDK (por
+omisión en `%LOCALAPPDATA%\Android\Sdk`) con Platform-Tools y acepta las licencias. make apk pide además Android 15
+(API 35), Build-Tools 35.0.0, NDK 27.3.13750724 y CMake 3.22.1 (`shared/android/app.gradle`). Con las licencias
+aceptadas, Gradle los baja en el primer make apk (varios minutos, con internet). Si no, se instalan en el SDK
+Manager: API 35 en «SDK Platforms», y lo demás en «SDK Tools» con «Show Package Details». Sin Android Studio: las
+Command-line Tools en `<sdk>\cmdline-tools\latest`, un JDK aparte y, desde PowerShell, `sdkmanager.bat --licenses` y
+`sdkmanager.bat "platform-tools"`.
+
+Android Studio no define las variables que necesita make apk. Créalas como variables de usuario, en PowerShell:
+
+```
+[Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", 'User')
+[Environment]::SetEnvironmentVariable('JAVA_HOME', 'C:\Program Files\Android\Android Studio\jbr', 'User')
+```
+
+ANDROID_HOME (o ANDROID_SDK_ROOT) apunta al SDK; sin ella, make apk busca Docker. JAVA_HOME es obligatoria (en MSYS2
+no hay `java`) y tiene que ser un JDK de 17 a 23: Gradle 8.13 no corre con Java 24 ni 25, y make apk lo avisa.
+Compruébalo con `& 'C:\Program Files\Android\Android Studio\jbr\bin\java.exe' -version`; si dice 24 o más, instala
+Temurin 21 (`winget install EclipseAdoptium.Temurin.21.JDK`) y apunta JAVA_HOME a él, sin `\` al final.
+
+Para que «Crear APK» la instale, adb (el de `%ANDROID_HOME%\platform-tools`; no hace falta en el PATH) tiene que ver
+el dispositivo **antes** de pulsar el botón; uno «unauthorized» no cuenta. En el teléfono: Opciones de desarrollador
+→ Depuración por USB, y acepta la huella del PC; en Windows hace falta el driver USB (Google USB Driver, en SDK
+Tools, para un Pixel; el del fabricante para otras marcas). Para un emulador: un AVD x86_64 en el Device Manager, con
+la virtualización activa en la BIOS y la «Plataforma del hipervisor de Windows». Una APK de depuración hecha en otra
+máquina no se instala encima de la anterior: hay que desinstalar esa primero.
+
+**Trampas de Windows.**
+
+- La GUI pasa su entorno a cada trabajo: después de crear una variable, abre otro PowerShell (o reinicia VS Code)
+  antes de `uv run`.
+- El `bash -lc` de MSYS2 no hereda el PATH de Windows (`MSYS2_PATH_TYPE=minimal`), así que make no ve `java`,
+  `docker`, emsdk ni el Python de Windows. Las variables como JAVA_HOME y ANDROID_HOME sí llegan.
+- Docker Desktop (para `make web` sin emcc o `make apk` sin SDK; usa WSL 2): para que make lo vea, crea la variable
+  de usuario `MSYS2_PATH_TYPE=inherit`. Con ella, el `python3` de Windows (o su alias) también entra al PATH: instala
+  el de pacman. Este camino no está probado en Windows; Emscripten y el SDK son los recomendados.
+- Rutas sin espacios: los Makefile usan `$(CURDIR)` sin comillas. Clona en algo corto, como `C:\dev\NESRecomp`; con
+  el NDK, una ruta larga puede pasar el límite de 250 caracteres de CMake.
+- Si tu usuario de Windows tiene espacios, el SDK por omisión y la caché de make apk (`$(HOME)/.cache/retrorecomp`)
+  también. Elige en Android Studio un SDK como `C:\Android\Sdk` (y apunta ANDROID_HOME ahí), y crea la variable de
+  usuario `APK_CACHE_DIR` con una ruta POSIX sin espacios, como `/c/rrcache`.
+- `make testroms` de GENRecomp y NEORecomp baja las SingleStepTests del 68000 y del Z80 (unos 450 MB por repo; las
+  del Z80 se recomprimen una por una), que en MSYS2 tardan mucho. `SKIP_SST=1 make testroms` las salta, como el CI de
+  Windows.
+- `make web` y `make apk` solo los prueba el CI de Linux; en Windows están sin probar.
 
 ## Modos
 
@@ -44,7 +124,9 @@ El interruptor de la barra superior elige entre dos modos (se recuerda en el nav
   `--no-menu`. «Jugar en el navegador» (en Fácil y en Experto → Trazas y entradas) compila el juego con `make web`
   (Emscripten, o Docker con la imagen fija de `shared/web/web.mk`) y lo abre en otra pestaña con la ROM de tu disco:
   la GUI lo sirve en `/play/<token>/<rom>/`, solo en 127.0.0.1. En Neo Geo hace falta que el proyecto se haya
-  recompilado con la BIOS propia, que va dentro del build.
+  recompilado con la BIOS propia, que va dentro del build. «Crear APK» (en los mismos dos lugares) compila el juego
+  para Android con `make apk` (el SDK de Android si `ANDROID_HOME` lo dice, o Docker con la imagen fija de
+  `shared/android`) y, si `adb` ve un teléfono o un emulador conectado, lo instala; la APK queda en `apk/` del proyecto.
 - **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
   (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
   el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son
@@ -90,7 +172,7 @@ Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus 
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
 token.) Cuando la tabla de arriba cambie, actualiza `shared/contract.sh` y `tests/contract.py` de este repo.
 
-**Código compartido (`shared/`).** Lo que antes se copiaba idéntico en los cuatro recompiladores vive aquí y cada uno lo toma por el submódulo `tools/retrorecomp`: `random_pad.h` (el mando aleatorio de `--seed`), `trace_line.h` (el formato `BANCO:DIRECCION`), `sha1.c` y `sha1.h`, la interfaz de la ventana (`ui_menu`, `ui_font`), `png`, `files.h` y `export` (captura PNG y grabadora WAV), `ui_golden.sh` (capturas de la interfaz contra una referencia), `player_util.h`, `player_common.h` y `player_rom.h` (funciones de la ventana iguales en los cuatro; `player_rom.h` no lo usa GBRecomp), `player_audio.h` (la salida de sonido: una cola de SDL con pre-búfer, rampas al pausar y volver, y control de ritmo por remuestreo; `tests/player_audio_test.c` la prueba con una tarjeta simulada y corre en el CI de este repo), `contract.sh` y `recomp_game.sh`. Los repos compilan con `-Itools/retrorecomp/shared` y embeben esos headers en los proyectos que generan; `tests/contract.sh` y `tests/recomp_game.sh` son envoltorios idénticos que entran a la raíz del repo y llaman a `shared/`. Por eso compilar un recompilador exige el submódulo (`git clone --recursive`, o `git submodule update --init`); el ZIP de GitHub no lo trae. `git pull` mueve el commit al que apunta el submódulo pero no lo que hay en la carpeta (`git status` muestra ` M tools/retrorecomp`): después de un `pull` que lo mueva hay que repetir `git submodule update --init`, o configurar una vez `git config --global submodule.recurse true`. Si no, `make` falla con «No rule to make target `tools/retrorecomp/shared/...`». `tests/contract.py` comprueba que los envoltorios sean idénticos y que nadie conserve una copia vieja de los headers.
+**Código compartido (`shared/`).** Lo que antes se copiaba idéntico en los cuatro recompiladores vive aquí y cada uno lo toma por el submódulo `tools/retrorecomp`: `random_pad.h` (el mando aleatorio de `--seed`), `trace_line.h` (el formato `BANCO:DIRECCION`), `sha1.c` y `sha1.h`, la interfaz de la ventana (`ui_menu`, `ui_font`), `png`, `files.h` y `export` (captura PNG y grabadora WAV), `ui_golden.sh` (capturas de la interfaz contra una referencia), `player_util.h`, `player_common.h` y `player_rom.h` (funciones de la ventana iguales en los cuatro; `player_rom.h` no lo usa GBRecomp), `player_audio.h` (la salida de sonido: una cola de SDL con pre-búfer, rampas al pausar y volver, y control de ritmo por remuestreo; `tests/player_audio_test.c` la prueba con una tarjeta simulada y corre en el CI de este repo), `player_touch.h` (el mando en pantalla de las pantallas táctiles: la cruz y los botones dibujados con el renderer, multitáctil, con una tabla de botones en cada consola; `tests/player_touch_test.c` lo prueba con toques simulados y corre en el CI de este repo), `web/` (`make web`: la página y las reglas de Emscripten), `android/` (`make apk`: la plantilla de Gradle y CMake que compila SDL2 2.32 desde su código fuente, la actividad de Java con el selector de archivos del teléfono, el puente JNI y la imagen Docker de versiones fijas; en `player_common.h` van Atrás, que abre el menú, y el guardado al irse a segundo plano), `contract.sh` y `recomp_game.sh`. Los repos compilan con `-Itools/retrorecomp/shared` y embeben esos headers en los proyectos que generan; `tests/contract.sh` y `tests/recomp_game.sh` son envoltorios idénticos que entran a la raíz del repo y llaman a `shared/`. Por eso compilar un recompilador exige el submódulo (`git clone --recursive`, o `git submodule update --init`); el ZIP de GitHub no lo trae. `git pull` mueve el commit al que apunta el submódulo pero no lo que hay en la carpeta (`git status` muestra ` M tools/retrorecomp`): después de un `pull` que lo mueva hay que repetir `git submodule update --init`, o configurar una vez `git config --global submodule.recurse true`. Si no, `make` falla con «No rule to make target `tools/retrorecomp/shared/...`». `tests/contract.py` comprueba que los envoltorios sean idénticos y que nadie conserve una copia vieja de los headers.
 
 Los tres se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo bloque común al principio del
 `Makefile` y los mismos objetivos, `make`, `make testroms` (ROMs de prueba libres), `make test` y `make dist`. El

@@ -120,6 +120,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
    <div class="row" style="margin-top:10px"><label class="f" style="flex-direction:row;align-items:center;gap:4px" title="Jugar arranca en pantalla completa (--fullscreen; F11 la quita)"><input type="checkbox" class="optFull"> pantalla completa</label><label class="f" style="flex-direction:row;align-items:center;gap:4px" title="Jugar arranca sin barra de menús (--no-menu; los atajos siguen: F11, F5/F8, Alt+F4 para salir)"><input type="checkbox" class="optNoMenu"> sin menús</label></div>
    <button class="pri big" id="ePlay">▶ Jugar</button>
    <button id="eWeb" title="Compila el juego para el navegador (WebAssembly, con Emscripten o Docker) y lo abre en otra pestaña">Jugar en el navegador</button>
+   <button id="eApk" title="Compila el juego para Android (make apk: con el SDK de Android o con Docker) y, si hay un teléfono o un emulador conectado por adb, lo instala">Crear APK</button>
    <div class="sub" id="eMsg"></div>
    <button id="eLog">Mostrar detalles</button>
   </div>
@@ -190,6 +191,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
       <button id="bPlayRec">Jugar grabando traza y entradas</button>
       <button id="bPlay">Jugar</button>
       <button id="bWeb" title="Compila el juego para el navegador (WebAssembly, con Emscripten o Docker) y lo abre en otra pestaña">Jugar en el navegador</button>
+      <button id="bApk" title="Compila el juego para Android (make apk: con el SDK de Android o con Docker) y, si hay un teléfono o un emulador conectado por adb, lo instala">Crear APK</button>
       <label class="f cap-interp" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterp"> todo con el intérprete</label><label class="f cap-plays" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterpN"> con el intérprete (necesario para grabar traza)</label>
      </div>
      <div class="mut" style="font-size:12px">Se guardan al cerrar la ventana del juego. Las entradas grabadas quedan disponibles en la lista «Entradas».</div>
@@ -540,6 +542,18 @@ const playWeb=guard(async()=>{
   });
 });
 $("#bWeb").onclick=playWeb;$("#eWeb").onclick=playWeb;
+// Crear APK: make apk en el proyecto y, con un teléfono o un emulador conectado, adb install (el trabajo lo agrega)
+const makeApk=guard(async()=>{
+  const j=await api("/api/job",{kind:"apk",rom:S.rom});
+  toast("Compilando la APK (la primera vez tarda varios minutos)",true);
+  watch(j.id,()=>{
+    const r=S.state.jobs.find(x=>x.id===j.id), pj=S.state.project;
+    if(!r||r.status!=="ok"){toast("No se pudo crear la APK: mira el registro");return}
+    const inst=r.step_list.some(s=>s.cmd.startsWith("adb"));
+    toast(`APK lista: ${pj.dir}/apk/${pj.name}-debug.apk`+(inst?" (instalada en el teléfono)":""),true);
+  });
+});
+$("#bApk").onclick=makeApk;$("#eApk").onclick=makeApk;
 $("#bPlayRc").onclick=()=>play(false);
 
 for(const b of $$("#gBios,#eBios"))b.onchange=guard(async()=>{

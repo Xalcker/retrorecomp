@@ -33,10 +33,11 @@ web: web/$(WEB_NAME).html
 	@echo "Listo: web/$(WEB_NAME).html (sírvelo con un servidor local, p. ej. python3 -m http.server -d web)"
 else ifneq ($(shell command -v docker 2>/dev/null),)
 # Sin emcc: el mismo make dentro de la imagen de Emscripten. En Linux los archivos salen del contenedor como
-# root: se devuelven al usuario. En Windows (MSYS2) Docker quiere la ruta con letra de unidad.
+# root: se devuelven al usuario. En Windows (MSYS2) Docker quiere la ruta con letra de unidad, y MSYS2_ARG_CONV_EXCL
+# evita que MSYS2 convierta /src en una ruta de Windows al llamar a docker.exe.
 WEB_HOST_DIR := $(if $(filter Windows_NT,$(OS)),$(shell cygpath -m "$(CURDIR)"),$(CURDIR))
 web:
-	docker run --rm -v "$(WEB_HOST_DIR)":/src -w /src -v retrorecomp-emcache:/emsdk/upstream/emscripten/cache \
+	MSYS2_ARG_CONV_EXCL='*' docker run --rm -v "$(WEB_HOST_DIR)":/src -w /src -v retrorecomp-emcache:/emsdk/upstream/emscripten/cache \
 	    $(EMSDK_IMAGE) sh -c 'make -j$$(nproc) web EMCC=emcc && chown -R $(shell id -u):$(shell id -g) web build/web'
 else
 web:

@@ -20,3 +20,14 @@ jobs:
         run: |
           cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -o player_audio_test tests/player_audio_test.c -lm
           ./player_audio_test
+  touch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SDL2
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - name: Mando en pantalla común (shared/player_touch.h) con toques simulados
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror -Ishared -Itests/stub $(pkg-config --cflags sdl2) -o player_touch_test \
+             tests/player_touch_test.c shared/ui_font.c shared/ui_menu.c $(pkg-config --libs sdl2) -lm
+          ./player_touch_test

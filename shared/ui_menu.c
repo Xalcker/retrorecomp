@@ -206,7 +206,9 @@ int menubar_event(MenuBar *mb, const SDL_Event *e, int scale, int *action)
         if (mb->open < 0) return 0;
         for (int i = 0; i < mb->count; i++)
             if (inside(title_rect(mb, i, scale), x, y)) {
-                if (i != mb->open) open_menu(mb, i);
+                /* Con el ratón, pasar por otro título abre ese menú. Un toque no: SDL manda el movimiento justo antes
+                 * del clic, que entonces cerraría el menú recién abierto */
+                if (i != mb->open && e->motion.which != SDL_TOUCH_MOUSEID) open_menu(mb, i);
                 return 1;
             }
         mb->hover = -1;

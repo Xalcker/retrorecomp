@@ -15,7 +15,7 @@ ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp y NEORecomp.
 """
 import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote, unquote
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = ".exe" if os.name == "nt" else ""
@@ -179,7 +179,8 @@ class System:
         name = short_name(rom, self.id)
         d = self.project_dir(name)
         return {"name": name, "dir": d, "generated": os.path.isfile(os.path.join(d, "Makefile")),
-                "built": os.path.isfile(os.path.join(d, name + EXE))}
+                "built": os.path.isfile(os.path.join(d, name + EXE)),
+                "web": os.path.isfile(os.path.join(d, "web", name + ".wasm"))}
 
     def git(self):
         def g(*a):
@@ -997,6 +998,18 @@ def make_job(p):
             steps += bios_steps(sysm, rp)
             steps += [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}, {"argv": ["make", "-C", pdir, "-j8"]}]
         return start_job(f"preparar {name}", steps, rid, "prepare", cwd)
+    if kind == "web":
+        # Jugar en el navegador (retrorecomp#44): make web en el proyecto (emcc o Docker). Un proyecto generado
+        # antes de make web (sin platform/web.mk) se vuelve a generar, con todas las trazas que haya
+        steps = []
+        if not all(sysm.tools_status().values()):
+            steps.append({"argv": ["make", "-j8"], "cwd": sysm.root})
+        if not os.path.isfile(os.path.join(pdir, "platform", "web.mk")):
+            traces = [t["name"] for t in list_traces(rid)]
+            tflags = [x for t in trace_files(rid, traces) for x in ("--trace", t)]
+            steps += bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
+        steps.append({"argv": ["make", "-C", pdir, "web"]})
+        return start_job(f"web {name}", steps, rid, "web", cwd)
     if kind == "recomp":
         steps = bios_steps(sysm, rp) + [{"argv": sysm.recomp_argv(rp, pdir, name, tflags)}]
         if p.get("compile", True):
@@ -1138,6 +1151,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, {"error": "host"})
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path.startswith("/play/"):
+            return self._play(u.path, q)
         if u.path == "/":
             if not self._auth(q):
                 return self._send(403, "Abra la dirección que imprime el programa (lleva ?t=...).", "text/plain; charset=utf-8")
@@ -1149,6 +1164,39 @@ class Handler(BaseHTTPRequestHandler):
             return self._get(u.path, q)
         except Exception as e:  # noqa: BLE001
             return self._send(400, {"error": str(e)})
+
+    # /play/<token>/<rom>/...: el juego compilado para el navegador (make web) y la ROM local. El token va en la
+    # ruta porque la página pide su .js y su .wasm con rutas relativas, sin el encabezado X-Token
+    WEB_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".wasm": "application/wasm"}
+
+    def _play(self, path, q):
+        parts = path.split("/", 4)          # "", "play", token, rom, resto
+        if len(parts) < 4 or not secrets.compare_digest(parts[2], cfg["token"]):
+            return self._send(403, {"error": "token"})
+        try:
+            rid = unquote(parts[3])
+            sysm, rp = rom_of(rid)
+        except ValueError as e:
+            return self._send(404, str(e), "text/plain; charset=utf-8")
+        proj = sysm.project(base_name(rid))
+        rest = parts[4] if len(parts) > 4 else ""
+        if rest == "":
+            # La página, con la ROM y las opciones (--no-menu, --fullscreen) que pidió la GUI
+            loc = f"{quote(proj['name'])}.html?rom=rom/{quote(os.path.basename(rp))}"
+            if q.get("args"):
+                loc += "&args=" + quote(q["args"][0], safe=",-")
+            self.send_response(302)
+            self.send_header("Location", loc)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return None
+        if rest.startswith("rom/"):
+            return self._file(rp, "application/octet-stream", "falta la ROM")
+        name = os.path.basename(unquote(rest))
+        ext = os.path.splitext(name)[1]
+        if ext not in self.WEB_TYPES:
+            return self._send(404, "no", "text/plain; charset=utf-8")
+        return self._file(os.path.join(proj["dir"], "web", name), self.WEB_TYPES[ext], "falta: make web")
 
     def _file(self, path, ctype, missing):
         if not os.path.isfile(path):

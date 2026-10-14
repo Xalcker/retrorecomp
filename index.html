@@ -119,6 +119,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
    <label class="f cap-bios" style="margin-top:10px" title="Ruta de una BIOS propia (p. ej. build/neobios.bin); vacío = la que se encuentre">BIOS<input type="text" id="eBios" placeholder="vacío: la que se encuentre" style="width:22em;max-width:100%"></label>
    <div class="row" style="margin-top:10px"><label class="f" style="flex-direction:row;align-items:center;gap:4px" title="Jugar arranca en pantalla completa (--fullscreen; F11 la quita)"><input type="checkbox" class="optFull"> pantalla completa</label><label class="f" style="flex-direction:row;align-items:center;gap:4px" title="Jugar arranca sin barra de menús (--no-menu; los atajos siguen: F11, F5/F8, Alt+F4 para salir)"><input type="checkbox" class="optNoMenu"> sin menús</label></div>
    <button class="pri big" id="ePlay">▶ Jugar</button>
+   <button id="eWeb" title="Compila el juego para el navegador (WebAssembly, con Emscripten o Docker) y lo abre en otra pestaña">Jugar en el navegador</button>
    <div class="sub" id="eMsg"></div>
    <button id="eLog">Mostrar detalles</button>
   </div>
@@ -188,6 +189,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <div class="row">
       <button id="bPlayRec">Jugar grabando traza y entradas</button>
       <button id="bPlay">Jugar</button>
+      <button id="bWeb" title="Compila el juego para el navegador (WebAssembly, con Emscripten o Docker) y lo abre en otra pestaña">Jugar en el navegador</button>
       <label class="f cap-interp" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterp"> todo con el intérprete</label><label class="f cap-plays" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterpN"> con el intérprete (necesario para grabar traza)</label>
      </div>
      <div class="mut" style="font-size:12px">Se guardan al cerrar la ventana del juego. Las entradas grabadas quedan disponibles en la lista «Entradas».</div>
@@ -523,6 +525,21 @@ for(const [cls,key] of [["optFull","play_fullscreen"],["optNoMenu","play_nomenu"
   for(const c of $$("."+cls)){c.checked=on;c.onchange=()=>{for(const o of $$("."+cls))o.checked=c.checked;try{localStorage.setItem(key,c.checked?"1":"0")}catch(e){}}}
 }
 $("#bPlayRec").onclick=()=>play(true);$("#bPlay").onclick=()=>play(false);
+// Jugar en el navegador: make web (si falta) y la página en otra pestaña. La pestaña se abre al hacer clic (si
+// no, el navegador la toma por emergente) y recibe la dirección al terminar
+const playWeb=guard(async()=>{
+  const w=window.open("","_blank");
+  const args=[$(".optNoMenu").checked&&"--no-menu",$(".optFull").checked&&"--fullscreen"].filter(Boolean).join(",");
+  const url=`/play/${TOKEN}/${encodeURIComponent(S.rom)}/`+(args?`?args=${args}`:"");
+  if(S.state.project.web){if(w)w.location=url;else toast("Permite las ventanas emergentes para abrir el juego");return}
+  const j=await api("/api/job",{kind:"web",rom:S.rom});
+  toast("Compilando para el navegador (la primera vez tarda unos minutos)",true);
+  watch(j.id,()=>{
+    const r=S.state.jobs.find(x=>x.id===j.id);
+    if(r&&r.status==="ok"){if(w)w.location=url}else{if(w)w.close();toast("No se pudo compilar para el navegador: mira el registro")}
+  });
+});
+$("#bWeb").onclick=playWeb;$("#eWeb").onclick=playWeb;
 $("#bPlayRc").onclick=()=>play(false);
 
 for(const b of $$("#gBios,#eBios"))b.onchange=guard(async()=>{

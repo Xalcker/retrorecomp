@@ -59,8 +59,8 @@ ronda() {
             falla=1
             return
         fi
-        grep -oE '[0-9.]+% (de los ciclos|recompilado)' "$OUT/difftest.log" | tr '\n' ' '
-        grep -oE '(Instrucciones|Direcciones) de (PRG|ROM) interpretadas: [0-9]+' "$OUT/difftest.log" || echo
+        grep -oE '[0-9.]+% de los ciclos' "$OUT/difftest.log" | tr '\n' ' '
+        grep -oE 'Instrucciones de (PRG|ROM) interpretadas: [0-9]+' "$OUT/difftest.log" || echo
         cat "$OUT/unc_$s.txt" >> "$TRACE"
     done
     sort -u "$TRACE" -o "$TRACE"

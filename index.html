@@ -230,7 +230,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
     <h3>Avance del ciclo</h3>
     <div id="cycres"></div>
     <div id="cycsteps"></div>
-    <div class="row"><button id="bPlayRc">Jugar el recompilado</button><button id="bBenchRc" title="difftest --bench del proyecto compilado">Medir velocidad</button></div>
+    <div class="row"><button id="bPlayRc">Jugar el recompilado</button><button id="bBenchRc" title="bench del proyecto compilado">Medir velocidad</button></div>
    </div>
    <details class="card">
     <summary>Pasos sueltos: recompilar, difftest y velocidad por separado</summary>
@@ -614,7 +614,7 @@ function parseCycle(text){
     if(/: primera ronda$/.test(l)){cur={title:"Primera ronda: recompilar con lo que halla el análisis",seeds:[]};rounds.push(cur);continue}
     if(m=l.match(/: con la traza \((\d+) (instrucciones|direcciones)\)/)){cur={title:"Segunda ronda: recompilar con la traza ("+m[1]+" "+m[2]+")",seeds:[]};rounds.push(cur);continue}
     if(cur&&(m=l.match(/^\s+semilla (\S+)\s*(.*)$/))){
-      const r=m[2], p=r.match(/([\d.]+)% (?:de los ciclos|recompilado)/), i=r.match(/interpretad\w+: (\d+)/), bad=/DIFERENCIA/.test(r);
+      const r=m[2], p=r.match(/([\d.]+)% de los ciclos/), i=r.match(/interpretad\w+: (\d+)/), bad=/DIFERENCIA/.test(r);
       cur.seeds.push({s:m[1],bad,pct:p?p[1]:null,interp:i?i[1]:null,done:bad||!!p||!!i});continue}
     if(/^Sin diferencias\.$/.test(l)) res="ok"; else if(/^HAY DIFERENCIAS\.$/.test(l)) res="bad";
   }

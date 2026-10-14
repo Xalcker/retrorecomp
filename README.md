@@ -165,7 +165,8 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `nesaudio` / `gbaudio` / `genaudio` / `neoaudio` | `rom salida.wav [--frames N] [--input archivo] [--seed S]` |
 | `nesbench` / `gbbench` / `genbench` / `neobench` | `rom [--frames N] [--repeat N] [--input archivo] [--seed S]` (sin entradas: Start y luego la derecha) |
 | `nesramdump` / `gbramdump` / `genramdump` / `neoramdump` | `rom [--frames N] [--input archivo] [--seed S]` (RAM de trabajo a la salida estándar) |
-| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` (sin `--input` ni `--seed` no pulsa nada; el nombre es el mismo en todos porque va dentro del proyecto generado, que ya es de una consola) |
+| `difftest` (cada proyecto) | `rom [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--screens carpeta [--every N]] [--bench] [--executed archivo]` (sin `--input` ni `--seed` no pulsa nada; el nombre es el mismo en todos porque va dentro del proyecto generado, que ya es de una consola). Sin diferencias termina con `difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de los ciclos)` y sale con 0; con diferencias imprime líneas `DIFERENCIA ...` y sale con 1 |
+| `bench` (cada proyecto) | las opciones de `nesbench` / `gbbench` / `genbench` / `neobench`, con el código recompilado |
 | `nesrecomp` / `gbrecomp` / `genrecomp` / `neorecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre

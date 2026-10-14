@@ -57,6 +57,9 @@
  * del archivo de la ROM.
  */
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1403,6 +1406,97 @@ static void render(App *app)
 
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Bucle                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Un cuadro de la ventana en tres partes: los eventos, la emulación (un cuadro, o cuatro sin audio en avance
+ * rápido) y el dibujo. El bucle de escritorio las llama con su ritmo; en el navegador, web_frame */
+static void frame_input(App *app)
+{
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) handle_event(app, &ev);
+}
+
+static void frame_run(App *app)
+{
+    int running = game_running(app);
+    app->fast = running && SDL_GetKeyboardState(NULL)[SDL_SCANCODE_TAB];
+    if (running) {
+        if (app->fast) for (int i = 0; i < 3; i++) step(app);   /* avance rápido: sin audio */
+        step(app);
+    }
+}
+
+static void frame_draw(App *app)
+{
+    update_title(app);
+    render(app);
+}
+
+/* Al salir: termina lo que se estaba exportando, guarda las preferencias (salvo en las capturas de prueba),
+ * las partidas de los dos jugadores y lo no cubierto, y libera todo */
+static void finish(App *app, int save_settings)
+{
+    char msg[1200];
+    stop_music(app, 0);
+    stop_tiles(app, 0);
+    if (save_settings) settings_save(&app->cfg, app->settings_path);
+    if (app->record) fclose(app->record);
+    link_stop(app);         /* guarda la partida del jugador 2 */
+    if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {
+        snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
+        fail(msg);
+    }
+    if (app->uncovered_path) write_uncovered(app->uncovered_path);
+    if (app->audio) SDL_CloseAudioDevice(app->audio);
+    for (int i = 0; i < 4; i++)
+        if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
+    if (app->tex) SDL_DestroyTexture(app->tex);
+    SDL_DestroyRenderer(app->ren);
+    SDL_FreeSurface(ui_shot_surface);
+    SDL_DestroyWindow(app->win);
+    SDL_free(app->pref);
+    SDL_Quit();
+    gb_free(&app->gb);
+    free(app->rom.data);
+}
+
+#ifdef __EMSCRIPTEN__
+/* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
+ * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
+ * día de golpe al volver a una pestaña). Cada dos segundos guarda las preferencias si cambiaron y copia la
+ * carpeta de datos (IDBFS) a IndexedDB, porque una pestaña cerrada no avisa */
+static void web_frame(void *arg)
+{
+    App *app = arg;
+    static double last, pending;
+    static Settings saved;
+    static unsigned ticks;
+    const double frame_ms = 1000.0 * GB_CYCLES_FRAME / GB_CPU_HZ;
+    double now = emscripten_get_now();
+    pending += last ? now - last : frame_ms;
+    last = now;
+    if (pending > 4 * frame_ms) pending = frame_ms;
+    frame_input(app);
+    if (!app->running) {
+        finish(app, 1);
+        emscripten_run_script("FS.syncfs(false, function () {})");
+        emscripten_cancel_main_loop();
+        return;
+    }
+    for (int n = 0; pending >= frame_ms && n < 4; n++, pending -= frame_ms) frame_run(app);
+    frame_draw(app);
+    if (++ticks % 120 == 0) {
+        if (memcmp(&saved, &app->cfg, sizeof saved)) {
+            settings_save(&app->cfg, app->settings_path);
+            saved = app->cfg;
+        }
+        emscripten_run_script("if (!Module.syncing) { Module.syncing = 1; FS.syncfs(false, function () { Module.syncing = 0; }); }");
+    }
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     static App app_storage;
@@ -1615,23 +1709,21 @@ int main(int argc, char *argv[])
         app->running = 1;
     }
 
+#ifdef __EMSCRIPTEN__
+    if (app->running) {
+        emscripten_set_main_loop_arg(web_frame, app, 0, 1);    /* no vuelve */
+        return 0;
+    }
+#endif
     const double frame_seconds = (double)GB_CYCLES_FRAME / GB_CPU_HZ;
     const Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();
 
     while (app->running) {
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) handle_event(app, &ev);
+        frame_input(app);
         if (!app->running) break;
-
-        int running = game_running(app);
-        app->fast = running && SDL_GetKeyboardState(NULL)[SDL_SCANCODE_TAB];
-        if (running) {
-            if (app->fast) for (int i = 0; i < 3; i++) step(app);   /* avance rápido: sin audio */
-            step(app);
-        }
-        update_title(app);
-        render(app);
+        frame_run(app);
+        frame_draw(app);
 
         /* Ritmo: 59.7275 cuadros por segundo (sin límite en avance rápido) */
         if (app->fast) { next = SDL_GetPerformanceCounter(); continue; }
@@ -1646,26 +1738,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    stop_music(app, 0);
-    stop_tiles(app, 0);
-    if (!shot_mode) settings_save(&app->cfg, app->settings_path);
-    if (app->record) fclose(app->record);
-    link_stop(app);         /* guarda la partida del jugador 2 */
-    if (gb_has_battery(&app->gb) && !save_game(&app->gb, app->save_path)) {
-        snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
-        fail(msg);
-    }
-    if (app->uncovered_path) write_uncovered(app->uncovered_path);
-    if (app->audio) SDL_CloseAudioDevice(app->audio);
-    for (int i = 0; i < 4; i++)
-        if (app->pads[i]) SDL_GameControllerClose(app->pads[i]);
-    if (app->tex) SDL_DestroyTexture(app->tex);
-    SDL_DestroyRenderer(app->ren);
-    SDL_FreeSurface(ui_shot_surface);
-    SDL_DestroyWindow(app->win);
-    SDL_free(app->pref);
-    SDL_Quit();
-    gb_free(&app->gb);
-    free(rom->data);
+    finish(app, !shot_mode);
     return 0;
 }

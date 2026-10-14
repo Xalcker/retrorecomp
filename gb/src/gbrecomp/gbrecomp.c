@@ -2562,6 +2562,11 @@ static void emit_readme(const char *dir, const char *name, const char *title, co
         "Prueba diferencial (código recompilado contra el intérprete):\n"
         "  ./difftest rom.gb --frames 6000 --seed 1\n"
         "\n"
+        "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
+        "  make web\n"
+        "  python3 -m http.server -d web     y abrir http://localhost:8000/<nombre>.html\n"
+        "  La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n"
+        "\n"
         "El código en gen/ es una traducción del programa de la ROM: úsalo para\n"
         "jugar tu propia copia; no lo distribuyas si el juego es comercial.\n"
         "\n"
@@ -2630,8 +2635,15 @@ static void emit_makefile(const char *dir, const char *name)
         "# Prueba diferencial: código recompilado contra el intérprete\n"
         "difftest$(EXE): platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^\n\n"
-        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE)\n",
-        name, name, name, name);
+        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk)\n"
+        "WEB_NAME   := %s\n"
+        "WEB_TITLE  := %s\n"
+        "WEB_PREF   := /libsdl/GBRecomp/%s/\n"
+        "WEB_CACHE  := rom.gb\n"
+        "WEB_ACCEPT := .gb,.gbc\n"
+        "include platform/web.mk\n\n"
+        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE)\n",
+        name, name, name, name, name, name, name);
     fclose(f);
 }
 

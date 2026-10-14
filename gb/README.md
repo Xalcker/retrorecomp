@@ -124,6 +124,13 @@ Instrucciones: 66950387 recompiladas, 15236996 en el intérprete (81.461% recomp
 Sin diferencias.
 ```
 
+**En el navegador** (WebAssembly): `make -C build/out/sfa2 web` compila el mismo proyecto con Emscripten si
+está instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
+`python3 -m http.server -d build/out/sfa2/web` lo sirve (abrir `http://localhost:8000/sfa2.html`). La página pide
+la ROM (no va en el build), comprueba el SHA1 y la guarda en el navegador con la partida, los estados y las
+preferencias (IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make
+webtest` compila la de `cpu_instrs`.
+
 Si el porcentaje recompilado pasa de ~98 % y dice "Sin diferencias", ya está:
 salta al paso 6. Si queda bajo (aquí, 75–81 % según la semilla), es que hay
 código al que el análisis estático no llega (saltos por punteros, tablas que

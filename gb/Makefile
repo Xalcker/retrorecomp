@@ -39,7 +39,7 @@ endif
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 
-.PHONY: all clean test dist testroms
+.PHONY: all clean test dist testroms webtest
 all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
@@ -101,12 +101,14 @@ EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
 EMBED_PLATFORM := main_sdl.c difftest.c inputs.h ramtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h \
+             $(SHARED)/web/shell.html $(SHARED)/web/web.mk
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
               platform/random_pad.h=$(SHARED)/random_pad.h \
               runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
-              tools/visor.html=tools/visor.html
+              tools/visor.html=tools/visor.html \
+              platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -133,6 +135,14 @@ dist: gbrecomp$(EXE)
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
 	sh tests/run_tests.sh
+
+# El juego recompilado en el navegador (retrorecomp#44): el proyecto de cpu_instrs con make web (Emscripten, o
+# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
+webtest: gbrecomp$(EXE)
+	rm -rf $(BUILD)/proy_web
+	./gbrecomp$(EXE) testroms/blargg/cpu_instrs/cpu_instrs.gb -o $(BUILD)/proy_web --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_web web
+	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (cpu_instrs)"
 
 # ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0
 TESTROMS_URL := https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip

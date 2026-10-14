@@ -11,6 +11,9 @@ CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
+# Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h
+plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -54,8 +57,8 @@ all: $(PROGS:%=%$(EXE))
 nestest$(EXE): src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
-nesshot$(EXE): src/tools/nesshot.c src/platform/png.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c src/platform/png.c $(RT)
+nesshot$(EXE): src/tools/nesshot.c $(SHARED)/png.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c $(SHARED)/png.c $(RT)
 
 nesbench$(EXE): src/platform/bench.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
@@ -67,9 +70,9 @@ nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(SHARED)/random_pad.h $
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -122,8 +125,8 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 	windres -I src/platform -i $< -o $@ -O coff
 endif
 
-nes$(EXE): $(NES_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(NES_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+nes$(EXE): $(call plat,$(NES_SRC)) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) -I$(SHARED) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(call plat,$(NES_SRC)) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h $(SHARED)/trace_line.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<

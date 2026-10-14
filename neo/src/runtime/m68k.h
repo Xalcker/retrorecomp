@@ -53,6 +53,7 @@ void     m68k_run_hybrid(struct Neo *g, int (*after)(struct Neo *), int (*native
 uint16_t m68k_get_sr(const M68k *c);
 void     m68k_set_sr(M68k *c, uint16_t sr);
 int      m68k_decode(uint16_t op);                          /* K_* de la instrucción (K_ILLEGAL si no es válida) */
-int      m68k_ext_words(uint16_t op);                       /* palabras de extensión que siguen al opcode */
+int      m68k_ext_words(uint16_t op);
+extern void (*m68k_ram_trace)(struct Neo *g, uint32_t pc);   /* NULL, o quien anota el código que corre desde RAM */                       /* palabras de extensión que siguen al opcode */
 
 #endif

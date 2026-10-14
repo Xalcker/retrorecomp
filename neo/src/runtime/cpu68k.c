@@ -265,6 +265,10 @@ static void interrupt(struct Neo *g, int lvl)
     jump(&xs, rd(&xs, (u32)(VEC_AUTO1 + lvl - 1) * 4, 2));
 }
 
+/* Con la traza activa, lo que el intérprete ejecuta desde RAM (neo_trace_start pone neo_ram_note; un
+ * puntero para que el CPU no dependa del resto de la consola, como en m68ktest) */
+void (*m68k_ram_trace)(struct Neo *g, u32 pc);
+
 /* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
 static void step_body(struct Neo *g)
 {
@@ -279,7 +283,10 @@ static void step_body(struct Neo *g)
     } else {
         int trace = c->t;
         u16 op = c->ir;
-        if (g->trace) neo_trace_mark(g, c->pc);         /* traza de lo que ejecuta el intérprete en ROM */
+        if (g->trace) {
+            neo_trace_mark(g, c->pc);                   /* traza de lo que ejecuta el intérprete en ROM */
+            if ((c->pc >> 16) == 0x0010 && m68k_ram_trace) m68k_ram_trace(g, c->pc);    /* y en RAM */
+        }
         kind_fn[kind_tab[op]](g, op, NULL, c->pc);
         if (trace) {
             X xs = { g, c, NULL, 0, c->pc, c->pc + 2, c->ir, c->pc + 2 };

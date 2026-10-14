@@ -47,7 +47,8 @@ prefetch, la RAM y los ciclos antes y después). `m68ktest` las corre **por los 
 intérprete y el del código generado (`--recomp`). Pasan las 1 000 058 por los dos; se omiten 2 de
 ASL.b con datos malos conocidos ([issue #4](https://github.com/SingleStepTests/680x0/issues/4)). En
 `--recomp` no se compara la cola de prefetch cuando la instrucción escribe sobre ella (código que se
-modifica a sí mismo: en ROM no pasa y el código en RAM lo corre el intérprete).
+modifica a sí mismo: en ROM no pasa, y el código de RAM que se compila (ver «Código que el juego copia a
+RAM») es el que no se reescribe así; `difftest` lo delataría).
 
 Comportamientos poco documentados que siguen a las pruebas: banderas N/V de ABCD/SBCD/NBCD; CHK
 compara primero con el límite (38 ciclos, N = signo) y luego el signo (40 ciclos, N = 1), y si no
@@ -229,13 +230,42 @@ de la BIOS `b<sha1 corto>_DESPLAZAMIENTO`.
 
 `gen/dispatch.c` tiene las funciones del juego ordenadas por desplazamiento, con una tabla por KB, y
 `recomp_lookup`: traduce el PC con `neo_code_offset` y busca en el juego o, si el desplazamiento es de la
-BIOS, en `recomp_bios_lookup`.
+BIOS, en `recomp_bios_lookup`. Si el PC está en la RAM, pregunta a `ram_lookup` (siguiente sección).
+
+### Código que el juego copia a RAM
+
+Algunos juegos copian código a la RAM del 68000 y lo ejecutan desde ahí (KOF '98 espera en un bucle en RAM).
+Pesa poco en Neo Geo (en los juegos medidos, a lo sumo un 1 % de los ciclos), pero el mecanismo es el de
+GENRecomp, con el que comparte el 68000, y el módulo común de retrorecomp, `shared/ram_code.h` (salió de lo que
+hizo GBRecomp):
+
+1. Con la traza activa (`difftest --uncovered`, el ejecutable con `--uncovered`, `neotrace`), el intérprete anota
+   con `neo_ram_note` (por el puntero `m68k_ram_trace` del CPU, que pone `neo_trace_start`) cada instrucción que
+   ejecuta en `$100000-$10FFFF`: hasta 4 versiones por dirección y qué bytes cambiaron entre ejecuciones. La tabla
+   va aparte de `Neo`, porque los estados guardados la copian y comprueban su tamaño. Salen como líneas
+   `ram DIRECCION B0 B1 ...` (`??` en los bytes que cambiaron) en el mismo archivo de la traza, que
+   `trace_line_read` ignora; el ejecutable, que carga el archivo y lo vuelve a escribir, conserva las que traía.
+   Los espejos de la RAM (hasta `$1FFFFF`) siguen en el intérprete.
+2. **Qué identifica una instrucción: su opcode.** La longitud depende solo de él, y las palabras de extensión las
+   lee el código generado de RAM al ejecutar (`ram_ext`), como el intérprete: el código que parcha sus inmediatos o
+   destinos sigue funcionando.
+3. `neorecomp --trace` une lo visto en varias corridas, descarta las direcciones con más de 8 versiones y arma
+   **bloques** (cadenas sin ambigüedad), que van a `gen/ram.c` como las funciones de ROM.
+4. **La guarda:** `ram_lookup` elige el primer bloque cuyas palabras de opcode siguen en RAM; si no, el intérprete.
+   Se comprueba al entrar al bloque: un bloque que reescribe un opcode propio mientras corre sigue con lo
+   aprendido hasta la siguiente entrada; `difftest` lo delataría.
+
+`tests/run_tests.sh` lo prueba con la BIOS propia y una variante del juego de prueba (`mkcontrato --ram`) que
+copia una rutina a `$100100`, la llama en cada cuadro y le parcha el inmediato: la segunda ronda compila 6
+instrucciones (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `neotrace` y el
+ejecutable anotan las mismas líneas que `difftest`. `difftest` dice qué parte del tiempo del intérprete fue ROM
+(P y BIOS) o RAM («Intérprete por zona»).
 
 ### El proyecto generado
 
 `neorecomp -o carpeta` escribe `runtime/` (el runtime de este repo, que va dentro de `neorecomp`),
 `platform/` (la ventana, `difftest`, `bench`), `gen/` (`code_NNN.c` de unas 3000 instrucciones cada uno,
-para compilar en paralelo, `dispatch.c`, `info.c` con el SHA1 y el nombre, `gen.h`), `bios/` (el código de
+para compilar en paralelo, `dispatch.c`, `ram.c` con el código aprendido de RAM, `info.c` con el SHA1 y el nombre, `gen.h`), `bios/` (el código de
 la BIOS de la caché y `bios.c`), un `Makefile` (con `-DNEO_RECOMP`) y `LEEME.txt`. No lleva datos del juego
 ni de la BIOS: el ejecutable busca el juego (el argumento, la copia que guarda la primera vez en su carpeta
 de datos como `juego.neo`, o un `.neo` o `.zip` de la carpeta actual con el SHA1 correcto) o lo pide, y

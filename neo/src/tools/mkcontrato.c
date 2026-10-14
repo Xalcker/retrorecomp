@@ -21,6 +21,10 @@
  *            patea al perro guardián, llama a SYSTEM_IO y marca $100000
  *   $000800  el juego: paleta, borra la capa fija y los sprites, y en cada cuadro dibuja los botones
  * Z80 (M1): habilita la NMI y espera; la NMI lee el comando, pone el tono A del SSG y contesta.
+ *
+ * Con --ram (mkcontrato --ram salida.neo, la prueba del código en RAM de tests/run_tests.sh), el juego además
+ * copia al arrancar una rutina de $780 a $100100 (move.w #5,d0, un bucle con dbf, guarda en $101000, rts),
+ * la llama en cada cuadro y le parcha el inmediato (addq.b #1,$100103).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +37,7 @@ static u8 cpu[0x100000];
 static u32 pc;
 static u32 label[16];
 static int pass;
+static int ram_test;        /* --ram */
 
 static void w16(u16 v) { cpu[pc] = (u8)(v >> 8); cpu[pc + 1] = (u8)v; pc += 2; }
 static void w32(u32 v) { w16((u16)(v >> 16)); w16((u16)v); }
@@ -63,7 +68,7 @@ static const u16 security[] = {
     0x4E75,
 };
 
-enum { L_FIX, L_SPR, L_LOOP, L_BTN, L_NOSND };
+enum { L_FIX, L_SPR, L_LOOP, L_BTN, L_NOSND, L_COPY };
 
 static void program(void)
 {
@@ -118,6 +123,11 @@ static void program(void)
     at(0x600); move_w_imm_abs(2, 0x3C000C); w16(0x4E73);     /* temporizador */
     at(0x680); move_w_imm_abs(1, 0x3C000C); w16(0x4E73);     /* arranque */
     at(0x700); w16(0x60FE);                                  /* excepciones: se queda aquí */
+    if (ram_test) {                                          /* la rutina que se copia a $100100 */
+        static const u16 r[] = { 0x303C, 0x0005, 0x7200, 0xD240, 0x51C8, 0xFFFC, 0x33C1, 0x0010, 0x1000, 0x4E75 };
+        at(0x780);
+        for (size_t i = 0; i < sizeof r / sizeof r[0]; i++) w16(r[i]);
+    }
 
     /* El juego */
     at(0x800);
@@ -137,11 +147,21 @@ static void program(void)
     w16(0x4239); w32(0x100000);                              /* clr.b $100000 */
     w16(0x4239); w32(0x100002);                              /* clr.b $100002: los botones de antes */
     w16(0x13FC); w16(0x0000); w32(0x320000);                 /* calla el Z80 */
+    if (ram_test) {
+        w16(0x41F9); w32(0x780);                             /* lea $780,a0 */
+        w16(0x43F9); w32(0x100100);                          /* lea $100100,a1 */
+        w16(0x7009);                                         /* moveq #9,d0 */
+        mark(L_COPY); w16(0x32D8); dbf(0, L_COPY);           /* move.w (a0)+,(a1)+ */
+    }
     w16(0x46FC); w16(0x2000);
     mark(L_LOOP);
     w16(0x4A39); w32(0x100000);                              /* tst.b $100000 */
     bcc(0x6700, L_LOOP);                                     /* beq.s: espera el VBLANK */
     w16(0x4239); w32(0x100000);
+    if (ram_test) {
+        w16(0x4EB9); w32(0x100100);                          /* jsr $100100 */
+        w16(0x5239); w32(0x100103);                          /* addq.b #1,$100103: parcha el inmediato */
+    }
     w16(0x1039); w32(0x10FD96);                              /* move.b BIOS_P1CURRENT,d0 */
     w16(0x1A00);                                             /* move.b d0,d5 */
     w16(0x7407);                                             /* moveq #7,d2 */
@@ -193,7 +213,8 @@ static void z80_program(u8 *m)
 int main(int argc, char **argv)
 {
     console_utf8();
-    if (argc != 2) { fprintf(stderr, "uso: mkcontrato salida.neo\n"); return 2; }
+    if (argc == 3 && !strcmp(argv[1], "--ram")) { ram_test = 1; argv++; argc--; }
+    if (argc != 2) { fprintf(stderr, "uso: mkcontrato [--ram] salida.neo\n"); return 2; }
     for (pass = 0; pass < 2; pass++) program();
     static u8 p1[0x100000], s1[0x20000], m1[0x10000];
     for (size_t i = 0; i < sizeof cpu; i += 2) { p1[i] = cpu[i + 1]; p1[i + 1] = cpu[i]; }

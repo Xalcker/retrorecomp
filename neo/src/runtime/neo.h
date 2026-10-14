@@ -393,6 +393,12 @@ void   neo_trace_start(Neo *g);
 int    neo_trace_load(Neo *g, const char *path);   /* suma lo de una traza anterior; 1 si se leyó */
 int    neo_trace_write(const Neo *g, const char *path);
 size_t neo_trace_count(const Neo *g);
+/* Con la traza activa, el intérprete también anota el código que ejecuta desde la RAM del 68000
+ * ($100000-$10FFFF; los espejos hasta $1FFFFF siguen en el intérprete), en líneas "ram" de ram_code.h que
+ * la misma traza escribe y lee: neorecomp --trace lo compila con una guarda. La tabla va aparte de Neo
+ * (los estados guardados la copian y validan su tamaño) */
+void neo_ram_note(Neo *g, u32 pc);
+void neo_ram_summary(const Neo *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost);
 
 /* Estados guardados: la consola entera y la tarjeta, sin la BIOS ni la tabla L0 (al cargar se ponen
  * las de esta corrida). Solo los carga la misma versión con el mismo juego */

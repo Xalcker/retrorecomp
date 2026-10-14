@@ -12,7 +12,7 @@ juegos y la BIOS no se versionan.
 | Juegos probados | 8: Metal Slug, Metal Slug 2, Samurai Shodown II, Neo Turf Masters, KOF '97 (MVS), KOF '98 (AES, de un zip merged), The Last Blade y Shock Troopers (solo MVS); de 2 a 5 MB de programa, 5 con bancos de P2 |
 | Corren en el intérprete (etapa 1) | 8 de 8 |
 | Recompilados sin traza y comparados contra el intérprete (etapa 2) | **8 de 8 sin diferencias** (dos semillas de 1800 cuadros, y una segunda ronda con lo que cayó al intérprete) |
-| Ciclos en código recompilado (peor semilla) | 99,1 % a 100 %; 100 % en 5. KOF '98 se queda en 99,1 % por un bucle de espera que corre desde la RAM |
+| Ciclos en código recompilado (peor semilla) | 99,1 % a 100 %; 100 % en 5. KOF '98 se quedaba en 99,1 % por un bucle de espera que corre desde la RAM; ahora ese código se aprende de la traza (ver «Código que el juego copia a RAM» en `ARQUITECTURA.md`) y el ciclo de `tests/recomp_game.sh` (3000 cuadros, semilla 1) llega al 100 %, sin diferencias en los 8 juegos |
 | Velocidad recompilada (`difftest --bench`, 1800 cuadros) | 42× (Neo Turf Masters) a 78× (KOF '97) el tiempo real, 58× de media; el intérprete, de 27× a 35× |
 | Compilar el proyecto generado (`make -j8`) | 31 s (Shock Troopers) a 122 s (KOF '98) |
 | Parecido con Geolith (cuadros 1200 y 2400) | RAM del 68000: 99,6 % a 100 % (95,6 % en The Last Blade en el 2400); imagen: 99 % o más en 11 de los 16 cuadros (idéntica en 7) |

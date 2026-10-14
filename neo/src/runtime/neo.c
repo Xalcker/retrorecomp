@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "neo.h"
+#include "ram_code.h"
 #include "trace_line.h"
 
 int neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err)
@@ -265,9 +266,47 @@ int neo_card_save(Neo *g, const char *path)
 
 /* --- Traza --- */
 
+/* Código ejecutado desde RAM, por máquina (difftest tiene dos) */
+static struct { const Neo *g; RcTable t; } ram_tabs[4];
+
+static RcTable *ram_table(const Neo *g, int create)
+{
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (ram_tabs[i].g == g) return &ram_tabs[i].t;
+    if (!create) return NULL;
+    for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
+        if (!ram_tabs[i].g) {
+            if (!rc_init(&ram_tabs[i].t, 0x100000, 0x10000)) return NULL;
+            ram_tabs[i].g = g;
+            return &ram_tabs[i].t;
+        }
+    return NULL;
+}
+
+/* Lo que identifica una instrucción del 68000 es su opcode: la longitud depende solo de él, y las
+ * palabras de extensión (inmediatos, direcciones, desplazamientos) las lee el código recompilado de
+ * RAM al ejecutar, como el intérprete */
+void neo_ram_note(Neo *g, u32 pc)
+{
+    RcTable *t = ram_table(g, 0);
+    u32 a = pc & 0xFFFF;
+    if (!t || (a & 1) || (pc >> 16) != 0x0010) return;
+    unsigned len = 2 + 2 * (unsigned)m68k_ext_words((u16)(g->ram[a] << 8 | g->ram[a + 1]));
+    if (a + len <= sizeof g->ram) rc_observe(t, pc, g->ram + a, len, 2);
+}
+
+void neo_ram_summary(const Neo *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost)
+{
+    RcTable *t = ram_table(g, 0);
+    RcSummary s = { 0, 0, 0, 0 };
+    if (t) s = rc_summary(t);
+    *fixed = s.fixed; *vol = s.vol; *multi = s.multi; *lost = s.lost;
+}
+
 void neo_trace_start(Neo *g)
 {
     if (!g->trace) g->trace = calloc(neo_trace_words(g), sizeof *g->trace);
+    if (ram_table(g, 1)) m68k_ram_trace = neo_ram_note;
 }
 
 int neo_trace_load(Neo *g, const char *path)
@@ -278,8 +317,14 @@ int neo_trace_load(Neo *g, const char *path)
     if (!g->trace) { fclose(f); return 0; }
     unsigned long off, addr;
     char line[128];
+    RcTable *t = ram_table(g, 0);
+    RcIns in;
     while (fgets(line, sizeof line, f)) {
-        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr) || (off & 1)) continue;
+        if (!trace_line_read(line, TRACE_SHIFT, &off, &addr)) {
+            if (t && rc_parse(line, &in) && in.len >= 2) { in.key = 2; rc_add(t, &in); }
+            continue;
+        }
+        if (off & 1) continue;
         int bios = off >= BIOS_SPACE;
         if (bios ? off - BIOS_SPACE >= BIOS_SIZE : off >= g->cart.len[REG_P]) continue;
         size_t i = neo_trace_index(g, (long)off);
@@ -300,6 +345,8 @@ int neo_trace_write(const Neo *g, const char *path)
             unsigned long off = i < pw ? i * 2 : BIOS_SPACE + (i - pw) * 2;
             trace_line_write(f, TRACE_SHIFT, 6, off, g->trace[i] & 0xFFFFFF);
         }
+    RcTable *t = ram_table(g, 0);
+    if (t) rc_write(t, f, 6);
     return fclose(f) == 0;
 }
 

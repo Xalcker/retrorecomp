@@ -92,6 +92,41 @@ tiempo "proyecto generado: contrato"
 if [ -f roms/mslug.zip ] && [ -f roms/aes.zip ]; then recompila mslug roms/mslug.zip 1200; fi
 tiempo "proyecto generado: Metal Slug"
 
+# Código que el juego copia a RAM (retrorecomp shared/ram_code.h), con la BIOS propia: mkcontrato --ram arma una
+# variante del juego de prueba que copia una rutina a $100100, la llama en cada cuadro y le parcha el inmediato.
+# Primera ronda: la RAM va al intérprete y la traza la anota (?? en el byte parchado); segunda, con esa traza: nada
+# de RAM en el intérprete y sin diferencias. difftest, neotrace y el ejecutable escriben las mismas líneas "ram", y
+# el ejecutable conserva las que traía el archivo.
+if [ -f build/neobios.bin ]; then
+    RR=build/tests/ram.neo; d=build/tests/proy_ram; x=; [ -x ./neorecomp.exe ] && x=.exe
+    D=build/tests; ok=0
+    rm -rf "$d" "$D/ram.unc" "$D/ram2.unc"
+    if make -s "build/mkcontrato$x" && "build/mkcontrato$x" --ram "$RR" >/dev/null && NEO_BIOS=build/neobios.bin "$(exe neorecomp)" "$RR" -o "$d" --name ram >/dev/null 2>&1 \
+            && make -C "$d" -j8 -s "difftest$x" >/dev/null 2>&1 \
+            && NEO_BIOS=build/neobios.bin "$d/difftest$x" "$RR" --frames 600 --seed 1 --uncovered "$D/ram.unc" > "$D/ram1.out" 2>&1 \
+            && grep -q "RAM 9[0-9].[0-9]%" "$D/ram1.out" && grep -q "^ram 100100 30 3C 00 ??$" "$D/ram.unc" \
+            && [ "$(grep -c '^ram' "$D/ram.unc")" -eq 6 ]; then
+        sleep 1     # el make de macOS compara fechas con precisión de un segundo
+        if NEO_BIOS=build/neobios.bin "$(exe neorecomp)" "$RR" -o "$d" --name ram --trace "$D/ram.unc" 2>&1 | grep -q "aprendido de la traza: 6 instrucciones (1 con operandos variables) en 1 bloques" \
+                && make -C "$d" -j8 -s "difftest$x" >/dev/null 2>&1 \
+                && NEO_BIOS=build/neobios.bin "$d/difftest$x" "$RR" --frames 600 --seed 1 --uncovered "$D/ram2.unc" > "$D/ram2.out" 2>&1 \
+                && grep -q "cuadros iguales.*100.0% de los ciclos" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
+    fi
+    if [ $ok -eq 1 ]; then echo "ok    código en RAM: la segunda ronda lo compila (6 instrucciones, 1 parchada) y no queda nada en el intérprete"
+    else echo "FALLA código en RAM"; cat "$D/ram1.out" "$D/ram2.out" 2>/dev/null; fallas=$((fallas + 1)); fi
+    NEO_BIOS=build/neobios.bin "$(exe neotrace)" "$RR" "$D/ram_neotrace.txt" --frames 600 >/dev/null 2>&1
+    if [ "$(grep '^ram' "$D/ram_neotrace.txt")" = "$(grep '^ram' "$D/ram.unc")" ]; then echo "ok    neotrace anota el mismo código de RAM que difftest"
+    else echo "FALLA neotrace y el código de RAM"; fallas=$((fallas + 1)); fi
+    if [ -x "$(exe neo)" ]; then
+        printf 'ram 102000 4E 75\n' > "$D/ram_exe.txt"
+        NEO_BIOS=build/neobios.bin SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$(exe neo)" "$RR" --ui-shot "$D/ram_exe.png" --ui-frames 600 --uncovered "$D/ram_exe.txt" >/dev/null 2>&1
+        if [ "$(grep '^ram' "$D/ram_exe.txt" | grep -v '^ram 102000')" = "$(grep '^ram' "$D/ram.unc")" ] && grep -q "^ram 102000 4E 75$" "$D/ram_exe.txt"; then
+            echo "ok    el ejecutable anota el mismo código de RAM y conserva las líneas que traía"
+        else echo "FALLA el ejecutable y el código de RAM"; fallas=$((fallas + 1)); fi
+    fi
+fi
+tiempo "código en RAM"
+
 # Herramientas de análisis de neorecomp con el juego de prueba (no necesitan la BIOS): --why, --viz,
 # --codemap, --events, --html, --dis, y la traza BANCO:DIRECCION
 if [ -f testroms/neo/contrato.neo ]; then

@@ -11,6 +11,9 @@ CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
+# Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h
+plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
 ifeq ($(OS),Windows_NT)
@@ -56,8 +59,8 @@ $(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
 	windres -I src/platform -i $< -o $@ -O coff
 endif
 
-neo$(EXE): $(NEO_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINRES)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(NEO_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
+neo$(EXE): $(call plat,$(NEO_SRC)) $(wildcard src/platform/*.h) $(RT) $(WINRES)
+	$(CC) $(CFLAGS) -I$(SHARED) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(call plat,$(NEO_SRC)) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 PROGS := neorecomp neotrace neoshot neoaudio neobench neoramdump neorun neocard neo \
          carttest m68ktest z80test bustest lspctest audiotest statetest inputtest
@@ -85,8 +88,8 @@ TOOL_DEPS := src/platform/cli.h src/platform/inputs.h $(SHARED)/random_pad.h src
 neotrace$(EXE): src/tools/neotrace.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neotrace.c $(RT) -lm
 
-neoshot$(EXE): src/tools/neoshot.c src/platform/png.c $(TOOL_DEPS)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoshot.c src/platform/png.c $(RT) -lm
+neoshot$(EXE): src/tools/neoshot.c $(SHARED)/png.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoshot.c $(SHARED)/png.c $(RT) -lm
 
 neoaudio$(EXE): src/tools/neoaudio.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neoaudio.c $(RT) -lm
@@ -109,10 +112,10 @@ audiotest$(EXE): src/tools/audiotest.c $(RT)
 lspctest$(EXE): src/tools/lspctest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
-neorun$(EXE): src/tools/neorun.c src/platform/png.c $(RT)
+neorun$(EXE): src/tools/neorun.c $(SHARED)/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
-neocard$(EXE): src/tools/neocard.c src/platform/png.c $(RT)
+neocard$(EXE): src/tools/neocard.c $(SHARED)/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola
@@ -131,8 +134,8 @@ $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
 ifeq ($(shell uname -s 2>/dev/null),Linux)
 DL_LIBS := -ldl
 endif
-$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h src/platform/png.c $(TOOL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c src/platform/png.c $(RT) -lm $(DL_LIBS)
+$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
 
 # La BIOS propia (fase 10): asm68k la ensambla (make neobios: build/neobios.bin, en el orden de los chips como
 # neo-epo.bin; se usa con --bios o NEO_BIOS); dis68kbin prueba el ensamblador contra el desensamblador
@@ -148,9 +151,9 @@ EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h console.h $(fil
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h export.c export.h png.c png.h icono.h icono.rc icono.ico inputs.h cli.h \
                   difftest.c bench.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -183,8 +186,11 @@ $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runti
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
-$(BUILD)/plat_%.o: src/platform/%.c src/platform/png.h src/platform/files.h src/platform/export.h | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BUILD)/plat_%.o: src/platform/%.c $(SHARED)/png.h $(SHARED)/files.h src/platform/export.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
+
+$(BUILD)/plat_png.o: $(SHARED)/png.c $(SHARED)/png.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(RT): $(RUNTIME_OBJ)
 	ar rcs $@ $^

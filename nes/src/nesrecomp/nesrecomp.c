@@ -43,7 +43,7 @@
 
 #include "../runtime/cpu_ops.h"
 #include "../runtime/console.h"
-#include "../runtime/sha1.h"
+#include "sha1.h"
 #include "trace_line.h"
 #include "embedded.h"
 

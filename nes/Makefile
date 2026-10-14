@@ -64,10 +64,10 @@ nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(SHARED)/random_pad.h $
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h sha1.c sha1.h console.h vrc7.c
+EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h export.c export.h png.c png.h inputs.h icono.h icono.rc icono.ico
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h
+EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(EMBED_PLATFORM:%=src/platform/%) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=src/platform/$(f))
 
@@ -75,7 +75,7 @@ $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -126,6 +126,9 @@ nes$(EXE): $(NES_SRC:%=src/platform/%) $(wildcard src/platform/*.h) $(RT) $(WINR
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $(NES_SRC:%=src/platform/%) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
 $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/nes.h $(SHARED)/trace_line.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
+
+$(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(RT): $(RUNTIME_OBJ)

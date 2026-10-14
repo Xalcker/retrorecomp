@@ -1672,8 +1672,17 @@ static void emit_makefile(const char *dir, const char *name)
         "WEB_ACCEPT := .neo,.zip\n"
         "WEB_EXTRA  := $(if $(wildcard bios/neobios.bin),--embed-file bios/neobios.bin@/neobios.bin)\n"
         "include platform/web.mk\n\n"
-        "clean:\n\trm -rf build dist web %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name, name, name, name);
+        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk). La BIOS propia va\n"
+        "# dentro de la APK y el juego la copia a su carpeta de datos; la de SNK nunca\n"
+        "APK_NAME   := %s\n"
+        "APK_TITLE  := %s\n"
+        "APK_SYSTEM := neorecomp\n"
+        "APK_CACHE  := juego.neo\n"
+        "APK_ICON   := platform/icono.h\n"
+        "APK_DATA   := $(if $(wildcard bios/neobios.bin),bios/neobios.bin=bios.bin)\n"
+        "include platform/android/android.mk\n\n"
+        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name, name, name, name, name, name);
     fclose(f);
 }
 
@@ -1705,7 +1714,11 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "En el navegador (WebAssembly; necesita Emscripten o Docker y la BIOS propia en bios/):\n"
         "  make web\n"
         "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
-        "La página pide el juego (no va en el build) y lo guarda en el navegador con la tarjeta.\n", name, sha1, name);
+        "La página pide el juego (no va en el build) y lo guarda en el navegador con la tarjeta.\n\n"
+        "En Android (necesita el SDK de Android y un JDK 17, o Docker; la BIOS propia va en la APK):\n"
+        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
+        "La primera vez el juego pide el .neo o el .zip con el selector de archivos del teléfono y lo guarda.\n"
+        "make apk ROM=juego.zip lo mete en la APK (solo para uso personal: no compartas esa APK).\n", name, sha1, name, name);
     fclose(f);
 }
 

@@ -37,4 +37,5 @@ fi
 mkdir -p testroms/neo
 # En Windows (MSYS2) los programas llevan .exe y el objetivo del Makefile también
 x=; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) x=.exe;; esac
+# Siempre, aunque ya esté: el caché de testroms del CI depende solo de este archivo, no de mkcontrato.c
 make -s "build/mkcontrato$x" && "build/mkcontrato$x" testroms/neo/contrato.neo || exit 1

@@ -89,6 +89,18 @@ comprueba el SHA1 y lo guarda en el navegador con la tarjeta de memoria, los est
 (IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
 del juego del contrato.
 
+**En Android** (APK): `make -C mslug apk` deja `mslug/apk/<nombre>-debug.apk`, que se instala con `adb install -r`.
+Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en `JAVA_HOME`; el JBR
+de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de `platform/android/Dockerfile`, que se
+construye la primera vez (unos 3 GB). La BIOS propia (`mslug/bios/neobios.bin`, si se recompiló con ella) va dentro
+de la APK; la de SNK nunca: sin la propia, el juego la pide en el teléfono. En el teléfono el juego arranca
+horizontal y en pantalla completa, con un mando en pantalla (o un mando Bluetooth); Atrás o el botón de las tres
+rayas abren el menú. La primera vez pide el juego (.neo o .zip) con el selector de archivos del teléfono y lo guarda;
+las partidas y las preferencias se guardan también al dejar la app en segundo plano. `make apk ROM=mslug.zip` mete el
+juego en la APK (solo para uso personal: esa APK no se comparte) y `APK_RELEASE=1` firma una de release con tu
+keystore (ver `platform/android/android.mk`). Es la misma plantilla en los cuatro recompiladores
+(`retrorecomp/shared/android`); `make apktest` compila la del juego del contrato.
+
 ## Herramientas
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y

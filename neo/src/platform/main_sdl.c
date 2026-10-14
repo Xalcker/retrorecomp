@@ -25,7 +25,8 @@
  * Para pruebas sin ventana: --ui-shot archivo.png [--ui-frames N] [--ui-menu N] [--ui-action N].
  *
  * Jugador 1: flechas, Z X C V = A B C D, Enter = Start, Mayús = Select. Jugador 2: I J K L,
- * B N M , = A B C D, H = Start, G = Select. Mandos: el primero es el jugador 1 y el segundo el 2.
+ * B N M , = A B C D, H = Start, G = Select. Mandos: el primero es el jugador 1 y el segundo el 2. En una pantalla
+ * táctil, el mando en pantalla (player_touch.h) es el jugador 1; en Android, Atrás abre el menú.
  *
  * Carpeta de datos (la da SDL): en Windows %APPDATA%\NEORecomp\<juego>\, en Linux
  * ~/.local/share/NEORecomp/<juego>/, en macOS ~/Library/Application Support/NEORecomp/<juego>/ (el
@@ -65,6 +66,7 @@
 #include "ui_menu.h"
 #include "player_util.h"
 #include "player_audio.h"
+#include "player_touch.h"
 
 #define AES_FPS (24167829.0 / (M68K_PER_FRAME * MCLK_PER_M68K))      /* 59.60 */
 
@@ -108,6 +110,7 @@ typedef struct {
     SDL_Texture *tex;
     SDL_GameController *pads[2];
     PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
+    TouchPad touch;         /* el mando en pantalla (player_touch.h) */
 
     MenuBar bar;
     Dialog dlg;
@@ -160,6 +163,9 @@ static void set_game(App *app, const char *path, const char *title)
 static int ask_file(const char *choose, const char *drop, int first, char *out, size_t size)
 {
     if (ask_rom_path(choose, out, size)) return 1;
+#ifdef __ANDROID__
+    return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarlo */
+#endif
     if (first) inform(drop);
     return wait_for_drop(out, size);
 }
@@ -632,6 +638,7 @@ static void handle_event(App *app, SDL_Event *e)
         SDL_free(e->drop.file);
         return;
     }
+    if (touch_and_back(app, e)) return;
     if (e->type == SDL_MOUSEMOTION)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
@@ -675,6 +682,18 @@ static void handle_event(App *app, SDL_Event *e)
 
 /* Mando de SDL (disposición de Xbox): A B X Y = A B C D (como el arco del mando del AES, de abajo a
  * arriba), Start = Start, Back = Select */
+/* El mando en pantalla (player_touch.h): A B abajo y C D arriba de ellos, a la derecha; Select arriba de la cruz y
+ * Start arriba de los botones */
+static const TouchButton touch_keys[] = {
+    { "A", NEO_A, TOUCH_RIGHT, 0, -2.85f, -1.2f },
+    { "B", NEO_B, TOUCH_RIGHT, 0, -1.25f, -1.65f },
+    { "C", NEO_C, TOUCH_RIGHT, 0, -3.25f, -2.65f },
+    { "D", NEO_D, TOUCH_RIGHT, 0, -1.65f, -3.1f },
+    { "SELECT", NEO_SELECT, TOUCH_LEFT, 1, 1.65f, -3.6f },
+    { "START", NEO_START, TOUCH_RIGHT, 1, -2.0f, -4.2f },
+};
+static const TouchLayout touch_layout = { NEO_UP, NEO_DOWN, NEO_LEFT, NEO_RIGHT, touch_keys, 6 };
+
 static u16 read_pad(SDL_GameController *pad)
 {
     if (!pad) return 0;
@@ -724,7 +743,7 @@ static void player_pads(App *app, u16 pads[2])
     if (k[SDL_SCANCODE_K]) p2 |= NEO_DOWN;
     if (k[SDL_SCANCODE_J]) p2 |= NEO_LEFT;
     if (k[SDL_SCANCODE_L]) p2 |= NEO_RIGHT;
-    pads[0] = p1 | read_pad(app->pads[0]);
+    pads[0] = p1 | read_pad(app->pads[0]) | (u16)touch_buttons(&app->touch);
     pads[1] = p2 | read_pad(app->pads[1]);
     /* No pueden ir izquierda y derecha (ni arriba y abajo) a la vez en un mando de verdad */
     for (int i = 0; i < 2; i++) {
@@ -816,6 +835,7 @@ static void render(App *app)
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
     SDL_RenderClear(app->ren);
     SDL_RenderCopy(app->ren, app->tex, NULL, &dst);
+    touch_draw(&app->touch, app->ren, w, h);
 
     if (bar_visible(app))
         menubar_draw(&app->bar, app->ren, w, ui);
@@ -843,6 +863,7 @@ static unsigned char *sdl_read_file(const char *path, size_t *size) { return u8_
 static void frame_input(App *app)
 {
     SDL_Event ev;
+    background_poll(app);
     while (SDL_PollEvent(&ev)) handle_event(app, &ev);
 }
 
@@ -889,6 +910,15 @@ static void finish(App *app, int save_settings)
     free(app->neo);
 }
 
+#ifdef __ANDROID__
+/* Al irse a segundo plano (player_common.h): la tarjeta de memoria y las preferencias, como al salir */
+static void app_save(App *app)
+{
+    settings_save(&app->cfg, app->settings_path);
+    save_card(app);
+}
+#endif
+
 #ifdef __EMSCRIPTEN__
 /* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
  * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
@@ -934,6 +964,7 @@ int main(int argc, char *argv[])
     char msg[4096];
     the_app = app;
     app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
+    touch_init(&app->touch, &touch_layout);
     app->neo = calloc(1, sizeof *app->neo);
     if (!app->neo) fail("sin memoria");
     neo_read_file = sdl_read_file;          /* rutas UTF-8 también en Windows */

@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -74,7 +74,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms neobios webtest
+.PHONY: all clean test dist testroms neobios webtest apktest
 # La BIOS propia (build/neobios.bin, la primera que se busca) se ensambla con make si hay python3
 NEOBIOS_ALL := $(if $(shell command -v python3 2>/dev/null),$(BUILD)/neobios.bin)
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE) $(NEOBIOS_ALL)
@@ -151,12 +151,16 @@ $(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c src/neorecomp/dis68k.c src/n
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h console.h $(filter-out sha1.c,$(RUNTIME))
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
-                  files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h cli.h \
                   difftest.c bench.c
+# La APK de Android (make apk): shared/android va a platform/android del proyecto
+EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
+                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
 EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
-             $(SHARED)/web/shell.html $(SHARED)/web/web.mk
+             $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
+              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
 
 $(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -219,6 +223,16 @@ webtest: neorecomp$(EXE) $(BUILD)/neobios.bin
 	test -s $(BUILD)/proy_web/bios/neobios.bin
 	$(MAKE) -C $(BUILD)/proy_web web
 	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (contrato, BIOS propia)"
+
+# El juego recompilado en Android (retrorecomp#45): el mismo proyecto con make apk (el SDK de Android, o Docker con la
+# imagen de platform/android/Dockerfile), con la BIOS propia dentro de la APK. El CI lo corre en Linux, con el SDK
+# que traen los runners
+apktest: neorecomp$(EXE) $(BUILD)/neobios.bin
+	rm -rf $(BUILD)/proy_apk
+	NEO_BIOS=$(BUILD)/neobios.bin ./neorecomp$(EXE) testroms/neo/contrato.neo -o $(BUILD)/proy_apk --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
+	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && \
+	    unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'assets/datos/bios.bin' && echo "ok    make apk (contrato, BIOS propia)"
 
 testroms:
 	sh tests/testroms.sh

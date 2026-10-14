@@ -20,7 +20,9 @@
  * Para pruebas sin ventana: --ui-shot archivo.png [--ui-frames N] [--ui-menu N] [--ui-action N].
  *
  * Jugador 1: flechas, Z X C = A B C, Enter = Start, A S D = X Y Z, Mayús = Mode. Jugador 2: I J K L,
- * V B N = A B C, H = Start. Mandos: el primero es el jugador 1 y el segundo el 2.
+ * V B N = A B C, H = Start. Mandos: el primero es el jugador 1 y el segundo el 2. En una pantalla táctil, el
+ * mando en pantalla (player_touch.h) es el jugador 1, de 3 o de 6 botones como el mando elegido; en Android, Atrás
+ * abre el menú.
  *
  * Carpeta de datos (la da SDL): en Windows %APPDATA%\GENRecomp\<juego>\, en Linux
  * ~/.local/share/GENRecomp/<juego>/, en macOS ~/Library/Application Support/GENRecomp/<juego>/.
@@ -59,6 +61,7 @@
 #include "ui_menu.h"
 #include "player_util.h"
 #include "player_audio.h"
+#include "player_touch.h"
 
 #define NTSC_FPS (53693175.0 / (MCLK_PER_LINE * LINES_NTSC))      /* 59.92 */
 
@@ -109,6 +112,7 @@ typedef struct {
     int tex_w, tex_h;
     SDL_GameController *pads[2];
     PlayerAudio audio;      /* la salida de sonido (player_audio.h) */
+    TouchPad touch;         /* el mando en pantalla (player_touch.h) */
 
     MenuBar bar;
     Dialog dlg;
@@ -198,6 +202,9 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     for (;;) {
         int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path_out, path_size);
         if (!got) {
+#ifdef __ANDROID__
+            return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
+#endif
             snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), "Genesis");
             if (first) inform(msg);
             if (!wait_for_drop(path_out, path_size)) return 0;
@@ -224,12 +231,34 @@ static int save_game(App *app)
     return gen_sram_save(app->gen, app->save_path);
 }
 
+/* El mando en pantalla (player_touch.h), como el de la consola: A B C abajo a la derecha y, con el de 6 botones,
+ * X Y Z arriba de ellos y Mode arriba de la cruz */
+static const TouchButton touch_keys3[] = {
+    { "A", GEN_A, TOUCH_RIGHT, 0, -3.45f, -1.1f },
+    { "B", GEN_B, TOUCH_RIGHT, 0, -2.15f, -1.4f },
+    { "C", GEN_C, TOUCH_RIGHT, 0, -0.85f, -1.7f },
+    { "START", GEN_START, TOUCH_RIGHT, 1, -2.0f, -3.0f },
+};
+static const TouchButton touch_keys6[] = {
+    { "A", GEN_A, TOUCH_RIGHT, 0, -3.45f, -1.1f },
+    { "B", GEN_B, TOUCH_RIGHT, 0, -2.15f, -1.4f },
+    { "C", GEN_C, TOUCH_RIGHT, 0, -0.85f, -1.7f },
+    { "X", GEN_X, TOUCH_RIGHT, 0, -3.45f, -2.45f },
+    { "Y", GEN_Y, TOUCH_RIGHT, 0, -2.15f, -2.75f },
+    { "Z", GEN_Z, TOUCH_RIGHT, 0, -0.85f, -3.05f },
+    { "MODE", GEN_MODE, TOUCH_LEFT, 1, 1.65f, -3.6f },
+    { "START", GEN_START, TOUCH_RIGHT, 1, -2.0f, -4.2f },
+};
+static const TouchLayout touch_layout3 = { GEN_UP, GEN_DOWN, GEN_LEFT, GEN_RIGHT, touch_keys3, 4 };
+static const TouchLayout touch_layout6 = { GEN_UP, GEN_DOWN, GEN_LEFT, GEN_RIGHT, touch_keys6, 8 };
+
 static void apply_pad(App *app)
 {
     Gen *g = app->gen;
     if (app->cfg.pad == 3) g->pad6 = 0;
     else if (app->cfg.pad == 6) g->pad6 = 3;
     else g->pad6 = strchr(g->cart.hdr.io, '6') ? 3 : 0;
+    app->touch.layout = g->pad6 & 1 ? &touch_layout6 : &touch_layout3;
 }
 
 /* Enciende (o reinicia) la consola con la ROM actual */
@@ -634,6 +663,7 @@ static void handle_event(App *app, SDL_Event *e)
         SDL_free(e->drop.file);
         return;
     }
+    if (touch_and_back(app, e)) return;
     if (e->type == SDL_MOUSEMOTION)
         app->mouse_y = e->motion.y;
     if (e->type == SDL_CONTROLLERDEVICEADDED) {
@@ -727,7 +757,7 @@ static void player_pads(App *app, u16 pads[2])
     if (k[SDL_SCANCODE_K]) p2 |= GEN_DOWN;
     if (k[SDL_SCANCODE_J]) p2 |= GEN_LEFT;
     if (k[SDL_SCANCODE_L]) p2 |= GEN_RIGHT;
-    pads[0] = p1 | read_pad(app->pads[0]);
+    pads[0] = p1 | read_pad(app->pads[0]) | (u16)touch_buttons(&app->touch);
     pads[1] = p2 | read_pad(app->pads[1]);
     /* No pueden ir izquierda y derecha (ni arriba y abajo) a la vez en un mando de verdad */
     for (int i = 0; i < 2; i++) {
@@ -825,6 +855,7 @@ static void render(App *app)
     SDL_SetRenderDrawColor(app->ren, 0, 0, 0, 255);
     SDL_RenderClear(app->ren);
     SDL_RenderCopy(app->ren, app->tex, NULL, &dst);
+    touch_draw(&app->touch, app->ren, w, h);
 
     if (bar_visible(app))
         menubar_draw(&app->bar, app->ren, w, ui);
@@ -872,6 +903,7 @@ static int find_rom_here(Rom *rom, char *path_out, size_t size)
 static void frame_input(App *app)
 {
     SDL_Event ev;
+    background_poll(app);
     while (SDL_PollEvent(&ev)) handle_event(app, &ev);
 }
 
@@ -918,6 +950,15 @@ static void finish(App *app, int save_settings)
     free(app->rom.data);
 }
 
+#ifdef __ANDROID__
+/* Al irse a segundo plano (player_common.h): la partida y las preferencias, como al salir */
+static void app_save(App *app)
+{
+    settings_save(&app->cfg, app->settings_path);
+    save_game(app);
+}
+#endif
+
 #ifdef __EMSCRIPTEN__
 /* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
  * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
@@ -963,6 +1004,7 @@ int main(int argc, char *argv[])
     char msg[4096];
     the_app = app;
     app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
+    touch_init(&app->touch, &touch_layout3);
     app->gen = calloc(1, sizeof *app->gen);
     if (!app->gen) fail("sin memoria");
 

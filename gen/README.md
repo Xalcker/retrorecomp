@@ -92,7 +92,20 @@ instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que
 `python3 -m http.server -d juego/web` lo sirve (abrir `http://localhost:8000/juego.html`). La página pide la ROM (no
 va en el build), comprueba el SHA1 y la guarda en el navegador con la partida, los estados y las preferencias
 (IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
-de la demo del contrato.
+de la ROM mínima de las pruebas (`tests/minima.sh`; otra con `WEBTEST_ROM=`).
+
+**En Android** (APK): `make -C juego apk` deja `juego/apk/<nombre>-debug.apk`, que se instala con `adb install -r`.
+Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en `JAVA_HOME`; el JBR
+de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de `platform/android/Dockerfile`, que se
+construye la primera vez (unos 3 GB). En el teléfono el juego arranca horizontal y en pantalla completa, con un mando
+en pantalla (o un mando Bluetooth); Atrás o el botón de las tres rayas abren el menú. La primera vez pide la ROM con
+el selector de archivos del teléfono y la guarda; las partidas y las preferencias se guardan también al dejar la app
+en segundo plano. `make apk ROM=juego.bin` mete la ROM en la APK (solo para uso personal: esa APK no se comparte) y
+`APK_RELEASE=1` firma una de release con tu keystore (ver `platform/android/android.mk`). Es la misma plantilla en
+los cuatro recompiladores (`retrorecomp/shared/android`); Con un juego grande la primera compilación tarda: el clang
+del NDK se demora en algunas funciones del código generado (con Overdrive, unos 5,5 min por arquitectura en un equipo
+de 4 núcleos), y `APK_ABIS=arm64-v8a` compila solo la de los teléfonos. `make apktest` compila la de la ROM mínima de
+las pruebas (otra con `APKTEST_ROM=`, p. ej. `testroms/demos/overdrive.bin`).
 
 ```
 ./genrecomp "roms/juego.bin"

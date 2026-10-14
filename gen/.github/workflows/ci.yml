@@ -31,7 +31,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    # Linux fijo en ubuntu-24.04: ubuntu-latest pasa a Ubuntu 26 desde el 19-10-2026, y make apk (paso Android) usa
+    # el JDK 17 y el NDK que trae la imagen; con otros, Gradle 8.13 podría no correr o bajaría otro NDK. La matriz
+    # sigue diciendo ubuntu-latest para que la comprobación se siga llamando build (ubuntu-latest), la que exige la
+    # regla Proteger main
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
     defaults:
       run:
         shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
@@ -90,15 +94,16 @@ jobs:
         if: steps.cambios.outputs.docs != 'true'
         run: make -j4
 
-      # Las ROMs de prueba tienen versiones fijas (Makefile / tests/testroms.sh): se guardan entre corridas en
-      # vez de bajarlas cada vez. Sin restore-keys a propósito: un caché de otra versión haría que make testroms
-      # creyera que ya están.
+      # Las ROMs de prueba tienen versiones fijas, todas en tests/testroms.sh: se guardan entre corridas en vez de
+      # bajarlas cada vez. La clave depende solo de ese archivo (en NES y GB, que fijan la versión en el Makefile,
+      # también del Makefile): con el Makefile, que cambia en casi todos los PR, casi nunca se encontraba. Sin
+      # restore-keys a propósito: un caché de otra versión haría que make testroms creyera que ya están.
       - name: Caché de las ROMs de prueba
         if: steps.cambios.outputs.docs != 'true'
         uses: actions/cache@v4
         with:
           path: testroms
-          key: testroms-${{ runner.os }}-${{ hashFiles('Makefile', 'tests/testroms.sh') }}
+          key: testroms-${{ runner.os }}-${{ hashFiles('tests/testroms.sh') }}
 
       - name: ROMs de prueba
         if: steps.cambios.outputs.docs != 'true'
@@ -114,11 +119,17 @@ jobs:
         if: steps.cambios.outputs.docs != 'true'
         run: make test
 
-      # El juego recompilado en el navegador (WebAssembly): make webtest compila el proyecto de una ROM de prueba
+      # El juego recompilado en el navegador (WebAssembly): make webtest compila el proyecto de la ROM mínima
       # con make web, que sin Emscripten usa Docker (la imagen fija de platform/web.mk); los runners de Linux lo traen
       - name: Web (WebAssembly)
         if: steps.cambios.outputs.docs != 'true' && runner.os == 'Linux'
         run: make webtest
+
+      # El juego recompilado en Android: make apktest compila la APK de la ROM mínima con el SDK, el NDK y el JDK 17
+      # que traen los runners de Linux (sin SDK, make apk usaría Docker con la imagen de platform/android/Dockerfile)
+      - name: Android (APK)
+        if: steps.cambios.outputs.docs != 'true' && runner.os == 'Linux'
+        run: make apktest
 
       - name: Paquete
         if: steps.cambios.outputs.docs != 'true'
@@ -134,7 +145,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:

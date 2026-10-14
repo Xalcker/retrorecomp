@@ -46,11 +46,10 @@ else
 fi
 tiempo "SingleStepTests del 68000 (intérprete y --recomp)"
 
-# Una ROM mínima hecha aquí (vectores, "SEGA" en $100 y un bucle en $200)
+# La ROM mínima (tests/minima.sh: vectores, "SEGA" en $100 y un bucle en $200)
 R=build/tests/minima.bin
 mkdir -p build/tests build/shots
-{ printf '\000\377\376\000\000\000\002\000'; head -c 248 /dev/zero; printf 'SEGA MEGA DRIVE '
-  head -c 240 /dev/zero; printf '\140\376'; head -c 510 /dev/zero; } > "$R"
+sh tests/minima.sh "$R"
 
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)

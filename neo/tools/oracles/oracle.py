@@ -315,6 +315,8 @@ def mix(juego, args, tramo=6):
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"): print(__doc__); return 0
     cmd, a = sys.argv[1], sys.argv[2:]
+    # Los núcleos usan la BIOS de SNK; las herramientas propias, la misma (si no, buscarían antes la propia)
+    if cmd != "fetch" and not os.environ.get("NEO_BIOS"): os.environ["NEO_BIOS"] = bios_aes()
     if cmd == "fetch":
         for corto in (a or list(NUCLEOS)): print(nucleo(corto))
     elif cmd == "ramdump" and len(a) >= 2:

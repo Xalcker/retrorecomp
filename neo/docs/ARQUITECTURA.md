@@ -328,7 +328,8 @@ X); avisa de los que piden un periférico (enlace, mahjong, trackball) y del set
 exportación, `1b3b2209...`) y `neo-po.bin` (AES de Japón, `4e4a440c...`), sueltas o en el `aes.zip` de MAME
 (la primera aceptada, en ese orden). Mide 128 KB y sus palabras vienen con los bytes invertidos, como P. Su
 byte `$401` es la región que ven los juegos: Japón (0) en `neo-po.bin` y **Europa (2)** en `neo-epo.bin`: no
-hay BIOS del AES de EE. UU. `bios_find` la busca en `$NEO_BIOS`, junto al juego y en `roms/`. En el AES no
+hay BIOS del AES de EE. UU. `bios_find` la busca en `$NEO_BIOS`, junto al juego y en `roms/`, después de la
+propia. En el AES no
 hay SFIX ni SM1: la capa fija y el Z80 salen siempre del cartucho.
 
 **La BIOS propia** (fase 10, `tools/neobios/`, MIT): `neobios.s`, escrita desde cero con la interfaz de la wiki
@@ -336,8 +337,10 @@ de NeoGeoDev y lo que se ve desde afuera con la original (qué escribe en los re
 de la RAM lee o escribe cada juego), sin traducir ni copiar el código de SNK. La ensambla `asm68k.py`, un
 ensamblador del 68000 hecho aquí (Python sin dependencias; `make neobios` deja `build/neobios.bin` en el orden
 de los chips, como `neo-epo.bin`), que se prueba contra el desensamblador (`tests/asm68k/`). El runtime la
-acepta por su firma (`"NEORECOMP BIOS"` en `$100`), no por el SHA1; `bios_find` la toma solo si no hay una de
-SNK (`neobios.bin` junto al juego o en `roms/`), o con `--bios`/`NEO_BIOS`. Se recompila como la original.
+acepta por su firma (`"NEORECOMP BIOS"` en `$100`), no por el SHA1; `bios_find` la toma antes que la de SNK
+(`neobios.bin` junto al juego, en `roms/` o en `build/`, donde la deja `make`), y también va con
+`--bios`/`NEO_BIOS`. Las pruebas cuyas referencias se hicieron con la de SNK (`tests/golden.sh`,
+`tests/run_tests.sh`, `tools/compat`, `tools/oracles`) fijan `NEO_BIOS=roms/aes.zip` si está. Se recompila como la original.
 Lo que hace:
 
 - **Arranque:** RAM en cero, paletas en negro, `FIX_CLEAR` y `LSP_1st`, las variables (`BIOS_COUNTRY_CODE` 2
@@ -571,7 +574,8 @@ AES). La barra de menús y los diálogos vienen de Moskva 89, GBRecomp, NESRecom
 - **Controles:** jugador 1 con flechas, Z X C V = A B C D, Enter = Start, Mayús = Select; jugador 2 con
   I J K L, B N M , = A B C D, H = Start, G = Select; mandos con A B X Y = A B C D (el arco del mando del
   AES, de abajo hacia arriba), Start y Back = Select.
-- **BIOS:** `--bios archivo`, o la que encuentre el runtime (`NEO_BIOS`, junto al juego, `roms/`), o la copia
+- **BIOS:** `--bios archivo`, o la que encuentre el runtime (`NEO_BIOS`; la propia y luego la de SNK, junto al
+  juego, `roms/`), o la copia
   de la carpeta de datos (`bios.bin`), o se pide (diálogo o arrastrarla). La que no venía de la copia se
   guarda ahí. Carpeta de datos: `NEORecomp/interprete/` (con las preferencias y lo exportado).
 

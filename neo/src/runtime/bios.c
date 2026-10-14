@@ -4,7 +4,8 @@
  * La BIOS es de SNK y la pone el usuario (nunca va en el repositorio): un archivo suelto o el aes.zip
  * de MAME. Se acepta por su SHA1. En el AES no hay SFIX ni SM1 (la capa fija y el Z80 salen siempre
  * del cartucho), así que de la BIOS solo hace falta su ROM de 128 KB. También se acepta la BIOS propia
- * de NEORecomp (fase 10, tools/neobios/), por su firma en $100: su SHA1 cambia con cada versión.
+ * de NEORecomp (fase 10, tools/neobios/), por su firma en $100: su SHA1 cambia con cada versión. Al
+ * buscarla (bios_find) la propia va primero; la de SNK, si se quiere, con --bios o NEO_BIOS.
  *
  * La tabla L0 (000-lo.lo, un chip de la placa) dice qué línea de un sprite se dibuja con cada
  * reducción vertical: 256 tablas de 256 bytes (mosaico en el nibble alto, línea en el bajo), y el
@@ -143,13 +144,15 @@ int bios_find(Bios *b, const char *rom_path, const u8 *l0, const char **err)
         for (const char *p = rom_path; *p; p++) if (*p == '/' || *p == '\\') slash = p;
         if (slash) snprintf(dir, sizeof dir, "%.*s", (int)(slash - rom_path), rom_path);
     }
-    /* Las de SNK primero; la propia (make neobios) solo si no hay otra */
-    static const char *const names[] = { "aes.zip", "neo-epo.bin", "neo-po.bin", "neobios.bin" };
-    const char *dirs[2] = { dir, "roms" };
+    /* La propia primero (neobios.bin junto al juego, en roms/, o build/neobios.bin, donde la deja make
+     * neobios); las de SNK si no está */
+    static const char *const names[] = { "neobios.bin", "aes.zip", "neo-epo.bin", "neo-po.bin" };
+    const char *dirs[3] = { dir, "roms", "build" };
     const char *last = NULL;
     for (int i = 0; i < 4; i++)
-        for (int d = 0; d < 2; d++) {
+        for (int d = 0; d < 3; d++) {
             char path[640];
+            if (d == 2 && i > 0) continue;   /* en build/ solo la propia */
             snprintf(path, sizeof path, "%s/%s", dirs[d], names[i]);
             FILE *f = fopen(path, "rb");
             if (!f) continue;
@@ -157,7 +160,8 @@ int bios_find(Bios *b, const char *rom_path, const u8 *l0, const char **err)
             if (!bios_load(b, path, l0, err)) return 0;
             last = *err;
         }
-    *err = last ? last : "no encontré la BIOS del AES (aes.zip, neo-epo.bin, neo-po.bin o la propia, neobios.bin) junto al "
-                         "juego ni en roms/; también se puede dar con --bios o la variable NEO_BIOS";
+    *err = last ? last : "no encontré la BIOS del AES (la propia, neobios.bin, o la de SNK: aes.zip, neo-epo.bin o "
+                         "neo-po.bin) junto al juego ni en roms/ (la propia también en build/: make neobios); "
+                         "también se puede dar con --bios o la variable NEO_BIOS";
     return -1;
 }

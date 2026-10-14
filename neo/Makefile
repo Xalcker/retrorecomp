@@ -75,7 +75,9 @@ SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
 .PHONY: all clean test dist testroms neobios
-all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE)
+# La BIOS propia (build/neobios.bin, la primera que se busca) se ensambla con make si hay python3
+NEOBIOS_ALL := $(if $(shell command -v python3 2>/dev/null),$(BUILD)/neobios.bin)
+all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE) $(NEOBIOS_ALL)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
@@ -137,8 +139,8 @@ endif
 $(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
 
-# La BIOS propia (fase 10): asm68k la ensambla (make neobios: build/neobios.bin, en el orden de los chips como
-# neo-epo.bin; se usa con --bios o NEO_BIOS); dis68kbin prueba el ensamblador contra el desensamblador
+# La BIOS propia (fase 10): asm68k la ensambla (make neobios, y make a secas si hay python3: build/neobios.bin,
+# en el orden de los chips como neo-epo.bin; la búsqueda la toma antes que la de SNK); dis68kbin prueba el ensamblador contra el desensamblador
 neobios: $(BUILD)/neobios.bin
 $(BUILD)/neobios.bin: tools/neobios/neobios.s tools/neobios/asm68k.py | $(BUILD)
 	python3 tools/neobios/asm68k.py tools/neobios/neobios.s $@ --swap --list $(BUILD)/neobios.lst

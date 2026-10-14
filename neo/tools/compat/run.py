@@ -15,7 +15,7 @@ Uso (en la raíz del repo, con todo compilado con "make" y la BIOS del AES en ro
 Escribe docs/compat/results.json (después de cada juego: si se corta, la misma orden sigue donde iba) y las
 miniaturas en docs/compat/thumbs/.
 """
-import pathlib, re, sys
+import os, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
@@ -129,4 +129,7 @@ class NEO(compat.Sistema):
 
 
 if __name__ == "__main__":
+    # Con la BIOS de SNK si está en roms/ (la búsqueda tomaría antes la propia); la propia, con NEO_BIOS
+    if not os.environ.get("NEO_BIOS") and (ROOT / "roms" / "aes.zip").is_file():
+        os.environ["NEO_BIOS"] = str(ROOT / "roms" / "aes.zip")
     compat.main(NEO(ROOT))

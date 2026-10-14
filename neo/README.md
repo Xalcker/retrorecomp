@@ -54,8 +54,9 @@ A B C D, Enter = Start, Mayús = Select (Ayuda → Controles). La BIOS se busca 
 Lee el juego (un `.neo`, un zip al estilo MAME o una carpeta con los chips), lo normaliza y muestra el
 formato, el SHA1 de la imagen normalizada y de cada región (P, S, M1, V-A, V-B, C), la cabecera de `$100`
 (NGH, tamaño, RAM de respaldo, DIP, las entradas USER, PLAYER_START, DEMO_END y COIN_SOUND) y los
-vectores. Busca la BIOS del AES junto al juego o en `roms/` (`aes.zip` de MAME, `neo-epo.bin` o
-`neo-po.bin`; también `--bios archivo` o la variable `NEO_BIOS`) y la valida por su SHA1. La tabla L0
+vectores. Busca la BIOS del AES junto al juego o en `roms/`: primero la propia (`neobios.bin`, también en
+`build/`), luego la de SNK (`aes.zip` de MAME, `neo-epo.bin` o `neo-po.bin`); también `--bios archivo` o la
+variable `NEO_BIOS`. La de SNK se valida por su SHA1 y la propia por su firma. La tabla L0
 (reducción vertical de los sprites, un chip de la placa) se calcula y se compara con la del chip.
 `--neo salida.neo` escribe el juego como `.neo`.
 
@@ -109,8 +110,9 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 
 - **BIOS:** la del AES, `neo-epo.bin` (exportación) o `neo-po.bin` (Japón), sueltas o dentro del
   `aes.zip` de MAME. No hay una BIOS del AES de EE. UU.: la de exportación declara la región Europa. O la
-  propia (en desarrollo, fase 10): `make neobios` deja `build/neobios.bin`, que se usa con `--bios` o
-  `NEO_BIOS` (o como `neobios.bin` en `roms/`, si no hay una de SNK). Con ella corren los 8 juegos probados.
+  propia (en desarrollo, fase 10): `make` (o `make neobios`; necesita `python3`) deja `build/neobios.bin`, y
+  es la primera que se busca (también como `neobios.bin` junto al juego o en `roms/`). Para usar la de SNK
+  teniendo la propia: `--bios roms/aes.zip` o `NEO_BIOS=roms/aes.zip`. Con la propia corren los 8 juegos probados.
 - **Juegos:** `.neo`, zip de MAME o carpeta. Los juegos cifrados (NEO-CMC, SMA, PCM2, PVC: casi todos
   desde 1999) y los pocos con protección del programa todavía no.
 

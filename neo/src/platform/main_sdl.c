@@ -6,8 +6,9 @@
  *
  * Uso: neo [juego] [--bios archivo] [--scale N] [--record archivo | --play archivo] [--trace archivo]
  *   juego    un .neo, un .zip al estilo MAME o una carpeta con los chips (si no, se pide)
- *   --bios   la BIOS del AES: neo-epo.bin, neo-po.bin o el aes.zip de MAME. Si no se da, se busca
- *            (variable NEO_BIOS, junto al juego, roms/, la copia de la carpeta de datos) o se pide, y
+ *   --bios   la BIOS del AES: neo-epo.bin, neo-po.bin, el aes.zip de MAME o la propia (neobios.bin). Si
+ *            no se da, se busca (variable NEO_BIOS; la propia y luego la de SNK, junto al juego, roms/;
+ *            la copia de la carpeta de datos) o se pide, y
  *            se guarda una copia en la carpeta de datos para las siguientes veces
  *   --record graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
  *   --play   reproduce un archivo grabado (el teclado se ignora)

@@ -7,6 +7,8 @@
 # una copia a otra). 3600 cuadros con las entradas de tests/coverage.sh: de la demo a la partida. Con
 # GOLDEN_SHOT=ruta se usa otro neoshot. Necesita la BIOS del AES (roms/aes.zip o NEO_BIOS).
 cd "$(dirname "$0")/.." || exit 1
+# La referencia es con la BIOS de SNK: la búsqueda tomaría antes la propia (build/neobios.bin)
+if [ -z "$NEO_BIOS" ] && [ -f roms/aes.zip ]; then NEO_BIOS=$PWD/roms/aes.zip; export NEO_BIOS; fi
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 SHOT=${GOLDEN_SHOT:-$(exe neoshot)}
 OUT=build/gold.txt

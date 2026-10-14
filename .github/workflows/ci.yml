@@ -12,3 +12,11 @@ jobs:
         run: python3 -m py_compile retrorecomp_gui.py tests/contract.py
       - name: La página no usa nada fuera de la biblioteca estándar ni recursos externos
         run: "! grep -E 'https?://' index.html"
+  audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Salida de sonido común (shared/player_audio.h) con una tarjeta simulada
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -o player_audio_test tests/player_audio_test.c -lm
+          ./player_audio_test

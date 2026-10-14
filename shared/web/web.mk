@@ -32,7 +32,7 @@ else ifneq ($(shell command -v docker 2>/dev/null),)
 WEB_HOST_DIR := $(if $(filter Windows_NT,$(OS)),$(shell cygpath -m "$(CURDIR)"),$(CURDIR))
 web:
 	docker run --rm -v "$(WEB_HOST_DIR)":/src -w /src -v retrorecomp-emcache:/emsdk/upstream/emscripten/cache \
-	    $(EMSDK_IMAGE) sh -c 'make web EMCC=emcc && chown -R $(shell id -u):$(shell id -g) web build/web'
+	    $(EMSDK_IMAGE) sh -c 'make -j$$(nproc) web EMCC=emcc && chown -R $(shell id -u):$(shell id -g) web build/web'
 else
 web:
 	@echo "make web necesita Emscripten (emcc) o Docker (con la imagen $(EMSDK_IMAGE))" >&2; exit 1

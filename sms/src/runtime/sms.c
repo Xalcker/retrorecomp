@@ -13,6 +13,7 @@
 
 #include "sms.h"
 #include "sha1.h"
+#include "trace_line.h"
 
 void sms_reset(Sms *g)
 {
@@ -45,6 +46,10 @@ void sms_step(Sms *g)
     Z80 *z = &g->z80;
     if (z->nmi) g->nmi_count++;
     else if (z->irq && z->iff1 && !z->ei) g->irq_count++;
+    else if (g->cart.trace && !z->halted) {
+        long off = bus_rom_offset(g, z->pc);
+        if (off >= 0 && !g->cart.trace[off]) g->cart.trace[off] = (u8)(1 + (z->pc >> 14));
+    }
     g->cyc += (u64)z80_step(g, z);
     sms_after_step(g);
 }
@@ -54,6 +59,46 @@ void sms_run_frame(Sms *g)
     sms_frame_begin(g);
     while (!g->vdp.frame_done) sms_step(g);
     audio_end_frame(g);
+}
+
+/* --- Traza --- */
+
+void sms_trace_start(Sms *g)
+{
+    if (!g->cart.trace) g->cart.trace = calloc(g->cart.rom_size, 1);
+}
+
+int sms_trace_load(Sms *g, const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f) return 0;
+    sms_trace_start(g);
+    char line[256];
+    unsigned long off, addr;
+    while (g->cart.trace && fgets(line, sizeof line, f))
+        if (trace_line_read(line, SMS_TRACE_SHIFT, &off, &addr) && off < g->cart.rom_size && addr < 0xC000 &&
+            !g->cart.trace[off])
+            g->cart.trace[off] = (u8)(1 + (addr >> 14));
+    fclose(f);
+    return g->cart.trace != NULL;
+}
+
+int sms_trace_write(const Sms *g, const char *path)
+{
+    if (!g->cart.trace) return 0;
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    for (size_t i = 0; i < g->cart.rom_size; i++)
+        if (g->cart.trace[i])
+            trace_line_write(f, SMS_TRACE_SHIFT, 4, i, (unsigned long)(g->cart.trace[i] - 1) << 14 | (i & 0x3FFF));
+    return fclose(f) == 0;
+}
+
+size_t sms_trace_count(const Sms *g)
+{
+    size_t n = 0;
+    if (g->cart.trace) for (size_t i = 0; i < g->cart.rom_size; i++) n += g->cart.trace[i] != 0;
+    return n;
 }
 
 /* --- RAM del cartucho --- */

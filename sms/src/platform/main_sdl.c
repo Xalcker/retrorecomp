@@ -4,12 +4,13 @@
  * el intérprete (`sms`); los juegos que genere smsrecomp la usarán en la fase 5 (docs/PLAN.md).
  *
  * Uso: sms [rom.sms|rom.gg] [--model sms|gg] [--scale N] [--fullscreen] [--no-menu]
- *          [--record archivo | --play archivo]
+ *          [--record archivo | --play archivo] [--trace archivo]
  *   --model       la consola, si no la que pide el cartucho (Entrada → Consola)
  *   --fullscreen  arranca en pantalla completa
  *   --no-menu     sin barra de menús (ni con el ratón, Alt o F10); los atajos siguen
  *   --record      graba los botones de los dos jugadores en un archivo de texto (ver inputs.h)
  *   --play        reproduce un archivo grabado (el teclado se ignora)
+ *   --trace       al salir, agrega a `archivo` las instrucciones de la ROM que se ejecutaron (como smstrace)
  * Para pruebas sin ventana: --ui-shot archivo.png [--ui-frames N] [--ui-menu N] [--ui-action N].
  *
  * Jugador 1: flechas, Z X = botones 1 y 2, Enter = Start (Game Gear), Espacio = Pausa (Master System; en el
@@ -112,6 +113,7 @@ typedef struct {
     int play;
     FILE *record;
     int last_pad[2];
+    const char *trace_path;
 } App;
 
 /* Las funciones de la ventana iguales en los recompiladores (retrorecomp/shared) */
@@ -220,15 +222,22 @@ static const TouchButton touch_keys_gg[] = {
 static const TouchLayout touch_layout_sms = { SMS_UP, SMS_DOWN, SMS_LEFT, SMS_RIGHT, touch_keys_sms, 3 };
 static const TouchLayout touch_layout_gg = { SMS_UP, SMS_DOWN, SMS_LEFT, SMS_RIGHT, touch_keys_gg, 3 };
 
-/* Enciende (o reinicia) la consola con la ROM actual, en el modelo elegido (Entrada → Consola) */
+static void write_trace(App *app)
+{
+    if (app->trace_path && app->loaded && app->sms->cart.trace) sms_trace_write(app->sms, app->trace_path);
+}
+
+/* Enciende (o reinicia) la consola con la ROM actual, en el modelo elegido (Entrada → Consola). La traza de
+ * --trace se escribe antes de soltar la consola, y la nueva empieza con lo que ya tenía el archivo */
 static void power_on(App *app)
 {
     const char *err = NULL;
-    if (app->loaded) sms_free(app->sms);
+    if (app->loaded) { write_trace(app); sms_free(app->sms); }
     if (sms_load(app->sms, app->rom.data, app->rom.size, app->rom_path, app->cfg.model, &err)) fail(err);
     app->loaded = 1;
     app->touch.layout = gg_mode(app) ? &touch_layout_gg : &touch_layout_sms;
     sms_sram_load(app->sms, app->save_path);
+    if (app->trace_path) { sms_trace_start(app->sms); sms_trace_load(app->sms, app->trace_path); }
     app->frame = 0;
     app->last_pad[0] = app->last_pad[1] = -1;
     if (app->script.n) app->script.pos = 0;
@@ -866,6 +875,7 @@ static void finish(App *app, int save_settings)
     char msg[1200];
     if (save_settings) settings_save(&app->cfg, app->settings_path);
     if (app->record) fclose(app->record);
+    write_trace(app);
     if (!save_game(app)) {
         snprintf(msg, sizeof msg, tr(T_SAVE_FAILED_FMT), app->save_path);
         fail(msg);
@@ -969,6 +979,7 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--no-menu")) no_menu = 1;
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
+        else if (!strcmp(argv[i], "--trace") && i + 1 < argc) app->trace_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];
         else if (!strcmp(argv[i], "--ui-frames") && i + 1 < argc) shot_frames = atol(argv[++i]);
         else if (!strcmp(argv[i], "--ui-menu") && i + 1 < argc) shot_menu = atoi(argv[++i]);

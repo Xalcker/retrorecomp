@@ -88,6 +88,13 @@ u8 bus_peek(const Sms *g, u16 addr)
     return *rom_at(g, addr);
 }
 
+long bus_rom_offset(const Sms *g, u16 addr)
+{
+    const Mapper *m = &g->map;
+    if (addr >= 0xC000 || (addr >= 0x8000 && (m->ram_slot2 || (m->ram_a000 && addr >= 0xA000)))) return -1;
+    return (long)((size_t)(rom_at(g, addr) - g->cart.image) % g->cart.rom_size);
+}
+
 uint8_t z80_read(Sms *g, uint16_t addr)
 {
     return bus_peek(g, addr);

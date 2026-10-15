@@ -61,7 +61,8 @@ endif
 sms$(EXE): $(call plat,$(SMS_SRC)) $(wildcard src/platform/*.h) $(SHARED)/player_common.h $(SHARED)/player_rom.h $(SHARED)/player_touch.h $(SHARED)/inputs.h $(RT) $(WINRES)
 	$(CC) $(CFLAGS) -I$(SHARED) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(call plat,$(SMS_SRC)) $(RT) $(WINRES) $(SDL_LIBS) -lm
 
-PROGS := smsrecomp smsrun sms carttest bustest vdptest audiotest statetest z80test
+PROGS := smsrecomp smstrace smsshot smsaudio smsbench smsramdump smsrun sms \
+         carttest bustest vdptest audiotest statetest inputtest z80test
 
 # SDL2 para el intérprete con ventana (sms). En Windows, enlazado de forma
 # estática para que el .exe no pida SDL2.dll.
@@ -87,6 +88,30 @@ vdptest$(EXE): src/tools/vdptest.c $(RT)
 audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
+# Herramientas sin ventana con las opciones comunes (cli.h)
+TOOL_DEPS := $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
+smstrace$(EXE): src/tools/smstrace.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smstrace.c $(RT) -lm
+
+smsshot$(EXE): src/tools/smsshot.c $(SHARED)/png.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smsshot.c $(SHARED)/png.c $(RT) -lm
+
+smsaudio$(EXE): src/tools/smsaudio.c $(SHARED)/wav.h $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smsaudio.c $(RT) -lm
+
+smsbench$(EXE): src/platform/bench.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
+
+smsramdump$(EXE): src/tools/smsramdump.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smsramdump.c $(RT) -lm
+
+inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
+
+# El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/sms/contrato.sms) y la ROM mínima
+$(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -o $@ src/tools/mkcontrato.c
+
 statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
 
@@ -104,6 +129,14 @@ z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(SHARED)/z80_ops.h $(RT)
 smsrecomp$(EXE): src/smsrecomp/smsrecomp.c $(RT)
 	$(CC) $(CFLAGS) -DSMSRECOMP_VERSION='"$(VERSION)"' -Isrc/runtime -I$(SHARED) -o $@ src/smsrecomp/smsrecomp.c $(RT) -lm
 
+# Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, Gearsystem) sin ventana; los núcleos los baja
+# tools/oracles/oracle.py a build/oracles/ (no van en el repo)
+ifeq ($(shell uname -s 2>/dev/null),Linux)
+DL_LIBS := -ldl
+endif
+$(BUILD)/retro_run$(EXE): $(SHARED)/retro_run.c $(SHARED)/libretro_min.h tools/oracles/oracle_host.h $(SHARED)/wav.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ $(SHARED)/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
+
 # Paquete para distribuir: smsrecomp, la documentación y la licencia
 DIST := dist/smsrecomp-$(VERSION)-$(PLATFORM)
 dist: smsrecomp$(EXE)
@@ -114,7 +147,7 @@ dist: smsrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-RT_DEPS := src/runtime/sms.h src/runtime/z80_host.h src/runtime/psg_host.h src/runtime/audio_host.h $(SHARED)/z80.h $(SHARED)/psg.h $(SHARED)/audio.h
+RT_DEPS := src/runtime/sms.h src/runtime/z80_host.h src/runtime/psg_host.h src/runtime/audio_host.h $(SHARED)/z80.h $(SHARED)/psg.h $(SHARED)/audio.h $(SHARED)/trace_line.h
 $(BUILD)/rt_%.o: src/runtime/%.c $(RT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 

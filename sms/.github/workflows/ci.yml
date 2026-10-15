@@ -1,9 +1,7 @@
 # Compila SMSRecomp en Linux, macOS y Windows, corre las pruebas con las ROMs de prueba libres y arma el
 # paquete. Es el mismo flujo que el de NESRecomp, GBRecomp, GENRecomp y NEORecomp: lo que cambia entre los
 # repos está en los Makefile (make testroms, make test, make dist).
-# Lo que todavía falta respecto a ellos llega con su fase (docs/PLAN.md): el contrato de línea de comandos
-# común (sh tests/contract.sh) en la fase 4, cuando existan las herramientas sin ventana y la rama de SMSRecomp
-# en retrorecomp/shared/contract.sh, y make webtest y make apktest en la fase 6.
+# Lo que todavía falta respecto a ellos llega con su fase (docs/PLAN.md): make webtest y make apktest en la fase 6.
 # Más corto: las pruebas completas, con las SingleStepTests (que son lo que más pesa), corren solo en Linux;
 # macOS y Windows compilan y corren todo lo demás (SKIP_SST). Un cambio que solo toca documentación (docs/,
 # README.md, LICENSE) salta los pasos pero los jobs terminan en verde: la regla de protección de main los exige,
@@ -111,7 +109,13 @@ jobs:
         if: steps.cambios.outputs.docs != 'true'
         run: make testroms
 
-      # El cartucho y el Z80 (con las SingleStepTests en Linux); crece con cada fase
+      # Opciones y comportamiento (usa el juego del contrato, testroms/sms/contrato.sms)
+      - name: Contrato de línea de comandos común
+        if: steps.cambios.outputs.docs != 'true'
+        run: sh tests/contract.sh
+
+      # El cartucho, el Z80 (con las SingleStepTests en Linux), el VDP, el sonido, la ventana y las herramientas;
+      # crece con cada fase
       - name: Pruebas
         if: steps.cambios.outputs.docs != 'true'
         run: make test

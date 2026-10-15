@@ -16,9 +16,9 @@ su semántica en una sola fuente de verdad, el bus con los mappers, la E/S, las 
 | `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
 | `src/smsrecomp/` | El recompilador. Hoy, `--info`; la recompilación llega en la fase 5. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`); el resto de la ventana es de `tools/retrorecomp/shared`. `difftest` y `bench` llegan en las fases 4 y 5. |
-| `src/tools/` | Diagnóstico: `smsrun`. Pruebas: `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`; de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). Las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsramdump`, `smsbench`) e `inputtest` llegan en la fase 4. |
-| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el mismo archivo en los cinco repos; con efecto desde las fases 4 y 5). |
-| `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo). `compat/` y `oracles/` llegan en las fases 4 y 7. |
+| `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). |
+| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el mismo archivo en los cinco repos; `recomp_game.sh` con efecto desde la fase 5). |
+| `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
 
@@ -66,7 +66,8 @@ antes del acceso.
 Al empezar cada línea sube el contador V, y el contador de la interrupción de línea baja (líneas 0 a 192, o al alto
 de la imagen) o se recarga con el registro 10 (las demás). La bandera de cuadro sube en la línea `$C1` (`$E1` con
 224 líneas). msvdp no dice en qué punto de la línea pasa cada cosa: aquí, al empezarla, que es también el pixel 0
-del contador H. Se calibra con el VDPTEST de FluBBa (local, `EXTRA=1 make testroms`) y con los oráculos (fase 4).
+del contador H. Se calibró con el VDPTEST de FluBBa (local, `EXTRA=1 make testroms`; ver «Cuándo pasa cada cosa»
+en «VDP»); los oráculos (`tools/oracles/oracle.py`) sirven para comparar juegos enteros.
 
 ## Interrupciones y despachador
 
@@ -300,17 +301,19 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 - **`make dist`:** deja `dist/smsrecomp-<versión>-<sistema>.tar.gz` con `smsrecomp`, el README, la licencia y este
   documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en los otros cuatro), en Linux, macOS y
-  Windows: `make`, `make testroms`, `make test` y `make dist`. El contrato común (`sh tests/contract.sh`) entra en
-  la fase 4 y `make webtest`/`make apktest` en la 6 (hoy solo avisan en qué fase llegan).
+  Windows: `make`, `make testroms`, el contrato común (`sh tests/contract.sh`), `make test` y `make dist`.
+  `make webtest`/`make apktest` llegan en la fase 6 (hoy solo avisan en qué fase llegan).
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del Z80 (el mismo commit que GENRecomp y NEORecomp; `SKIP_SST=1` las salta, como
   el CI de macOS y Windows), ZEXALL y ZEXDOC para el SMS (GPL-2.0, v0.21) y juegos homebrew con licencia MIT (Dragon
-  Blaster, Food Fighter, River Strike y Waternet para SMS y Game Gear), cada uno con el SHA-256 de lo que se baja.
+  Blaster, Food Fighter, River Strike y Waternet para SMS y Game Gear), cada uno con el SHA-256 de lo que se baja,
+  y el juego del contrato, `testroms/sms/contrato.sms`, que arma `mkcontrato` (ver «El contrato común»).
   Con `EXTRA=1`, también las pruebas de hardware de SMS Power! que no tienen licencia publicada (el VDPTEST de
   FluBBa, las de Charles MacDonald, el SMS Test Suite de sverx...), a `testroms/extra/`: para usarlas en tu
   máquina, nunca en el CI ni en el repositorio.
-- **`make test`:** `carttest`, `z80test --int` y `--nmi`, `bustest`, `vdptest`, `audiotest`, `statetest` con el
-  homebrew, las
+- **`make test`:** `carttest`, `z80test --int` y `--nmi`, `bustest`, `vdptest`, `audiotest`, `inputtest`,
+  `statetest` con el homebrew, el contrato común y el juego del contrato por `smstrace`, `smsramdump` y
+  `smsshot --expect`, las
   SingleStepTests del Z80 por los dos caminos, ZEXDOC y ZEXALL completos (unos 330 000 cuadros cada uno; corren a la
   vez, ~30 s), el homebrew con `smsrun` (pantalla encendida y una interrupción por cuadro), `smsrecomp` con un
   archivo que no es ROM, sin argumentos y con un modelo desconocido, `smsrecomp --info` con las ROMs de prueba
@@ -356,4 +359,58 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 
 ### Línea base para optimizar el runtime
 
-Llega en la fase 4 (`tests/golden.sh`: hash de todos los cuadros y de todo el audio de cada ROM).
+`sh tests/golden.sh` corre `smsshot --hash` (un hash de todos los cuadros y de todo el audio, 1800 cuadros con
+`--seed 1` y Start) con cada ROM de `roms/` y sus subcarpetas, el homebrew y el juego del contrato, y lo compara con
+`tests/golden.txt` (por el SHA1 de la ROM; `--update` lo reescribe). Una optimización no debe cambiar ni un bit. Hoy
+son 21 casos (15 juegos de EE. UU., 5 homebrew y el contrato), ~20 s. No va en `make test` ni en el CI, porque los
+juegos no están ahí; se corre a mano antes de un cambio al runtime, como en GENRecomp.
+
+## Herramientas sin ventana
+
+Las mismas de los otros cuatro, con las opciones comunes de `cli.h` (`--frames`, `--input`, `--seed`, los botones
+`boton:desde-hasta`, `--repeat` en `smsbench`, `--expect` y `--hash` en `smsshot`) y los botones de `input_host.h`
+(`UP DOWN LEFT RIGHT A B START PAUSE`; el mando aleatorio de `--seed` no aprieta PAUSE). `--model sms|gg` lo sacan de
+los argumentos antes de `cli_parse` (`romload.h`; `bench.c` lo lee solo porque irá en los proyectos generados).
+
+- **`smstrace rom traza.txt`:** qué instrucciones de la ROM ejecutó el intérprete (`Cart.trace`: un byte por byte
+  de la ROM, con la ranura en que corrió), en líneas `BANCO:DIRECCION` de `trace_line.h` con bancos de 16 KB: la
+  página del mapper y la dirección del Z80. Como en el mapper Sega el desplazamiento dentro de la página es el de la
+  dirección, la línea siempre va en ese formato. La ventana `sms --trace archivo` hace lo mismo mientras se juega
+  (y suma lo que ya tenía el archivo). Lo que corre desde la RAM (`ram_code.h`) llega con el recompilador.
+- **`smsshot rom salida.png`:** la captura de lo que se ve (256×192 o 224, o 160×144 del GG); `--expect` compara con
+  un PNG y `--hash` da el hash de la línea base.
+- **`smsaudio rom salida.wav`:** el sonido, con su nivel por segundo.
+- **`smsramdump rom`:** los 8 KB de RAM, una línea `00C000 VALOR` por byte (seis cifras, como `retro_run`).
+- **`smsbench rom`:** cuadros por segundo del intérprete (unos 3000 con Sonic, 50 veces el tiempo real, en un M-series).
+
+## El contrato común
+
+`sh tests/contract.sh` (el de `retrorecomp/shared`, con la rama de SMSRecomp) comprueba que la ayuda de `smstrace`,
+`smsshot`, `smsaudio` y `smsbench` mencione las opciones comunes y que la traza, la captura y el audio salgan iguales
+con la misma entrada, y que `--input` dé lo mismo que `boton:desde-hasta`. Corre con `testroms/sms/contrato.sms`, un
+juego propio (MIT) que arma `src/tools/mkcontrato.c` poniendo los bytes del Z80, sin ensamblador. Depende de las
+entradas en las tres salidas: dibuja un mosaico blanco por cada botón apretado (cada uno con su propio camino en la
+traza) y toca un tono con periodo `$100` + botones cuando cambian. Prueba además lo que necesitará el recompilador:
+el mapper Sega (cada cuadro llama a una rutina de la página 3 puesta en la ranura 2), la RAM del cartucho (escribe y
+lee), código en RAM (una rutina copiada a `$C100` con el inmediato parchado cada cuadro), las interrupciones de
+cuadro y de línea y la Pausa. `mkcontrato --minima` da la ROM mínima de `make webtest` y `make apktest` (fase 6).
+
+## Compatibilidad y oráculos
+
+`tools/compat/run.py` es la prueba de compatibilidad sobre el motor común (`tools/retrorecomp/compat.py`): lo propio
+de esta consola es leer `smsrecomp --info` y las categorías (SMS y GG por tamaño, Codemasters y los juegos de SMS en
+el GG). La etapa 1 (capturas con `smsshot`) ya corre; la etapa 2 (recompilar y `difftest`), desde la fase 5.
+`report.py` es el mismo de los otros cuatro.
+
+`tools/oracles/oracle.py` corre Genesis Plus GX y Gearsystem (núcleos libretro de buildbot.libretro.com, que baja la
+primera vez a `build/oracles/`, con su SHA-256) con `build/retro_run` (`make build/retro_run`; el de
+`retrorecomp/shared`, con `oracle_host.h`: los nombres de los botones de los núcleos y la RAM de 8 KB en `$C000`,
+`ORACLE_RAM_SIZE`) y compara su RAM y su imagen con las de `smsramdump` y `smsshot`. Los núcleos nombran distinto los
+botones (Gearsystem «1» y «2»; Genesis Plus GX, con los nombres del Genesis, «B» y «C»), y en los dos «Start» es la
+Pausa en el Master System: `ORACLE_PAD` hace que START sea el botón 1 en un juego de SMS, como en el runtime. Los
+núcleos no van en el repositorio: Genesis Plus GX tiene una licencia no comercial y Gearsystem es GPL-3.
+
+Medido (macOS arm64, los núcleos nocturnos del 15-10-2026): con el juego del contrato, Sonic the Hedgehog (SMS),
+Alex Kidd in Miracle World y Sonic Chaos (GG), la imagen coincide al 100 % con los dos y la RAM entre el 99,5 y el
+99,9 %. Lo que difiere es la fase al encender: el contador de cuadros del contrato va 1 o 2 cuadros adelante de los
+núcleos (que también difieren entre sí en uno). Queda para calibrar el encendido.

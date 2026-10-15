@@ -8,6 +8,8 @@
 #   - testroms/homebrew: juegos con licencia MIT (sus releases de GitHub, con el SHA-256 de cada zip):
 #     Dragon Blaster 0.11, Food Fighter 0.4 y River Strike 0.10 de haroldo-ok (SMS, 32 KB) y Waternet 1.0 de
 #     joyrider3774 (SMS y Game Gear, 64 KB)
+#   - testroms/sms/contrato.sms: el juego de prueba del contrato común, hecho aquí (src/tools/mkcontrato.c, MIT):
+#     no se baja de ningún lado
 #   - con EXTRA=1 (opcional, no en el CI): pruebas de hardware sin licencia publicada, que se bajan para usarlas
 #     en tu máquina y nunca se redistribuyen: el VDPTEST de FluBBa, las pruebas de Charles MacDonald (contador V,
 #     scroll, paleta de 64 colores), PauseTest y SMSCycleCounter de FluBBa, el Sound Test, las dos pruebas del
@@ -62,6 +64,12 @@ zip_get $GH/joyrider3774/waternet/releases/download/v1.0/Waternet.Sega.Master.Sy
     b0abd1c7ca992709c4a3fcb4fb3e8a0ffaf42aa2fe216784d00d683347ba2581 homebrew waternet.sms=waternet.sms || exit 1
 zip_get $GH/joyrider3774/waternet/releases/download/v1.0/Waternet.Sega.Game.Gear.zip \
     16a06f51168717c252b08687abe6dd5980a4090d5cbe228f5e01d4ed28579fee homebrew waternet.gg=waternet.gg || exit 1
+
+mkdir -p testroms/sms
+# En Windows (MSYS2) los programas llevan .exe y el objetivo del Makefile también
+x=; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) x=.exe;; esac
+# Siempre, aunque ya esté: el caché de testroms del CI depende solo de este archivo, no de mkcontrato.c
+make -s "build/mkcontrato$x" && "build/mkcontrato$x" testroms/sms/contrato.sms || exit 1
 
 # Opcionales, sin licencia publicada: solo con EXTRA=1
 if [ -z "$EXTRA" ]; then

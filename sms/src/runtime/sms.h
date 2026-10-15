@@ -100,6 +100,7 @@ typedef struct {
     u8    *ram;                         /* RAM del cartucho: 32 KB (dos bancos de 16 KB del mapper Sega; Codemasters usa 8 KB) */
     u8    *ram_saved;                   /* lo último guardado en disco (para ver si cambió) */
     u8     ram_used;                    /* el juego la mapeó alguna vez: tiene partida que guardar */
+    u8    *trace;                       /* NULL, o por cada byte de la ROM: 0 no se ejecutó; si no, 1 + la ranura (0-2) con que se ejecutó */
 } Cart;
 
 #define CART_RAM_SIZE 0x8000
@@ -187,6 +188,15 @@ int  sms_sram_dirty(const Sms *g);
 u8  *sms_state_save(const Sms *g, size_t *size);   /* malloc; NULL si falla */
 int  sms_state_load(Sms *g, const u8 *data, size_t size);  /* 1 si se cargó */
 
+/* Traza: qué instrucciones de la ROM ejecutó el intérprete (smstrace; para smsrecomp --trace en la fase 5), en
+ * líneas "BANCO:DIRECCION" de trace_line.h con bancos de 16 KB (las páginas del mapper). El código que corre desde
+ * la RAM llega con el recompilador (ram_code.h) */
+#define SMS_TRACE_SHIFT 14
+void   sms_trace_start(Sms *g);
+int    sms_trace_load(Sms *g, const char *path);    /* suma lo de una traza anterior; 1 si se leyó */
+int    sms_trace_write(const Sms *g, const char *path);
+size_t sms_trace_count(const Sms *g);
+
 /* Sonido (psg.c y audio.c, comunes). Los tiempos son ciclos maestros */
 void audio_reset(Sms *g);
 void audio_add(Sms *g, u64 t0, u64 t1, float l, float r);  /* un tramo constante de un chip */
@@ -212,6 +222,7 @@ const SmsDbGame *smsdb_find(const char *sha1);
 /* Bus (bus.c): el mapa de memoria del Z80, los mappers y el reparto de los puertos */
 void mapper_reset(Sms *g);
 u8   bus_peek(const Sms *g, u16 addr);          /* lo que leería el Z80, sin efectos */
+long bus_rom_offset(const Sms *g, u16 addr);    /* dónde cae addr en la ROM, o -1 si ahí no hay ROM */
 
 /* E/S (io.c): $3E, $3F, los mandos ($DC, $DD) y los puertos del Game Gear ($00-$06) */
 void io_reset(Sms *g);

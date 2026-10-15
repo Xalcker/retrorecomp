@@ -11,9 +11,11 @@ Hay que clonar con el submódulo de retrorecomp, que trae el código que compart
 `random_pad.h`, `trace_line.h`...): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El
 ZIP de GitHub no lo incluye.
 
-**Estado: fases 0 a 3 de 8.** Lee el cartucho y lo describe; el Z80 común tiene su semántica en una sola fuente de
+**Estado: fases 0 a 4 de 8.** Lee el cartucho y lo describe; el Z80 común tiene su semántica en una sola fuente de
 verdad; el bus, los mappers, la E/S, las interrupciones, el VDP y el sonido corren los juegos de Master System y Game
-Gear con el intérprete, en la ventana `sms` o sin ella (`smsrun`). La recompilación llega en la fase 5. El plan
+Gear con el intérprete, en la ventana `sms` o sin ella (`smsrun` y las herramientas comunes: `smstrace`, `smsshot`,
+`smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. La recompilación llega en la
+fase 5. El plan
 completo está en [docs/PLAN.md](docs/PLAN.md).
 
 - **Cartucho:** `.sms` y `.gg` (con o sin cabecera de copiador), la cabecera TMR SEGA con su suma (calculada como
@@ -95,12 +97,17 @@ resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, 
 | Comando | Qué hace |
 |---|---|
 | `smsrecomp juego.sms [--info] [--model sms\|gg]` | Lo que se sabe del cartucho. La recompilación (`-o carpeta`, `--trace`, `--viz`, `--why`...) llega en la fase 5. |
-| `sms [rom] [--model sms\|gg] [--scale N] [--fullscreen] [--no-menu] [--record archivo \| --play archivo]` | La ventana (ver arriba). |
+| `sms [rom] [--model sms\|gg] [--scale N] [--fullscreen] [--no-menu] [--record archivo \| --play archivo] [--trace archivo]` | La ventana (ver arriba); `--trace` guarda lo que se ejecutó, como `smstrace`. |
+| `smstrace rom traza.txt`, `smsshot rom salida.png [--expect png] [--hash]`, `smsaudio rom salida.wav`, `smsramdump rom`, `smsbench rom [--repeat N]` | Sin ventana, con las opciones comunes de los otros cuatro (`--frames N`, `--input archivo`, `--seed S`, `boton:desde-hasta`) y `--model sms\|gg`: la traza (`BANCO:DIRECCION`), una captura, el sonido, la RAM y la velocidad del intérprete. |
 | `smsrun rom [--frames N] [--model sms\|gg] [--watch DIR] [--sram archivo] [--sram-text] [--sdsc] [--shot png] [--shots dir [--every N]] [--wav archivo] [boton:desde-hasta]` | Diagnóstico sin ventana (ver arriba). |
-| `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `z80test` | Pruebas; `make test` corre todas, más ZEXDOC y ZEXALL completos. `z80test` (de `tools/retrorecomp/shared`) corre las SingleStepTests del Z80 (`sh tests/sstz80.sh`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sstz80.sh`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
+| `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`, `z80test` | Pruebas; `make test` corre todas, más ZEXDOC y ZEXALL completos. `z80test` (de `tools/retrorecomp/shared`) corre las SingleStepTests del Z80 (`sh tests/sstz80.sh`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sstz80.sh`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
 
-Las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsbench`, `smsramdump`, con las opciones comunes
-`--frames`, `--input` y `--seed` de los otros cuatro) llegan en la fase 4.
+`sh tests/contract.sh` es el contrato común de los cinco (opciones y comportamiento, con el juego del contrato,
+`testroms/sms/contrato.sms`, que hace `make testroms`); `sh tests/golden.sh`, la línea base exacta (el hash de todos
+los cuadros y del audio de cada ROM). La GUI de retrorecomp (`python3 tools/retrorecomp/retrorecomp_gui.py`)
+reconoce las ROMs de Master System y Game Gear, también en `roms/sms` y `roms/gg`. Para comparar con emuladores de
+referencia: `python3 tools/oracles/oracle.py compare rom.sms --frames 600` (baja Genesis Plus GX y Gearsystem la
+primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo etapa1`.
 
 ## Estructura
 

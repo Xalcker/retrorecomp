@@ -19,6 +19,7 @@ corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test
 corre "bustest (memoria, mappers Sega y Codemasters, RAM del cartucho, puertos del SMS y del GG, VDP, contadores, interrupciones, Pausa)" "$(exe bustest)"
 corre "vdptest (modo 4 y TMS, paletas del SMS y del GG, scroll y sus bloqueos, prioridad, sprites, desborde, colisión, ventana del GG)" "$(exe vdptest)"
 corre "audiotest (afinación, volumen, ruido, silencio por canal, estéreo del Game Gear)" "$(exe audiotest)"
+corre "inputtest (entradas grabadas, 8 botones, \$hex, --seed sin la Pausa, boton:desde-hasta, --model)" "$(exe inputtest)"
 tiempo "pruebas unitarias"
 
 # Estados guardados, con el homebrew (make testroms)
@@ -26,6 +27,30 @@ for r in testroms/homebrew/waternet.sms testroms/homebrew/waternet.gg testroms/h
     [ -f "$r" ] && corre "statetest con $(basename "$r")" "$(exe statetest)" "$r" 300 300
 done
 tiempo "estados guardados"
+
+# Contrato común con los otros cuatro (opciones y comportamiento de las herramientas sin ventana)
+r=$(sh tests/contract.sh | tail -1)
+case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+# El juego del contrato (make testroms) por las herramientas: la traza tiene la rutina de la página 3 en la
+# ranura 2 (03:8000) y la de la página 2 no (el mapper), la RAM tiene lo que dejan la RAM del cartucho, la
+# rutina copiada a $C100 y las interrupciones, y smsshot --expect compara una captura
+C=testroms/sms/contrato.sms
+if [ -f "$C" ]; then
+    D=build/tests; mkdir -p "$D"
+    "$(exe smstrace)" "$C" "$D/contrato.trace" --frames 60 >/dev/null 2>&1
+    if grep -q "^03:8000$" "$D/contrato.trace" && ! grep -q "^02:8000$" "$D/contrato.trace" && grep -q "^00:0038$" "$D/contrato.trace"; then
+        echo "ok    smstrace con el contrato: la página 3 en la ranura 2 (03:8000) y la interrupción (00:0038)"
+    else echo "FALLA smstrace con el contrato"; fallas=$((fallas + 1)); fi
+    ram=$("$(exe smsramdump)" "$C" --frames 60 pause:30-31 | awk '$1 ~ /^00C00[345]$|^00C101$/ {printf "%s ", $2}')
+    if [ "$ram" = "5A A5 01 32 " ]; then echo "ok    smsramdump con el contrato: mapper, RAM del cartucho, Pausa y el código en RAM"
+    else echo "FALLA smsramdump con el contrato ($ram)"; fallas=$((fallas + 1)); fi
+    "$(exe smsshot)" "$C" "$D/contrato.png" --frames 65 start:30-35 down:60-69 a:60-69 >/dev/null 2>&1
+    if "$(exe smsshot)" "$C" "$D/contrato2.png" --frames 65 start:30-35 down:60-69 a:60-69 --expect "$D/contrato.png" >/dev/null 2>&1 \
+            && ! "$(exe smsshot)" "$C" "$D/contrato3.png" --frames 65 --expect "$D/contrato.png" >/dev/null 2>&1; then
+        echo "ok    smsshot --expect: la misma pantalla pasa y otra falla"
+    else echo "FALLA smsshot --expect"; fallas=$((fallas + 1)); fi
+fi
+tiempo "contrato"
 
 # Z80: SingleStepTests (make testroms), por el intérprete y por el camino del código generado (z80_ops.h con
 # los bytes de la instrucción; también el ciclo del acceso a cada puerto); en los dos, el decodificador

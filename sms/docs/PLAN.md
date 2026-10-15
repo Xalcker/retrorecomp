@@ -212,12 +212,17 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   da todo Ok y los 15 juegos de `roms/` se ven y se oyen bien. Un solo icono para las dos consolas (el .exe solo
   lleva uno); el sonido a WAV lo guarda `smsrun --wav` (y `smsaudio` en la fase 4), como en GENRecomp, donde la
   ventana tampoco lo exporta.
-- [ ] **4. Herramientas sin ventana y contrato.** `smstrace`, `smsshot` (`--expect`, `--hash`), `smsaudio`,
-  `smsbench`, `smsramdump`; `input_host.h` para `cli.h` e `inputs.h`; `inputtest`; `src/tools/mkcontrato.c` (la ROM
-  del contrato, armada en el build sin ensamblador: mapper, RAM del cartucho, código en RAM, interrupciones, VDP y
-  PSG, y una mínima para `webtest`/`apktest`); `golden.sh`; el contrato común en verde (y en el CI); la integración
-  con retrorecomp (GUI, `contract.py`, `compat_test.py`); los oráculos (Genesis Plus GX y Gearsystem como núcleos
-  libretro, con `retro_run`) para calibrar los tiempos del VDP.
+- [x] **4. Herramientas sin ventana y contrato.** `smstrace` (la traza `BANCO:DIRECCION` con bancos de 16 KB:
+  `Cart.trace` en el runtime; también `sms --trace`), `smsshot` (`--expect`, `--hash`), `smsaudio`, `smsbench`,
+  `smsramdump`, con `cli.h` e `inputs.h` comunes y `input_host.h`; `--model` en todas; `inputtest`;
+  `src/tools/mkcontrato.c` (el juego del contrato, armado en el build sin ensamblador: mapper, RAM del cartucho,
+  código en RAM, interrupciones de cuadro y de línea, Pausa, VDP y PSG, todo dependiente de las entradas; y
+  `--minima` para `webtest`/`apktest`); `golden.sh` (21 casos); el contrato común en verde y en el CI. En retrorecomp
+  (un PR): la rama de SMSRecomp en `contract.sh` y `recomp_game.sh`, `ORACLE_RAM_SIZE` en `retro_run.c`,
+  `contract.py` (`COMMON`, raíces, `SOLO` de `sstz80.sh`), `compat_test.py`, la GUI (clase `SMS`, `--sms`,
+  `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA`, las subcarpetas de `roms/`, `PRESETS`, el selector de modelo de
+  cada consola), `index.html` y el README («los cinco»). `tools/compat/run.py` y `report.py` (la etapa 1 corre); los
+  oráculos (`tools/oracles/oracle.py`, Genesis Plus GX y Gearsystem, con `make build/retro_run`).
 - [ ] **5. El recompilador.** Descubrimiento desde las semillas, heurísticas de GBRecomp llevadas al Z80, bancos
   y vistas por ranura, emisión con `z80_ops.h`, el proyecto generado (`embed`, `Makefile`, `LEEME.txt`),
   `difftest` y `bench` con la salida común (`difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de

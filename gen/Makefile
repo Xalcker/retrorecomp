@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -43,7 +43,7 @@ RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c cpu68k.c z80.c z8
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con NEORecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h audio.c audio.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usan también genshot y genaudio)
@@ -90,7 +90,7 @@ audiotest$(EXE): src/tools/audiotest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 # Herramientas sin ventana con las opciones comunes (cli.h)
-TOOL_DEPS := src/platform/cli.h src/platform/inputs.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
+TOOL_DEPS := $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
 gentrace$(EXE): src/tools/gentrace.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/gentrace.c $(RT) -lm
 
@@ -123,9 +123,9 @@ z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h m68k_host.h z80_host.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c console.h recomp.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h m68k_host.h z80_host.h cpu68k.c z80.h z80.c z80bus.c psg.c ym2612.c audio.c audio.h audio_host.h console.h recomp.h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
-                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
@@ -157,8 +157,8 @@ genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h
 ifeq ($(shell uname -s 2>/dev/null),Linux)
 DL_LIBS := -ldl
 endif
-$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
+$(BUILD)/retro_run$(EXE): $(SHARED)/retro_run.c $(SHARED)/libretro_min.h tools/oracles/oracle_host.h $(SHARED)/wav.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ $(SHARED)/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
 
 # Paquete para distribuir: genrecomp, la documentación y la licencia
 DIST := dist/genrecomp-$(VERSION)-$(PLATFORM)
@@ -170,11 +170,11 @@ dist: genrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gen.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 # Los núcleos del 68000 y del Z80 (shared/)
-$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/gen.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/gen.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

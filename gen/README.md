@@ -146,7 +146,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp y
 GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
-`src/platform/inputs.h`), `--seed S` (suma un mando aleatorio reproducible, el mismo de las otras dos
+`tools/retrorecomp/shared/inputs.h`), `--seed S` (suma un mando aleatorio reproducible, el mismo de las otras dos
 consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros suelto y
 `boton:desde-hasta` (`a b c x y z start mode up down left right`). `sh tests/contract.sh` lo comprueba.
 
@@ -156,9 +156,9 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`, `m68k_host.h` y `z80_host.h`; de `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, y también `sha1` y `console.h`. |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `psg.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h` y `audio_host.h`; de `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `audio.c`, y también `sha1` y `console.h`. |
 | `src/genrecomp/` | El recompilador. |
-| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` y, de `tools/retrorecomp/shared`, `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp, GBRecomp y NEORecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |

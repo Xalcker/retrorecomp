@@ -186,17 +186,9 @@ typedef struct {
     u64  mclk;                  /* ciclo maestro hasta el que va */
 } Ym2612;
 
-/* Audio (audio.c): los dos chips mezclados a 44100 Hz en estéreo de 16 bits */
-#define AUDIO_RATE 44100
-#define AUDIO_BINS 4096
-typedef struct {
-    float acc[AUDIO_BINS][2];   /* muestras de salida que se están formando (por promedio en el tiempo) */
-    u64  first;                 /* índice de la primera de acc */
-    int16_t buf[AUDIO_BINS * 2]; /* muestras listas (L R), para quien las tome */
-    int  n;
-    u8   mute;                  /* bits 0-5: canales FM 1-6, bit 6: PSG */
-    float hp_x[2], hp_y[2];     /* filtro pasa-altos de la salida (el acople de la consola) */
-} Audio;
+/* Audio (audio.c, común: tools/retrorecomp/shared): los dos chips mezclados a 44100 Hz en estéreo de 16 bits.
+ * Bits de Audio.mute: 0-5 los canales FM 1-6, 6 el PSG */
+#include "audio.h"
 
 /* E/S (io.c): los tres puertos de la consola */
 typedef struct {

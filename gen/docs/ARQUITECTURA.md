@@ -12,9 +12,9 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `psg.c`, `ym2612.c`, `audio.c` (mezcla), `m68k_host.h` y `z80_host.h` (lo que los núcleos comunes toman de esta consola). De `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `dis68k.c`; también `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `psg.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo que los núcleos y la mezcla comunes toman de esta consola). De `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `dis68k.c`; también `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
-| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings`, `files`, `export`, `png`, `icono.h`), `random_pad.h`. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `input_host.h` (los botones para `inputs.h` y `cli.h` comunes). De `tools/retrorecomp/shared`: `files`, `export`, `png`, `random_pad.h`, `inputs.h`, `cli.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `tools/retrorecomp/shared`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
@@ -550,7 +550,7 @@ libretro. No van en el repositorio (Genesis Plus GX tiene una licencia no comerc
 `oracle.py` los baja la primera vez de la compilación nocturna de buildbot.libretro.com a
 `build/oracles/` y anota el SHA-256 de lo que bajó. `retro_run` (C, `make build/retro_run`) es un
 frontend libretro mínimo sin ventana: declara solo la parte pública de la API que usa
-(`libretro_min.h`), toma las entradas de `cli.h` (`--frames`, `--input`, `--seed`, `boton:desde-hasta`)
+(`libretro_min.h`; los dos, `retro_run.c` y `libretro_min.h`, son de `tools/retrorecomp/shared`, comunes con NEORecomp, y lo propio del Genesis va en `tools/oracles/oracle_host.h`), toma las entradas de `cli.h` (`--frames`, `--input`, `--seed`, `boton:desde-hasta`)
 y asigna los botones por las descripciones que publica cada núcleo ("A", "Start", "Mode"...: cada uno
 los acomoda distinto en el mando de libretro). Da la misma salida que `genramdump` (con `--swap16`: los dos
 guardan la RAM en palabras de 16 bits de la máquina) o una captura (`--shot`).

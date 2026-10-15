@@ -9,6 +9,7 @@
 #include <string.h>
 #include <math.h>
 #include "cli.h"
+#include "wav.h"
 
 static u8 *slurp(const char *path, size_t *len)
 {
@@ -41,14 +42,7 @@ int main(int argc, char **argv)
         nes_run_frame(&n);
         tot += apu_take(&n, pcm + tot, (int)(cap - tot));
     }
-    FILE *o = fopen(c.pos[1], "wb");
-    if (!o) { fprintf(stderr, "no pude escribir %s\n", c.pos[1]); return 2; }
-    u32 data = (u32)(tot * 2), rate = APU_RATE, br = rate * 2, riff = 36 + data;
-    u16 fmt = 1, ch = 1, align = 2, bits = 16; u32 sixteen = 16;
-    fwrite("RIFF", 1, 4, o); fwrite(&riff, 4, 1, o); fwrite("WAVEfmt ", 1, 8, o);
-    fwrite(&sixteen, 4, 1, o); fwrite(&fmt, 2, 1, o); fwrite(&ch, 2, 1, o); fwrite(&rate, 4, 1, o);
-    fwrite(&br, 4, 1, o); fwrite(&align, 2, 1, o); fwrite(&bits, 2, 1, o);
-    fwrite("data", 1, 4, o); fwrite(&data, 4, 1, o); fwrite(pcm, 2, tot, o); fclose(o);
+    if (!wav_save(c.pos[1], pcm, tot, APU_RATE, 1)) { fprintf(stderr, "no pude escribir %s\n", c.pos[1]); return 2; }
     printf("%s: %zu muestras (%.1f s)\n", c.pos[1], tot, tot / (double)APU_RATE);
     for (size_t s = 0; s + APU_RATE <= tot || s == 0; s += APU_RATE) {
         size_t e = s + APU_RATE < tot ? s + APU_RATE : tot;

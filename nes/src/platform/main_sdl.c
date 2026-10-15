@@ -68,6 +68,9 @@
 #define SCREEN_W 256
 #define SCREEN_H 240
 #define NTSC_FPS 60.0988
+/* El filtro del diálogo para elegir la ROM en Windows (ask_rom_path, files.h); antes files.c, copiado de
+ * GBRecomp, ofrecía las ROMs del Game Boy */
+#define ROM_TYPES "ROM de NES (*.nes)|*.nes"
 
 static void fail(const char *msg);
 
@@ -217,7 +220,7 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     char msg[4096];
     int first = 1;
     for (;;) {
-        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path_out, path_size);
+        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), ROM_TYPES, path_out, path_size);
         if (!got) {
 #ifdef __ANDROID__
             return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
@@ -615,7 +618,7 @@ static int menu_state(void *ctx, int action, int *checked)
 static void ask_open_rom(App *app)
 {
     char path[1024];
-    if (ask_rom_path(tr(T_ROM_CHOOSE), path, sizeof path)) switch_rom(app, path);
+    if (ask_rom_path(tr(T_ROM_CHOOSE), ROM_TYPES, path, sizeof path)) switch_rom(app, path);
     else message(app, tr(T_OPEN_ROM), tr(T_ROM_CHOOSE));   /* sin diálogo nativo: se arrastra */
 }
 

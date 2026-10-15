@@ -44,7 +44,7 @@
 #endif
 
 #include "../runtime/cpu_ops.h"
-#include "../runtime/console.h"
+#include "console.h"
 #include "sha1.h"
 #include "trace_line.h"
 #include "ram_code.h"

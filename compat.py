@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prueba de compatibilidad común de NESRecomp, GBRecomp, GENRecomp y NEORecomp con una colección de ROMs (solo
+"""Prueba de compatibilidad común de NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp con una colección de ROMs (solo
 la biblioteca estándar de Python).
 
 Cada recompilador la llama desde su tools/compat/run.py, que define lo propio de su consola (una subclase de
-Sistema: leer la cabecera, la categoría de cada ROM, qué se soporta, los botones); el resto es igual en los cuatro
+Sistema: leer la cabecera, la categoría de cada ROM, qué se soporta, los botones); el resto es igual en los cinco
 y usa solo la línea de comandos común (el contrato del README): *shot, *recomp y difftest. La lista de lo que
 define cada Sistema está en el README («Prueba de compatibilidad»); tests/compat_test.py la comprueba.
 
@@ -28,7 +28,7 @@ import subprocess, sys, tempfile, threading, time, zipfile, zlib
 
 EXE = ".exe" if os.name == "nt" else ""
 CUADROS1 = (450, 900, 1500)
-CUADROS_DIFF = 1800                  # cuadros de difftest por semilla: los mismos en los cuatro
+CUADROS_DIFF = 1800                  # cuadros de difftest por semilla: los mismos en los cinco
 CUADROS_BENCH = 1800
 SEMILLAS = (1, 2)
 ESTADOS = ["recompilado", "intérprete", "diferencia", "falla", "pantalla en blanco", "se cuelga", "no carga",
@@ -39,7 +39,7 @@ ESTADOS = ["recompilado", "intérprete", "diferencia", "falla", "pantalla en bla
 
 class Sistema:
     """Lo propio de cada consola. Las subclases están en tools/compat/run.py de cada recompilador."""
-    id = ""                          # "nes" / "gb" / "gen" / "neo": prefijo de las herramientas (nesshot, gbrecomp...)
+    id = ""                          # "nes" / "gb" / "gen" / "neo" / "sms": prefijo de las herramientas (nesshot, gbrecomp...)
     nombre = ""                      # "NESRecomp"
     consola = ""                     # para los textos del informe
     exts = ()                        # extensiones de ROM (dentro de los zips o sueltas)
@@ -924,7 +924,7 @@ con esas direcciones (<code>--uncovered</code> → <code>--trace</code>) y se re
 «{e(met_nombre)}» es el peor caso de las semillas de la última ronda (lo que falta suele ser código en RAM). La velocidad es la de
 <code>difftest --bench</code> ({CUADROS_BENCH} cuadros, recompilado / intérprete, sin ventana ni audio).</p>
 <p class="mut">Para repetirlo: <code>python3 tools/compat/run.py CARPETA</code> y <code>python3 tools/compat/report.py</code>
-(el motor es común a los cuatro recompiladores: <code>tools/retrorecomp/compat.py</code>).</p>
+(el motor es común a los cinco recompiladores: <code>tools/retrorecomp/compat.py</code>).</p>
 {html_tablas}
 <h2>Por juego</h2>
 <div class="ctl">{chips}</div>

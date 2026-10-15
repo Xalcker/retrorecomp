@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""retrorecomp: una sola GUI local para NESRecomp, GBRecomp, GENRecomp y NEORecomp (solo biblioteca
+"""retrorecomp: una sola GUI local para NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp (solo biblioteca
 estándar de Python).
 
 Una página servida en 127.0.0.1 que detecta el sistema de cada ROM (NES, Game Boy, Game Boy Color,
-Super Game Boy, Sega Genesis, Neo Geo) y llama a las herramientas del recompilador que corresponda: mapa del
+Super Game Boy, Sega Genesis, Neo Geo, Master System, Game Gear) y llama a las herramientas del recompilador que corresponda: mapa del
 descubrimiento con clic por celda, avance por ROM, trazas, guiones de entradas, recompilar, difftest, bench y
 el ciclo completo, con la salida en vivo.
 
-    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR] [--roms DIR ...] [--port 8765] [--no-browser]
+    python3 retrorecomp_gui.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR] [--sms DIR] [--roms DIR ...] [--port 8765] [--no-browser]
 
-Dónde busca los recompiladores: --nes/--gb/--gen/--neo, las variables
-NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR, la carpeta que contiene a retrorecomp si es uno de
-ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp y NEORecomp.
+Dónde busca los recompiladores: --nes/--gb/--gen/--neo/--sms, las variables
+NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR/SMSRECOMP_DIR, la carpeta que contiene a retrorecomp si es
+uno de ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp.
 """
 import argparse, glob, json, os, re, secrets, shlex, shutil, subprocess, sys, threading, time, webbrowser, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,7 +28,7 @@ lock = threading.RLock()
 jobs, job_seq = {}, [0]
 cfg = {"token": "", "extra_roms": []}
 events_cache = {}
-systems = {}          # "nes" / "gb" / "gen" / "neo" -> System
+systems = {}          # "nes" / "gb" / "gen" / "neo" / "sms" -> System
 
 
 # --------------------------------------------------------------------------- utilidades
@@ -149,6 +149,8 @@ class System:
     caps = {}
     map_note = ""                    # qué es una celda y una fila del mapa
     input_note = ""                  # botones del guion de entradas
+    models = ()                      # valores de --model (con caps["model"]); el primero vacío es «auto»
+    roms_subdirs = False             # busca también en las subcarpetas de roms/ (SMSRecomp: roms/sms y roms/gg)
 
     def __init__(self, root):
         self.root = root
@@ -471,6 +473,63 @@ class NEO(GEN):
                             "why": "%X" % e["pos"]} for e in items]}
 
 
+
+class SMS(GEN):
+    """SMSRecomp copia los formatos de GENRecomp (mapa de --viz --color, --events, --why, --html, trazas
+    BANCO:DIRECCION con bancos de 16 KB, recomp_game.sh y bench en el proyecto; lo del recompilador llega en su
+    fase 5): cambian los nombres, la cabecera TMR SEGA, que hay dos consolas (--model sms|gg, como el modelo del
+    Game Boy) y que la ventana graba trazas con --trace."""
+    id, label, exts = "sms", "Master System / Game Gear", (".sms", ".gg")
+    recomp = "smsrecomp"
+    tools = ("smsrecomp", "sms", "smstrace", "smsshot", "smsaudio", "smsbench", "smsrun", "smsramdump")
+    legend = ("flujo desde los vectores", "traza", "tabla de saltos", "especulativo (punteros sueltos)")
+    caps = {"notrace": True, "model": True, "interp_play": False, "plays_interp": True, "visor": "html", "pad2": True,
+            "game_frames": 1500}
+    models = ("sms", "gg")
+    roms_subdirs = True
+    mem = "ROM"
+    trace_shift = 14                 # las páginas de 16 KB del mapper
+    window = "sms"
+    bench_tool = "smsbench"
+    map_note = "como --viz: una celda = 256 bytes; una fila por cada página de 16 KB"
+    input_note = ("A B (los botones 1 y 2) START PAUSE RIGHT LEFT UP DOWN unidos con +; START es el del Game Gear y, en "
+                  "el Master System, el botón 1; la segunda columna es el jugador 2")
+    trace_tools = {"trace": "smstrace", "screenshot": "smsshot", "audio": "smsaudio"}
+
+    @staticmethod
+    def tmr_sega(d):
+        """Dónde está la cabecera TMR SEGA ($7FF0, $3FF0 o $1FF0), o None"""
+        return next((a for a in (0x7FF0, 0x3FF0, 0x1FF0) if d[a:a + 8] == b"TMR SEGA"), None)
+
+    def info(self, path):
+        try:
+            size = os.path.getsize(path)
+            with open(path, "rb") as f:
+                if size % BANK == 512:              # cabecera de copiador
+                    f.seek(512)
+                    size -= 512
+                d = f.read(0x8000)
+        except OSError:
+            return {}
+        gg = os.path.splitext(path)[1].lower() == ".gg"
+        if self.tmr_sega(d) is None and not gg and os.path.splitext(path)[1].lower() != ".sms":
+            return {}
+        return {"title": "", "mapper": "Game Gear" if gg else "Master System", "banks": max(1, -(-size // BANK)), "size": size}
+
+    def header_stats(self, ln, stats):
+        m = re.search(r": (\d+) KB", ln)
+        if m and "mapper" not in stats:
+            kb = int(m.group(1))
+            stats.update(mapper="Master System", banks=max(1, -(-kb // 16)), size=kb * 1024)
+
+    def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
+        return super().bench_argv(rp, pdir, frames, repeat, inp, model, recompiled) + (["--model", model] if model else [])
+
+    def play_argv(self, rp, proj, interp, model, env, record_trace_path, record_input_path, play_input):
+        argv = super().play_argv(rp, proj, interp, model, env, record_trace_path, record_input_path, play_input)
+        return argv + (["--model", model] if model else [])
+
+
 class GB(System):
     id, label, exts = "gb", "Game Boy", (".gb", ".gbc", ".sgb")
     recomp = "gbrecomp"
@@ -481,6 +540,7 @@ class GB(System):
     legend = ("arranque", "interrupción", "tabla de saltos", "traza", "argumentos en línea (≡)")
     caps = {"notrace": True, "model": True, "interp_play": True, "plays_interp": False, "visor": "events", "pad2": False,
             "game_frames": 6000, "unresolved": True}
+    models = ("dmg", "cgb", "sgb")
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
            0x0F: "MBC3+TIMER+BAT", 0x10: "MBC3+TIMER+RAM+BAT", 0x11: "MBC3", 0x12: "MBC3+RAM", 0x13: "MBC3+RAM+BAT",
            0x19: "MBC5", 0x1A: "MBC5+RAM", 0x1B: "MBC5+RAM+BAT", 0x1C: "MBC5+RUMBLE", 0x1E: "MBC5+RUMBLE+RAM+BAT",
@@ -671,7 +731,7 @@ def find_repo(name, env, explicit, marker):
 def detect_system(path):
     try:
         with open(path, "rb") as f:
-            d = f.read(0x150)
+            d = f.read(0x8200)
     except OSError:
         return None
     if d[:4] == b"NES\x1a":
@@ -688,6 +748,9 @@ def detect_system(path):
             return None
     if len(d) >= 0x134 and d[0x104:0x108] == bytes([0xCE, 0xED, 0x66, 0x66]):
         return "gb"
+    # Master System y Game Gear: "TMR SEGA" en $7FF0, $3FF0 o $1FF0 (también tras 512 bytes de copiador)
+    if SMS.tmr_sega(d) is not None or SMS.tmr_sega(d[512:]) is not None:
+        return "sms"
     # Genesis: "SEGA" en la cabecera ($100), o un .smd (cabecera de copiador AA BB y bloques entrelazados)
     if d[0x100:0x104] == b"SEGA" or d[0x101:0x105] == b"SEGA" or (len(d) > 9 and d[8:10] == b"\xaa\xbb"):
         return "gen"
@@ -696,6 +759,8 @@ def detect_system(path):
         return "nes"
     if ext in (".gb", ".gbc", ".sgb"):
         return "gb"
+    if ext in (".sms", ".gg"):
+        return "sms"         # los del Game Gear no siempre traen la cabecera
     return "gen" if ext in (".md", ".gen", ".smd") else None     # un .bin sin "SEGA" no se adivina
 
 
@@ -707,7 +772,8 @@ def list_roms():
     for sysm in systems.values():
         dirs = [sysm.roms_dir()] + cfg["extra_roms"]
         for d in dirs:
-            for p in glob.glob(os.path.join(d, "*")):
+            pats = [os.path.join(d, "*")] + ([os.path.join(d, "*", "*")] if sysm.roms_subdirs and d == sysm.roms_dir() else [])
+            for p in (q for pat in pats for q in glob.glob(pat)):
                 if os.path.isfile(p) and os.path.splitext(p)[1].lower() in sysm.exts and detect_system(p) == sysm.id:
                     found[f"{sysm.id}:{os.path.basename(p)}"] = (sysm, p)
     ROMS.clear()
@@ -794,7 +860,7 @@ def save_input(rid, name, text):
     for i, l in enumerate(lines, 1):
         # Botones que esa consola no tiene (se revisan las palabras después del número de cuadro)
         bad_btn = {"nes": {"C", "D", "X", "Y", "Z", "MODE"}, "gb": {"C", "D", "X", "Y", "Z", "MODE"}, "gen": {"SELECT", "D"},
-                   "neo": {"X", "Y", "Z", "MODE"}}.get(sysm.id, set())
+                   "neo": {"X", "Y", "Z", "MODE"}, "sms": {"C", "D", "X", "Y", "Z", "MODE", "SELECT"}}.get(sysm.id, set())
         words = set(re.split(r"[\s+]+", l.strip().upper())[1:]) if re.match(r"\d", l.strip()) else set()
         if (not LINE_OK.match(l.strip()) or (sysm.id != "gb" and re.match(r"(modelo|paleta)\b", l.strip(), re.I))
                 or words & bad_btn):
@@ -814,6 +880,9 @@ PRESETS = {
     # Neo Geo: la BIOS del AES deja el juego en su demo a los ~20 s; Start y A pasan a la partida
     "neo": {"titulo": "0 -\n1200 START\n1206 -\n1500 START\n1506 -\n1700 A\n1711 -\n",
             "partida": "0 -\n1200 START\n1206 -\n1500 START\n1506 -\n1700 A\n1711 -\n1900 A\n1911 -\n2400 RIGHT\n3000 RIGHT+A\n3010 RIGHT\n"},
+    # Master System y Game Gear: START es el Start del GG y, en el SMS, el botón 1 (el de «PUSH START BUTTON»)
+    "sms": {"titulo": "0 -\n120 START\n127 -\n300 START\n307 -\n400 A\n407 -\n",
+            "sonic": "0 -\n120 START\n127 -\n300 RIGHT\n600 RIGHT+B\n610 RIGHT\n"},
 }
 
 
@@ -970,11 +1039,11 @@ def start_job(title, steps, rid=None, kind="", cwd=None):
     return j
 
 
-def model_args(p):
+def model_args(p, sysm=None):
     m = p.get("model")
     if not m:
         return []
-    if m not in ("dmg", "cgb", "sgb"):
+    if m not in (sysm.models if sysm else ()):
         raise ValueError("modelo inválido")
     return ["--model", m]
 
@@ -1051,14 +1120,14 @@ def make_job(p):
         if inp:
             argv += ["--input", inp]
         if sysm.caps["model"]:
-            argv += model_args(p)
+            argv += model_args(p, sysm)
         if p.get("uncovered"):
             os.makedirs(trace_dir(rid), exist_ok=True)
             argv += ["--uncovered", os.path.join(trace_dir(rid), safe_name(p.get("uncovered_name") or "difftest") + ".trace")]
         return start_job(f"difftest {name}", [{"argv": argv}], rid, "difftest", cwd)
     if kind == "bench":
         argv = sysm.bench_argv(rp, pdir, frames(3000), pint(p.get("repeat") or 3, 1, 20, "repeticiones"), inp,
-                               (model_args(p) or [None, None])[1], bool(p.get("recompiled")))
+                               (model_args(p, sysm) or [None, None])[1], bool(p.get("recompiled")))
         return start_job("bench", [{"argv": argv}], rid, "bench", cwd)
     if kind == "recomp_game":
         env = {"NOTRACE": "1"} if p.get("notrace") and sysm.caps["notrace"] else {}
@@ -1079,7 +1148,7 @@ def make_job(p):
         elif str(p.get("seed", "")).strip():
             argv += ["--seed", str(pint(p["seed"], 0, 2**31, "semilla"))]
         if sysm.caps["model"]:
-            argv += model_args(p)
+            argv += model_args(p, sysm)
         return start_job(f"{tool} {base_name(rid)}", [{"argv": argv}], rid, kind, cwd)
     if kind == "visor":
         os.makedirs(WORK, exist_ok=True)
@@ -1102,7 +1171,7 @@ def play(p):
     if p.get("record_input"):
         os.makedirs(input_dir(rid), exist_ok=True)
         rec_in = os.path.join(input_dir(rid), safe_name(p.get("input_name") or "jugada") + ".txt")
-    argv = sysm.play_argv(rp, proj, bool(p.get("interp")), (model_args(p) or [None, None])[1], env, trace, rec_in,
+    argv = sysm.play_argv(rp, proj, bool(p.get("interp")), (model_args(p, sysm) or [None, None])[1], env, trace, rec_in,
                           resolve_input(rid, p.get("input")))
     # Iguales en los cuatro (retrorecomp#43); un ejecutable anterior tomaría la opción como la ROM
     if p.get("fullscreen"):
@@ -1142,9 +1211,9 @@ def api_cell(rid, traces, bank_i, ci):
     n = sysm.info(rp).get("banks", 2)
     if bank_i < 0 or bank_i >= max(n, 1) or not 0 <= ci < BANK // CELL:
         raise ValueError("celda fuera de rango")
-    # NES y Genesis: una fila por cada 16 KB (de PRG o de ROM); GB: una por banco (el banco 0 en $0000, los demás en
+    # NES, Genesis y Master System: una fila por cada 16 KB (de PRG o de ROM); GB: una por banco (el banco 0 en $0000, los demás en
     # $4000); Neo Geo: NEO.cell busca con el tamaño de celda de su mapa
-    banks = [{"bank": b, "base": b * BANK if sysm.id in ("nes", "gen", "neo") else (0 if b == 0 else 0x4000)} for b in range(n)]
+    banks = [{"bank": b, "base": b * BANK if sysm.id in ("nes", "gen", "neo", "sms") else (0 if b == 0 else 0x4000)} for b in range(n)]
     return sysm.cell(rp, trace_files(rid, traces), bank_i, ci, banks)
 
 
@@ -1239,7 +1308,7 @@ class Handler(BaseHTTPRequestHandler):
             rid = one("rom") or None
             st = {"systems": {s.id: {"label": s.label, "root": s.root, "git": s.git(), "tools": s.tools_status(), "caps": s.caps,
                                      "bench_tool": s.bench_tool, "trace_tool": s.trace_tool("trace"), "map_note": s.map_note, "input_note": s.input_note,
-                                     "legend": list(s.legend), "presets": PRESETS[s.id]} for s in systems.values()},
+                                     "legend": list(s.legend), "presets": PRESETS[s.id], "models": list(s.models)} for s in systems.values()},
                   "roms": list_roms(), "progress": load_state(), "bios": bios_path[0],
                   "jobs": [j.info() for j in sorted(jobs.values(), key=lambda j: -j.id)[:30]]}
             if rid:
@@ -1317,11 +1386,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="GUI local para NESRecomp, GBRecomp, GENRecomp y NEORecomp")
+    ap = argparse.ArgumentParser(description="GUI local para NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp")
     ap.add_argument("--nes", help="carpeta de NESRecomp")
     ap.add_argument("--gb", help="carpeta de GBRecomp")
     ap.add_argument("--gen", help="carpeta de GENRecomp")
     ap.add_argument("--neo", help="carpeta de NEORecomp")
+    ap.add_argument("--sms", help="carpeta de SMSRecomp")
     ap.add_argument("--roms", action="append", default=[], help="carpeta extra con ROMs (se puede repetir)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
@@ -1341,9 +1411,12 @@ def main():
     neo = find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c"))
     if neo:
         systems["neo"] = NEO(neo)
+    sms = find_repo("SMSRecomp", "SMSRECOMP_DIR", a.sms, os.path.join("src", "smsrecomp", "smsrecomp.c"))
+    if sms:
+        systems["sms"] = SMS(sms)
     if not systems:
-        sys.exit("no encontré NESRecomp, GBRecomp, GENRecomp ni NEORecomp: use --nes/--gb/--gen/--neo o "
-                 "NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR")
+        sys.exit("no encontré NESRecomp, GBRecomp, GENRecomp, NEORecomp ni SMSRecomp: use --nes/--gb/--gen/--neo/--sms o "
+                 "NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR/SMSRECOMP_DIR")
     cfg["extra_roms"] = [os.path.abspath(r) for r in a.roms]
     cfg["token"] = secrets.token_urlsafe(16)
     os.makedirs(WORK, exist_ok=True)

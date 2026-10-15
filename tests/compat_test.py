@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de humo del informe de compatibilidad (compat.py), sin ROMs ni recompiladores: arma un results.json
-sintético para cada uno de los cuatro sistemas, con una fila por estado, genera su informe y comprueba que los cuatro
+sintético para cada uno de los cinco sistemas, con una fila por estado, genera su informe y comprueba que los cinco
 salgan gemelos (las mismas columnas salvo las propias de cada consola), que las cabeceras de los oráculos sean las
 del sistema y que no quede ninguna ruta local en lo que se publica (retrorecomp#25).
 
@@ -91,7 +91,24 @@ class NEO(compat.Sistema):
                 for n in ("neorecomp-geolith", "neorecomp-fbneo")]
 
 
-SISTEMAS = (NES, GB, GEN, NEO)
+class SMS(compat.Sistema):
+    id, nombre, consola, exts, categoria_nombre = "sms", "SMSRecomp", "Master System y Game Gear", (".sms", ".gg"), "Mapper"
+    botones = ("A", "B")
+    nombres_oraculos = ("Genesis Plus GX", "Gearsystem")
+
+    def oraculos(self, f, guion):
+        return {}
+
+    def categoria(self, r):
+        return r.get("cat", "Sega")
+
+    def columnas_oraculos(self, r):
+        p = (r.get("oraculos") or {}).get("1200") or {}
+        return [f'{100 * p[n]["ram"]:.1f} / {100 * p[n]["img"]:.0f}' if n in p else "—"
+                for n in ("smsrecomp-gpgx", "smsrecomp-gearsystem")]
+
+
+SISTEMAS = (NES, GB, GEN, NEO, SMS)
 TODOS_ORACULOS = {n for S in SISTEMAS for n in S.nombres_oraculos}
 
 
@@ -101,7 +118,8 @@ def filas(S):
         return {"ronda": 1, "pct_rom": 40.0, "funciones": 12,
                 "semillas": [{"semilla": s, "ok": ok, "recompilado_pct": pct, "interpretadas": 3} for s in compat.SEMILLAS]}
     propio = {"nes": ({"mapper": 4}, {"mapper": 105}), "gb": ({"mbc": "MBC5"}, {"mbc": "MBC7"}),
-              "gen": ({"cat": "1 MB"}, {"cat": "1 MB"}), "neo": ({}, {"no_soportado": "NEO-CMC"})}[S.id]
+              "gen": ({"cat": "1 MB"}, {"cat": "1 MB"}), "neo": ({}, {"no_soportado": "NEO-CMC"}),
+              "sms": ({"cat": "Sega"}, {"cat": "Sega"})}[S.id]
     rs = [
         {"juego": "Recompilado", "interprete": "ok", "thumb": "a.png",
          "recompilador": {"resultado": "ok", "fases": [fase()], "velocidad_x": 40.0, "velocidad_interp_x": 3.0}},
@@ -116,11 +134,12 @@ def filas(S):
     ]
     for r in rs:
         r.update(propio[0], archivo=r["juego"] + ".zip", coleccion="colección")
-    if S.id not in ("gen",):     # GEN soporta todos los cartuchos que reconoce
+    if S.id not in ("gen", "sms"):      # GEN y SMS soportan todos los cartuchos que reconocen
         rs.append(dict(propio[1], juego="Sin soporte", archivo="sin.zip", coleccion="colección", interprete="ok"))
     if S.nombres_oraculos:
-        n = {"gen": "1200", "neo": "2400"}[S.id]
-        pre = {"gen": ("genrecomp-gpgx", "genrecomp-blastem"), "neo": ("neorecomp-geolith", "neorecomp-fbneo")}[S.id]
+        n = {"gen": "1200", "neo": "2400", "sms": "1200"}[S.id]
+        pre = {"gen": ("genrecomp-gpgx", "genrecomp-blastem"), "neo": ("neorecomp-geolith", "neorecomp-fbneo"),
+               "sms": ("smsrecomp-gpgx", "smsrecomp-gearsystem")}[S.id]
         rs[0]["oraculos"] = {n: {p: {"ram": 0.995, "img": 1.0} for p in pre}}
     return rs
 
@@ -146,7 +165,7 @@ def main():
                                                         "roms": rs}, ensure_ascii=False), encoding="utf-8")
             compat.informe(S, ["--salida", str(D)])
             doc = (D / "index.html").read_text(encoding="utf-8")
-            esperados = set(compat.ESTADOS + ["sin probar"]) - ({"sin soporte"} if S.id == "gen" else set())
+            esperados = set(compat.ESTADOS + ["sin probar"]) - ({"sin soporte"} if S.id in ("gen", "sms") else set())
             vistos = set(re.findall(r'<button class="chip" data-f="([^"]+)"', doc))
             T(vistos == esperados, f"{S.id}: chips {sorted(vistos)}, esperados {sorted(esperados)}")
             cab = cabeceras_por_juego(doc)
@@ -160,7 +179,7 @@ def main():
             T(not mal, f"{S.id}: {len(mal)} filas con un número de celdas distinto de las {len(cab)} cabeceras")
             T(not compat.rutas_locales(json.loads((D / "results.json").read_text(encoding="utf-8"))),
               f"{S.id}: el results.json sintético tiene rutas")
-            # Lo que no es propio de la consola (categoría, tamaño, oráculos) es igual en los cuatro
+            # Lo que no es propio de la consola (categoría, tamaño, oráculos) es igual en los cinco
             globales[S.id] = [h for h in cab if h not in (S.categoria_nombre, S.tamano_titulo()) and "RAM / imagen" not in h]
             print(f"ok    {S.id}: informe con {len(rs)} filas, {len(cab)} columnas"
                   + (f", oráculos {' y '.join(S.nombres_oraculos)}" if S.nombres_oraculos else ""))

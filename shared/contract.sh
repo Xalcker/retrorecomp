@@ -1,5 +1,5 @@
 #!/bin/sh
-# Contrato de línea de comandos común con NESRecomp/GBRecomp/GENRecomp/NEORecomp. Vive en retrorecomp
+# Contrato de línea de comandos común con NESRecomp/GBRecomp/GENRecomp/NEORecomp/SMSRecomp. Vive en retrorecomp
 # (shared/contract.sh); cada repo lo llama con un envoltorio idéntico, tests/contract.sh, que entra a su
 # raíz (tools/retrorecomp es el submódulo). Necesita `make` hecho.
 #   sh tests/contract.sh
@@ -8,8 +8,8 @@
 #    --repeat; --seed también en bench); se ejecuta cada una sin argumentos y su ayuda debe mencionarlas.
 # 2. Comportamiento (con las ROMs de prueba de `make testroms`; sin ellas se omite): la traza, la
 #    captura y el audio salen iguales con la misma entrada (--seed, y --input con --seed, que se
-#    suman), con un mismo guion para todas las consolas; en NES, Genesis y Neo Geo, --input da lo
-#    mismo que la sintaxis de antes (boton:desde-hasta).
+#    suman), con un mismo guion para todas las consolas; en NES, Genesis, Neo Geo y Master System, --input
+#    da lo mismo que la sintaxis de antes (boton:desde-hasta).
 if [ -f src/gbrecomp/gbrecomp.c ]; then
     P=gb
     CHECKS="gbtrace:--frames,--input,--seed gbshot:--frames,--input,--seed gbaudio:--frames,--input,--seed gbbench:--frames,--input,--repeat,--seed"
@@ -30,8 +30,13 @@ elif [ -f src/neorecomp/neorecomp.c ]; then
     CHECKS="neotrace:--frames,--input,--seed neoshot:--frames,--input,--seed neoaudio:--frames,--input,--seed neobench:--frames,--input,--repeat,--seed"
     ROM=testroms/neo/contrato.neo
     TOOLS="neotrace:txt neoshot:png neoaudio:wav"
+elif [ -f src/smsrecomp/smsrecomp.c ]; then
+    P=sms
+    CHECKS="smstrace:--frames,--input,--seed smsshot:--frames,--input,--seed smsaudio:--frames,--input,--seed smsbench:--frames,--input,--repeat,--seed"
+    ROM=testroms/sms/contrato.sms
+    TOOLS="smstrace:txt smsshot:png smsaudio:wav"
 else
-    echo "no es la raíz de NESRecomp, GBRecomp, GENRecomp ni NEORecomp" >&2; exit 2
+    echo "no es la raíz de NESRecomp, GBRecomp, GENRecomp, NEORecomp ni SMSRecomp" >&2; exit 2
 fi
 fallas=0
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
@@ -69,7 +74,7 @@ if [ -f "$ROM" ]; then
         "$e" "$ROM" "$D/d.$x" --frames 120 --input "$D/guion.txt" --seed 7 >/dev/null 2>&1
         igual "$n: --input con --seed da lo mismo dos veces" "$D/c.$x" "$D/d.$x"
     done
-    if [ $P = nes ] || [ $P = gen ] || [ $P = neo ]; then
+    if [ $P = nes ] || [ $P = gen ] || [ $P = neo ] || [ $P = sms ]; then
         # Hash de todos los cuadros y de todo el audio (nesshot/genshot --hash): distingue un cuadro de diferencia
         e=$(exe ${P}shot)
         "$e" "$ROM" "$D/e.png" --frames 120 --input "$D/guion.txt" --hash 2>/dev/null | grep '^hash' > "$D/guion.hash"

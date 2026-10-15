@@ -4,23 +4,24 @@
 # traza y vuelve a probar.
 #
 # Uso: sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]
-#   CUADROS: los de cada difftest (6000 en Game Boy, 3000 en Neo Geo, 1500 en NES y Genesis si no se dice).
+#   CUADROS: los de cada difftest (6000 en Game Boy, 3000 en Neo Geo, 1500 en NES, Genesis y Master System si no
+#   se dice).
 #   Deja el proyecto en build/out/NOMBRE y la traza acumulada en build/NOMBRE.trace.
 #   TRACE_FRAMES=N: cuadros de la traza guionada inicial (2400 si no se dice; 3600 en Neo Geo).
 #   NOTRACE=1: sin la traza guionada inicial (solo análisis estático y lo que descubra difftest).
 #   INPUT_TRACE=ARCHIVO, INPUT_DIFFTEST=ARCHIVO: otras entradas (una partida grabada con --record)
 #     en lugar de las guionadas de abajo; sirven cuando estas no pasan del título de un juego.
 #
-# Vive en retrorecomp (shared/recomp_game.sh); cada repo (NESRecomp, GBRecomp, GENRecomp y NEORecomp) lo llama
+# Vive en retrorecomp (shared/recomp_game.sh); cada repo (NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp) lo llama
 # con un envoltorio idéntico, tests/recomp_game.sh, que entra a su raíz: la consola sale de qué recompilador hay en la carpeta. Las entradas guionadas
 # (Start, A, derecha...) son las de tests/inputs/ciclo_traza.txt y ciclo_difftest.txt, las
 # mismas para todos los juegos (las del Neo Geo van desplazadas 1200 cuadros): sirven para pasar del título al juego y moverse un poco. Las
 # semillas agregan un mando aleatorio.
 CON=
-for c in nes gb gen neo; do
+for c in nes gb gen neo sms; do
     [ -f "./${c}recomp" ] || [ -f "./${c}recomp.exe" ] && CON=$c
 done
-[ -n "$CON" ] || { echo "no encuentro nesrecomp, gbrecomp, genrecomp ni neorecomp en esta carpeta" >&2; exit 2; }
+[ -n "$CON" ] || { echo "no encuentro nesrecomp, gbrecomp, genrecomp, neorecomp ni smsrecomp en esta carpeta" >&2; exit 2; }
 ROM=$1; NAME=$2; TF=${TRACE_FRAMES:-2400}
 IN_T=${INPUT_TRACE:-tests/inputs/ciclo_traza.txt}; IN_D=${INPUT_DIFFTEST:-tests/inputs/ciclo_difftest.txt}
 case $CON in

@@ -147,7 +147,7 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h src/genrecomp/visor_html.h \
+genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h $(SHARED)/visor_html.h \
                  src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm

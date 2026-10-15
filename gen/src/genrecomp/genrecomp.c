@@ -920,6 +920,7 @@ static void json_str(FILE *f, const char *t)
     fputc('"', f);
 }
 
+#define VISOR_NAME "GENRecomp"     /* el título de la página (visor_html.h, común en tools/retrorecomp/shared) */
 #include "visor_html.h"
 
 static void write_html(const char *path, const char *rom_name)

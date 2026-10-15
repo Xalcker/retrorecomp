@@ -134,17 +134,8 @@ typedef struct {
                                    (0 normal, 1 sombra, 2 resalte) */
 } Vdp;
 
-/* PSG SN76489 (psg.c): 3 tonos y ruido, al reloj del Z80 / 16 */
-typedef struct {
-    u16  period[4];             /* tonos: 10 bits; el 3 es el registro de ruido (3 bits) */
-    u8   vol[4];                /* atenuación 0-15 (15 = silencio) */
-    u8   latch;                 /* registro elegido por el último byte con el bit 7 */
-    u16  counter[4];
-    u8   out[4];                /* salida actual de cada canal (0/1) */
-    u8   noise_ff;              /* biestable del ruido (el LFSR avanza en cada subida) */
-    u16  lfsr;
-    u64  mclk;                  /* ciclo maestro hasta el que va */
-} Psg;
+/* PSG SN76489 (psg.c y psg.h, comunes: tools/retrorecomp/shared): 3 tonos y ruido, al reloj del Z80 / 16 */
+#include "psg.h"
 
 /* YM2612 (ym2612.c): 6 canales FM de 4 operadores, DAC, LFO y temporizadores */
 typedef struct {
@@ -294,9 +285,6 @@ u8   bus_read8(Gen *g, u32 addr);       /* el bus del 68000 sin ciclos (para el 
 void bus_write8(Gen *g, u32 addr, u8 v);
 
 /* Sonido (psg.c, ym2612.c, audio.c). Los tiempos son ciclos maestros. */
-void psg_reset(Psg *p);
-void psg_write(Gen *g, u8 v, u64 mclk);
-void psg_run(Gen *g, u64 mclk);
 void ym_reset(Ym2612 *y);
 u8   ym_read(Gen *g, u64 mclk);
 void ym_write(Gen *g, int a, u8 v, u64 mclk);     /* a: 0-3 ($4000-$4003) */

@@ -156,7 +156,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `psg.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h` y `audio_host.h`; de `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `audio.c`, y también `sha1` y `console.h`. |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h`; de `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `audio.c`; con SMSRecomp, `psg.c` y `psg.h`; y también `sha1` y `console.h`. |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` y, de `tools/retrorecomp/shared`, `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |

@@ -12,7 +12,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `psg.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo que los núcleos y la mezcla comunes toman de esta consola). De `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `dis68k.c`; también `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h` (lo que los núcleos, el PSG y la mezcla comunes toman de esta consola). De `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `psg.c`/`psg.h` (el SN76489, común también con SMSRecomp), `dis68k.c`; también `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `input_host.h` (los botones para `inputs.h` y `cli.h` comunes). De `tools/retrorecomp/shared`: `files`, `export`, `png`, `random_pad.h`, `inputs.h`, `cli.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `tools/retrorecomp/shared`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. |
@@ -434,7 +434,7 @@ más (espera a que el 68000 le ceda el bus); sin emular todavía: lo que pierde 
 
 ### Audio
 
-- **PSG** (`psg.c`): el SN76489 de Sega: tres tonos (un periodo de 0 o 1 deja la salida fija, para
+- **PSG** (`tools/retrorecomp/shared/psg.c`, común con SMSRecomp; `psg_host.h` pone el nivel, el estéreo y el silencio): el SN76489 de Sega: tres tonos (un periodo de 0 o 1 deja la salida fija, para
   las muestras por volumen) y el ruido con LFSR de 16 bits (blanco: bits 0 y 3), al reloj del Z80 /
   16; volumen en pasos de 2 dB. Desde el 68000 en `$C00011` y desde el Z80 en `$7F11`.
 - **YM2612** (`ym2612.c`, escrito desde la documentación del chip): una muestra cada 144 ciclos del

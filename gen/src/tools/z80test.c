@@ -6,6 +6,11 @@
  *   gunzip -c testroms/z80/v1/ed b0.json.gz | ./z80test - --name "ed b0" [-v N]
  *
  * Imprime "NOMBRE: pasadas/total" y, con -v N, el detalle de las primeras N que fallan.
+ *
+ *   ./z80test --int
+ *
+ * Prueba la interrupción desde un HALT (las SingleStepTests no tienen interrupciones): en modo 1
+ * y en modo 2 se apila la instrucción que sigue al HALT, y RETI vuelve a ella (GENRecomp#15).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,9 +106,45 @@ static int run_one(int t)
     return !bad;
 }
 
+/* --- Interrupción desde un HALT --- */
+
+static int int_test(void)
+{
+    static const u8 prog[] = { 0xFB, 0xED, 0x56, 0x76, 0x00, 0x00 };     /* EI; IM 1; HALT; NOP; NOP */
+    memset(mem, 0, sizeof mem);
+    memcpy(mem, prog, sizeof prog);
+    mem[0x38] = 0xFB; mem[0x39] = 0xED; mem[0x3A] = 0x4D;               /* EI; RETI */
+    mem[0x12FF] = 0x38; mem[0x1300] = 0x00;                             /* vector del modo 2: $0038 */
+    int fallas = 0;
+    #define T(c, ...) do { if (!(c)) { printf("FALLA INT: " __VA_ARGS__); printf("\n"); fallas++; } } while (0)
+    for (int im = 1; im <= 2; im++) {
+        Z80 z;
+        z80_reset(&z);
+        if (im == 2) { mem[2] = 0x5E; z.i = 0x12; }                     /* IM 2 en vez de IM 1 */
+        z80_step(NULL, &z); z80_step(NULL, &z); z80_step(NULL, &z);   /* EI, IM, HALT */
+        T(z.halted && z.iff1 && z.im == im, "modo %d: no quedó en HALT con EI", im);
+        z80_step(NULL, &z);
+        T(z.halted && z.pc == 0x0004, "modo %d: HALT terminó solo o el PC no quedó en $0004", im);
+        z.irq = 1;
+        int t = z80_step(NULL, &z);
+        T(t == (im == 2 ? 19 : 13) && z.pc == 0x38 && !z.halted && z.iff1 == 0,
+          "modo %d: %d ciclos, PC $%04X", im, t, z.pc);
+        T(z.sp == 0xFFFD && mem[0xFFFD] == 0x04 && mem[0xFFFE] == 0x00,
+          "modo %d: apiló $%02X%02X (esperado $0004, la instrucción que sigue al HALT)", im, mem[0xFFFE], mem[0xFFFD]);
+        z.irq = 0;
+        z80_step(NULL, &z); z80_step(NULL, &z);                         /* EI; RETI */
+        T(z.pc == 0x0004 && z.iff1 == 1 && z.sp == 0xFFFF, "modo %d: RETI volvió a $%04X", im, z.pc);
+    }
+    mem[2] = 0x56;
+    #undef T
+    printf("INT desde HALT: %s\n", fallas ? "con fallas" : "bien");
+    return fallas != 0;
+}
+
 int main(int argc, char **argv)
 {
     console_utf8();
+    if (argc == 2 && !strcmp(argv[1], "--int")) return int_test();
     const char *path = NULL, *name = NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v") && i + 1 < argc) verbose = atoi(argv[++i]);
@@ -112,7 +153,8 @@ int main(int argc, char **argv)
     }
     if (!path) {
         fprintf(stderr, "uso: z80test archivo.json | - [--name NOMBRE] [-v N]\n"
-                        "  (las pruebas vienen comprimidas: gunzip -c X.json.gz | z80test -)\n");
+                        "  (las pruebas vienen comprimidas: gunzip -c X.json.gz | z80test -)\n"
+                        "     z80test --int   (la interrupción desde un HALT, modos 1 y 2)\n");
         return 2;
     }
     FILE *f = strcmp(path, "-") ? fopen(path, "rb") : stdin;

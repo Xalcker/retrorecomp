@@ -559,8 +559,9 @@ int z80_step(struct Gen *g, Z80 *z)
     z->ei = 0;
     int t;
     if (z->irq && z->iff1 && !ei_was) {
-        /* Interrupción: en el Genesis el bus de datos lee $FF (IM 0 ejecuta RST 38h) */
-        if (z->halted) { z->halted = 0; z->pc++; }
+        /* Interrupción: en el Genesis el bus de datos lee $FF (IM 0 ejecuta RST 38h). Desde un HALT
+         * se apila la instrucción siguiente, donde ya quedó el PC (GENRecomp#15) */
+        z->halted = 0;
         z->iff1 = z->iff2 = 0;
         inc_r(z);
         push(&s, z->pc);

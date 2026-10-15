@@ -252,7 +252,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
 `bench` de cada proyecto) aceptan las mismas opciones que `gbtrace`, `gbshot`, `gbaudio`, `gbbench` y `difftest` de
-GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `src/platform/inputs.h`),
+GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `tools/retrorecomp/shared/inputs.h`),
 `--seed S` (suma un mando aleatorio reproducible: `src/platform/random_pad.h`, idéntico en GBRecomp, así que la misma
 semilla da la misma secuencia de botones en las dos consolas) y, en `nesbench`/`bench`, `--repeat N` (se reporta la corrida más rápida).
 Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde-hasta`):
@@ -278,9 +278,9 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 |---|---|
 | `src/runtime/` | La consola: `nes.c`, `cpu6502.c`, `cpu_ops.h`, `ppu.c`, `apu.c`, `mapper.c`, `recomp.h`; `sha1`, `console.h` (de GBRecomp). |
 | `src/nesrecomp/` | El recompilador. |
-| `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `inputs.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
+| `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `input_host.h`; varios de `tools/retrorecomp/shared`, como `inputs.h` y `cli.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
-| `tools/` | `retrorecomp/`: la GUI común con GBRecomp, GENRecomp y NEORecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). `truth/`: scripts de GBRecomp para comparar contra un desensamblado (por adaptar a 6502). |
+| `tools/` | `retrorecomp/`: la GUI común con GBRecomp, GENRecomp y NEORecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |

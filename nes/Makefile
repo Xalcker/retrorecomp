@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -60,19 +60,19 @@ all: $(PROGS:%=%$(EXE))
 nestest$(EXE): src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
-nesshot$(EXE): src/tools/nesshot.c $(SHARED)/png.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+nesshot$(EXE): src/tools/nesshot.c $(SHARED)/png.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c $(SHARED)/png.c $(RT)
 
-nesbench$(EXE): src/platform/bench.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+nesbench$(EXE): src/platform/bench.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
-nestrace$(EXE): src/tools/nestrace.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+nestrace$(EXE): src/tools/nestrace.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
-                  settings.c settings.h files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h inputs.h icono.h icono.rc icono.ico
+                  settings.c settings.h files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h inputs.h input_host.h icono.h icono.rc icono.ico
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
                   AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
@@ -107,7 +107,7 @@ dist: nesrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-nesramdump$(EXE): src/tools/nesramdump.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+nesramdump$(EXE): src/tools/nesramdump.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesramdump.c $(RT)
 
 inputtest$(EXE): src/tools/inputtest.c $(RT)
@@ -122,7 +122,7 @@ statetest$(EXE): src/tools/statetest.c $(RT)
 sramtest$(EXE): src/tools/sramtest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
 
-nesaudio$(EXE): src/tools/nesaudio.c src/platform/cli.h $(SHARED)/random_pad.h $(RT)
+nesaudio$(EXE): src/tools/nesaudio.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesaudio.c $(RT) -lm
 
 # (no se llama PLATFORM: ese nombre es el sistema del paquete de make dist, en el bloque común)

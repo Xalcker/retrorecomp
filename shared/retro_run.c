@@ -4,7 +4,10 @@
  * del recompilador, y da la misma salida que su *ramdump (o una captura PNG, o el sonido). Sirve de
  * oráculo para comparar contra el intérprete. Común (retrorecomp/shared); cada consola pone su
  * oracle_host.h (en tools/oracles) con ORACLE_BUTTONS (las descripciones de botón de los núcleos y sus
- * bits), ORACLE_RAM_BASE y ORACLE_RAM_NAME (qué RAM se vuelca y desde qué dirección).
+ * bits), ORACLE_RAM_BASE y ORACLE_RAM_NAME (qué RAM se vuelca y desde qué dirección) y, si no son los
+ * 64 KB de GENRecomp y NEORecomp, ORACLE_RAM_SIZE (el Master System tiene 8 KB en $C000). Si los botones de la
+ * consola no caen uno a uno en los del núcleo, ORACLE_PAD(botones, juego) los traduce antes (en el Master System,
+ * START es el botón 1 y la Pausa es el Start de los núcleos; en el Game Gear, no).
  *
  *   retro_run NUCLEO juego [--frames N] [--input archivo] [--seed S] [boton:desde-hasta ...]
  *             [--shot captura.png] [--wav sonido.wav] [--no-ram] [--vram] [--swap16] [--opt clave=valor ...]
@@ -45,6 +48,12 @@
 #include "png.h"
 #include "wav.h"
 #include "oracle_host.h"
+#ifndef ORACLE_RAM_SIZE
+#define ORACLE_RAM_SIZE 0x10000
+#endif
+#ifndef ORACLE_PAD
+#define ORACLE_PAD(p, game) (p)
+#endif
 
 static int verbose;
 static const char *sysdir = "build/oracles/sys";
@@ -285,8 +294,8 @@ int main(int argc, char **argv)
     }
 
     for (long fr = 0; fr < c.frames; fr++) {
-        pads[0] = cli_pad(&c, fr, 0);
-        pads[1] = cli_pad(&c, fr, 1);
+        pads[0] = ORACLE_PAD(cli_pad(&c, fr, 0), c.pos[1]);
+        pads[1] = ORACLE_PAD(cli_pad(&c, fr, 1), c.pos[1]);
         run();
     }
 
@@ -314,8 +323,8 @@ int main(int argc, char **argv)
     if (!no_ram) {                                      /* la RAM de trabajo, como el *ramdump de la consola */
         const u8 *ram = mem_data(RETRO_MEMORY_SYSTEM_RAM);
         size_t n = mem_size(RETRO_MEMORY_SYSTEM_RAM);
-        if (!ram || n < 0x10000) { fprintf(stderr, "el núcleo no expone " ORACLE_RAM_NAME " (%zu bytes)\n", n); return 2; }
-        for (u32 a = 0; a < 0x10000; a++) printf("%06X %02X\n", ORACLE_RAM_BASE | a, ram[swap16 ? a ^ 1 : a]);
+        if (!ram || n < ORACLE_RAM_SIZE) { fprintf(stderr, "el núcleo no expone " ORACLE_RAM_NAME " (%zu bytes)\n", n); return 2; }
+        for (u32 a = 0; a < ORACLE_RAM_SIZE; a++) printf("%06X %02X\n", (unsigned)(ORACLE_RAM_BASE | a), ram[swap16 ? a ^ 1 : a]);
     }
     if (verbose) fprintf(stderr, "cuadros con imagen: %ld, repetidos: %ld\n", frames_new, frames_dup);
     unload();

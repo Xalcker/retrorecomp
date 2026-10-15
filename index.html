@@ -135,7 +135,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
     <label class="f cap-bios" title="Ruta de una BIOS (p. ej. build/neobios.bin, la propia); vacío = la búsqueda normal (aes.zip, neo-epo.bin, neo-po.bin, neobios.bin). Se aplica como NEO_BIOS a todos los pasos y a Jugar">BIOS<input type="text" id="gBios" placeholder="vacío: la que se encuentre" style="width:22em"></label>
     <label class="f" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px" title="Jugar arranca en pantalla completa (--fullscreen; F11 la quita)"><input type="checkbox" class="optFull"> pantalla completa</label>
     <label class="f" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px" title="Jugar arranca sin barra de menús (--no-menu; los atajos siguen: F11, F5/F8, Alt+F4 para salir)"><input type="checkbox" class="optNoMenu"> sin menús</label>
-    <label class="f cap-model" title="Traza, captura, difftest y velocidad">Modelo<select id="aModel"><option value="">auto</option><option>dmg</option><option>cgb</option><option>sgb</option></select></label>
+    <label class="f cap-model" title="Traza, captura, difftest, velocidad y Jugar">Modelo<select id="aModel"><option value="">auto</option></select></label>
    </div>
   </div>
   <div class="tabs" id="tabs">
@@ -330,7 +330,7 @@ function renderRoms(){
   sel.value=S.romsys;
   const item=r=>{
     const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"";
-    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN",neo:"NEO"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd|zip|neo)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
+    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN",neo:"NEO",sms:"SMS"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd|zip|neo|sms|gg)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
   const roms=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)&&(!S.romsys||r.system===S.romsys));
   // Primero las que ya tienen su proyecto compilado (build/out/NOMBRE), luego las demás
   const built=roms.filter(r=>r.built), rest=roms.filter(r=>!r.built);
@@ -359,7 +359,9 @@ function applyCaps(){
   const c=sy.caps; ORG=sy.legend;
   $("#bBench").textContent=`Intérprete (${sy.bench_tool})`;
   const show=(sel,on)=>$$(sel).forEach(e=>e.classList.toggle("cap-hide",!on));
-  show(".cap-model",c.model);show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);show(".cap-bios",c.bios);
+  show(".cap-model",c.model);
+  // Los modelos de la consola (Game Boy: dmg cgb sgb; Master System: sms gg); vacío es «auto»
+  if($("#aModel").dataset.sys!==S.sys){$("#aModel").innerHTML='<option value="">auto</option>'+(sy.models||[]).map(m=>`<option>${m}</option>`).join("");$("#aModel").dataset.sys=S.sys}show(".cap-interp",c.interp_play);show(".cap-plays",c.plays_interp);show(".cap-notrace",c.notrace);show(".cap-bios",c.bios);
   for(const b of $$("#gBios,#eBios"))if(document.activeElement!==b)b.value=S.state.bios||"";
   if($("#gFrames").dataset.sys!==S.sys){$("#gFrames").value=c.game_frames||6000;$("#gFrames").dataset.sys=S.sys}
   $("#mapnote").textContent="("+(sy.map_note||"")+")";
@@ -518,7 +520,7 @@ $("#bAudio").onclick=guard(async()=>{
 });
 const play=guard(async(rec,recompiled)=>{
   const r=await api("/api/play",{rom:S.rom,record_trace:rec,trace_name:$("#pName").value,record_input:rec,input_name:$("#pIName").value,interp:$("#pInterp").checked||$("#pInterpN").checked,
-    fullscreen:$(".optFull").checked,no_menu:$(".optNoMenu").checked});
+    fullscreen:$(".optFull").checked,no_menu:$(".optNoMenu").checked,model:$("#aModel").value});
   toast(rec?"Grabando traza y entradas al cerrar la ventana":"Ventana abierta",true);
 });
 // Pantalla completa y sin menús al jugar: las mismas casillas en Fácil y en Experto, recordadas en este navegador

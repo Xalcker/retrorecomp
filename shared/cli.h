@@ -1,7 +1,7 @@
 /*
  * Opciones comunes de las herramientas sin ventana (nestrace, gentrace, neotrace... *shot, *audio,
- * *bench, *ramdump, difftest y bench del proyecto generado), las mismas en NESRecomp, GENRecomp y
- * NEORecomp (y, con su propio cli.h, en GBRecomp):
+ * *bench, *ramdump, difftest y bench del proyecto generado), las mismas en NESRecomp, GENRecomp, NEORecomp y
+ * SMSRecomp (y, con su propio cli.h, en GBRecomp):
  *   --frames N       cuadros a correr
  *   --input ARCHIVO  entradas grabadas (inputs.h); las de --record de la ventana sirven
  *   --seed S         suma un mando aleatorio reproducible con esa semilla

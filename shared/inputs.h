@@ -1,6 +1,6 @@
 /*
  * Entradas grabadas: archivo de texto con una línea por cambio de botones, el mismo formato en NESRecomp,
- * GENRecomp y NEORecomp (GBRecomp tiene el suyo, de un jugador y con el modelo en el encabezado).
+ * GENRecomp, NEORecomp y SMSRecomp (GBRecomp tiene el suyo, de un jugador y con el modelo en el encabezado).
  *
  *   # comentario
  *   0     -              (ningún botón desde el cuadro 0)

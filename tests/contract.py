@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prueba de contrato: las herramientas sin ventana de NESRecomp, GBRecomp, GENRecomp y NEORecomp aceptan
+"""Prueba de contrato: las herramientas sin ventana de NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp aceptan
 las mismas opciones comunes (--frames, --input, --seed). Sin ROMs: ejecuta cada herramienta sin argumentos y
 comprueba que su ayuda las menciona. También comprueba que el código compartido (SHARED, p. ej. el
 mando aleatorio random_pad.h) sea idéntico en todos los que encuentre, y que la prueba de compatibilidad sea gemela
@@ -7,7 +7,7 @@ mando aleatorio random_pad.h) sea idéntico en todos los que encuentre, y que la
 los oráculos con nombre. Lo de los datos publicados (docs/compat) sale como «pendiente», sin contar como falla: se
 arregla al volver a correr la prueba. Corre con los recompiladores ya compilados (make).
 
-    python3 tests/contract.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR]
+    python3 tests/contract.py [--nes DIR] [--gb DIR] [--gen DIR] [--neo DIR] [--sms DIR]
 """
 import argparse, json, os, re, subprocess, sys
 
@@ -24,6 +24,8 @@ COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
             "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat", "--seed")},
     "neo": {"neotrace": ("--frames", "--input", "--seed"), "neoshot": ("--frames", "--input", "--seed"),
             "neoaudio": ("--frames", "--input", "--seed"), "neobench": ("--frames", "--input", "--repeat", "--seed")},
+    "sms": {"smstrace": ("--frames", "--input", "--seed"), "smsshot": ("--frames", "--input", "--seed"),
+            "smsaudio": ("--frames", "--input", "--seed"), "smsbench": ("--frames", "--input", "--repeat", "--seed")},
 }
 
 # Archivos que todos tienen tal cual: los envoltorios de las pruebas comunes (el código vive en shared/) y las
@@ -43,20 +45,22 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
            # Las preferencias, las opciones comunes de las herramientas, la mezcla de GEN y NEO y sus oráculos
            os.path.join("src", "platform", "settings.c"), os.path.join("src", "platform", "cli.h"),
            os.path.join("src", "platform", "inputs.h"), os.path.join("src", "runtime", "audio.c"),
-           os.path.join("tools", "oracles", "retro_run.c"), os.path.join("tools", "oracles", "libretro_min.h"))
+           os.path.join("tools", "oracles", "retro_run.c"), os.path.join("tools", "oracles", "libretro_min.h"),
+           # El PSG (SN76489) de GENRecomp, común con SMSRecomp
+           os.path.join("src", "runtime", "psg.c"))
 
 # Los movidos que algún repo conserva a propósito: GBRecomp tiene su inputs.h (un jugador, con el modelo en el
 # encabezado) y su src/tools/cli.h
 PROPIOS = {os.path.join("src", "platform", "inputs.h"): ("gb",)}
 
-# Archivos que solo tienen algunos (las consolas con 68000 y Z80): idénticos entre los que los tienen
-SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo")}
+# Archivos que solo tienen algunos (las consolas con 68000 o con Z80): idénticos entre los que los tienen
+SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo", "sms")}
 
-# Las entradas guionadas del ciclo son las mismas en NES, Game Boy y Genesis; el Neo Geo tiene las suyas
+# Las entradas guionadas del ciclo son las mismas en NES, Game Boy, Genesis y Master System; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)
 PROPIOS_NEO = (os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
 
-# Lo que el motor de compatibilidad fija para los cuatro: un run.py no lo redefine
+# Lo que el motor de compatibilidad fija para los cinco: un run.py no lo redefine
 COMUNES_COMPAT = ("cuadros_diff", "metrica", "re_metrica")
 
 
@@ -118,11 +122,13 @@ def main():
     ap.add_argument("--gb")
     ap.add_argument("--gen")
     ap.add_argument("--neo")
+    ap.add_argument("--sms")
     a = ap.parse_args()
     roots = {"nes": rr.find_repo("NESRecomp", "NESRECOMP_DIR", a.nes, os.path.join("src", "nesrecomp", "nesrecomp.c")),
              "gb": rr.find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c")),
              "gen": rr.find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c")),
-             "neo": rr.find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c"))}
+             "neo": rr.find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c")),
+             "sms": rr.find_repo("SMSRecomp", "SMSRECOMP_DIR", a.sms, os.path.join("src", "smsrecomp", "smsrecomp.c"))}
     fails = checked = 0
     for sid, tools in COMMON.items():
         root = roots[sid]

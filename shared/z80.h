@@ -1,9 +1,11 @@
 /*
- * Z80: estado y lo que pide del bus. Corre el programa de sonido, siempre interpretado (z80.c): en el
- * Genesis desde su RAM de 8 KB, en el Neo Geo desde la M1 ROM del cartucho (con bancos) y 2 KB de RAM.
+ * Z80: estado y lo que pide del bus. En el Genesis y en el Neo Geo corre el programa de sonido, siempre
+ * interpretado (z80.c): en el Genesis desde su RAM de 8 KB, en el Neo Geo desde la M1 ROM del cartucho
+ * (con bancos) y 2 KB de RAM. En el Master System es el CPU principal y también se recompila: la semántica
+ * de cada instrucción está en z80_ops.h, la misma para el intérprete y el código generado.
  *
- * Común a GENRecomp y NEORecomp (retrorecomp/shared). Cada consola pone su z80_host.h, que define
- * Z80_HOST, el tipo de la consola (Gen, Neo) que reciben z80_step y las funciones del bus.
+ * Común a GENRecomp, NEORecomp y SMSRecomp (retrorecomp/shared). Cada consola pone su z80_host.h, que
+ * define Z80_HOST, el tipo de la consola (Gen, Neo, Sms) que reciben z80_step y las funciones del bus.
  */
 #ifndef Z80_H
 #define Z80_H

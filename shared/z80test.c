@@ -6,6 +6,13 @@
  *   gunzip -c testroms/z80/v1/ed b0.json.gz | ./z80test - --name "ed b0" [-v N]
  *
  * Imprime "NOMBRE: pasadas/total" y, con -v N, el detalle de las primeras N que fallan.
+ *
+ *   ... | ./z80test - --recomp   cada instrucción como la ejecuta el código generado (z80_exec de z80_ops.h
+ *                                con los bytes de la instrucción), y además el ciclo en que accede a un
+ *                                puerto (Z80_IO_AT) contra el que marcan las pruebas
+ *
+ * Por los dos caminos se comprueba también el decodificador (z80_decode): el largo y el destino contra el
+ * PC final y los ciclos (con salto o sin él) contra los de la prueba.
  * Las SingleStepTests no tienen interrupciones; para eso hay dos pruebas propias:
  *
  *   ./z80test --int   la INT desde un HALT, en modos 1 y 2: se apila la instrucción que sigue al
@@ -20,6 +27,13 @@
 #include "z80.h"
 #include "console.h"
 #include "json.h"
+
+/* El camino del código generado, con el gancho de los puertos: anota en qué ciclo de la instrucción se
+ * accede (-1: ninguno) */
+static int io_at = -1;
+#undef Z80_IO_AT
+#define Z80_IO_AT(g, t) (io_at = (t))
+#include "z80_ops.h"
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -44,7 +58,7 @@ uint8_t z80_in(struct Z80_HOST *g, uint16_t port)
 }
 void z80_out(struct Z80_HOST *g, uint16_t port, uint8_t v) { (void)g; out_port = port; out_val = v; }
 
-static int verbose;
+static int verbose, recomp;
 static char why[2048];
 #define DIFF(...) do { size_t l = strlen(why); snprintf(why + l, sizeof why - l, __VA_ARGS__); bad = 1; } while (0)
 
@@ -80,7 +94,16 @@ static int run_one(int t)
     port_test = get(t, "ports");
     out_port = out_val = -1;
     load(&z, ini);
-    int cyc = z80_step(NULL, &z);
+    uint16_t pc0 = z.pc;
+    uint8_t f0 = z.f, b0 = z.b;
+    uint8_t ops[4] = { mem[pc0], mem[(uint16_t)(pc0 + 1)], mem[(uint16_t)(pc0 + 2)], mem[(uint16_t)(pc0 + 3)] };
+    int cyc;
+    io_at = -1;
+    if (recomp) {
+        Z80X x = { NULL, &z, ops, 0, z.pc, 0, 0 };
+        cyc = z80_exec(&x);
+        z.pc = x.pc;
+    } else cyc = z80_step(NULL, &z);
     int bad = 0;
 #define R8(f, k) if (z.f != (u8)num(fi, k)) DIFF(" %s=%02X(esperado %02X)", k, z.f, (u8)num(fi, k))
 #define R16(f, k) if (z.f != (u16)num(fi, k)) DIFF(" %s=%04X(esperado %04X)", k, z.f, (u16)num(fi, k))
@@ -98,6 +121,33 @@ static int run_one(int t)
     int ncyc = 0, cy = get(t, "cycles");
     for (int k = nodes[cy].first; k >= 0; k = nodes[k].next) ncyc++;
     if (cyc != ncyc) DIFF(" ciclos=%d(esperado %d)", cyc, ncyc);
+    /* El decodificador: ¿salta? (la condición con las banderas de antes; DJNZ con B; los de bloque, si
+     * vuelven a sí mismos), y entonces el largo o el destino y los ciclos */
+    Z80Insn in;
+    z80_decode(ops, pc0, &in);
+    uint16_t pcf = (uint16_t)num(fi, "pc");
+    Z80 cz = { 0 };
+    cz.f = f0;
+    int taken = in.kind == Z80_INS_REPEAT ? pcf == pc0 : in.kind == Z80_INS_DJNZ ? (uint8_t)(b0 - 1) != 0
+              : in.cond ? !!z_cond(&cz, in.cond - 1) : 1;
+    int has_target = in.kind == Z80_INS_JP || in.kind == Z80_INS_JR || in.kind == Z80_INS_DJNZ || in.kind == Z80_INS_CALL
+                  || in.kind == Z80_INS_RST || in.kind == Z80_INS_REPEAT;
+    if ((taken ? in.cycles_taken : in.cycles) != ncyc)
+        DIFF(" decodificador: ciclos=%d(esperado %d)", taken ? in.cycles_taken : in.cycles, ncyc);
+    if (in.kind != Z80_INS_RET && in.kind != Z80_INS_RETI && in.kind != Z80_INS_JP_IND) {
+        uint16_t want = taken && has_target ? in.target : (uint16_t)(pc0 + in.len);
+        if (want != pcf) DIFF(" decodificador: siguiente=%04X(esperado %04X, largo %d)", want, pcf, in.len);
+    }
+    /* El ciclo del acceso al puerto (solo por el camino del código generado: el intérprete se compiló con
+     * el z80_host.h de la consola) */
+    if (recomp) {
+        int want_io = -1, i = 0;
+        for (int k = nodes[cy].first; k >= 0 && want_io < 0; k = nodes[k].next, i++) {
+            int fl = child(k, 2);
+            if (fl >= 0 && nodes[fl].slen >= 4 && nodes[fl].s[3] == 'i') want_io = i;
+        }
+        if (io_at != want_io) DIFF(" puerto en el ciclo %d(esperado %d)", io_at, want_io);
+    }
     if (port_test >= 0)
         for (int k = nodes[port_test].first; k >= 0; k = nodes[k].next)
             if (nodes[child(k, 2)].s[0] == 'w' && (out_port != (int)nodes[child(k, 0)].num || out_val != (int)nodes[child(k, 1)].num))
@@ -189,10 +239,11 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v") && i + 1 < argc) verbose = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
+        else if (!strcmp(argv[i], "--recomp")) recomp = 1;
         else path = argv[i];
     }
     if (!path) {
-        fprintf(stderr, "uso: z80test archivo.json | - [--name NOMBRE] [-v N]\n"
+        fprintf(stderr, "uso: z80test archivo.json | - [--name NOMBRE] [-v N] [--recomp]\n"
                         "  (las pruebas vienen comprimidas: gunzip -c X.json.gz | z80test -)\n"
                         "     z80test --int   (la interrupción desde un HALT, modos 1 y 2)\n"
                         "     z80test --nmi   (la NMI y la INT en modo 1)\n");

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de GENRecomp con una colección de ROMs (por omisión, las de roms/). El motor es común a
-NESRecomp, GBRecomp y GENRecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio del Genesis,
+NESRecomp, GBRecomp, GENRecomp y NEORecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio del Genesis,
 más los oráculos: con --oraculos, la RAM del 68000 y la imagen a los cuadros 600 y 1200 de las ROMs de la etapa 2
 contra Genesis Plus GX y BlastEm (tools/oracles/oracle.py, que los baja la primera vez).
 
@@ -25,8 +25,6 @@ class GEN(compat.Sistema):
     id, nombre, consola, exts = "gen", "GENRecomp", "Sega Genesis", (".bin", ".md", ".gen", ".smd")
     categoria_nombre = "Cartucho"
     botones = ("B", "C")
-    cuadros_diff = 1800
-    metrica, re_metrica = "ciclos", r"([\d.]+)% de los ciclos"
     compara = "68000, RAM, VDP, Z80, YM2612, PSG, mandos, cartucho, imagen y audio tras cada función 68000"
     escala_mini = 2
     cupo = {"hasta 512 KB": 4, "1 MB": 5, "2 MB": 5, "3-4 MB": 4, "SRAM": 4, "EEPROM": 3, "SSF2": 2}
@@ -105,6 +103,8 @@ class GEN(compat.Sistema):
             except (SystemExit, Exception) as e:  # noqa: BLE001
                 res[str(n)] = {"error": str(e)[:200]}
         return res
+
+    nombres_oraculos = ("Genesis Plus GX", "BlastEm")
 
     def columnas_oraculos(self, r):
         cols = []

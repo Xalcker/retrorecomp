@@ -1,6 +1,6 @@
 /*
  * Mezcla del sonido a 44 100 Hz en estéreo de 16 bits (audio.c): el estado que vive dentro de la
- * consola. Común a GENRecomp y NEORecomp (retrorecomp/shared); cada consola pone su audio_host.h (ver
+ * consola. Común a GENRecomp, NEORecomp y SMSRecomp (retrorecomp/shared); cada consola pone su audio_host.h (ver
  * audio.c).
  */
 #ifndef AUDIO_H

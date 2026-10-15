@@ -1,5 +1,5 @@
 /*
- * Funciones de la ventana (SDL2) idénticas en NESRecomp, GENRecomp y NEORecomp, donde el nombre del
+ * Funciones de la ventana (SDL2) idénticas en NESRecomp, GENRecomp, NEORecomp y SMSRecomp, donde el nombre del
  * juego sale del archivo de la ROM (app->name). GBRecomp no las usa: su ejecutable es de un solo juego
  * y el nombre es de compilación. main_sdl.c define PLAYER_NAME ("GENRecomp"...) antes de incluirlo,
  * después de App, `static App *the_app;` y los datos del ícono (icono.h); necesita player_common.h.

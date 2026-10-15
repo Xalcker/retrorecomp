@@ -52,8 +52,9 @@ guiones pulsan Start y A desde el cuadro 1200.
 ## Con la BIOS propia
 
 Los mismos 8 juegos con la BIOS propia (`make neobios`, fase 10) en lugar de `neo-epo.bin`
-(`NEO_BIOS=build/neobios.bin python3 tools/compat/run.py --salida build/compat-neobios`; el informe en
-[`compat-neobios/index.html`](compat-neobios/index.html)): **8 de 8 corren y salen recompilados sin
+(`NEO_BIOS=build/neobios.bin python3 tools/compat/run.py`: va al mismo `docs/compat` como la colección «BIOS
+propia»; la corrida anterior está todavía en [`compat-neobios/index.html`](compat-neobios/index.html) hasta que se
+repita): **8 de 8 corren y salen recompilados sin
 diferencias**, con el 99,2-100 % de los ciclos en código recompilado y de 49× a 102× el tiempo real (más rápido
 que con la original: su VBLANK y su `SYSTEM_IO` hacen menos). Todavía no tiene la animación de la pantalla de
 SNK.

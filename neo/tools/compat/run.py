@@ -6,7 +6,9 @@ los juegos de la etapa 2 contra Geolith y FBNeo (tools/oracles/oracle.py, que lo
 
 Lo propio del Neo Geo: el juego es el zip de MAME entero (o un .neo), los zips de las BIOS (aes.zip,
 neogeo.zip) se saltan, los datos salen de neorecomp --info y los cifrados o protegidos quedan «sin soporte».
-La BIOS del AES tarda unos 20 s en dejar el juego en su demo: las capturas y los guiones van más tarde.
+La BIOS del AES tarda unos 20 s en dejar el juego en su demo: las capturas y los guiones van más tarde. Las
+dos BIOS son dos colecciones del mismo informe (docs/compat): «BIOS de SNK» con roms/aes.zip (o NEO_BIOS con la
+de SNK) y «BIOS propia» con NEO_BIOS=build/neobios.bin. Los oráculos solo se comparan con la de SNK.
 
 Uso (en la raíz del repo, con todo compilado con "make" y la BIOS del AES en roms/aes.zip o NEO_BIOS):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
@@ -26,14 +28,19 @@ ORDEN = ["hasta 1 MB", "2 MB", "P2 fijo", "P2 con bancos", "cifrado"]
 BIOS = ("aes.zip", "neogeo.zip")
 
 
+def bios_snk():
+    """¿Las herramientas usarán la BIOS de SNK (aes.zip, neo-epo.bin...)? Solo si NEO_BIOS la nombra: sin NEO_BIOS,
+    la búsqueda del runtime toma primero la propia, neobios.bin (src/runtime/bios.c)"""
+    b = os.environ.get("NEO_BIOS", "")
+    return bool(b) and pathlib.Path(b).name.lower() != "neobios.bin"
+
+
 class NEO(compat.Sistema):
     id, nombre, consola, exts = "neo", "NEORecomp", "Neo Geo (AES)", (".neo",)
     juego_zip = True
     categoria_nombre = "Programa"
     botones = ("A", "B")
-    cuadros_diff = 1800
     cuadros1 = (1200, 2400, 3600)
-    metrica, re_metrica = "ciclos", r"([\d.]+)% de los ciclos"
     compara = ("68000, ciclos, RAM, VRAM, LSPC, paleta, latch y banco de P2, tarjeta, Z80 y su RAM, YM2610, mezcla y "
                "bus abierto tras cada función 68000; imagen y audio al final de cada cuadro")
     escala_mini = 2
@@ -41,6 +48,11 @@ class NEO(compat.Sistema):
 
     def es_juego(self, p):
         return p.name.lower() not in BIOS
+
+    def coleccion(self, carpeta):
+        """La BIOS con la que corre: los mismos juegos con la de SNK y con la propia son dos colecciones del mismo
+        informe y no se deduplican (NEORecomp#15)"""
+        return "BIOS de SNK" if bios_snk() else "BIOS propia"
 
     def guiones(self):
         """Start y A pasan de la demo y de los menús a la partida; después golpes y movimiento (las entradas de
@@ -74,6 +86,12 @@ class NEO(compat.Sistema):
 
     def soportado(self, r):
         return not r.get("no_soportado")
+
+    def migrar(self, r):
+        """Las filas de antes de separar las BIOS se corrieron con la de SNK y se llamaban como la carpeta"""
+        if r.get("coleccion") == "roms":
+            r["coleccion"] = "BIOS de SNK"
+        return r
 
     def categoria(self, r):
         if r.get("no_soportado"):
@@ -110,6 +128,9 @@ class NEO(compat.Sistema):
         return r.get("no_soportado") or ""
 
     def oraculos(self, f, guion):
+        """Solo con la BIOS de SNK: con la propia la RAM difiere desde el arranque, porque su código es otro"""
+        if f.get("coleccion") != "BIOS de SNK":
+            return None
         import oracle
         res = {}
         for n in (1200, 2400):
@@ -119,6 +140,8 @@ class NEO(compat.Sistema):
             except (SystemExit, Exception) as e:  # noqa: BLE001
                 res[str(n)] = {"error": str(e)[:200]}
         return res
+
+    nombres_oraculos = ("Geolith", "FBNeo")
 
     def columnas_oraculos(self, r):
         cols = []

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Prueba de compatibilidad de NESRecomp con una colección de ROMs. El motor es común a NESRecomp, GBRecomp y
-GENRecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio de la NES.
+"""Prueba de compatibilidad de NESRecomp con una colección de ROMs. El motor es común a NESRecomp, GBRecomp, GENRecomp y NEORecomp
+(tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio de la NES.
 
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
@@ -29,8 +29,6 @@ class NES(compat.Sistema):
     id, nombre, consola, exts = "nes", "NESRecomp", "NES", (".nes",)
     categoria_nombre = "Mapper"
     botones = ("A", "B")
-    cuadros_diff = 1500
-    metrica, re_metrica = "ciclos", r"([\d.]+)% de los ciclos"
     compara = "CPU, ciclos, RAM, PPU, APU, mapper, RAM del cartucho, imagen y audio"
     escala_mini = 2
     cupo = {0: 4, 1: 6, 2: 4, 3: 4, 4: 8, 5: 6, 7: 4}

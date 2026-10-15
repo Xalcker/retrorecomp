@@ -26,7 +26,26 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "compat"))
-from run import GUION                                   # las mismas entradas que la prueba de compatibilidad
+from run import NES, compat                             # las mismas entradas que la prueba de compatibilidad
+
+
+def tramos(texto):
+    """El guion de la etapa 1 (archivo de entradas: «cuadro BOTONES» en cada cambio) en la sintaxis boton:desde-hasta
+    que aceptan nesshot y tools/oracles/mesen.py"""
+    abiertos, out = {}, []
+    for linea in texto.splitlines():
+        if not linea.strip() or linea.startswith("#"):
+            continue
+        f, pad = linea.split()
+        f, pad = int(f), set() if pad == "-" else set(pad.split("+"))
+        for b in sorted(set(abiertos) - pad):
+            out.append(f"{b.lower()}:{abiertos.pop(b)}-{f - 1}")
+        for b in sorted(pad - set(abiertos)):
+            abiertos[b] = f
+    return " ".join(out)
+
+
+GUION = tramos(compat.guiones(NES(ROOT))[0])
 
 EXE = ".exe" if os.name == "nt" else ""
 PEQUENA = 256 * 240 // 100                              # 1 % de los píxeles

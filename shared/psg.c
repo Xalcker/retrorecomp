@@ -23,6 +23,11 @@
 
 #define MCLK_PER_TICK 240       /* 15 (Z80) x 16 */
 
+#ifndef PROF_ENTER              /* la consola no usa prof.h (--perfil): no se marca la zona */
+#define PROF_ENTER(z) ((void)0)
+#define PROF_LEAVE() ((void)0)
+#endif
+
 static float level[16];
 static int level_ready;
 
@@ -58,6 +63,7 @@ static void output(PSG_HOST *g, float *l, float *r)
 void psg_run(PSG_HOST *g, uint64_t mclk)
 {
     Psg *p = PSG_OF(g);
+    PROF_ENTER(PROF_SONIDO);
     while (p->mclk + MCLK_PER_TICK <= mclk) {
         float l, r;
         output(g, &l, &r);
@@ -78,6 +84,7 @@ void psg_run(PSG_HOST *g, uint64_t mclk)
             }
         }
     }
+    PROF_LEAVE();
 }
 
 void psg_write(PSG_HOST *g, uint8_t v, uint64_t mclk)

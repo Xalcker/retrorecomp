@@ -85,6 +85,7 @@ static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[4
 #include "recomp.h"
 #endif
 #include "ramtrace.h"
+#include "romtrace.h"
 #include "settings.h"
 #include "sha1.h"
 #include "ui_font.h"
@@ -194,8 +195,7 @@ static int ask_for_rom(Rom *rom)
 /* Cobertura (--uncovered)                                             */
 /* ------------------------------------------------------------------ */
 
-#define MAX_BANKS 512
-static u8 *uncovered[MAX_BANKS];
+static u8 *uncovered[ROM_SLOTS];     /* por ranura (romtrace.h) */
 
 static void mark_uncovered(GB *g)
 {
@@ -207,20 +207,21 @@ static void mark_uncovered(GB *g)
         ramtrace_observe(g, pc);
         return;
     }
-    u32 bank = pc < 0x4000 ? g->mbc.bank0 : g->mbc.bankx;
-    if (pc >= 0x8000 || bank >= MAX_BANKS) return;
-    if (!uncovered[bank]) uncovered[bank] = calloc(0x4000, 1);
-    if (uncovered[bank]) uncovered[bank][pc & 0x3FFF] = 1;
+    u32 slot;
+    u16 off;
+    if (!rom_slot(g, pc, &slot, &off)) return;
+    if (!uncovered[slot]) uncovered[slot] = calloc(0x4000, 1);
+    if (uncovered[slot]) uncovered[slot][off] = 1;
 }
 
 static void write_uncovered(const char *path)
 {
     FILE *f = u8_fopen(path, "a");
     if (!f) return;
-    for (u32 b = 0; b < MAX_BANKS; b++)
-        for (u32 off = 0; uncovered[b] && off < 0x4000; off++)
-            if (uncovered[b][off])
-                fprintf(f, "%02X:%04X\n", b, (unsigned)(b == 0 ? off : 0x4000 + off));
+    for (u32 s = 0; s < ROM_SLOTS; s++)
+        for (u32 off = 0; uncovered[s] && off < 0x4000; off++)
+            if (uncovered[s][off])
+                fprintf(f, "%02X:%04X\n", rom_slot_bank(s), (unsigned)rom_slot_addr(s, (u16)off));
     ramtrace_write(f);
     fclose(f);
 }

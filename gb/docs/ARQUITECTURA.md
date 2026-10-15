@@ -333,10 +333,14 @@ L_14F5: /* jr nz, $1500 */
   emulada**, así que los trucos de pila funcionan.
 - En funciones de bancos ≥ 1, después de cada instrucción que puede escribir en
   `$0000-$7FFF` se comprueba que el banco siga siendo el mismo. Si el código
-  cambió su propio banco, regresa al despachador.
-- `gen/dispatch.c` tiene tablas banco → página de 256 bytes → función. El
-  código del banco 0 solo se usa si está mapeado en `$0000` y el de los demás
-  bancos solo en `$4000`. Cualquier otra combinación va al intérprete.
+  cambió su propio banco, regresa al despachador. En el MBC1 de más de 512 KB,
+  el código de `$0000-$3FFF` comprueba lo mismo con el banco de `$0000` (ver
+  «Otro banco en `$0000-$3FFF`»).
+- `gen/dispatch.c` tiene tablas ranura → página de 256 bytes → función. El
+  código del banco 0 solo se usa si está mapeado en `$0000`, el de los demás
+  bancos en `$4000` y sus vistas (`f10v_0150`, el banco `$10` compilado para
+  `$0000-$3FFF`) cuando el modo 1 del MBC1 los pone en `$0000`. Cualquier otra
+  combinación va al intérprete.
 
 ### Rutinas que el juego copia a HRAM
 
@@ -548,6 +552,44 @@ diferencias en la prueba diferencial.
 `tests/recomp_game.sh ROM NOMBRE` hace el ciclo completo para un juego:
 recompila, compila, prueba con varias semillas, junta la traza, recompila con
 ella y vuelve a probar.
+
+### Otro banco en `$0000-$3FFF` (modo 1 del MBC1)
+
+En el modo 1 del MBC1, `$0000-$3FFF` no muestra el banco 0 sino el de los bits
+altos: `$20`, `$40` o `$60` en las ROMs de más de 512 KB, y `$10`, `$20` o `$30`
+en los cartuchos de varios juegos (MBC1M), donde así corre cada juego: el menú
+del banco 0 escribe el modo y los bits altos, y desde la instrucción siguiente
+el CPU lee el juego. Ese código usa direcciones de `$0000-$3FFF`, así que
+`gbrecomp` lo compila aparte, en una **vista** del banco: la ranura
+`nbanks + B` es el banco B visto en `$0000-$3FFF` (`gen/bank10v_*.c`), y el
+despachador la usa cuando `g->mbc.bank0` es B.
+
+- **De dónde salen.** En los MBC1M, de la cabecera de cada juego (`$0100` y los
+  vectores de interrupción de los bancos `$10`, `$20` y `$30` que repiten el
+  logo); el banco activo de cada juego tiene sus mismos bits altos
+  (`mbc_bank`). En los demás MBC1 grandes, de la traza.
+- **La traza anota la dirección real.** Las líneas `BB:AAAA` llevan la
+  dirección con que corrió la instrucción (`trace_line.h`): `10:015A`, no
+  `10:415A`. `difftest`, `gbtrace` y el ejecutable cuentan por ranura
+  (`src/platform/romtrace.h`); antes escribían `0x4000 + desplazamiento` y
+  `gbrecomp` compilaba ese código para `$4000`, donde nunca corre.
+- **El banco puede cambiar debajo del código.** Después de una escritura que
+  puede llegar al MBC, el código de `$0000-$3FFF` comprueba que el banco de
+  `$0000` siga siendo el suyo; si no, regresa al despachador. Antes el código
+  compilado del banco 0 seguía con sus propios bytes después de que el menú
+  ponía el banco del juego, y `difftest` lo delata con la ROM mínima de
+  `tests/run_tests.sh` (Bomberman Collection no lo mostraba porque salta al
+  juego desde un trampolín en WRAM).
+- Las rutinas especiales del banco 0 (argumentos en línea, trampolines,
+  despachadores con tabla) se reconocen solo en el banco 0: desde una vista no
+  se aplican, y lo que falte lo trae la traza.
+
+Bomberman Collection (MBC1M, 1 MB), ciclo de dos rondas de 3000 cuadros con la
+semilla 1: el código recompilado pasa de 18.8 % a **50.7 % de los ciclos** (el
+resto es HALT), las instrucciones de ROM interpretadas de 3728 a **0**, sin
+diferencias. Con las demás ROMs de la muestra (ningún otro MBC1 de más de
+512 KB) `gbrecomp` genera el mismo código; solo cambia la tabla de
+`gen/dispatch.c`.
 
 ### MBC
 
@@ -917,6 +959,12 @@ Primera diferencia en el cuadro 401, instrucción 2943 del cuadro,
 Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecutó
 el intérprete y los bytes del código de WRAM y HRAM que ejecutó (para `gbrecomp --trace`),
 `--screens carpeta --every N` guarda capturas y `--bench` mide la velocidad de cada máquina.
+
+El porcentaje «de los ciclos» de la primera línea cuenta todo el tiempo de la máquina, incluido
+el que el CPU pasa en HALT esperando una interrupción, así que un juego sin nada interpretado
+puede quedar lejos del 100 %: International Superstar Soccer marca 56.5 % con el 43.5 % en HALT,
+y Rayman 20.8 % con el 79.0 % en HALT, los dos con menos del 0.1 % de los ciclos en el
+intérprete. Lo que falta compilar se ve en la línea de instrucciones y en las de abajo.
 
 Al final imprime cuántas instrucciones corrieron recompiladas y cuántas en el intérprete (por
 zona: ROM, RAM del cartucho, WRAM y HRAM), las 20 direcciones de ROM que más ejecutó el

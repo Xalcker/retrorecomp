@@ -12,26 +12,23 @@
  */
 #include "cli.h"
 #include "../platform/ramtrace.h"
+#include "../platform/romtrace.h"
 #include "trace_line.h"
 
-#define MAX_BANKS 512
-static unsigned char *executed[MAX_BANKS];
+static unsigned char *executed[ROM_SLOTS];     /* por ranura (romtrace.h) */
 
 static void record(GB *g)
 {
     u16 pc = g->cpu.pc;
-    u32 bank;
+    u32 slot;
     u16 off;
     if ((pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF)) {
         ramtrace_observe(g, pc);
         return;
     }
-    if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
-    else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
-    else return;
-    if (bank >= MAX_BANKS) return;
-    if (!executed[bank]) executed[bank] = calloc(0x4000, 1);
-    executed[bank][off] = 1;
+    if (!rom_slot(g, pc, &slot, &off)) return;
+    if (!executed[slot]) executed[slot] = calloc(0x4000, 1);
+    executed[slot][off] = 1;
 }
 
 int main(int argc, char **argv)
@@ -53,11 +50,11 @@ int main(int argc, char **argv)
     FILE *o = fopen(c.out, "w");
     if (!o) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
     size_t n = 0;
-    for (u32 b = 0; b < MAX_BANKS; b++) {
-        if (!executed[b]) continue;
+    for (u32 s = 0; s < ROM_SLOTS; s++) {
+        if (!executed[s]) continue;
         for (u32 off = 0; off < 0x4000; off++) {
-            if (!executed[b][off]) continue;
-            trace_line_write(o, 14, 4, (unsigned long)b << 14 | off, b == 0 ? off : 0x4000 + off);
+            if (!executed[s][off]) continue;
+            trace_line_write(o, 14, 4, (unsigned long)rom_slot_bank(s) << 14 | off, rom_slot_addr(s, (u16)off));
             n++;
         }
     }

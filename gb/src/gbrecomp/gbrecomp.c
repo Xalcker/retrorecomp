@@ -111,7 +111,10 @@ typedef uint32_t u32;
 
 static u8 *rom;
 static u32 rom_size, nbanks;
-static u8 **flags;
+static u8 **flags;          /* por ranura: los bancos y sus vistas en $0000-$3FFF (ver is_low) */
+static int mbc1_low;        /* MBC1 de más de 512 KB: el modo 1 pone otro banco en $0000-$3FFF */
+static int multicart;       /* MBC1M: cartucho de varios juegos (como el detect de mbc.c) */
+static u32 mbc_high;        /* MBC1 grande: bits altos del banco que se recorre (mbc_bank) */
 
 typedef struct {
     u32 bank;
@@ -144,9 +147,56 @@ static void die(const char *fmt, ...)
     exit(1);
 }
 
-static u16 region_base(u32 bank) { return bank == 0 ? 0x0000 : 0x4000; }
+/*
+ * Ranuras. La ranura B (< nbanks) es el banco B en su región de siempre: el 0 en $0000-$3FFF y
+ * los demás en $4000-$7FFF. Pero en el modo 1 del MBC1, $0000-$3FFF muestra otro banco ($20,
+ * $40 o $60 en las ROMs de más de 512 KB; $10, $20 o $30 en los cartuchos de varios juegos,
+ * MBC1M, donde así corre cada juego), y ese código usa direcciones de $0000-$3FFF: se compila
+ * aparte, en la ranura nbanks + B, la vista del banco B en $0000-$3FFF. Las vistas salen de la
+ * traza (líneas "10:0150", ver romtrace.h) y, en los MBC1M, de los vectores de cada juego; sus
+ * banderas se reservan al crearlas (view_slot). El despachador usa la vista cuando g->mbc.bank0
+ * es B (emit_dispatch).
+ */
+static int is_low(u32 slot) { return slot == 0 || slot >= nbanks; }
 
-static const u8 *bank_ptr(u32 bank) { return rom + (size_t)bank * BANK_SIZE; }
+static u32 slot_bank(u32 slot) { return slot % nbanks; }
+
+static u16 region_base(u32 bank) { return is_low(bank) ? 0x0000 : 0x4000; }
+
+static const u8 *bank_ptr(u32 bank) { return rom + (size_t)slot_bank(bank) * BANK_SIZE; }
+
+/* La ranura del banco `bank` visto en $0000-$3FFF (0 para el banco 0) */
+static u32 view_slot(u32 bank)
+{
+    if (bank == 0) return 0;
+    u32 s = nbanks + bank;
+    if (!flags[s] && !(flags[s] = calloc(BANK_SIZE, 1))) die("sin memoria");
+    return s;
+}
+
+/* La ranura de una línea de traza "BB:AAAA" (-1 si no es una dirección de la ROM) */
+static long trace_slot(u32 bank, u32 addr)
+{
+    if (bank >= nbanks || addr > 0x7FFF) return -1;
+    if (bank != 0 && addr < 0x4000) return view_slot(bank);
+    return addr < 0x4000 || bank != 0 ? (long)bank : -1;
+}
+
+/* Nombre de la ranura en el código generado: "10" el banco $10, "10v" su vista en $0000 */
+static const char *slot_tag(u32 slot)
+{
+    static char buf[4][8];
+    static int k;
+    k = (k + 1) % 4;
+    snprintf(buf[k], sizeof buf[k], is_low(slot) && slot ? "%02Xv" : "%02X", slot_bank(slot));
+    return buf[k];
+}
+
+/* ¿El byte del banco es parte de una instrucción, en su región o en su vista? */
+static int body_at(u32 bank, u32 off)
+{
+    return (flags[bank][off] & F_BODY) || (flags[nbanks + bank] && (flags[nbanks + bank][off] & F_BODY));
+}
 
 /* Byte en la dirección `addr` vista desde el banco `bank` */
 static int in_region(u32 bank, u32 addr)
@@ -179,9 +229,12 @@ static void push_work(u32 bank, u16 addr)
 /* Banco de una dirección de ROM vista desde el banco `from` (-1 si no se sabe) */
 static long bank_of(u32 from, u16 a)
 {
-    if (a < 0x4000) return 0;
+    if (a < 0x4000) {
+        if (is_low(from)) return from;
+        return multicart ? view_slot(from & 0x30) : 0;   /* MBC1M: el juego del banco */
+    }
     if (a >= 0x8000) return -1;
-    if (from != 0) return (long)from;
+    if (!is_low(from)) return (long)from;
     return nbanks == 2 ? 1 : -1;
 }
 
@@ -761,6 +814,14 @@ static int bank_iface(u32 bank)
 /* Banco efectivo de un número escrito al registro de banco */
 static u32 mbc_bank(int v)
 {
+    /* MBC1 grande: el registro de $2000 da los bits bajos (5, o 4 en el MBC1M; el 0 se lee
+     * como 1) y los altos son los del banco que se recorre, que el juego no cambia ahí */
+    if (multicart || mbc_high) {
+        u32 low = (u32)v & 0x1F;
+        if (!low) low = 1;
+        u32 b = mbc_high | (multicart ? low & 0x0F : low);
+        return b ? b : 1;   /* MBC1M: con $10 el banco 0 aparece en $4000; no se compila ahí */
+    }
     u32 b = (u32)v % nbanks;
     return b == 0 && nbanks > 2 ? 1 : b;   /* MBC1/3: el banco 0 se lee como 1 */
 }
@@ -918,11 +979,11 @@ static unsigned stat_ram_ptr_targets;
 
 static void ram_ptr_explore(const RamPtr *p, int use_bank)
 {
-    int b = p->addr < 0x4000 ? 0 : p->bank >= 0 ? p->bank : use_bank;
-    if (b < 0 || (u32)b >= nbanks || !in_region((u32)b, p->addr)) return;
+    int b = p->bank >= 0 ? p->bank : p->addr < 0x4000 ? 0 : use_bank;
+    if (b < 0 || (u32)b >= 2 * nbanks || !flags[b] || !in_region((u32)b, p->addr)) return;
     if (*flag_at((u32)b, p->addr) & F_INSN) return;
     int saved = push_ctx;
-    push_ctx = b != 0 ? b : V_UNK;
+    push_ctx = !is_low((u32)b) ? b : V_UNK;
     *flag_at((u32)b, p->addr) |= F_TARGET;
     push_work((u32)b, p->addr);
     push_ctx = saved;
@@ -1000,9 +1061,13 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
     int bank_tied_to_a = 0; /* el banco activo es el valor actual de A */
     int last_cp = -1;       /* operando de un `cp n` en la instrucción anterior */
     regs_unknown(&st);
-    /* En código de un banco N, el banco activo es N; en el banco 0, el que
+    /* En código de un banco N, el banco activo es N; en el banco 0 (o una vista), el que
      * traía quien saltó aquí */
-    st.bank = bank != 0 ? (int)bank : bank_ctx;
+    st.bank = !is_low(bank) ? (int)bank : bank_ctx;
+    mbc_high = mbc1_low ? slot_bank(bank) & (multicart ? 0x30 : 0x60) : 0;
+    /* Las rutinas especiales que se reconocen en $0000-$3FFF (argumentos en línea,
+     * trampolines, despachadores) se analizan en el banco 0: desde una vista, no aplican */
+    int low0 = bank_of(bank, 0) == 0;
 
     for (;;) {
         /* Los destinos que se descubran heredan el banco conocido hasta aquí */
@@ -1042,14 +1107,14 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
         } else if (++since_base > 8) {
             table_base = -1;
         }
-        int call_hl = (in.kind == INS_CALL || in.kind == INS_RST) && !in.cond && is_call_hl(in.target);
+        int call_hl = low0 && (in.kind == INS_CALL || in.kind == INS_RST) && !in.cond && is_call_hl(in.target);
         if (call_hl) explain_routine(in.target);
         if (in.kind == INS_JP_HL || call_hl) {
             /* HL leído de una variable de RAM: puntero a código en RAM */
             int lo = st.r[R_L], hi = st.r[R_H];
             int ram_ptr = IS_RAM_VAL(lo) && IS_RAM_VAL(hi) && hi == lo + 1;
             if (ram_ptr) {
-                int ub = bank != 0 ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
+                int ub = !is_low(bank) ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
                 ram_ptr_jump((u16)(lo - V_RAM(0)), ub);
             }
             long tb = table_base >= 0 ? bank_of(bank, (u16)table_base) : -1;
@@ -1114,7 +1179,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 push_work((u32)tb, in.target);
                 /* Llamada a una rutina con argumentos en línea: se saltan y,
                  * si traen el destino, se explora */
-                const InlineArgs *ia = (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0
+                const InlineArgs *ia = low0 && (in.kind == INS_CALL || in.kind == INS_RST) && in.cond == 0
                                        ? inline_args(in.target) : NULL;
                 if (ia && ia->n && in_region(bank, (u32)addr + in.len + ia->n)) {
                     explain_routine(in.target);
@@ -1148,7 +1213,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             }
             /* Despachador con el destino en una tabla de la ROM: se simula con
              * los registros de aquí */
-            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.cond == 0 &&
+            if (low0 && (in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.cond == 0 &&
                 in.target < 0x4000 && far_cache[in.target] >= 0) {
                 u32 fb;
                 u16 fa;
@@ -1187,7 +1252,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             }
             /* Rutinas especiales del banco 0 (ver routine_kind) */
             int breg = 0, kind = RK_NONE;
-            if ((in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.target < 0x4000)
+            if (low0 && (in.kind == INS_CALL || in.kind == INS_RST || in.kind == INS_JP) && in.target < 0x4000)
                 kind = routine_kind(in.target, &breg);
             if (kind == RK_TRAMPOLINE || kind == RK_TABLE_JUMPER) explain_routine(in.target);
             long hlv = pair_value(&st, R_H, R_L);
@@ -1242,12 +1307,12 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
                 w = pair_value(&st, R_H, R_L);
             regs_step(&st, b);
             if (w >= 0 && is_ram(w)) {
-                int pb = bank != 0 ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
+                int pb = !is_low(bank) ? (int)bank : IS_CONST(st.bank) ? (int)mbc_bank(st.bank) : -1;
                 for (long x = w - 1; x <= w; x++) {
                     int vlo = mem_load(&st, x), vhi = mem_load(&st, x + 1);
                     if (IS_CONST(vlo) && IS_CONST(vhi) && is_ram(x) && is_ram(x + 1)) {
                         u16 t = (u16)(vlo | vhi << 8);
-                        ram_ptr_store((u16)x, t, t < 0x4000 ? 0 : pb);
+                        ram_ptr_store((u16)x, t, t < 0x4000 ? (int)bank_of(bank, t) : pb);
                     }
                 }
             }
@@ -1272,7 +1337,7 @@ static void explore_walk(u32 bank, u16 addr, int bank_ctx, const Work *from)
             int back = jp_run(bank, (long)addr - 3, -3), fwd = jp_run(bank, (long)addr + 3, 3);
             if (1 + back + fwd >= MIN_JP_RUN) {
                 int saved = push_ctx;
-                push_ctx = bank != 0 ? (int)bank : V_UNK;
+                push_ctx = !is_low(bank) ? (int)bank : V_UNK;
                 if (back && !(*flag_at(bank, (u16)(addr - 3)) & F_INSN)) {
                     push_work(bank, (u16)(addr - 3));
                     stat_jp_rows++;
@@ -1379,6 +1444,15 @@ static void discover(void)
         push_origin = vectors[i] == 0x0100 ? ORG_BOOT : ORG_IRQ;
         push_from_bank = EV_NONE;
         push_work(0, vectors[i]);
+        /* MBC1M: cada juego corre con su primer banco ($10, $20, $30) en $0000-$3FFF y su
+         * cabecera ahí; el menú lo arranca en $0100 */
+        for (u32 g = 0x10; multicart && g < nbanks; g += 0x10) {
+            if (memcmp(rom + 0x104, bank_ptr(g) + 0x104, 48) != 0) continue;
+            u32 v = view_slot(g);
+            *flag_at(v, vectors[i]) |= F_ENTRY;
+            push_ctx = vectors[i] == 0x0100 ? (int)(g | 1) : V_UNK;
+            push_work(v, vectors[i]);
+        }
     }
     push_ctx = V_UNK;
     drain();
@@ -1463,11 +1537,11 @@ static void load_trace(const char *path)
             continue;
         }
         if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
-        if (bank >= nbanks || addr > 0x7FFF) continue;
-        if (!in_region(bank, addr)) continue;
-        ev_add(EV_TRACE, 0, bank, addr, 0, 0, 0, (*flag_at(bank, (u16)addr) & F_INSN) != 0);
-        *flag_at(bank, (u16)addr) |= F_ENTRY;
-        push_work(bank, (u16)addr);
+        long slot = trace_slot(bank, addr);
+        if (slot < 0) continue;
+        ev_add(EV_TRACE, 0, (u32)slot, addr, 0, 0, 0, (*flag_at((u32)slot, (u16)addr) & F_INSN) != 0);
+        *flag_at((u32)slot, (u16)addr) |= F_ENTRY;
+        push_work((u32)slot, (u16)addr);
         n++;
     }
     fclose(f);
@@ -1515,7 +1589,8 @@ static void add_func(u32 bank, u16 start, u16 end, unsigned n)
 
 static void partition(void)
 {
-    for (u32 bank = 0; bank < nbanks; bank++) {
+    for (u32 bank = 0; bank < 2 * nbanks; bank++) {
+        if (!flags[bank]) continue;
         u16 base = region_base(bank);
         int open = 0;
         u32 start = 0, end = 0;
@@ -1603,10 +1678,10 @@ static void emit_function(FILE *f, const Func *fn)
     e.jump = rc_jump;
     e.user = &x;
 
-    fprintf(f, "/* Banco %02X, $%04X-$%04X (%u instrucciones) */\n",
-            fn->bank, fn->start, fn->end - 1, fn->ninsns);
-    fprintf(f, "void f%02X_%04X(GB *g)\n{\n    Cpu *c = &g->cpu;\n    switch (c->pc) {\n",
-            fn->bank, fn->start);
+    fprintf(f, "/* Banco %02X%s, $%04X-$%04X (%u instrucciones) */\n", slot_bank(fn->bank),
+            is_low(fn->bank) && fn->bank ? " visto en $0000-$3FFF" : "", fn->start, fn->end - 1, fn->ninsns);
+    fprintf(f, "void f%s_%04X(GB *g)\n{\n    Cpu *c = &g->cpu;\n    switch (c->pc) {\n",
+            slot_tag(fn->bank), fn->start);
     for (u32 a = fn->start; a < fn->end; a++)
         if (*flag_at(fn->bank, (u16)a) & F_INSN)
             fprintf(f, "    case 0x%04X: goto L_%04X;\n", a, a);
@@ -1633,9 +1708,13 @@ static void emit_function(FILE *f, const Func *fn)
             continue;
 
         u32 next = a + in.len;
-        if (fn->bank != 0 && may_write_mbc(e.b))
+        if (!is_low(fn->bank) && may_write_mbc(e.b))
             fprintf(f, "    if (UNLIKELY(g->mbc.bankx != %u)) { c->pc = 0x%04X; return; }\n",
                     fn->bank, next);
+        /* En el MBC1 grande, una escritura también puede cambiar el banco de $0000-$3FFF */
+        else if (mbc1_low && may_write_mbc(e.b))
+            fprintf(f, "    if (UNLIKELY(g->mbc.bank0 != %u)) { c->pc = 0x%04X; return; }\n",
+                    slot_bank(fn->bank), next);
 
         /* ¿La siguiente instrucción emitida es justo `next`? */
         u32 following = a + 1;
@@ -1680,7 +1759,7 @@ static void emit_code(const char *dir)
         if (!f || in_file >= MAX_FILE_INSNS || (i && funcs[i - 1].bank != fn->bank)) {
             if (f) fclose(f);
             if (i && funcs[i - 1].bank != fn->bank) file_no = 0;
-            snprintf(name, sizeof name, "gen/bank%02X_%u.c", fn->bank, file_no++);
+            snprintf(name, sizeof name, "gen/bank%s_%u.c", slot_tag(fn->bank), file_no++);
             f = open_out(dir, name);
             fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n\n");
             in_file = 0;
@@ -1816,7 +1895,7 @@ static int rom_has_code(size_t p, unsigned len)
 {
     for (unsigned i = 0; i < len; i++) {
         size_t a = p + i;
-        if (a / BANK_SIZE < nbanks && (flags[a / BANK_SIZE][a % BANK_SIZE] & F_BODY)) return 1;
+        if (a / BANK_SIZE < nbanks && body_at((u32)(a / BANK_SIZE), (u32)(a % BANK_SIZE))) return 1;
     }
     return 0;
 }
@@ -2344,11 +2423,12 @@ static void emit_dispatch(const char *dir)
     fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n\n");
 
     for (size_t i = 0; i < nfuncs; i++)
-        fprintf(f, "void f%02X_%04X(GB *g);\n", funcs[i].bank, funcs[i].start);
+        fprintf(f, "void f%s_%04X(GB *g);\n", slot_tag(funcs[i].bank), funcs[i].start);
     fprintf(f, "\n");
 
     size_t fi = 0;
-    for (u32 bank = 0; bank < nbanks; bank++) {
+    for (u32 bank = 0; bank < 2 * nbanks; bank++) {
+        if (!flags[bank]) continue;
         int has_page[64] = { 0 };
         u16 base = region_base(bank);
         for (int page = 0; page < 64; page++) {
@@ -2357,30 +2437,31 @@ static void emit_dispatch(const char *dir)
                 if (flags[bank][page * 256 + k] & F_INSN) { any = 1; break; }
             if (!any) continue;
             has_page[page] = 1;
-            fprintf(f, "static const RecompFn b%02X_p%02X[256] = {\n", bank, page);
+            fprintf(f, "static const RecompFn b%s_p%02X[256] = {\n", slot_tag(bank), page);
             for (int k = 0; k < 256; k++) {
                 u32 a = base + page * 256 + k;
                 if (!(flags[bank][page * 256 + k] & F_INSN)) continue;
                 while (fi < nfuncs && (funcs[fi].bank < bank ||
                        (funcs[fi].bank == bank && funcs[fi].end <= a))) fi++;
-                fprintf(f, "    [0x%02X] = f%02X_%04X,\n", k, bank, funcs[fi].start);
+                fprintf(f, "    [0x%02X] = f%s_%04X,\n", k, slot_tag(bank), funcs[fi].start);
             }
             fprintf(f, "};\n");
         }
         int any_bank = 0;
         for (int page = 0; page < 64; page++) any_bank |= has_page[page];
         if (!any_bank) continue;
-        fprintf(f, "static const RecompFn *const bank%02X[64] = {\n", bank);
+        fprintf(f, "static const RecompFn *const bank%s[64] = {\n", slot_tag(bank));
         for (int page = 0; page < 64; page++)
-            if (has_page[page]) fprintf(f, "    [0x%02X] = b%02X_p%02X,\n", page, bank, page);
+            if (has_page[page]) fprintf(f, "    [0x%02X] = b%s_p%02X,\n", page, slot_tag(bank), page);
         fprintf(f, "};\n\n");
     }
 
-    fprintf(f, "static const RecompFn *const *const banks[%u] = {\n", nbanks);
-    for (u32 bank = 0; bank < nbanks; bank++) {
+    /* Ranuras: los bancos y, desde nbanks, sus vistas en $0000-$3FFF */
+    fprintf(f, "static const RecompFn *const *const banks[%u] = {\n", 2 * nbanks);
+    for (u32 bank = 0; bank < 2 * nbanks; bank++) {
         int any = 0;
-        for (u32 off = 0; off < BANK_SIZE && !any; off++) any = flags[bank][off] & F_INSN;
-        if (any) fprintf(f, "    [%u] = bank%02X,\n", bank, bank);
+        for (u32 off = 0; flags[bank] && off < BANK_SIZE && !any; off++) any = flags[bank][off] & F_INSN;
+        if (any) fprintf(f, "    [%u] = bank%s,\n", bank, slot_tag(bank));
     }
     fprintf(f, "};\n\n");
 
@@ -2396,10 +2477,12 @@ static void emit_dispatch(const char *dir)
         "    }\n"
         "    if (pc >= 0xC000 && pc < 0xE000) return ram_lookup(g, pc);\n"
         "    /* El código de cada banco se compiló para su región: el banco 0 en\n"
-        "     * $0000-$3FFF y los demás en $4000-$7FFF */\n"
+        "     * $0000-$3FFF y los demás en $4000-$7FFF. Otro banco en $0000-$3FFF (el\n"
+        "     * modo 1 del MBC1) usa su vista, la ranura %u + banco */\n"
         "    if (pc < 0x4000) {\n"
-        "        if (g->mbc.bank0 != 0) return NULL;\n"
-        "        table = banks[0];\n"
+        "        u32 b = g->mbc.bank0;\n"
+        "        if (b >= %u) return NULL;\n"
+        "        table = banks[b ? %u + b : 0];\n"
         "        off = pc;\n"
         "    } else if (pc < 0x8000) {\n"
         "        u32 b = g->mbc.bankx;\n"
@@ -2411,7 +2494,7 @@ static void emit_dispatch(const char *dir)
         "    }\n"
         "    if (!table || !table[off >> 8]) return NULL;\n"
         "    return table[off >> 8][off & 0xFF];\n"
-        "}\n", nbanks);
+        "}\n", nbanks, nbanks, nbanks, nbanks);
     fclose(f);
 }
 
@@ -2673,7 +2756,7 @@ static void write_codemap(const char *path)
     if (!f) die("no se pudo crear %s", path);
     for (u32 b = 0; b < nbanks; b++)
         for (u32 off = 0; off < BANK_SIZE; off++) {
-            fputc((flags[b][off] & F_BODY) ? 'C' : '.', f);
+            fputc(body_at(b, off) ? 'C' : '.', f);
             if (off % 64 == 63) fputc('\n', f);
         }
     fclose(f);
@@ -2692,8 +2775,9 @@ static unsigned read_addr_list(const char *path, void (*fn)(u32 bank, u16 addr))
     char line[64];
     while (fgets(line, sizeof line, f)) {
         if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
-        if (bank >= nbanks || addr > 0x7FFF || !in_region(bank, addr)) continue;
-        fn(bank, (u16)addr);
+        long slot = trace_slot(bank, addr);
+        if (slot < 0) continue;
+        fn((u32)slot, (u16)addr);
         n++;
     }
     fclose(f);
@@ -2707,7 +2791,7 @@ static void coverage_addr(u32 bank, u16 addr)
 {
     viz_want(bank, addr);
     if (*flag_at(bank, addr) & F_INSN) return;
-    if (cov_missing < 10) snprintf(cov_list[cov_missing], sizeof cov_list[0], "%02X:%04X", bank, addr);
+    if (cov_missing < 10) snprintf(cov_list[cov_missing], sizeof cov_list[0], "%02X:%04X", slot_bank(bank), addr);
     cov_missing++;
 }
 
@@ -2878,14 +2962,19 @@ int main(int argc, char **argv)
     snprintf(exe_name, sizeof exe_name, "%s", name ? name : (title[0] ? title : "juego"));
     sanitize(exe_name);
 
-    flags = calloc(nbanks, sizeof *flags);
+    flags = calloc(2 * nbanks, sizeof *flags);     /* las vistas se reservan en view_slot */
     for (u32 b = 0; b < nbanks; b++) flags[b] = calloc(BANK_SIZE, 1);
+    /* MBC1 (tipos $01-$03): con más de 32 bancos, el modo 1 pone otro banco en $0000-$3FFF. Los
+     * MBC1M se reconocen como en mbc.c: 1 MB y la cabecera de otro juego en el banco $10 */
+    mbc1_low = rom[0x147] >= 0x01 && rom[0x147] <= 0x03 && nbanks > 32;
+    multicart = mbc1_low && nbanks == 64 && memcmp(rom + 0x104, rom + 0x10 * BANK_SIZE + 0x104, 48) == 0;
 
     if (dis) {
         /* Solo desensamblar: --dis BB:AAAA:N */
-        unsigned db, da, dn = 32;
-        if (sscanf(dis, "%x:%x:%u", &db, &da, &dn) < 2 || db >= nbanks || !in_region(db, da))
-            die("--dis espera BANCO:DIRECCIÓN[:CUÁNTAS] en hexadecimal");
+        unsigned dbank, da, dn = 32;
+        long ds = sscanf(dis, "%x:%x:%u", &dbank, &da, &dn) < 2 ? -1 : trace_slot(dbank, da);
+        if (ds < 0) die("--dis espera BANCO:DIRECCIÓN[:CUÁNTAS] en hexadecimal");
+        u32 db = (u32)ds;
         u16 a = (u16)da;
         for (unsigned k = 0; k < dn && in_region(db, a); k++) {
             u8 b[3];
@@ -2893,7 +2982,7 @@ int main(int argc, char **argv)
             char text[48];
             fetch_insn(db, a, b, &in);
             sm83_disasm(b, a, text, sizeof text);
-            printf("%02X:%04X  %-24s ;", db, a, text);
+            printf("%02X:%04X  %-24s ;", slot_bank(db), a, text);
             for (int j = 0; j < in.len; j++) printf(" %02X", b[j]);
             printf("\n");
             a = (u16)(a + in.len);
@@ -2916,7 +3005,7 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < nfuncs; i++) ninsns += funcs[i].ninsns;
     for (u32 b = 0; b < nbanks; b++)
         for (u32 off = 0; off < BANK_SIZE; off++)
-            if (flags[b][off] & F_BODY) nbytes++;
+            if (body_at(b, off)) nbytes++;
 
     if (codemap) write_codemap(codemap);
     if (events && !ev_write(events)) die("no se pudo escribir %s", events);
@@ -2933,9 +3022,9 @@ int main(int argc, char **argv)
     }
     for (int k = 0; k < nwhy; k++) {
         unsigned wb, wa;
-        if (sscanf(why[k], "%x:%x", &wb, &wa) != 2 || wb >= nbanks || !in_region(wb, wa))
-            die("--why espera BANCO:DIRECCIÓN en hexadecimal (%s)", why[k]);
-        explain(wb, (u16)wa);
+        long ws = sscanf(why[k], "%x:%x", &wb, &wa) != 2 ? -1 : trace_slot(wb, wa);
+        if (ws < 0) die("--why espera BANCO:DIRECCIÓN en hexadecimal (%s)", why[k]);
+        explain((u32)ws, (u16)wa);
     }
     if (!out) return 0;
 

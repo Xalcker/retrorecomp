@@ -286,6 +286,68 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# --- Recompilador: otro banco en $0000-$3FFF (el modo 1 del MBC1). Así corre cada juego de un
+#     cartucho de varios juegos (MBC1M, como Bomberman Collection): el menú del banco 0 escribe el
+#     modo 1 y los bits altos, y desde la instrucción siguiente $0000-$3FFF es el banco $10. Ese
+#     código se compila en una vista del banco ($0000-$3FFF) y las trazas lo anotan con su
+#     dirección real ("10:015A", no "10:415A"). Antes el despachador no usaba nada en $0000-$3FFF
+#     si el banco no era el 0, y todo el juego pasaba por el intérprete.
+#     ROM mínima de 1 MB (MBC1, 64 bancos): en $0150 del banco 0 y del banco G está lo mismo
+#     (modo 1, banco alto 1); en $015A, el banco 0 tiene un bucle que no debe correr nunca y el
+#     banco G llama en bucle a una rutina en $4000 del banco G+3 que cuenta en $C000 ---
+rom_mbc1() {    # ARCHIVO G [MISMA_CABECERA]
+    head -c 1048576 /dev/zero > "$1"
+    poke "$1" '\000\303\120\001\316' 0x100           # nop / jp $0150; un byte del logo
+    poke "$1" '\001\005' 0x147                       # MBC1, 1 MB
+    poke "$1" '\341' 0x14D                           # checksum del encabezado
+    poke "$1" '\076\001\352\000\140\076\001\352\000\100\030\376' 0x150
+    g=$(($2 * 16384))
+    [ -n "$3" ] && poke "$1" '\000\303\120\001\316' $((g + 0x100))
+    poke "$1" '\076\001\352\000\140\076\001\352\000\100\076\003\352\000\040\315\000\100\030\366' $((g + 0x150))
+    poke "$1" '\041\000\300\064\006\040\005\040\375\311' $((g + 3 * 16384))
+}
+poke() {    # ARCHIVO BYTES(printf) DESPLAZAMIENTO
+    printf "$2" | dd of="$1" bs=1 seek=$(($3)) conv=notrunc 2>/dev/null
+}
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    mkdir -p build
+    # MBC1M: el juego del banco $10 se encuentra sin traza, desde su cabecera, y gbtrace lo anota
+    # con su dirección real
+    rom=build/mbc1m.gb
+    rom_mbc1 "$rom" 16 misma
+    if ./gbrecomp$EXE "$rom" -o build/out/mbc1m --name mbc1m > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/mbc1m -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/mbc1m/difftest$EXE "$rom" --frames 120 --seed 1 > /tmp/gbtest.out 2>&1 \
+        && ! grep -q 'interpretada en ROM' /tmp/gbtest.out \
+        && ./gbtrace$EXE "$rom" build/mbc1m_gbtrace.txt --frames 30 >> /tmp/gbtest.out 2>&1 \
+        && grep -q '^10:015A$' build/mbc1m_gbtrace.txt && ! grep -q '^10:415A$' build/mbc1m_gbtrace.txt; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp MBC1M (banco \$10 en \$0000): $(tail -16 /tmp/gbtest.out)"
+    fi
+    # MBC1 de 1 MB sin otro juego: el banco $20 en $0000-$3FFF solo se ve en la traza. Dos rondas:
+    # la primera lo interpreta y lo anota; con esa traza, la segunda ya no
+    rom=build/mbc1_modo1.gb
+    rom_mbc1 "$rom" 32
+    if ./gbrecomp$EXE "$rom" -o build/out/mbc1_modo1 --name mbc1_modo1 > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/mbc1_modo1 -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/mbc1_modo1/difftest$EXE "$rom" --frames 120 --seed 1 --uncovered build/mbc1_modo1.unc > /tmp/gbtest.out 2>&1 \
+        && grep -q 'interpretada en ROM: 20:015A' /tmp/gbtest.out \
+        && sleep 1 \
+        && ./gbrecomp$EXE "$rom" -o build/out/mbc1_modo1 --name mbc1_modo1 --trace build/mbc1_modo1.unc > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/mbc1_modo1 -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/mbc1_modo1/difftest$EXE "$rom" --frames 120 --seed 1 >> /tmp/gbtest.out 2>&1 \
+        && ! grep -q 'interpretada en ROM' /tmp/gbtest.out; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  recomp MBC1 modo 1 (banco \$20 en \$0000, por la traza): $(tail -16 /tmp/gbtest.out)"
+    fi
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

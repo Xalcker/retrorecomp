@@ -33,6 +33,7 @@
 #include "console.h"
 #include "inputs.h"
 #include "ramtrace.h"
+#include "romtrace.h"
 #include "recomp.h"
 #include "sha1.h"
 
@@ -40,8 +41,8 @@ static GB rec, ref, snap_rec, snap_ref;
 
 /* --- Cobertura: instrucciones de ROM que no corrieron recompiladas --- */
 
-#define MAX_BANKS 512
-static u32 *interp_hits[MAX_BANKS];
+#define MAX_BANKS ROM_MAX_BANKS
+static u32 *interp_hits[ROM_SLOTS];     /* por ranura (romtrace.h) */
 
 /* Direcciones más ejecutadas por el intérprete, para mostrarlas en el log */
 #define TOP_HITS 20
@@ -119,18 +120,16 @@ static u64 interp_zone[4];
 static void count_interp(GB *g)
 {
     u16 pc = g->cpu.pc;
-    u32 bank;
+    u32 slot;
     u16 off;
     interp_zone[pc < 0x8000 ? 0 : pc < 0xC000 ? 1 : pc < 0xFF80 ? 2 : 3]++;
-    if (pc < 0x4000) { bank = g->mbc.bank0; off = pc; }
-    else if (pc < 0x8000) { bank = g->mbc.bankx; off = (u16)(pc - 0x4000); }
-    else {
+    if (pc >= 0x8000) {
         ramtrace_observe(g, pc);
         return;
     }
-    if (bank >= MAX_BANKS) return;
-    if (!interp_hits[bank]) interp_hits[bank] = calloc(0x4000, sizeof(u32));
-    interp_hits[bank][off]++;
+    if (!rom_slot(g, pc, &slot, &off)) return;
+    if (!interp_hits[slot]) interp_hits[slot] = calloc(0x4000, sizeof(u32));
+    interp_hits[slot][off]++;
 }
 
 /* --- Comparación --- */
@@ -494,14 +493,15 @@ int main(int argc, char **argv)
     Hit top[TOP_HITS];
     unsigned ntop = 0, distinct = 0;
     FILE *uf = uncovered ? fopen(uncovered, "w") : NULL;
-    for (u32 b = 0; b < MAX_BANKS; b++) {
-        if (!interp_hits[b]) continue;
+    for (u32 s = 0; s < ROM_SLOTS; s++) {
+        if (!interp_hits[s]) continue;
+        u32 b = rom_slot_bank(s);
         for (u32 off = 0; off < 0x4000; off++) {
-            if (!interp_hits[b][off]) continue;
-            u16 addr = (u16)(b == 0 ? off : 0x4000 + off);
+            if (!interp_hits[s][off]) continue;
+            u16 addr = rom_slot_addr(s, (u16)off);
             distinct++;
             if (uf) fprintf(uf, "%02X:%04X\n", b, addr);
-            Hit h = { b, addr, interp_hits[b][off] };
+            Hit h = { b, addr, interp_hits[s][off] };
             top_insert(top, &ntop, h);
         }
     }

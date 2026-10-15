@@ -10,6 +10,7 @@
 #include "cli.h"
 #include "console.h"
 #include "romload.h"
+#include "wav.h"
 
 int main(int argc, char **argv)
 {
@@ -29,14 +30,7 @@ int main(int argc, char **argv)
         neo_run_frame(g);
         tot += (size_t)neo_audio_take(g, pcm + tot * 2, (int)(cap - tot));
     }
-    FILE *o = fopen(c.pos[1], "wb");
-    if (!o) { fprintf(stderr, "no se pudo escribir %s\n", c.pos[1]); return 2; }
-    u32 data = (u32)(tot * 4), rate = AUDIO_RATE, br = rate * 4, riff = 36 + data, sixteen = 16;
-    u16 fmt = 1, ch = 2, align = 4, bits = 16;
-    fwrite("RIFF", 1, 4, o); fwrite(&riff, 4, 1, o); fwrite("WAVEfmt ", 1, 8, o);
-    fwrite(&sixteen, 4, 1, o); fwrite(&fmt, 2, 1, o); fwrite(&ch, 2, 1, o); fwrite(&rate, 4, 1, o);
-    fwrite(&br, 4, 1, o); fwrite(&align, 2, 1, o); fwrite(&bits, 2, 1, o);
-    fwrite("data", 1, 4, o); fwrite(&data, 4, 1, o); fwrite(pcm, 4, tot, o); fclose(o);
+    if (!wav_save(c.pos[1], pcm, tot, AUDIO_RATE, 2)) { fprintf(stderr, "no se pudo escribir %s\n", c.pos[1]); return 2; }
     printf("%s: %zu muestras (%.1f s)\n", c.pos[1], tot, tot / (double)AUDIO_RATE);
     for (size_t s = 0; s + AUDIO_RATE <= tot || s == 0; s += AUDIO_RATE) {
         size_t e = s + AUDIO_RATE < tot ? s + AUDIO_RATE : tot;

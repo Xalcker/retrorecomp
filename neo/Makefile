@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -45,6 +45,9 @@ endif
 RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c z80.c z80bus.c ym2610.c audio.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
+# Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con GENRecomp) y console.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h
+rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usarán también neoshot y neoaudio)
 PLAT := png.c files.c export.c
@@ -121,11 +124,11 @@ neocard$(EXE): src/tools/neocard.c $(SHARED)/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan el de la consola
-m68ktest$(EXE): src/tools/m68ktest.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/m68ktest.c $(RT) -lm
+m68ktest$(EXE): $(SHARED)/m68ktest.c $(SHARED)/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/m68ktest.c $(RT) -lm
 
-z80test$(EXE): src/tools/z80test.c src/tools/json.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/z80test.c $(RT) -lm
+z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/neo/contrato.neo)
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
@@ -145,24 +148,24 @@ neobios: $(BUILD)/neobios.bin
 $(BUILD)/neobios.bin: tools/neobios/neobios.s tools/neobios/asm68k.py | $(BUILD)
 	python3 tools/neobios/asm68k.py tools/neobios/neobios.s $@ --swap --list $(BUILD)/neobios.lst
 
-$(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h $(RT) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c src/neorecomp/dis68k.c $(RT) -lm
+$(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(RT) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h z80.h console.h $(filter-out sha1.c,$(RUNTIME))
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h console.h $(filter-out sha1.c,$(RUNTIME))
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
-                  files.c files.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h cli.h \
                   difftest.c bench.c
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
                   AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
              $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
-EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
+EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
               $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
 
-$(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
+$(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
@@ -173,10 +176,10 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-neorecomp$(EXE): src/neorecomp/neorecomp.c src/neorecomp/dis68k.c src/neorecomp/dis68k.h src/neorecomp/visor_html.h \
+neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h src/neorecomp/visor_html.h \
                  src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ \
-		src/neorecomp/neorecomp.c src/neorecomp/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
+		src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Paquete para distribuir: neorecomp, la documentación y la licencia
 DIST := dist/neorecomp-$(VERSION)-$(PLATFORM)
@@ -188,8 +191,12 @@ dist: neorecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k.h src/runtime/m68k_ops.h src/runtime/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
-	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
+
+# Los núcleos del 68000 y del Z80 (shared/)
+$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
@@ -197,7 +204,10 @@ $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
 $(BUILD)/plat_%.o: src/platform/%.c $(SHARED)/png.h $(SHARED)/files.h $(SHARED)/export.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
-$(BUILD)/plat_export.o: $(SHARED)/export.c $(SHARED)/export.h | $(BUILD)
+$(BUILD)/plat_export.o: $(SHARED)/export.c $(SHARED)/export.h $(SHARED)/wav.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
+
+$(BUILD)/plat_files.o: $(SHARED)/files.c $(SHARED)/files.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/plat_png.o: $(SHARED)/png.c $(SHARED)/png.h | $(BUILD)

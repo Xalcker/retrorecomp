@@ -23,6 +23,7 @@ NEO_BIOS_CACHE=$PWD/build/bios-cache; export NEO_BIOS_CACHE
 
 corre "carttest (.neo, zip, carpeta, inflate, sufijos, errores, cifrados, tabla L0, BIOS, identidad del código)" "$(exe carttest)"
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
+corre "z80test --int (interrupción desde un HALT en modos 1 y 2, RETI)" "$(exe z80test)" --int
 corre "lspctest (capa fija, sprites, volteos, reducciones, pegajosos, prioridad, autoanimación, límite de 96, colores, por línea)" "$(exe lspctest)"
 corre "audiotest (FM, SSG con ruido y envolvente, ADPCM-A, ADPCM-B, banderas, temporizadores, ocupado)" "$(exe audiotest)"
 corre "inputtest (entradas grabadas, 10 botones, \$hex, --seed, boton:desde-hasta)" "$(exe inputtest)"

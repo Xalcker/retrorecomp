@@ -69,6 +69,10 @@
 #include "player_touch.h"
 
 #define AES_FPS (24167829.0 / (M68K_PER_FRAME * MCLK_PER_M68K))      /* 59.60 */
+/* Los filtros del diálogo para elegir el juego y la BIOS en Windows (ask_rom_path, files.h); antes files.c,
+ * copiado de GENRecomp, ofrecía las ROMs del Genesis */
+#define ROM_TYPES  "Juego de Neo Geo (*.zip, *.neo)|*.zip;*.neo"
+#define BIOS_TYPES "BIOS del AES (*.zip, *.bin)|*.zip;*.bin"
 
 static void fail(const char *msg);
 
@@ -160,9 +164,9 @@ static void set_game(App *app, const char *path, const char *title)
 
 /* Espera a que arrastren un archivo a la ventana (o a que la cierren) */
 /* Pide un archivo con el diálogo nativo o arrastrándolo. 0 si el usuario cancela */
-static int ask_file(const char *choose, const char *drop, int first, char *out, size_t size)
+static int ask_file(const char *choose, const char *types, const char *drop, int first, char *out, size_t size)
 {
-    if (ask_rom_path(choose, out, size)) return 1;
+    if (ask_rom_path(choose, types, out, size)) return 1;
 #ifdef __ANDROID__
     return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarlo */
 #endif
@@ -183,7 +187,7 @@ static int get_bios(App *app, const char *arg, const char *rom_path)
         char path[1024];
         int first = 1;
         for (;;) {
-            if (!ask_file(tr(T_BIOS_CHOOSE), tr(T_BIOS_DROP), first, path, sizeof path)) return 0;
+            if (!ask_file(tr(T_BIOS_CHOOSE), BIOS_TYPES, tr(T_BIOS_DROP), first, path, sizeof path)) return 0;
             first = 0;
             if (!bios_load(&app->bios, path, l0, &err)) break;
             char msg[1200];
@@ -220,7 +224,7 @@ static int ask_for_game(Cart *cart, char *path_out, size_t path_size)
     char msg[4096], drop[1024];
     snprintf(drop, sizeof drop, tr(T_ROM_DROP_FMT), "Neo Geo");
     for (int first = 1;; first = 0) {
-        if (!ask_file(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), drop, first, path_out, path_size)) return 0;
+        if (!ask_file(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), ROM_TYPES, drop, first, path_out, path_size)) return 0;
         int r = read_game(path_out, cart, msg, sizeof msg);
         if (r == 1) return 1;
         if (r == 2) cart_free(cart);
@@ -513,7 +517,7 @@ static int menu_state(void *ctx, int action, int *checked)
 static void ask_open_game(App *app)
 {
     char path[1024];
-    if (ask_rom_path(tr(T_ROM_CHOOSE), path, sizeof path)) switch_game(app, path);
+    if (ask_rom_path(tr(T_ROM_CHOOSE), ROM_TYPES, path, sizeof path)) switch_game(app, path);
     else message(app, tr(T_OPEN_ROM), tr(T_ROM_CHOOSE));   /* sin diálogo nativo: se arrastra */
 }
 

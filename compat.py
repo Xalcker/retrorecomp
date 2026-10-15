@@ -3,8 +3,9 @@
 la biblioteca estándar de Python).
 
 Cada recompilador la llama desde su tools/compat/run.py, que define lo propio de su consola (una subclase de
-Sistema: leer la cabecera, la categoría de cada ROM, qué se soporta, los botones); el resto es igual en los tres
-y usa solo la línea de comandos común (el contrato del README): *shot, *recomp y difftest.
+Sistema: leer la cabecera, la categoría de cada ROM, qué se soporta, los botones); el resto es igual en los cuatro
+y usa solo la línea de comandos común (el contrato del README): *shot, *recomp y difftest. La lista de lo que
+define cada Sistema está en el README («Prueba de compatibilidad»); tests/compat_test.py la comprueba.
 
 Etapa 1 (todas las ROMs): el intérprete (*shot) con entradas guionadas, capturas a los cuadros 450, 900 y 1500.
   Detecta errores de carga, CPU detenido y pantallas en blanco; la captura más colorida va al informe.
@@ -27,6 +28,7 @@ import subprocess, sys, tempfile, threading, time, zipfile, zlib
 
 EXE = ".exe" if os.name == "nt" else ""
 CUADROS1 = (450, 900, 1500)
+CUADROS_DIFF = 1800                  # cuadros de difftest por semilla: los mismos en los cuatro
 CUADROS_BENCH = 1800
 SEMILLAS = (1, 2)
 ESTADOS = ["recompilado", "intérprete", "diferencia", "falla", "pantalla en blanco", "se cuelga", "no carga",
@@ -43,9 +45,7 @@ class Sistema:
     exts = ()                        # extensiones de ROM (dentro de los zips o sueltas)
     categoria_nombre = "Categoría"   # "Mapper", "MBC"...
     botones = ("A", "B")             # los dos botones de acción del guion
-    cuadros_diff = 1800              # cuadros de difftest por semilla
-    metrica = "ciclos"               # qué mide recompilado_pct de difftest: "ciclos" o "instrucciones"
-    re_metrica = r"([\d.]+)% de los ciclos"
+    re_metrica = r"([\d.]+)% de los ciclos"     # la línea común de difftest (retrorecomp#10)
     compara = ""                     # qué compara difftest, para el informe
     escala_mini = 2                  # la miniatura es la captura dividida entre esto
     cupo = {}                        # categoría -> cuántas ROMs entran a la etapa 2 por omisión
@@ -111,8 +111,10 @@ class Sistema:
         return r
 
     oraculos = None                  # función (fila, guion) -> dict, si la consola tiene emuladores de referencia
+    nombres_oraculos = ()            # cabeceras de las columnas de oráculos del informe ("Geolith", "FBNeo"...)
 
     def columnas_oraculos(self, r):
+        """Una celda por cada nombre de nombres_oraculos"""
         return []
 
 
@@ -168,6 +170,31 @@ def utf8():
 def num(rx, texto, tipo=float):
     m = re.search(rx, texto)
     return tipo(m.group(1)) if m else None
+
+
+RE_RUTA = re.compile(r"(?<![\w])(?:[A-Za-z]:[\\/]|/(?:Users|home|private|tmp|var|mnt|media|Volumes)/)")
+
+
+def rutas_locales(x, donde=""):
+    """[(dónde, texto)] de los textos de x (un results.json ya leído) que llevan una ruta absoluta de un disco local.
+    Un results.json se publica: debe tener solo nombres de archivo."""
+    if isinstance(x, dict):
+        return [h for k, v in x.items() for h in rutas_locales(v, f"{donde}.{k}" if donde else k)]
+    if isinstance(x, list):
+        return [h for i, v in enumerate(x) for h in rutas_locales(v, f"{donde}[{i}]")]
+    return [(donde, x)] if isinstance(x, str) and RE_RUTA.search(x) else []
+
+
+def sin_rutas(x, prefijos):
+    """x con cada prefijo (las carpetas absolutas de esta corrida) quitado de sus textos"""
+    if isinstance(x, dict):
+        return {k: sin_rutas(v, prefijos) for k, v in x.items()}
+    if isinstance(x, list):
+        return [sin_rutas(v, prefijos) for v in x]
+    if isinstance(x, str):
+        for p in prefijos:
+            x = x.replace(p, "")
+    return x
 
 
 def slug(fila):
@@ -336,6 +363,9 @@ class Prueba:
         self.version = version(S.root)
         self.fuente = fuente(S.root)       # lo que decide si un resultado guardado sigue valiendo
         self.res = {}
+        # Carpetas absolutas que pueden colarse en los mensajes de las herramientas («no se pudo abrir ...»)
+        self.prefijos = []
+        self.agregar_prefijo(S.root)
         if self.res_path.exists():
             datos = json.loads(self.res_path.read_text(encoding="utf-8"))
             for r in (datos["roms"] if isinstance(datos, dict) else datos):
@@ -343,6 +373,15 @@ class Prueba:
                 self.res[self.clave(r)] = r
         self.guion = self.work / "guion.txt"
         self.entradas_diff = self.work / "entradas_diff.txt"
+
+    def agregar_prefijo(self, carpeta):
+        c = str(pathlib.Path(carpeta).resolve())
+        for p in {c, posix(c), c.replace("/", "\\")}:
+            p = p.rstrip("/\\")
+            for sep in ("/", "\\"):
+                if p + sep not in self.prefijos:
+                    self.prefijos.append(p + sep)
+        self.prefijos.sort(key=len, reverse=True)
 
     @staticmethod
     def clave(r):
@@ -360,8 +399,9 @@ class Prueba:
     def guardar(self):
         with self.lock:
             self.out.mkdir(parents=True, exist_ok=True)
+            roms = sorted(self.res.values(), key=lambda r: (r["juego"].lower(), r.get("coleccion") or ""))
             datos = {"sistema": self.S.id, "fecha": datetime.date.today().isoformat(), "version": self.version, "fuente": self.fuente,
-                     "roms": sorted(self.res.values(), key=lambda r: (r["juego"].lower(), r.get("coleccion") or ""))}
+                     "roms": sin_rutas(roms, self.prefijos)}
             tmp = self.res_path.with_suffix(".tmp")
             tmp.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
             os.replace(tmp, self.res_path)
@@ -377,6 +417,7 @@ class Prueba:
             cache = {}
         trabajos = []
         for c in carpetas:
+            self.agregar_prefijo(c)
             col = self.S.coleccion(c)
             for p in sorted(pathlib.Path(c).resolve().iterdir()):     # absolutas: difftest corre en su carpeta
                 if (p.suffix.lower() == ".zip" or p.suffix.lower() in self.S.exts) and self.S.es_juego(p):
@@ -513,7 +554,7 @@ class Prueba:
             mal = False
             for s in SEMILLAS:
                 unc = carpeta / f"unc_{s}.txt"
-                rc, o, dt = correr([carpeta / f"difftest{EXE}", f["rom"], "--frames", S.cuadros_diff, "--input",
+                rc, o, dt = correr([carpeta / f"difftest{EXE}", f["rom"], "--frames", CUADROS_DIFF, "--input",
                                     self.entradas_diff, "--seed", s, "--uncovered", unc], cwd=carpeta, timeout=2400)
                 d = {"semilla": s, "ok": rc == 0, "segundos": round(dt, 1)}      # 1 con diferencias, 2 con error
                 d["recompilado_pct"] = num(S.re_metrica, o)
@@ -735,6 +776,11 @@ def informe(S, argv=None):
     utf8()
     D = pathlib.Path(a.salida)
     datos = json.loads((D / "results.json").read_text(encoding="utf-8"))
+    rutas = rutas_locales(datos)                      # antes de migrar(), que quita el campo zip de los viejos
+    for donde, texto in rutas[:3]:
+        print(f"aviso: ruta local en results.json ({donde}): {texto[:80]}", file=sys.stderr)
+    if len(rutas) > 3:
+        print(f"aviso: {len(rutas)} rutas locales en total; se quitan al volver a correr la prueba", file=sys.stderr)
     rs = [S.migrar(r) for r in (datos["roms"] if isinstance(datos, dict) else datos)]
     meta = datos if isinstance(datos, dict) else {}
     for r in rs:
@@ -828,9 +874,9 @@ def informe(S, argv=None):
                     for k in ESTADOS + ["sin probar"] if k in cuenta)
     cats = sorted({S.categoria(r) for r in rs}, key=S.orden_categoria)
     opciones = "".join(f'<option value="{e(c)}">{e(S.nombre_categoria(c))}</option>' for c in cats)
-    met_nombre = "Ciclos recompilados" if S.metrica == "ciclos" else "Instrucciones recompiladas"
-    cab_ora = ("<th class=\"n\">Genesis Plus GX<br><span class=\"mut\">RAM / imagen %</span></th>"
-               "<th class=\"n\">BlastEm<br><span class=\"mut\">RAM / imagen %</span></th>") if hay_oraculos else ""
+    met_nombre = "Ciclos recompilados"
+    cab_ora = "".join(f'<th class="n">{e(n)}<br><span class="mut">RAM / imagen %</span></th>'
+                      for n in S.nombres_oraculos) if hay_oraculos else ""
     origen = (f"de {', '.join(colecciones)}" if colecciones else "")
     doc = f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -872,13 +918,13 @@ input{{width:260px;max-width:100%}}
 flechas) y se toman capturas en los cuadros {", ".join(map(str, S.cuadros1))}; la miniatura es la más colorida. «Corre» significa que cargó,
 el CPU no se detuvo y la captura no es de un solo color; no garantiza que el juego se vea bien: las miniaturas hay que revisarlas a ojo.</p>
 <p><b>Etapa 2, una selección por {e(S.categoria_nombre.lower())}:</b> <code>{e(S.id)}recomp</code> sin traza (solo análisis estático),
-compilar el proyecto generado y correr <code>difftest</code> con las semillas {" y ".join(map(str, SEMILLAS))} ({S.cuadros_diff} cuadros,
+compilar el proyecto generado y correr <code>difftest</code> con las semillas {" y ".join(map(str, SEMILLAS))} ({CUADROS_DIFF} cuadros,
 entradas fijas más un mando aleatorio), que compara {e(S.compara)} contra el intérprete. Si algo cayó al intérprete en ROM, se recompila
 con esas direcciones (<code>--uncovered</code> → <code>--trace</code>) y se repite. «Recompilado» = sin diferencias en todas las rondas.
 «{e(met_nombre)}» es el peor caso de las semillas de la última ronda (lo que falta suele ser código en RAM). La velocidad es la de
 <code>difftest --bench</code> ({CUADROS_BENCH} cuadros, recompilado / intérprete, sin ventana ni audio).</p>
 <p class="mut">Para repetirlo: <code>python3 tools/compat/run.py CARPETA</code> y <code>python3 tools/compat/report.py</code>
-(el motor es común a los tres recompiladores: <code>tools/retrorecomp/compat.py</code>).</p>
+(el motor es común a los cuatro recompiladores: <code>tools/retrorecomp/compat.py</code>).</p>
 {html_tablas}
 <h2>Por juego</h2>
 <div class="ctl">{chips}</div>

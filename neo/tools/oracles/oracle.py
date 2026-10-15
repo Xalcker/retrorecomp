@@ -2,7 +2,7 @@
 """Oráculos: emuladores de referencia (núcleos libretro de Geolith y FBNeo) para comparar con NEORecomp.
 No van en el repositorio: se bajan la primera vez a build/oracles/ desde buildbot.libretro.com (la
 compilación nocturna de cada núcleo; el SHA-256 de lo que se bajó queda en build/oracles/NUCLEO/SHA256 y
-se imprime) y los maneja build/retro_run (tools/oracles/retro_run.c), sin ventana. Geolith es BSD-3;
+se imprime) y los maneja build/retro_run (tools/retrorecomp/shared/retro_run.c), sin ventana. Geolith es BSD-3;
 FBNeo tiene una licencia no comercial: solo se usan como programas aparte. Es el de GENRecomp con el
 Neo Geo.
 

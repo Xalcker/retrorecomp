@@ -261,18 +261,10 @@ typedef struct {
     u64  mclk;                  /* ciclo maestro hasta el que se generó el sonido */
 } Ym2610;
 
-/* Audio (audio.c): el YM2610 mezclado a 44 100 Hz en estéreo de 16 bits */
-#define AUDIO_RATE 44100
-#define AUDIO_BINS 4096
+/* Audio (audio.c, común: tools/retrorecomp/shared): el YM2610 mezclado a 44 100 Hz en estéreo de 16 bits.
+ * Bits de Audio.mute: 0-3 FM 1-4, 4 SSG, 5 ADPCM-A, 6 ADPCM-B */
 #define MCLK_HZ    24167829.0       /* el reloj maestro del AES (fija cuántas muestras salen por cuadro) */
-typedef struct {
-    float acc[AUDIO_BINS][2];   /* muestras de salida que se están formando (por promedio en el tiempo) */
-    u64  first;                 /* número de la primera de ellas */
-    int16_t buf[AUDIO_BINS * 2]; /* muestras listas (L R), para quien las tome */
-    int  n;
-    u8   mute;                  /* bits 0-3: FM 1-4, bit 4: SSG, bit 5: ADPCM-A, bit 6: ADPCM-B */
-    float hp_x[2], hp_y[2];     /* filtro pasa-altos de la salida (el acople de la consola) */
-} Audio;
+#include "audio.h"
 
 /* Tarjeta de memoria (la usa la BIOS del AES para guardar las partidas) */
 typedef struct {

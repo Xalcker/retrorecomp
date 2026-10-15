@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -46,7 +46,7 @@ RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con GENRecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h audio.c audio.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usarán también neoshot y neoaudio)
@@ -89,7 +89,7 @@ bustest$(EXE): src/tools/bustest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
 # Herramientas sin ventana con las opciones comunes (cli.h)
-TOOL_DEPS := src/platform/cli.h src/platform/inputs.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
+TOOL_DEPS := $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h src/tools/romload.h $(RT)
 neotrace$(EXE): src/tools/neotrace.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neotrace.c $(RT) -lm
 
@@ -139,8 +139,8 @@ $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
 ifeq ($(shell uname -s 2>/dev/null),Linux)
 DL_LIBS := -ldl
 endif
-$(BUILD)/retro_run$(EXE): tools/oracles/retro_run.c tools/oracles/libretro_min.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ tools/oracles/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
+$(BUILD)/retro_run$(EXE): $(SHARED)/retro_run.c $(SHARED)/libretro_min.h tools/oracles/oracle_host.h $(SHARED)/wav.h $(SHARED)/png.c $(TOOL_DEPS) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -Itools/oracles -o $@ $(SHARED)/retro_run.c $(SHARED)/png.c $(RT) -lm $(DL_LIBS)
 
 # La BIOS propia (fase 10): asm68k la ensambla (make neobios, y make a secas si hay python3: build/neobios.bin,
 # en el orden de los chips como neo-epo.bin; la búsqueda la toma antes que la de SNK); dis68kbin prueba el ensamblador contra el desensamblador
@@ -152,9 +152,9 @@ $(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(SHARED)
 	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h console.h $(filter-out sha1.c,$(RUNTIME))
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h console.h audio.h audio_host.h $(filter-out sha1.c,$(RUNTIME))
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
-                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h cli.h \
+                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
@@ -191,11 +191,11 @@ dist: neorecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 # Los núcleos del 68000 y del Z80 (shared/)
-$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h | $(BUILD)
+$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

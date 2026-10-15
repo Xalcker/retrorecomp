@@ -105,7 +105,7 @@ keystore (ver `platform/android/android.mk`). Es la misma plantilla en los cuatr
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y
 GENRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
-`src/platform/inputs.h`), `--seed S` (suma el mando aleatorio común) y, en `neobench`, `--repeat N`. También
+`tools/retrorecomp/shared/inputs.h`), `--seed S` (suma el mando aleatorio común) y, en `neobench`, `--repeat N`. También
 valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a b c d start select`).
 `sh tests/contract.sh` lo comprueba.
 
@@ -144,9 +144,9 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `ym2610.c` y `audio.c` (el sonido), `z80bus.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_host.h` y `z80_host.h` (lo propio de esta consola para los núcleos comunes); de `tools/retrorecomp/shared`, comunes con GENRecomp: `m68k_ops.h`/`cpu68k.c` (el 68000) y `z80.c` (el Z80); `sha1`, `console.h`, `trace_line.h`. |
+| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `ym2610.c` (el sonido), `z80bus.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo propio de esta consola para los núcleos y la mezcla comunes); de `tools/retrorecomp/shared`, comunes con GENRecomp: `m68k_ops.h`/`cpu68k.c` (el 68000), `z80.c` (el Z80) y `audio.c` (la mezcla); `sha1`, `console.h`, `trace_line.h`. |
 | `src/neorecomp/` | El recompilador. |
-| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`) y lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h` (común). |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `input_host.h` y, de `tools/retrorecomp/shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `neocard`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
 | `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores y el motor de la prueba de compatibilidad (submódulo); `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |

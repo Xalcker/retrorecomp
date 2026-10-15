@@ -595,33 +595,48 @@ Z80_INL int z_exec_main(Z80X *s, uint8_t op, int idx)
     }
 }
 
+/* z80_exec por partes. z80_exec_begin lee el primer byte (el M1) y deja la rama: z80_exec_main (sin
+ * prefijo), z80_exec_cb, z80_exec_ed o z80_exec_xy (DD/FD). El código generado sabe el primer byte y llama
+ * directo a su rama: el compilador no tiene que copiar y plegar las otras tres en cada instrucción (con
+ * z80_exec entero, compilar el Z80 de un juego tardaba unas cinco veces más) */
+Z80_INL uint8_t z80_exec_begin(Z80X *s) { s->z->ei = 0; return z_m1(s); }
+
+Z80_INL int z80_exec_end(Z80X *s, int t)
+{
+    s->z->q = s->qf ? s->z->f : 0;
+    s->z->p = (uint8_t)s->p;
+    return t;
+}
+
+Z80_INL int z80_exec_main(Z80X *s, uint8_t op) { return z80_exec_end(s, z_exec_main(s, op, 0)); }
+Z80_INL int z80_exec_cb(Z80X *s) { return z80_exec_end(s, z_exec_cb(s)); }
+Z80_INL int z80_exec_ed(Z80X *s) { return z80_exec_end(s, z_exec_ed(s)); }
+
+Z80_INL int z80_exec_xy(Z80X *s, uint8_t op)
+{
+    Z80 *z = s->z;
+    int idx = op == 0xDD ? 1 : 2, t;
+    uint8_t op2 = s->ops ? s->ops[s->oi] : z_rd(s, s->pc);
+    if (op2 == 0xDD || op2 == 0xFD || op2 == 0xED) return z80_exec_end(s, 4);  /* el prefijo solo cuenta como NOP */
+    if (op2 == 0xCB) { s->oi++; s->pc++; z_inc_r(z); return z80_exec_end(s, z_exec_xycb(s, idx)); }   /* el CB no se vuelve a leer */
+    op2 = z_m1(s);
+    z->q = 0;                           /* el prefijo no cambia las banderas (SCF/CCF lo ven) */
+    t = z_exec_main(s, op2, idx);
+    return z80_exec_end(s, t);
+}
+
 /* Una instrucción, sin interrupciones (las atiende z80_step): deja en s->pc la siguiente y devuelve sus
  * ciclos T. La instrucción anterior pudo ser EI: eso solo importa para atender una interrupción, así que
  * aquí se borra */
 Z80_INL int z80_exec(Z80X *s)
 {
-    Z80 *z = s->z;
-    int t;
-    z->ei = 0;
-    uint8_t op = z_m1(s);
+    uint8_t op = z80_exec_begin(s);
     switch (op) {
-    case 0xCB: t = z_exec_cb(s); break;
-    case 0xED: t = z_exec_ed(s); break;
-    case 0xDD: case 0xFD: {
-        int idx = op == 0xDD ? 1 : 2;
-        uint8_t op2 = s->ops ? s->ops[s->oi] : z_rd(s, s->pc);
-        if (op2 == 0xDD || op2 == 0xFD || op2 == 0xED) { t = 4; break; }   /* el prefijo solo cuenta como NOP */
-        if (op2 == 0xCB) { s->oi++; s->pc++; z_inc_r(z); t = z_exec_xycb(s, idx); break; }   /* el CB no se vuelve a leer */
-        op2 = z_m1(s);
-        z->q = 0;                       /* el prefijo no cambia las banderas (SCF/CCF lo ven) */
-        t = z_exec_main(s, op2, idx);
-        break;
+    case 0xCB: return z80_exec_cb(s);
+    case 0xED: return z80_exec_ed(s);
+    case 0xDD: case 0xFD: return z80_exec_xy(s, op);
+    default: return z80_exec_main(s, op);
     }
-    default: t = z_exec_main(s, op, 0); break;
-    }
-    z->q = s->qf ? z->f : 0;
-    z->p = (uint8_t)s->p;
-    return t;
 }
 
 /* --- Decodificador (z80.c): lo que necesita el descubrimiento de un recompilador --- */

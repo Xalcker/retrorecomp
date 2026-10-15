@@ -100,8 +100,14 @@ static int run_one(int t)
     int cyc;
     io_at = -1;
     if (recomp) {
+        /* Como el código generado (z80_recomp.h): la rama del primer byte, sin el switch de z80_exec */
         Z80X x = { NULL, &z, ops, 0, z.pc, 0, 0 };
-        cyc = z80_exec(&x);
+        switch (ops[0]) {
+        case 0xCB: z80_exec_begin(&x); cyc = z80_exec_cb(&x); break;
+        case 0xED: z80_exec_begin(&x); cyc = z80_exec_ed(&x); break;
+        case 0xDD: case 0xFD: cyc = z80_exec_xy(&x, z80_exec_begin(&x)); break;
+        default: cyc = z80_exec_main(&x, z80_exec_begin(&x)); break;
+        }
         z.pc = x.pc;
     } else cyc = z80_step(NULL, &z);
     int bad = 0;

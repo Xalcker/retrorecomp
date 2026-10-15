@@ -40,4 +40,26 @@ void    z80_out(struct Z80_HOST *g, uint16_t port, uint8_t v);
 void z80_reset(Z80 *z);
 int  z80_step(struct Z80_HOST *g, Z80 *z);   /* una instrucción (o la interrupción pendiente); ciclos T */
 
+/* Estadística (bench, difftest): ciclos T del Z80 por camino, solo de la consola en z80_stat_of (NULL:
+ * de ninguna; difftest mide la máquina B). Va fuera de la estructura de la consola, porque los estados
+ * guardados validan su tamaño. En GEN y NEO hoy todo es interpretado o saltado; `native` lo suma el
+ * código generado. */
+typedef struct {
+    uint64_t native;        /* en código recompilado */
+    uint64_t interp;        /* en el intérprete (z80_step) */
+    uint64_t skipped;       /* saltados de una vez: HALT sin nada que atender y bucles de espera */
+} Z80Stat;
+extern Z80Stat z80_stat;
+extern const void *z80_stat_of;
+#define Z80_STAT(g, campo, t) do { if ((const void *)(g) == z80_stat_of) z80_stat.campo += (t); } while (0)
+/* Una línea "Z80: N ciclos T: X% nativo, Y% interpretado, Z% saltado (...)" (nada si no corrió) */
+void z80_stat_print(void);
+
+/* Código generado (z80_recomp.h): una función corre desde z->pc hasta que se acaba el tiempo (`target`,
+ * en las unidades de la consola), hay algo que atiende el intérprete o el destino no es suyo. 0 si el PC
+ * no es de la función (no corrió nada); 1 si corrió. */
+typedef int (*Z80RecompFn)(struct Z80_HOST *g, uint64_t target);
+/* La consola que corre su Z80 solo con el intérprete aunque haya código generado (difftest: la máquina A) */
+extern const void *z80_interp_only;
+
 #endif

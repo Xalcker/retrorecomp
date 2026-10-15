@@ -39,17 +39,38 @@ endif
 # Lo que hace `make` a secas (las reglas de abajo no siguen el orden en que se usan)
 .DEFAULT_GOAL := all
 
-# El cartucho, el Z80 común, el bus, la E/S y el VDP sin el dibujo (docs/PLAN.md: el dibujo, el PSG, la
-# ventana y las herramientas llegan en las fases 3 y 4; el recompilador completo, en la 5)
-RUNTIME := cart.c smsdb.c sms.c bus.c io.c vdp.c z80_host.c z80.c sha1.c
+# El cartucho, el Z80 y el PSG comunes, el bus, la E/S, el VDP con su dibujo y la mezcla del sonido (docs/PLAN.md:
+# las herramientas sin ventana llegan en la fase 4; el recompilador completo, en la 5)
+RUNTIME := cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80.c psg.c audio.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libsmsrt.a
 # Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp; z80_ops.h es su
 # semántica, la misma para el intérprete y el código generado) y console.h
-SHARED_RT := z80.h z80_ops.h z80.c console.h
+SHARED_RT := z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
-PROGS := smsrecomp smsrun carttest bustest statetest z80test
+# La ventana: el intérprete con menús (sms)
+SMS_SRC := main_sdl.c ui_menu.c ui_font.c i18n.c settings.c files.c export.c png.c
+# Windows: el icono del .exe sale de un recurso (windres)
+ifeq ($(OS),Windows_NT)
+WINRES := $(BUILD)/icono_res.o
+$(WINRES): src/platform/icono.rc src/platform/icono.ico | $(BUILD)
+	windres -I src/platform -i $< -o $@ -O coff
+endif
+
+sms$(EXE): $(call plat,$(SMS_SRC)) $(wildcard src/platform/*.h) $(SHARED)/player_common.h $(SHARED)/player_rom.h $(SHARED)/player_touch.h $(SHARED)/inputs.h $(RT) $(WINRES)
+	$(CC) $(CFLAGS) -I$(SHARED) $(SDL_CFLAGS) -Isrc/runtime -Isrc/platform -o $@ $(call plat,$(SMS_SRC)) $(RT) $(WINRES) $(SDL_LIBS) -lm
+
+PROGS := smsrecomp smsrun sms carttest bustest vdptest audiotest statetest z80test
+
+# SDL2 para el intérprete con ventana (sms). En Windows, enlazado de forma
+# estática para que el .exe no pida SDL2.dll.
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+SDL_LIBS := -static $(shell pkg-config --libs --static sdl2 2>/dev/null) -lcomdlg32
+else
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+endif
 
 .PHONY: all clean test dist testroms webtest apktest
 all: $(PROGS:%=%$(EXE))
@@ -60,12 +81,18 @@ carttest$(EXE): src/tools/carttest.c $(RT)
 bustest$(EXE): src/tools/bustest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
+vdptest$(EXE): src/tools/vdptest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
+
+audiotest$(EXE): src/tools/audiotest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
+
 statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
 
 # Diagnóstico: corre una ROM sin ventana y resume lo que pasó (como genrun)
-smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/smsrun.c $(RT) -lm
+smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(SHARED)/png.c $(SHARED)/wav.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/smsrun.c $(SHARED)/png.c $(RT) -lm
 
 # z80test pone su propio bus (memoria plana): no usa el de la consola. Con --recomp ejecuta por el camino del
 # código generado (z80_ops.h)
@@ -87,11 +114,12 @@ dist: smsrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/sms.h src/runtime/z80_host.h $(SHARED)/z80.h | $(BUILD)
+RT_DEPS := src/runtime/sms.h src/runtime/z80_host.h src/runtime/psg_host.h src/runtime/audio_host.h $(SHARED)/z80.h $(SHARED)/psg.h $(SHARED)/audio.h
+$(BUILD)/rt_%.o: src/runtime/%.c $(RT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
-# El núcleo del Z80 (shared/)
-$(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/sms.h src/runtime/z80_host.h $(SHARED)/z80.h $(SHARED)/z80_ops.h | $(BUILD)
+# El Z80, el PSG y la mezcla (shared/)
+$(BUILD)/rt_z80.o $(BUILD)/rt_psg.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c $(RT_DEPS) $(SHARED)/z80_ops.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

@@ -25,6 +25,8 @@ void sms_reset(Sms *g)
     g->ram[0] = g->io.mem_ctrl;
     mapper_reset(g);
     vdp_reset(g);
+    psg_reset(&g->psg);
+    audio_reset(g);
     g->nmi_count = g->irq_count = 0;
 }
 
@@ -51,6 +53,7 @@ void sms_run_frame(Sms *g)
 {
     sms_frame_begin(g);
     while (!g->vdp.frame_done) sms_step(g);
+    audio_end_frame(g);
 }
 
 /* --- RAM del cartucho --- */

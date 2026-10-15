@@ -13,10 +13,10 @@ su semántica en una sola fuente de verdad, el bus con los mappers, la E/S, las 
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones; el dibujo llega en la fase 3), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); también `sha1` y `console.h`. El PSG llega en la fase 3. |
+| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
 | `src/smsrecomp/` | El recompilador. Hoy, `--info`; la recompilación llega en la fase 5. |
-| `src/platform/` | La ventana con SDL2, `difftest` y `bench`: fases 3 a 5. |
-| `src/tools/` | Diagnóstico: `smsrun`. Pruebas: `carttest`, `bustest`, `statetest`; de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). Las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsramdump`, `smsbench`), `vdptest`, `audiotest` e `inputtest` llegan en las fases 3 y 4. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`); el resto de la ventana es de `tools/retrorecomp/shared`. `difftest` y `bench` llegan en las fases 4 y 5. |
+| `src/tools/` | Diagnóstico: `smsrun`. Pruebas: `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`; de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). Las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsramdump`, `smsbench`) e `inputtest` llegan en la fase 4. |
 | `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el mismo archivo en los cinco repos; con efecto desde las fases 4 y 5). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo). `compat/` y `oracles/` llegan en las fases 4 y 7. |
 
@@ -180,8 +180,8 @@ homebrew) y las pruebas de FluBBa.
 
 - **RAM del cartucho:** 32 KB (los dos bancos de 16 KB del mapper Sega; Codemasters usa 8 KB). Ninguna cabecera la
   declara: tiene partida que guardar si el juego la mapeó alguna vez (`Cart.ram_used`). `sms_sram_load`,
-  `sms_sram_save` y `sms_sram_dirty` la guardan entera, como archivo de 32 KB (`smsrun --sram`; la ventana, en la
-  fase 3).
+  `sms_sram_save` y `sms_sram_dirty` la guardan entera, como archivo de 32 KB (`smsrun --sram`; la ventana, al salir y
+  cada 5 segundos si cambió).
 - **Estados guardados** (`sms_state_save`/`sms_state_load`): una cabecera (marca, versión, `sizeof(Sms)` y el SHA1
   de la ROM), la estructura `Sms` entera (Z80, RAM, VDP, mapeo, E/S) y la RAM del cartucho. Al cargar se
   conservan los punteros de la corrida actual. Solo los lee la misma versión del runtime con la misma ROM.
@@ -212,7 +212,30 @@ homebrew) y las pruebas de FluBBa.
   sus 8 bits altos (`$00-$93`, `$E9-$FF`).
 - El alto de la imagen (192, 224 o 240 líneas, con el modo 4 y los bits M1 y M3) se fija al empezar el cuadro.
 
-El dibujo (modo 4, los modos TMS9918 y la ventana del GG) llega en la fase 3.
+**Cuándo pasa cada cosa.** msvdp no lo dice; lo dicen la guía y la tabla del VDPTEST de FluBBa (medido en un
+SMS), cuyas tres páginas dan todo Ok. Con c = ciclos desde que cambia el contador V (cuando el H vale `$F4`): en c = 0
+se dibuja la línea, baja el contador de la interrupción de línea y se ven las banderas de cuadro y de desborde; la
+línea INT del Z80 sube en c + 2 por la de cuadro y en c + 3 por la de línea (el Z80 la mira al empezar la siguiente
+instrucción); la colisión se ve en el ciclo en que se dibuja su pixel, 9 ciclos después. `vdp_sync` lleva todo de
+evento en evento (`next_event`), y `sms_after_step` solo lo llama cuando toca. En las líneas del borde los sprites
+colisionan pero no desbordan; con la pantalla apagada, al revés.
+
+**El dibujo** (`vdp_render.c`), de a línea en `fb` (12 bits `----BBBBGGGGRRRR`; los 2 bits por color del SMS se
+escalan ×5):
+
+- **Modo 4:** el fondo de mosaicos de 8×8 de 4 bits con volteo, prioridad y paleta, scroll horizontal (con el
+  bloqueo de las dos primeras filas, bit 6 del registro 0) y vertical (con el de las 8 columnas de la derecha, bit
+  7; el vertical se fija al empezar el cuadro); la columna izquierda en blanco (bit 5); 64 sprites, 8 por línea (el
+  9.º enciende el desborde), de 8×8 u 8×16, con zoom, el desplazamiento de 8 pixeles (bit 3) y la colisión; 224 y
+  240 líneas con la tabla de nombres de 32×32.
+- **Modos TMS9918:** gráficos I y II con la paleta fija del SMS2 y sus 32 sprites (4 por línea); el texto y el
+  multicolor, sin juegos de EE. UU. que los usen, quedan con el color de fondo.
+- **Game Gear:** se ve la ventana de 160×144 en (48, 24); en su modo GG el alto queda en 192 aunque el juego pida el
+  modo extendido (lo usa Micro Machines para la tabla de nombres).
+
+`vdptest` arma pantallas en la VRAM y la CRAM y comprueba pixeles: las dos paletas, el volteo, la prioridad, el
+scroll y sus bloqueos, los sprites (límite, zoom, desborde y colisión con su ciclo), los modos TMS y la ventana del
+GG.
 
 ### Z80
 
@@ -223,8 +246,14 @@ documentadas.
 
 ### Audio
 
-Llega en la fase 3: el SN76489 de `psg.c` de GENRecomp, que pasa a `shared/` con el estéreo del Game Gear, y la
-mezcla común (`audio.c`).
+El SN76489 de `tools/retrorecomp/shared/psg.c`, el mismo de GENRecomp, que pasó a `shared/` en esta fase. Lo que
+cambia entre las consolas va en `psg_host.h`: `PSG_STEREO` (el Game Gear en su modo GG manda cada canal a la
+izquierda con los bits 4-7 del puerto `$06` y a la derecha con los 0-3; el SMS y el Genesis, a los dos lados),
+`PSG_MUTED` (el menú Audio: bits 0-3 de `audio.mute`) y `PSG_LEVEL` (el volumen al lado de la FM del Genesis; aquí
+suena solo). Se escribe con el ciclo del acceso al puerto (`Z80_IO_AT`), y el GG lleva el PSG al ciclo del cambio
+antes de guardar un `$06` nuevo. La mezcla común (`audio.c`, con `audio_host.h`) promedia en el tiempo a 44 100 Hz
+estéreo. `audiotest` mide la afinación (un La de 440 Hz por los cruces por cero), los pasos de 2 dB, el silencio,
+el ruido, el silencio por canal y el estéreo del GG.
 
 ## Variantes de la consola y accesorios
 
@@ -244,16 +273,27 @@ escrito (así detectan los juegos que no es japonesa), y TR de cada puerto, si e
 
 **Game Gear** en modo GG: `$00` tiene Start (bit 7, en 0 apretado) y la región (bit 6 en 1: fuera de Japón; bit 5
 en 0: NTSC); `$01-$05` son el puerto de enlace (sin cable: se guarda lo escrito) y `$06` el estéreo del PSG (se
-guarda; suena en la fase 3); al encender, C0 7F FF 00 FF 00 FF. Start no da la NMI. En su modo SMS no existen
+suena: ver «Audio»); al encender, C0 7F FF 00 FF 00 FF. Start no da la NMI. En su modo SMS no existen
 `$00-$06` y Start es la Pausa.
 
-La ventana de 160×144 y la CRAM de 12 bits a la vista llegan en la fase 3; los accesorios (Light Phaser, gafas 3-D,
-cable de enlace), en la 8.
+Los accesorios (Light Phaser, gafas 3-D, cable de enlace) llegan en la fase 8.
 
 ## Interfaz del ejecutable
 
-Llega en la fase 3: la ventana `sms` con la barra de menús y los diálogos comunes (`ui_menu`, `ui_font`, `player_*.h`
-de `tools/retrorecomp/shared`), en español e inglés.
+La ventana `sms` (`src/platform/main_sdl.c`) es la de GENRecomp con lo que cambia para esta consola: la barra de
+menús y los diálogos comunes (`ui_menu`, `ui_font`, `player_*.h` de `tools/retrorecomp/shared`), en español e inglés
+(`i18n.c`). Menús: Juego (abrir ROM, reiniciar, pausa, estados guardados en 4 ranuras con F5 y F8), Video (tamaño,
+pantalla completa, ocultar la barra, escala entera y pixeles de 8:7 en el Master System; la pantalla del Game Gear
+queda con pixeles cuadrados), Audio (sonido, volumen y los cuatro canales del PSG), Entrada (la consola: la que pide
+el juego, Master System o Game Gear; reinicia), Exportar (captura PNG), Idioma y Ayuda. Teclado: flechas, Z X =
+botones 1 y 2, Enter = Start del GG, Espacio = Pausa; el jugador 2 en I J K L y V B. El mando táctil tiene los
+botones 1 y 2 y, arriba, la Pausa (SMS) o Start (GG). La ventana toma el tamaño de lo que se ve: 256×192 (×8/7 con
+el aspecto) o 160×144, por la escala (3 por omisión). `--record` y `--play` usan los guiones comunes
+(`inputs.h`, con `input_host.h`). El icono es el mando del Master System de la serie TriMui de
+KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a `icono.h` y `icono.ico`.
+
+`tests/ui_golden.txt` y `tests/ui_golden_gg.txt` guardan el cksum de cada menú y diálogo dibujado con `--ui-shot`
+(sin ventana, ajustes de fábrica y en español) con una ROM mínima de 32 KB de NOP, como `.sms` y como `.gg`.
 
 ## Empaquetado y pruebas
 
@@ -269,16 +309,20 @@ de `tools/retrorecomp/shared`), en español e inglés.
   Con `EXTRA=1`, también las pruebas de hardware de SMS Power! que no tienen licencia publicada (el VDPTEST de
   FluBBa, las de Charles MacDonald, el SMS Test Suite de sverx...), a `testroms/extra/`: para usarlas en tu
   máquina, nunca en el CI ni en el repositorio.
-- **`make test`:** `carttest`, `z80test --int` y `--nmi`, `bustest`, `statetest` con el homebrew, las
+- **`make test`:** `carttest`, `z80test --int` y `--nmi`, `bustest`, `vdptest`, `audiotest`, `statetest` con el
+  homebrew, las
   SingleStepTests del Z80 por los dos caminos, ZEXDOC y ZEXALL completos (unos 330 000 cuadros cada uno; corren a la
   vez, ~30 s), el homebrew con `smsrun` (pantalla encendida y una interrupción por cuadro), `smsrecomp` con un
   archivo que no es ROM, sin argumentos y con un modelo desconocido, `smsrecomp --info` con las ROMs de prueba
-  (SHA1, suma, mapper y modelo) y con cada ROM de `roms/` y de sus subcarpetas (también 1200 cuadros con `smsrun`).
+  (SHA1, suma, mapper y modelo) y con cada ROM de `roms/` y de sus subcarpetas (también 1200 cuadros con `smsrun`),
+  y la interfaz de `sms` contra `tests/ui_golden.txt` y `tests/ui_golden_gg.txt` (los 7 menús, 3 diálogos, la barra
+  oculta, `--no-menu`, `--fullscreen` y el Game Gear; `UI_GOLDEN_UPDATE=1` las reescribe).
 - **`smsrun rom [--frames N] [--model sms|gg] [--watch DIR] [--sram ARCHIVO] [--sram-text] [--sdsc]
-  [boton:desde-hasta]`:** el diagnóstico, como `genrun`: corre sin ventana y resume ciclos, interrupciones, el
+  [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav] [boton:desde-hasta]`:** el diagnóstico, como `genrun`: corre sin ventana y resume ciclos, interrupciones, el
   mapeo, el VDP y los PC más frecuentes del último cuadro (los bucles de espera); `--watch` avisa cuando cambia un
   byte de la RAM, `--sram-text` imprime el texto de la RAM del cartucho (ahí deja ZEXALL su resultado) y `--sdsc`
-  lo que el juego escribe en la consola de depuración SDSC.
+  lo que el juego escribe en la consola de depuración SDSC; `--shot` y `--shots` guardan la imagen (lo que se ve) y
+  `--wav` el sonido.
 
 ## Estado de la validación
 

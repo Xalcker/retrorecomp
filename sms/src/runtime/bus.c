@@ -133,7 +133,7 @@ void z80_out(Sms *g, uint16_t port, uint8_t v)
 {
     u8 p = (u8)port;
     if (p < 0x40) io_write(g, p, v);
-    else if (p < 0x80) g->io.psg_last = v;          /* el PSG (fase 3) */
+    else if (p < 0x80) psg_write(g, v, g->io_cyc * MCLK_PER_Z80);
     else if (p < 0xC0) vdp_write(g, p, v);
     else if (p == 0xFD && g->sdsc_out) g->sdsc_out(g, v);   /* la consola de depuración SDSC (solo emuladores) */
 }

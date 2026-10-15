@@ -5,8 +5,8 @@
  *        guarda; solo el bit 2 (la E/S apagada: $C0-$FF leen $FF) cambia algo sin BIOS.
  *   $3F (escritura en $00-$3F impares)  control de E/S: dirección (bits 0-3: TR y TH de A, TR y TH de B; 1 =
  *        entrada) y nivel de salida (bits 4-7) de TR y TH de los dos puertos. Una consola de exportación lee
- *        en $DD el nivel que se escribió en TH (así detectan los juegos que no es japonesa); si TH cambia, el
- *        contador H se congela (es lo que usa la pistola).
+ *        en $DD el nivel que se escribió en TH (así detectan los juegos que no es japonesa); cuando TH pasa de 0 a
+ *        1, el contador H se congela (es lo que usa la pistola).
  *   $DC (lectura en $C0-$FF pares)  arriba, abajo, izquierda, derecha, TL (botón 1) y TR (botón 2) del
  *        mando A, y arriba y abajo del B. En 0 lo apretado.
  *   $DD (lectura en $C0-$FF impares)  izquierda, derecha, TL y TR del B, el botón de reset (no hay en el SMS2
@@ -78,11 +78,13 @@ void io_write(Sms *g, u8 port, u8 v)
 {
     Io *io = &g->io;
     if (g->model == MODEL_GG && !g->sms_mode && port <= 0x06) {
+        if (port == 6) psg_run(g, g->io_cyc * MCLK_PER_Z80);   /* el estéreo cambia desde aquí */
         if (port) io->gg[port] = v;                         /* $00 es de solo lectura */
         return;
     }
     if (!(port & 1)) { io->mem_ctrl = v; return; }
     int th0 = th_level(io, 0), th1 = th_level(io, 1);
     io->io_ctrl = v;
-    if (th_level(io, 0) != th0 || th_level(io, 1) != th1) vdp_latch_h(g, g->io_cyc);
+    /* El contador H se congela cuando TH de algún puerto pasa de 0 a 1 (el VDPTEST lo comprueba: de 1 a 0 no) */
+    if ((!th0 && th_level(io, 0)) || (!th1 && th_level(io, 1))) vdp_latch_h(g, g->io_cyc);
 }

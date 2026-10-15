@@ -10,7 +10,8 @@
  *   - VDP: el comando de dos bytes, el búfer de lectura, los registros, la CRAM del SMS y la del GG con su
  *     latch, el estado que se borra al leerlo
  *   - tiempos: el contador V en cada línea (192 y 224 líneas), la bandera de cuadro en la línea $C1, la
- *     interrupción de línea cada R10 + 1 líneas, la línea IRQ del Z80, el contador H congelado al cambiar TH
+ *     interrupción de línea cada R10 + 1 líneas, la línea IRQ del Z80 (2 y 3 ciclos después del cambio de línea),
+ *     el contador H congelado cuando TH pasa de 0 a 1, con los valores de la tabla del VDPTEST de FluBBa
  *   - programas de Z80: una interrupción IM 1 por cuadro (EI y HALT, el manejador lee el estado) y la NMI de
  *     la Pausa, una por cada vez que se aprieta
  */
@@ -156,8 +157,9 @@ static void ports(void)
     z80_out(&g, 0x3E, 0xAF);           /* la E/S apagada */
     CHECK(z80_in(&g, 0xDC) == 0xFF && g.io.mem_ctrl == 0xAF, "con la E/S apagada");
     z80_out(&g, 0x3E, 0xAB);
-    z80_out(&g, 0x7F, 0x9F);           /* PSG */
-    CHECK(g.io.psg_last == 0x9F, "la escritura al PSG");
+    z80_out(&g, 0x7F, 0x9A);           /* PSG: volumen del tono 0 en 10 (en un espejo) */
+    z80_out(&g, 0x41, 0xE5);           /* ruido */
+    CHECK(g.psg.vol[0] == 10 && g.psg.period[3] == 5, "las escrituras al PSG por $7F y $41");
     sms_free(&g);
     /* Game Gear */
     load(&g, r, 2 * PAGE_SIZE, "p.gg", MODEL_AUTO);
@@ -242,8 +244,10 @@ static void timing(void)
     out_at(&g, 0xBF, 0xE0, f0 + 200 * LINE); out_at(&g, 0xBF, 0x81, f0 + 200 * LINE);
     in_at(&g, 0xBF, f0 + 262 * LINE + 193 * LINE + 5);      /* la del cuadro 2 ya se leyó: borrada */
     CHECK(!g.z80.irq, "IRQ con la bandera borrada");
-    vdp_sync(&g, 3 * 262 * LINE + 193 * LINE);
-    CHECK(g.z80.irq, "sin IRQ con la bandera de cuadro y el registro 1, bit 5");
+    vdp_sync(&g, 3 * 262 * LINE + 193 * LINE + 1);
+    CHECK(!g.z80.irq, "la IRQ de cuadro subió antes de 2 ciclos");
+    vdp_sync(&g, 3 * 262 * LINE + 193 * LINE + 2);
+    CHECK(g.z80.irq, "sin IRQ con la bandera de cuadro y el registro 1, bit 5 (2 ciclos después del cambio de línea)");
     out_at(&g, 0xBF, 0x80, 3 * 262 * LINE + 194 * LINE); out_at(&g, 0xBF, 0x81, 3 * 262 * LINE + 194 * LINE);
     CHECK(!g.z80.irq, "IRQ con el registro 1, bit 5 en 0");
     sms_free(&g);
@@ -255,8 +259,8 @@ static void timing(void)
     u64 base = 262 * LINE;
     int hits[16], nh = 0;
     for (u32 l = 0; l < 16; l++) {
-        vdp_sync(&g, base + l * LINE + 1);
-        if (g.vdp.line_irq) { if (nh < 16) hits[nh++] = (int)l; in_at(&g, 0xBF, base + l * LINE + 2); }
+        vdp_sync(&g, base + l * LINE + 3);  /* la de línea sube 3 ciclos después del cambio de línea */
+        if (g.vdp.line_irq) { if (nh < 16) hits[nh++] = (int)l; in_at(&g, 0xBF, base + l * LINE + 4); }
     }
     CHECK(nh == 4 && hits[0] == 3 && hits[1] == 7 && hits[2] == 11 && hits[3] == 15, "interrupción de línea: %d veces, la primera en la línea %d",
           nh, nh ? hits[0] : -1);
@@ -277,16 +281,19 @@ static void timing(void)
     base = 262 * LINE;
     CHECK(!(in_at(&g, 0xBF, base + 224 * LINE + 5) & 0x80) && (in_at(&g, 0xBF, base + 225 * LINE + 5) & 0x80),
           "la bandera de cuadro con 224 líneas no sube en $E1");
-    /* Contador H, en el cuadro siguiente (el tiempo solo avanza): se congela al cambiar TH; 0 al empezar la
-     * línea, y tras $93 salta a $E9-$FF */
+    /* Contador H, en el cuadro siguiente (el tiempo solo avanza): se congela cuando TH pasa de 0 a 1, no de 1 a 0.
+     * Como la tabla del VDPTEST de FluBBa: $F4 cuando cambia el contador V, +3/4 por ciclo, y de $93 salta a $E9 */
     base += 262 * LINE;
-    out_at(&g, 0x3F, 0xF5, base + 10 * LINE + 0);          /* TH de A y B como salidas en alto: no cambia el nivel */
-    out_at(&g, 0x3F, 0x55, base + 10 * LINE + 0);          /* TH en bajo: cambia y congela */
-    CHECK(in_at(&g, 0x7F, base + 11 * LINE) == 0x00, "contador H al empezar la línea: $%02X", in_at(&g, 0x7F, base + 11 * LINE));
-    out_at(&g, 0x3F, 0xF5, base + 12 * LINE + 100);         /* 150 pixeles: $4B */
-    CHECK(in_at(&g, 0x7F, base + 13 * LINE) == 0x4B, "contador H a los 100 ciclos: $%02X", in_at(&g, 0x7F, base + 13 * LINE));
-    out_at(&g, 0x3F, 0x55, base + 14 * LINE + 200);         /* 300 pixeles: tras el salto, ($1D2 + 4) / 2 = $EB */
-    CHECK(in_at(&g, 0x7F, base + 15 * LINE) == 0xEB, "contador H a los 200 ciclos: $%02X", in_at(&g, 0x7F, base + 15 * LINE));
+    static const struct { u32 c; u8 h; } hc[] = { { 0, 0xF4 }, { 100, 0x3F }, { 200, 0x8A }, { 212, 0x93 }, { 213, 0xE9 }, { 227, 0xF3 } };
+    for (unsigned i = 0; i < sizeof hc / sizeof *hc; i++) {
+        u64 l = base + (10 + 2 * i) * LINE;
+        out_at(&g, 0x3F, 0x55, l);                         /* TH de A y B como salidas en 0 */
+        out_at(&g, 0x3F, 0xF5, l + hc[i].c);               /* TH en 1: congela */
+        u8 h = in_at(&g, 0x7F, l + LINE + 5);
+        CHECK(h == hc[i].h, "contador H a los %u ciclos: $%02X (esperado $%02X)", hc[i].c, h, hc[i].h);
+    }
+    out_at(&g, 0x3F, 0x55, base + 40 * LINE + 50);         /* de 1 a 0: no congela */
+    CHECK(in_at(&g, 0x7F, base + 41 * LINE) == 0xF3, "TH de 1 a 0 congeló el contador H");
     sms_free(&g); free(r);
 }
 

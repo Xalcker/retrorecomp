@@ -194,13 +194,24 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   y Shining Force guardan y vuelven a cargar su partida. Micro Machines del GG usa 224 líneas (para la ventana del GG
   en la fase 3). Los juegos del GG no traen suma en la cabecera (`$0000`). Pendiente: calibrar en qué punto de la
   línea pasa cada evento del VDP con el VDPTEST de FluBBa (fase 3) y los oráculos (fase 4).
-- [ ] **3. VDP, sonido y la ventana.** Modo 4 completo (mosaicos, prioridad, sprites con su límite de 8, zoom,
-  desborde y colisión, columna izquierda en blanco, bloqueo del scroll, 224 líneas) y lo mínimo de los modos
-  TMS9918 (modo 2 para los pocos juegos que lo usan); el GG (CRAM de 12 bits con latch, la ventana de 160×144, el
-  modo SMS); `vdptest`. El PSG en `shared/` con el estéreo (PR en GEN); `audiotest`. La ventana `sms` con todo lo
-  de `shared/` (menús, i18n `LANG_ES`/`LANG_EN`, estados guardados, exportar PNG/WAV, iconos `icono_sms` e
-  `icono_gg` por modelo, el mando táctil). Meta: el VDPTEST de FluBBa (local, `EXTRA=1`) y los juegos de prueba se
-  ven y se oyen bien.
+- [x] **3. VDP, sonido y la ventana.** El dibujo (`vdp_render.c`): el modo 4 completo (mosaicos con volteo,
+  prioridad y paleta, sprites con su límite de 8 por línea, zoom, desborde y colisión, columna izquierda en blanco,
+  bloqueo del scroll horizontal y vertical, 224 y 240 líneas con la tabla de nombres extendida, el desplazamiento
+  de sprites del registro 0) y los modos TMS9918 (gráficos I y II con la paleta fija del SMS2); el GG (CRAM de 12
+  bits con latch, la ventana de 160×144 en (48, 24), siempre 192 líneas aunque el juego pida el modo extendido, como
+  Micro Machines; el modo SMS). La temporización del VDP, calibrada con las tres páginas del VDPTEST de FluBBa (todo
+  Ok): el contador V cambia con el H en `$F4`, que avanza 3/4 por ciclo con el salto de `$93` a `$E9`; la línea INT
+  sube 2 ciclos (cuadro) y 3 (línea) después; la colisión se ve en el ciclo de su pixel; TH congela el H solo de 0 a
+  1; en las líneas del borde los sprites colisionan pero no desbordan. `vdptest`. El PSG en `shared/` (`psg.c` y
+  `psg.h`, con los hooks `PSG_STEREO`, `PSG_MUTED` y `PSG_LEVEL`; PR en retrorecomp y en GENRecomp, cuyo golden sigue
+  igual en los 26 casos) con el estéreo del GG (`$06`, solo en su modo GG); `audiotest`. La ventana `sms` con todo lo
+  de `shared/` (menús, i18n `LANG_ES`/`LANG_EN`, estados guardados F5/F8, captura PNG, `--record`/`--play`, el mando
+  táctil con Pausa en el SMS y Start en el GG, Entrada → Consola y `--model`, pixeles de 8:7 en el SMS), el icono del
+  mando del Master System (KyleBing, CC BY 4.0, `tools/make_icon.py`) y su referencia de la interfaz
+  (`tests/ui_golden.txt` y `tests/ui_golden_gg.txt`, con una ROM mínima). **Meta:** el VDPTEST (local, `EXTRA=1`)
+  da todo Ok y los 15 juegos de `roms/` se ven y se oyen bien. Un solo icono para las dos consolas (el .exe solo
+  lleva uno); el sonido a WAV lo guarda `smsrun --wav` (y `smsaudio` en la fase 4), como en GENRecomp, donde la
+  ventana tampoco lo exporta.
 - [ ] **4. Herramientas sin ventana y contrato.** `smstrace`, `smsshot` (`--expect`, `--hash`), `smsaudio`,
   `smsbench`, `smsramdump`; `input_host.h` para `cli.h` e `inputs.h`; `inputtest`; `src/tools/mkcontrato.c` (la ROM
   del contrato, armada en el build sin ensamblador: mapper, RAM del cartucho, código en RAM, interrupciones, VDP y

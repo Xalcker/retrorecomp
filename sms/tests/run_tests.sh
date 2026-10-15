@@ -1,5 +1,6 @@
 #!/bin/sh
-# Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, el Z80, el bus, la E/S y el VDP sin el dibujo.
+# Batería de make test. Crece con cada fase (docs/PLAN.md): el cartucho, el Z80, el bus, la E/S, el VDP, el sonido y
+# la ventana.
 cd "$(dirname "$0")/.." || exit 2
 exe() { if [ -x "./$1.exe" ]; then echo "./$1.exe"; else echo "./$1"; fi; }
 fallas=0
@@ -16,6 +17,8 @@ corre "carttest (cabeceras TMR SEGA, Codemasters y SDSC, copiador, mapper, model
 corre "z80test --int (interrupción desde un HALT en modos 1 y 2, RETI)" "$(exe z80test)" --int
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 corre "bustest (memoria, mappers Sega y Codemasters, RAM del cartucho, puertos del SMS y del GG, VDP, contadores, interrupciones, Pausa)" "$(exe bustest)"
+corre "vdptest (modo 4 y TMS, paletas del SMS y del GG, scroll y sus bloqueos, prioridad, sprites, desborde, colisión, ventana del GG)" "$(exe vdptest)"
+corre "audiotest (afinación, volumen, ruido, silencio por canal, estéreo del Game Gear)" "$(exe audiotest)"
 tiempo "pruebas unitarias"
 
 # Estados guardados, con el homebrew (make testroms)
@@ -60,6 +63,30 @@ for r in testroms/homebrew/*.sms testroms/homebrew/*.gg; do
     else echo "FALLA $(basename "$r")"; echo "$o" | head -8; fallas=$((fallas + 1)); fi
 done
 tiempo "homebrew"
+
+# Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
+# ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/). La ROM es
+# mínima (32 KB de NOP, la pantalla queda apagada) para no depender de make testroms; como .gg, la misma ROM da
+# la ventana del Game Gear
+if [ -x "$(exe sms)" ]; then
+    mkdir -p build/tests build/shots
+    head -c 32768 /dev/zero > build/tests/minima.sms
+    cp build/tests/minima.sms build/tests/minima.gg
+    # Cargar estado (5), Controles (34), Acerca de (36) y la barra oculta con F9 (37), los números de A_LOAD_STATE,
+    # A_HELP_CONTROLS... en main_sdl.c (Este juego, 35, no: muestra la carpeta de datos), y sin barra con --no-menu
+    # (aunque se pida un menú) y con --fullscreen
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe sms)" build/tests/minima.sms tests/ui_golden.txt "0 1 2 3 4 5 6" "5 34 36 37" \
+            "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
+        echo "ok    sms: los 7 menús, 3 diálogos, la barra oculta, --no-menu y --fullscreen coinciden con la referencia"
+    else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
+    # El Game Gear (la ventana de 160×144, más angosta): el menú Entrada y los Controles; y un juego de SMS en el
+    # Game Gear, que se ve entero (256×192)
+    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe sms)" build/tests/minima.gg tests/ui_golden_gg.txt "3" "34" \
+            "--model,sms" > build/ui_golden_gg.out 2>&1; then
+        echo "ok    sms con el Game Gear: el menú Entrada, los Controles y --model sms coinciden con la referencia"
+    else cat build/ui_golden_gg.out; fallas=$((fallas + 1)); fi
+fi
+tiempo "interfaz"
 
 # smsrecomp: un archivo que no puede ser una ROM debe fallar sin caerse, y sin ROM, dar el uso
 S="$(exe smsrecomp)"

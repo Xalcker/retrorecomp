@@ -1,6 +1,7 @@
 /*
- * statetest: prueba los estados guardados. Corre N cuadros, guarda, corre M más y anota un hash de la RAM, el
- * Z80, el VDP (registros, VRAM, CRAM, contadores), el mapeo, la E/S y la RAM del cartucho; carga el estado
+ * statetest: prueba los estados guardados. Corre N cuadros, guarda, corre M más y anota un hash de la imagen y el
+ * sonido de cada cuadro, la RAM, el Z80, el VDP (registros, VRAM, CRAM, contadores), el mapeo, la E/S, el PSG y la
+ * RAM del cartucho; carga el estado
  * en otra consola con la misma ROM, vuelve a correr M cuadros con las mismas entradas y debe dar exactamente
  * lo mismo. Un estado de otra ROM, o truncado, se rechaza.
  *   statetest rom.sms [N] [M]
@@ -25,7 +26,10 @@ static unsigned long long run(Sms *g, long frames, long from)
         long f = from + i;
         g->pad[0] = (u8)(f % 90 < 3 ? SMS_START : (f / 7) % 3 ? SMS_RIGHT : SMS_A | SMS_B);
         sms_run_frame(g);
-        fnv(&h, g->vdp.vram, sizeof g->vdp.vram);
+        static int16_t snd[AUDIO_BINS * 2];
+        int n = sms_audio_take(g, snd, AUDIO_BINS);
+        fnv(&h, snd, (size_t)n * 4);
+        fnv(&h, g->vdp.fb, sizeof g->vdp.fb);
     }
     fnv(&h, g->ram, sizeof g->ram);
     fnv(&h, &g->z80, sizeof g->z80);
@@ -33,6 +37,7 @@ static unsigned long long run(Sms *g, long frames, long from)
     fnv(&h, &g->vdp, sizeof g->vdp);
     fnv(&h, &g->map, sizeof g->map);
     fnv(&h, &g->io, sizeof g->io);
+    fnv(&h, &g->psg, sizeof g->psg);
     fnv(&h, g->cart.ram, CART_RAM_SIZE);
     return h;
 }

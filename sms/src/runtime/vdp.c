@@ -1,6 +1,6 @@
 /*
  * VDP (315-5246 del SMS2 y el del Game Gear): puertos, memorias, contadores e interrupciones, escrito desde
- * la documentación de Charles MacDonald (msvdp-20021112.txt). El dibujo llega en la fase 3.
+ * la documentación de Charles MacDonald (msvdp-20021112.txt). El dibujo está en vdp_render.c.
  *
  * Puertos ($80-$BF; $40-$7F para los contadores):
  *   control  un comando de dos bytes: el primero pone los 8 bits bajos de la dirección; el segundo, los 6
@@ -13,50 +13,82 @@
  *            la dirección da la vuelta en $3F y el byte par queda en un latch que se escribe con el impar.
  *   $7E/$7F  contador V de la línea y contador H congelado (cambia solo cuando cambia TH, io.c).
  *
- * Temporización (NTSC, 262 líneas de 228 ciclos del Z80): al empezar cada línea sube el contador V; el de la
- * interrupción de línea baja en las líneas 0 a 192 (o 224, 240) y se recarga con el registro 10 en las demás;
- * al pasar de 0 a $FF se recarga y queda pendiente la interrupción de línea. La bandera de cuadro (bit 7 del
- * estado) sube en la línea $C1 ($E1 con 224 líneas, $F1 con 240). La línea IRQ del Z80 es (cuadro y registro
- * 1, bit 5) o (línea y registro 0, bit 4). El alto del cuadro se fija al empezarlo. msvdp no sabe en qué
- * punto de la línea pasa cada cosa: aquí, al empezarla, con el contador H en 0 (el primer pixel de la
- * imagen); se calibra con el VDPTEST de FluBBa (EXTRA=1 make testroms).
+ * Temporización (NTSC, 262 líneas de 228 ciclos del Z80). msvdp no dice en qué punto de la línea pasa cada
+ * cosa; lo dicen la guía y la tabla del VDPTEST de FluBBa (medido en un SMS). Con c = ciclos desde que cambia el
+ * contador V (cuando el contador H vale $F4):
+ *   c = 0  (H $F4)  cambia el contador V y se dibuja la línea (vdp_render.c). El contador de la interrupción de
+ *                   línea baja en las líneas 0 a 192 (o al alto de la imagen) y se recarga con el registro 10 en
+ *                   las demás; al pasar de 0 a $FF se recarga y queda pendiente la interrupción de línea. En la
+ *                   línea $C1 ($E1 con 224 líneas, $F1 con 240) queda pendiente la de cuadro y su bandera (bit 7
+ *                   del estado) ya se ve, igual que la de desborde de sprites (bit 6) de la línea (VDPTEST: «VINT
+ *                   flag HCount» la lee apagada un ciclo antes y encendida en este).
+ *   c = 2 y 3       sube la línea IRQ del Z80 por la de cuadro (con el registro 1, bit 5) y por la de línea (con
+ *                   el registro 0, bit 4); ver VINT_DELAY.
+ *   la colisión de sprites (bit 5) se ve en el ciclo del pixel donde ocurre.
+ * El contador H (los 8 bits altos de uno de 9 que cuenta 342 pixeles) avanza 3/4 por ciclo: $00-$93 y luego
+ * $E9-$FF, como la tabla del VDPTEST. Solo se lee congelado: cuando TH pasa de 0 a 1 (io.c). El alto del cuadro
+ * y el scroll vertical se fijan al empezar el cuadro.
  */
 #include <string.h>
 
 #include "sms.h"
 
 #define LINE_CYC  (MCLK_PER_LINE / MCLK_PER_Z80)        /* 228 */
+#define VCHANGE_K 212                                   /* el lugar de la tabla del contador H donde cambia el V ($F4) */
+/* Ciclos después del cambio del V en que sube la línea INT del Z80 por la interrupción de cuadro y por la de
+ * línea. En la consola son H $F3 (HClock -18 y -17, un poco antes del cambio), pero el Z80 mira la línea en el
+ * último ciclo de cada instrucción y en el HALT, y aquí se mira al empezar la siguiente: medido con las pruebas
+ * de «Frame IRQ HCount» y «Line IRQ HCount» del VDPTEST (las dos variantes de cada una, que cambian de ranura de
+ * 4 ciclos del HALT con un ciclo de diferencia), equivale a +2 y +3 */
+#define VINT_DELAY 2
+#define LINT_DELAY 3
 
 /* Registros tras la BIOS 1.3 (bios13.asm): R0 $36, R1 $A0, R2-R5 $FF, R6 $FB, R7-R9 0, R10 $FF */
 static const u8 bios_regs[11] = { 0x36, 0xA0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB, 0x00, 0x00, 0x00, 0xFF };
 
 /* Alto de la imagen según el modo: con el modo 4 (R0 bit 2) y M2 (R0 bit 1), M1 (R1 bit 4) da 224 líneas y
- * M3 (R1 bit 3) 240 (solo el SMS2 y el GG) */
-static u16 active_height(const Vdp *v)
+ * M3 (R1 bit 3) 240 (solo el SMS2 y el GG). El Game Gear en modo GG se queda en 192 (msvdp: su resolución no
+ * cambia, aunque la tabla de nombres sí; Micro Machines lo usa) */
+static u16 active_height(const Sms *g)
 {
-    if ((v->reg[0] & 0x06) == 0x06) {
-        if ((v->reg[1] & 0x18) == 0x10) return 224;
-        if ((v->reg[1] & 0x18) == 0x08) return 240;
-    }
+    const Vdp *v = &g->vdp;
+    if (vdp_extended(v) && !(g->model == MODEL_GG && !g->sms_mode)) return (v->reg[1] & 0x18) == 0x10 ? 224 : 240;
     return 192;
 }
 
 static void update_irq(Sms *g)
 {
     const Vdp *v = &g->vdp;
-    g->z80.irq = (u8)(((v->status & 0x80) && (v->reg[1] & 0x20)) || (v->line_irq && (v->reg[0] & 0x10)));
+    g->z80.irq = (u8)((v->vint && (v->reg[1] & 0x20)) || (v->line_irq && (v->reg[0] & 0x10)));
 }
 
-/* Lo que pasa al empezar la línea v->line */
+/* El próximo ciclo en que el VDP tiene algo que hacer (sms_after_step lo mira tras cada instrucción) */
+static void next_event(Vdp *v)
+{
+    u64 n = v->line_start + LINE_CYC;
+    if (v->vint_at && v->vint_at < n) n = v->vint_at;
+    if (v->lint_at && v->lint_at < n) n = v->lint_at;
+    if (v->col_at && v->col_at < n) n = v->col_at;
+    v->next_event = n;
+}
+
+/* El contador de línea y las interrupciones de la línea l, que empieza (su línea INT sube unos ciclos después) */
+static void line_irqs(Sms *g, int l)
+{
+    Vdp *v = &g->vdp;
+    if (l <= v->height) {
+        if (v->line_counter-- == 0) { v->line_counter = v->reg[10]; v->lint_at = v->line_start + LINT_DELAY; }
+    } else v->line_counter = v->reg[10];
+    if (l == v->height + 1) { v->vint_at = v->line_start + VINT_DELAY; v->status |= 0x80; }
+}
+
+/* c = 0: empieza la línea v->line */
 static void line_begin(Sms *g)
 {
     Vdp *v = &g->vdp;
-    if (v->line == 0) v->height = active_height(v);
-    if (v->line <= v->height) {
-        if (v->line_counter-- == 0) { v->line_counter = v->reg[10]; v->line_irq = 1; }
-    } else v->line_counter = v->reg[10];
-    if (v->line == v->height + 1) v->status |= 0x80;
-    update_irq(g);
+    if (v->line == 0) { v->height = active_height(g); v->vscroll = v->reg[9]; }
+    if (v->line < v->height) vdp_render_line(g, v->line);
+    else vdp_border_sprites(g, vdp_vcount(v));
 }
 
 void vdp_reset(Sms *g)
@@ -66,20 +98,29 @@ void vdp_reset(Sms *g)
     memset(v, 0, sizeof *v);
     memcpy(v->reg, bios_regs, sizeof bios_regs);
     v->frame = frame;
-    v->height = active_height(v);
+    v->height = active_height(g);
     v->line_start = g->cyc;
     v->line_counter = v->reg[10];
     line_begin(g);
+    line_irqs(g, 0);
+    next_event(v);
 }
 
 void vdp_sync(Sms *g, u64 cyc)
 {
     Vdp *v = &g->vdp;
-    while (cyc >= v->line_start + LINE_CYC) {
-        v->line_start += LINE_CYC;
+    for (;;) {
+        if (v->col_at && cyc >= v->col_at) { v->status |= 0x20; v->col_at = 0; }
+        if (v->vint_at && cyc >= v->vint_at) { v->vint = 1; v->vint_at = 0; update_irq(g); }
+        if (v->lint_at && cyc >= v->lint_at) { v->line_irq = 1; v->lint_at = 0; update_irq(g); }
+        u64 next = v->line_start + LINE_CYC;
+        if (cyc < next) break;
+        v->line_start = next;
         if (++v->line == LINES_NTSC) { v->line = 0; v->frame++; v->frame_done = 1; }
         line_begin(g);
+        line_irqs(g, v->line);
     }
+    next_event(v);
 }
 
 /* Contador V (NTSC): lineal hasta $DA (192 líneas) o $EA (224), y desde ahí salta a $D5 o $E5 para
@@ -94,15 +135,27 @@ u8 vdp_vcount(const Vdp *v)
     }
 }
 
-/* Contador H: 342 pixeles por línea (1,5 por ciclo del Z80); el contador interno de 9 bits va de 0 a $127 y
- * salta a $1D2 hasta $1FF; se leen sus 8 bits altos ($00-$93, $E9-$FF) */
+/* El contador H en el lugar k (0-227) de la tabla del VDPTEST: $00 al empezar la imagen, sube 3/4 por ciclo
+ * hasta $93 y salta a $E9 para terminar en $FF */
+static u8 hcount_k(int k)
+{
+    return (u8)(k <= 196 ? (3 * k + 2) >> 2 : 0xE9 + ((3 * (k - 197) + 1) >> 2));
+}
+
+/* El ciclo de la línea (desde que cambia el V) en que el contador H llega al pixel x de la imagen: para la
+ * colisión de sprites */
+u32 vdp_pixel_cycle(int x)
+{
+    int h = x >> 1, k = (4 * h + 1) / 3;
+    while (k > 0 && hcount_k(k - 1) >= h) k--;
+    while (hcount_k(k) < h) k++;
+    return (u32)((k - VCHANGE_K + LINE_CYC) % LINE_CYC);
+}
+
 static u8 hcount_at(const Vdp *v, u64 cyc)
 {
-    if (cyc < v->line_start) cyc = v->line_start;
-    u32 px = (u32)((cyc - v->line_start) * 3 / 2);
-    if (px > 341) px = 341;
-    u32 h = px < 0x128 ? px : px - 0x128 + 0x1D2;
-    return (u8)(h >> 1);
+    u64 c = cyc < v->line_start ? 0 : cyc - v->line_start;
+    return hcount_k((int)((c + VCHANGE_K) % LINE_CYC));
 }
 
 void vdp_latch_h(Sms *g, u64 cyc)
@@ -169,7 +222,10 @@ u8 vdp_read(Sms *g, u8 port)
     /* Estado: los bits 4-0 no los pone el VDP (msvdp: basura en el SMS y el SMS2); aquí 0 */
     u8 r = v->status;
     v->status = 0;
+    v->vint = 0;
     v->line_irq = 0;
+    v->vint_at = v->lint_at = 0;    /* y las que estaban por subir */
     update_irq(g);
+    next_event(v);
     return r;
 }

@@ -46,7 +46,7 @@ RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con GENRecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80.c console.h audio.c audio.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usarán también neoshot y neoaudio)
@@ -152,7 +152,7 @@ $(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(SHARED)
 	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h console.h audio.h audio_host.h $(filter-out sha1.c,$(RUNTIME))
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h z80_ops.h console.h audio.h audio_host.h $(filter-out sha1.c,$(RUNTIME))
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
@@ -195,7 +195,7 @@ $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runti
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 # Los núcleos del 68000 y del Z80 (shared/)
-$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
+$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/z80_ops.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

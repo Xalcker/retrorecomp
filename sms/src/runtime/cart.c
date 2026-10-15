@@ -238,6 +238,6 @@ void sms_free(Sms *s)
     free(s->cart.image);
     free(s->cart.ram);
     free(s->cart.ram_saved);
-    free(s->cart.trace);
-    s->cart.rom = s->cart.image = s->cart.ram = s->cart.ram_saved = s->cart.trace = NULL;
+    sms_trace_free(s);
+    s->cart.rom = s->cart.image = s->cart.ram = s->cart.ram_saved = NULL;
 }

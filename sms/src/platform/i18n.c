@@ -73,13 +73,13 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
     [T_GAME_TITLE]    = { "Este juego", "This game" },
     [T_GAME_TEXT_FMT] = {
         "%s\n\n"
-        "%s, %d KB, mapper %s\n"
+        "%s, %d KB, %s\n"
         "Código %s, región %s\n"
         "Guardado: %s\n"
         "SHA1 %s\n\n"
         "Datos: %s",
         "%s\n\n"
-        "%s, %d KB, mapper %s\n"
+        "%s, %d KB, %s\n"
         "Code %s, region %s\n"
         "Saves: %s\n"
         "SHA1 %s\n\n"
@@ -135,6 +135,11 @@ static const char *const texts[T_COUNT][LANG_COUNT] = {
                           "Could not create the game's data folder." },
     [T_SAVE_FAILED_FMT] = { "No se pudo guardar la partida en\n%s", "Could not save the game to\n%s" },
     [T_RECORD_FAILED] = { "No se pudo crear el archivo de grabación.", "Could not create the recording file." },
+    [T_RECOMP_STATS_FMT] = {
+        "\n\nCódigo recompilado: %u instrucciones, %.1f%% de los ciclos del Z80",
+        "\n\nRecompiled code: %u instructions, %.1f%% of Z80 cycles",
+    },
+    [T_RECOMP_OFF] = { "Solo el intérprete (--interp u otra ROM)", "Interpreter only (--interp or another ROM)" },
 };
 
 static const char *const names[LANG_COUNT] = { "Español", "English" };

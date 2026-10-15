@@ -6,18 +6,19 @@ distribuyen datos de la ROM.
 
 Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de NESRecomp, GBRecomp,
 GENRecomp y NEORecomp: lo que cambia entre las consolas queda dentro de cada una. Las que todavía no tienen
-contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan. Hoy están hechas las fases 0 a 2: el cartucho, el Z80 común con
-su semántica en una sola fuente de verdad, el bus con los mappers, la E/S, las interrupciones y el VDP sin el dibujo.
+contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan. Hoy están hechas las fases 0 a 5: el cartucho, el Z80 común con
+su semántica en una sola fuente de verdad, el bus con los mappers, la E/S, las interrupciones, el VDP, el sonido, la
+ventana, las herramientas sin ventana con el contrato común y el recompilador.
 
 ## Piezas
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
-| `src/smsrecomp/` | El recompilador. Hoy, `--info`; la recompilación llega en la fase 5. |
-| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`); el resto de la ventana es de `tools/retrorecomp/shared`. `difftest` y `bench` llegan en las fases 4 y 5. |
+| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados, traza, el despachador del código recompilado y el salto de los `HALT`), `recomp.h` y `z80_recomp_host.h` (la interfaz con el código generado), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
+| `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `disz80` y el visor de `--html` es `visor_html.h`, de `tools/retrorecomp/shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `tools/retrorecomp/shared`. |
 | `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). |
-| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el mismo archivo en los cinco repos; `recomp_game.sh` con efecto desde la fase 5). |
+| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
@@ -28,7 +29,7 @@ generado, los bytes de la instrucción:
 
 - El **intérprete** (`z80_step`, en `z80.c`) lo arma con `ops = NULL`: el opcode y los operandos se leen del bus.
   `z80_step` atiende antes la NMI (la Pausa), la interrupción (IM 0/1/2, con el retraso de `EI`) y el `HALT`.
-- El **código generado** (fase 5) lo arma con `ops` apuntando a los bytes de la instrucción, leídos de la ROM al
+- El **código generado** (`z80_recomp.h`) lo arma con `ops` apuntando a los bytes de la instrucción, leídos de la ROM al
   recompilar, y el PC constante. `z80_exec` devuelve los ciclos y deja el PC siguiente; el compilador pliega los
   `switch`: `JR NZ,e` queda en unas 19 instrucciones de máquina con los dos destinos y sus ciclos (12 y 7) como
   constantes.
@@ -79,48 +80,111 @@ vector en `I`:`$FF`), como en el SMS2 y el GG. **La Pausa es la NMI** (`$0066`),
 en que se aprieta (`sms_frame_begin`); en el Game Gear, solo en su modo SMS y con Start. `sms_run_frame` corre
 instrucciones (`sms_step`) hasta que el VDP termina el cuadro.
 
-El despachador del código recompilado llega en la fase 5.
+**Despachador** (`sms_recomp_step`, con `-DSMS_RECOMP`): antes de cada instrucción, si no hay NMI, INT ni `HALT`
+que atender, `recomp_lookup` (`gen/views.c`) busca la función generada para el PC con el mapeo de ahora: la vista de
+la página que está en esa ranura (en el mapper Sega, la de la ranura 0 lleva el primer KB de la página 0) o, si ahí
+no hay ROM, el código de la RAM. La función corre hasta que termina el cuadro, hay algo que atiende el intérprete,
+el destino no es suyo o una instrucción cambió el mapeo (`MAPCHK`: `map_ver`); si no hay función, el intérprete
+ejecuta una instrucción. Antes y después de cada instrucción hace lo mismo que `sms_step` (`z80_recomp_host.h`): el
+reloj, la estadística y `sms_after_step` (el VDP al día).
+
+**HALT.** Un `HALT` sin nada que atender no cambia nada más que R, Q y P cada 4 ciclos hasta que el VDP tiene algo que
+hacer: `halt_skip` (`sms.c`) da todos esos pasos de una vez, exactamente (el golden no cambia un bit), en el intérprete
+y en el recompilado. Los juegos que esperan el cuadro con `HALT` pasan ahí la mayor parte del tiempo.
 
 ## Recompilador
 
-Llega en la fase 5. Hoy `smsrecomp` lee el cartucho y lo describe:
-
 ```
-smsrecomp juego.sms [--info] [--model sms|gg]
+smsrecomp juego.sms -o salida/ [--trace traza.txt]... [--name nombre] [--model sms|gg]
+smsrecomp juego.sms [--viz [--color]] [--coverage traza] [--why BB:DIRECCION] [--events archivo] [--html archivo]
+                    [--codemap archivo] [--dis OFF:DIR:N] [--no-tables] [--verbose] [--info]
 ```
 
 ### Identidad de las instrucciones
 
-Llega en la fase 5: página de 16 KB × `$4000` + (dirección & `$3FFF`), y el banco de la traza `BANCO:DIRECCION`
-es la página (ver PLAN.md, «Identidad del código»).
+Una instrucción se identifica por su desplazamiento en la ROM: página de 16 KB × `$4000` + (dirección & `$3FFF`); en
+el mapper Sega, el primer KB de la ranura 0 es siempre el de la página 0. La traza es `BANCO:DIRECCION` con el banco
+igual a la página y la dirección del Z80, que dice además en qué ranura corrió. Las filas del mapa (`--viz`) son
+páginas de 16 KB, en celdas de 256 bytes.
 
 ### Descubrimiento
 
-Llega en la fase 5.
+Con el recompilador común del Z80 (`z80_recomp.h`, en `tools/retrorecomp/shared`, el mismo de GENRecomp y NEORecomp),
+por **vistas**: una página en una ranura, con los 16 KB que ve el Z80 ahí. Como el mapper puede poner la misma página
+en cualquier ranura, el código de una página se compila para la ranura donde corre (las vistas de GBRecomp).
+
+- **Las vistas:** las del mapeo al encender (en el mapper Sega, las páginas 0, 1 y 2 en las ranuras 0, 1 y 2) y las
+  que dice la traza.
+- **Las semillas:** `$0000`, los `RST` (`$08-$38`) y `$0066` en las vistas de la ranura 0; las instrucciones de la
+  traza en la suya. Desde ahí se sigue el flujo con `z80_decode`. Un salto o una llamada a otra ranura siembra la
+  vista de la página que está ahí al encender (lo demás lo dice la traza).
+- **Heurísticas** (las de GBRecomp llevadas al Z80; `--no-tables` las apaga para comparar):
+  - **tablas de saltos:** un `JP (HL)`, `(IX)` o `(IY)` con un `LD HL/IX/IY,nn` en los 24 bytes antes y, entre los dos,
+    el `ADD HL/IX/IY,rr` que la indexa: `nn` es una tabla de direcciones de 16 bits. Se toman mientras caigan en la
+    ROM, parezcan código y la tabla no llegue a código descubierto ni a sí misma, hasta 128, y se siembran si son dos
+    o más;
+  - **direcciones apiladas:** `LD rr,nn` y `PUSH rr` seguidos de un salto (`JP`, `JR` o `JP (HL)`) sin un `CALL` ni un
+    `RET` antes: `nn` es la vuelta de un `RET`. Sin el salto, en el código de SDCC (el homebrew) es un argumento.
+
+  «Parece código» (`plausible`): decodificado hasta el primer salto incondicional, no tiene `RST $38` (lo que hay en la
+  ROM vacía), un `ED` sin definir, un prefijo seguido de otro ni cuatro `NOP` seguidos. Descubrir de más no rompe nada
+  (lo que se compila son los bytes que hay ahí, y se entra por el PC exacto), pero cuesta tiempo de compilación: sin
+  esa comprobación, una entrada que apuntaba a datos arrastraba miles de instrucciones de mentira.
+
+Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`sh tests/coverage.sh`, 3000
+cuadros con las mismas entradas: el 53,2 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
+heurísticas; del 7,9 % de Micro Machines al 99,7 % de Dragon Blaster); el resto lo dan la traza guionada y lo que
+`difftest --uncovered` ve caer al intérprete (`tests/recomp_game.sh`).
 
 ### Herramientas de análisis
 
-Llegan en la fase 5 (`--coverage`, `--why`, `--viz`, `--html`, `--events`, `--codemap`, `--dis`).
+Las mismas de genrecomp, con los formatos que lee la GUI: `--viz` (el mapa coloreado por cómo se descubrió: los
+vectores, la traza, las tablas o lo especulativo; con `--coverage`, en rojo lo ejecutado y no descubierto),
+`--coverage`, `--why` (la cadena de saltos desde un punto de entrada, con «sigue», «salto», «llamada»,
+«bifurcación», «otra_ranura», «tabla» y «apilada»), `--events`, `--html` (el visor común, `visor_html.h`),
+`--codemap` y `--dis` (con `disz80`).
 
 ### Funciones y emisión
 
-Llega en la fase 5.
+Las de `z80_recomp.h`: funciones de tramos contiguos de hasta 64 instrucciones (y huecos de hasta 64 bytes), cada
+una con un `switch` sobre el PC al principio y una etiqueta por instrucción, que llama a la rama de `z80_exec` de su
+primer byte (`z80_exec_main`, `_cb`, `_ed` o `_xy`) con los bytes y el PC constantes; los saltos dentro de la función
+son `goto`. Cada vista va en `gen/zpPPsS.h`, `gen/zpPPsS_NNN.c` y `gen/zpPPsS_dispatch.c` (una tabla directa por
+dirección); `gen/views.c` es el despachador por página y ranura.
 
 ### Código que el juego copia a RAM
 
-Llega en la fase 5, con `shared/ram_code.h`.
+Con la traza, el intérprete anota lo que corre desde `$8000-$FFFF` cuando ahí no hay ROM (la RAM de trabajo, su espejo y
+la del cartucho) en líneas `ram DIRECCION B0 B1 ...` de `shared/ram_code.h`, con la clave de cada instrucción en sus
+prefijos y opcode (`DD CB d op` entero) y, en `JR` y `DJNZ`, el desplazamiento (`sms_rc_key`); los operandos que
+cambian quedan como `??`. smsrecomp arma una imagen por versión (la versión k de cada dirección que tiene k + 1 o más,
+y la primera de las demás) y la compila con **guarda** (`gen/zramN*.c`): cada instrucción compara antes sus bytes con
+la RAM (`Z80RC_BYTE`, un XOR por byte) y, si cambiaron, sale y la ejecuta el intérprete. Una instrucción con un
+operando que cambia (el inmediato que el juego parcha) queda en el intérprete.
 
 ### El proyecto generado
 
-Llega en la fase 5.
+`runtime/` (la consola, el Z80, el PSG y la mezcla), `platform/` (la ventana, `difftest.c`, `bench.c`), `gen/` (el
+código), `Makefile` (con `-DSMS_RECOMP`) y `LEEME.txt`. El ejecutable carga la ROM del usuario y comprueba el SHA1
+(o la busca: la copia que guarda la primera vez, `rom.sms` o `rom.gg` junto al ejecutable o en la carpeta, o una con
+ese SHA1 en la carpeta), con `--interp` (solo el intérprete), `--force` (otra ROM, con el intérprete) y
+`--uncovered` (como `--trace`). «Este juego» dice cuántas instrucciones se compilaron y qué parte de los ciclos del
+Z80 corre en código nativo. El navegador y Android llegan en la fase 6.
 
 ### difftest
 
-Llega en la fase 5.
+La máquina B corre el código recompilado y la A solo el intérprete (`z80_interp_only`); tras cada paso de B (una
+función, o una instrucción del intérprete), A avanza hasta el mismo ciclo y se comparan el Z80, los ciclos, la RAM,
+el mapper, el VDP, la E/S, el PSG, la mezcla, la RAM del cartucho y las interrupciones atendidas, y al final de cada
+cuadro también la imagen y el audio. La salida es la común: `difftest: N cuadros iguales (L llamadas, R a código
+recompilado, P% de los ciclos)`, con «Intérprete por zona» y la línea `Z80: ...` antes. El porcentaje es de los
+ciclos que ejecutan instrucciones: los de un `HALT` saltado no cuentan ni para un lado ni para el otro.
+`--uncovered` escribe la traza de lo que B tuvo que interpretar (con las líneas `ram`).
 
 ### Rendimiento
 
-Llega en la fase 5.
+El Z80 no es lo que pesa: con Sonic, `bench` del recompilado da unos 3000 cuadros por segundo (50 veces el tiempo
+real) contra 2900 del intérprete; el tiempo se va en el VDP y el sonido. Lo que más ayuda es saltar los `HALT`.
 
 ## Bancos, mappers y guardado
 
@@ -313,7 +377,9 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
   máquina, nunca en el CI ni en el repositorio.
 - **`make test`:** `carttest`, `z80test --int` y `--nmi`, `bustest`, `vdptest`, `audiotest`, `inputtest`,
   `statetest` con el homebrew, el contrato común y el juego del contrato por `smstrace`, `smsramdump` y
-  `smsshot --expect`, las
+  `smsshot --expect`; el recompilador con el juego del contrato (`--dis`, `--why`, `--events`, `--viz`, y el proyecto
+  generado, compilado y comparado con `difftest`: 300 cuadros iguales, más del 95 % de los ciclos en código nativo y la
+  rutina de `$C100` en la traza `--uncovered`) y el ciclo completo con Dragon Blaster; las
   SingleStepTests del Z80 por los dos caminos, ZEXDOC y ZEXALL completos (unos 330 000 cuadros cada uno; corren a la
   vez, ~30 s), el homebrew con `smsrun` (pantalla encendida y una interrupción por cuadro), `smsrecomp` con un
   archivo que no es ROM, sin argumentos y con un modelo desconocido, `smsrecomp --info` con las ROMs de prueba
@@ -355,7 +421,15 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
   The Sword of Hajya, Shinobi, Sonic Chaos y Sonic the Hedgehog (GG). Phantasy Star y Shining Force guardan su
   partida en la RAM del cartucho y la vuelven a cargar (`smsrun --sram`).
 
-**Todavía no:** todo lo demás (ver [PLAN.md](PLAN.md)).
+- **Recompilador:** en `make test`, el juego del contrato recompilado (300 cuadros iguales al intérprete, el 98,5 % de
+  los ciclos en código nativo; el resto es la rutina de `$C100`, que cambia su inmediato) y el ciclo completo con
+  Dragon Blaster (100 %). Con los 15 juegos de `roms/`, `tests/recomp_game.sh` (1500 cuadros por difftest, semillas
+  1 y 2, dos rondas): **los 15 sin diferencias** y, en la segunda ronda, ninguna instrucción de la ROM en el
+  intérprete; los ciclos en código nativo, el 100 % salvo OutRun (98,8 %), Columns (99,8 %) y Shining Force (99,9 %),
+  donde lo que queda es código de la RAM con operandos que cambian. Cada juego tarda entre medio minuto y dos
+  minutos en una máquina de 8 núcleos (compilar el código generado es lo que pesa).
+
+**Todavía no:** el navegador, Android y lo demás (ver [PLAN.md](PLAN.md)).
 
 ### Línea base para optimizar el runtime
 

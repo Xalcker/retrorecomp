@@ -14,6 +14,11 @@
 #include "sms.h"
 #include "sha1.h"
 #include "trace_line.h"
+#include "ram_code.h"
+#include "z80_ops.h"     /* z80_decode */
+#ifdef SMS_RECOMP
+#include "recomp.h"
+#endif
 
 void sms_reset(Sms *g)
 {
@@ -41,23 +46,83 @@ void sms_frame_begin(Sms *g)
     g->vdp.frame_done = 0;
 }
 
+int sms_force_interp;
+
+/* La traza: la instrucción que el intérprete va a ejecutar en pc */
+static void trace_note(Sms *g, u16 pc)
+{
+    long off = bus_rom_offset(g, pc);
+    if (off >= 0) {
+        if (!g->cart.trace[off]) g->cart.trace[off] = (u8)(1 + (pc >> 14));
+    } else if (pc >= 0x8000 && g->cart.ram_code) {
+        u8 b[4];
+        Z80Insn in;
+        for (int i = 0; i < 4; i++) b[i] = bus_peek(g, (u16)(pc + i));
+        z80_decode(b, pc, &in);
+        rc_observe((RcTable *)g->cart.ram_code, pc, b, in.len, sms_rc_key(b));
+    }
+}
+
 void sms_step(Sms *g)
 {
     Z80 *z = &g->z80;
     if (z->nmi) g->nmi_count++;
     else if (z->irq && z->iff1 && !z->ei) g->irq_count++;
-    else if (g->cart.trace && !z->halted) {
-        long off = bus_rom_offset(g, z->pc);
-        if (off >= 0 && !g->cart.trace[off]) g->cart.trace[off] = (u8)(1 + (z->pc >> 14));
-    }
-    g->cyc += (u64)z80_step(g, z);
+    else if (g->cart.trace && !z->halted) trace_note(g, z->pc);
+    int t = z80_step(g, z);
+    g->cyc += (u64)t;
+    Z80_STAT(g, interp, (u64)t);
     sms_after_step(g);
 }
+
+/* Un HALT sin nada que atender: cada paso del intérprete son 4 ciclos T, sube R y borra Q, P y el retraso de EI, y
+ * nada más cambia hasta que el VDP tenga algo que hacer (una línea, una interrupción). Se saltan de una vez los pasos
+ * hasta el primero que llega a ese ciclo, como si se dieran uno por uno (la línea INT solo cambia en sms_after_step) */
+static int halt_skip(Sms *g)
+{
+    Z80 *z = &g->z80;
+    if (!z->halted || z->nmi || (z->irq && z->iff1)) return 0;
+    u64 n = g->vdp.next_event > g->cyc ? (g->vdp.next_event - g->cyc + 3) / 4 : 1;
+    g->cyc += 4 * n;
+    Z80_STAT(g, skipped, 4 * n);
+    z->r = (u8)((z->r & 0x80) | ((z->r + n) & 0x7F));
+    z->q = 0;
+    z->p = 0;
+    z->ei = 0;
+    sms_after_step(g);
+    return 1;
+}
+
+#ifdef SMS_RECOMP
+u32 sms_rc_map_ver;
+
+int sms_recomp_step(Sms *g)
+{
+    Z80 *z = &g->z80;
+    if (halt_skip(g)) return 0;
+    if (!sms_force_interp && (const void *)g != z80_interp_only && !z->nmi && !(z->irq && z->iff1 && !z->ei) &&
+        !z->halted) {
+        Z80RecompFn fn = recomp_lookup(g, z->pc);
+        if (fn) {
+            sms_rc_map_ver = g->map.map_ver;
+            if (fn(g, 0)) return 1;
+        }
+    }
+    sms_step(g);
+    return 0;
+}
+#else
+int sms_recomp_step(Sms *g)
+{
+    if (!halt_skip(g)) sms_step(g);
+    return 0;
+}
+#endif
 
 void sms_run_frame(Sms *g)
 {
     sms_frame_begin(g);
-    while (!g->vdp.frame_done) sms_step(g);
+    while (!g->vdp.frame_done) sms_recomp_step(g);
     audio_end_frame(g);
 }
 
@@ -66,6 +131,43 @@ void sms_run_frame(Sms *g)
 void sms_trace_start(Sms *g)
 {
     if (!g->cart.trace) g->cart.trace = calloc(g->cart.rom_size, 1);
+    if (!g->cart.ram_code) {
+        RcTable *t = calloc(1, sizeof *t);
+        if (t && rc_init(t, 0x8000, 0x8000)) g->cart.ram_code = t;
+        else free(t);
+    }
+}
+
+unsigned sms_rc_key(const u8 *b)
+{
+    if (b[0] == 0xDD || b[0] == 0xFD) {
+        if (b[1] == 0xDD || b[1] == 0xFD || b[1] == 0xED) return 1;     /* el prefijo solo */
+        return b[1] == 0xCB ? 4 : 2;
+    }
+    if (b[0] == 0xCB || b[0] == 0xED) return 2;
+    if (b[0] == 0x10 || (b[0] & 0xE7) == 0x20 || b[0] == 0x18) return 2;     /* DJNZ, JR cc y JR: el destino */
+    return 1;
+}
+
+void sms_ram_summary(const Sms *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost)
+{
+    RcSummary s = { 0, 0, 0, 0 };
+    if (g->cart.ram_code) s = rc_summary((const RcTable *)g->cart.ram_code);
+    *fixed = s.fixed; *vol = s.vol; *multi = s.multi; *lost = s.lost;
+}
+
+/* Libera lo de la traza (sms_free) */
+void sms_trace_free(Sms *g)
+{
+    RcTable *t = g->cart.ram_code;
+    if (t) {
+        for (uint32_t i = 0; t->slot && i < t->size; i++) free(t->slot[i]);
+        free(t->slot);
+        free(t);
+    }
+    g->cart.ram_code = NULL;
+    free(g->cart.trace);
+    g->cart.trace = NULL;
 }
 
 int sms_trace_load(Sms *g, const char *path)
@@ -75,10 +177,15 @@ int sms_trace_load(Sms *g, const char *path)
     sms_trace_start(g);
     char line[256];
     unsigned long off, addr;
-    while (g->cart.trace && fgets(line, sizeof line, f))
-        if (trace_line_read(line, SMS_TRACE_SHIFT, &off, &addr) && off < g->cart.rom_size && addr < 0xC000 &&
-            !g->cart.trace[off])
-            g->cart.trace[off] = (u8)(1 + (addr >> 14));
+    RcIns in;
+    while (g->cart.trace && fgets(line, sizeof line, f)) {
+        if (trace_line_read(line, SMS_TRACE_SHIFT, &off, &addr)) {
+            if (off < g->cart.rom_size && addr < 0xC000 && !g->cart.trace[off]) g->cart.trace[off] = (u8)(1 + (addr >> 14));
+        } else if (g->cart.ram_code && rc_parse(line, &in)) {
+            in.key = (uint8_t)sms_rc_key(in.bytes);
+            rc_add((RcTable *)g->cart.ram_code, &in);
+        }
+    }
     fclose(f);
     return g->cart.trace != NULL;
 }
@@ -91,6 +198,7 @@ int sms_trace_write(const Sms *g, const char *path)
     for (size_t i = 0; i < g->cart.rom_size; i++)
         if (g->cart.trace[i])
             trace_line_write(f, SMS_TRACE_SHIFT, 4, i, (unsigned long)(g->cart.trace[i] - 1) << 14 | (i & 0x3FFF));
+    if (g->cart.ram_code) rc_write((const RcTable *)g->cart.ram_code, f, 4);
     return fclose(f) == 0;
 }
 

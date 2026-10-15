@@ -124,10 +124,33 @@ smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(SHARED)/png.c $(SHARED)/w
 z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(SHARED)/z80_ops.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
-# El recompilador: por ahora solo lee el cartucho (--info); el runtime y la plataforma van adentro
-# (embed) cuando genere proyectos, en la fase 5
-smsrecomp$(EXE): src/smsrecomp/smsrecomp.c $(RT)
-	$(CC) $(CFLAGS) -DSMSRECOMP_VERSION='"$(VERSION)"' -Isrc/runtime -I$(SHARED) -o $@ src/smsrecomp/smsrecomp.c $(RT) -lm
+# Archivos que smsrecomp lleva adentro y escribe en cada proyecto generado
+EMBED_RUNTIME  := sms.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80_host.h z80_recomp_host.h recomp.h \
+                  psg_host.h audio_host.h z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h
+EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
+                  files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h \
+                  player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h difftest.c bench.c
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h \
+             $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
+
+$(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(BUILD)/sms/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/sms
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h \
+	    runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h platform/random_pad.h=$(SHARED)/random_pad.h
+
+$(BUILD)/sms:
+	mkdir -p $@
+
+# El recompilador: un solo ejecutable, con el runtime y la plataforma adentro (embed); el Z80 se compila con el
+# recompilador común (z80_recomp.h) y se desensambla con disz80
+smsrecomp$(EXE): src/smsrecomp/smsrecomp.c src/smsrecomp/embedded.h $(SHARED)/z80_recomp.h $(SHARED)/disz80.c $(SHARED)/disz80.h \
+                 $(SHARED)/visor_html.h $(SHARED)/ram_code.h $(BUILD)/sms/embedded.c $(RT)
+	$(CC) $(CFLAGS) -DSMSRECOMP_VERSION='"$(VERSION)"' -Isrc/smsrecomp -Isrc/runtime -I$(SHARED) -o $@ \
+		src/smsrecomp/smsrecomp.c $(SHARED)/disz80.c $(BUILD)/sms/embedded.c $(RT) -lm
 
 # Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, Gearsystem) sin ventana; los núcleos los baja
 # tools/oracles/oracle.py a build/oracles/ (no van en el repo)
@@ -147,7 +170,7 @@ dist: smsrecomp$(EXE)
 	tar -czf $(DIST).tar.gz -C dist $(notdir $(DIST))
 	@echo "Listo: $(DIST).tar.gz"
 
-RT_DEPS := src/runtime/sms.h src/runtime/z80_host.h src/runtime/psg_host.h src/runtime/audio_host.h $(SHARED)/z80.h $(SHARED)/psg.h $(SHARED)/audio.h $(SHARED)/trace_line.h
+RT_DEPS := src/runtime/sms.h src/runtime/z80_host.h src/runtime/psg_host.h src/runtime/audio_host.h $(SHARED)/z80.h $(SHARED)/psg.h $(SHARED)/audio.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/z80_ops.h
 $(BUILD)/rt_%.o: src/runtime/%.c $(RT_DEPS) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 

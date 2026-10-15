@@ -149,6 +149,7 @@ guarde copias.
 | `psg.c` y `psg.h` con un `psg_host.h` por consola, y el estéreo del GG | 3 | GEN, SMS | El estéreo va en el byte de relleno de `Psg` (desplazamiento 27): `sizeof(Gen)` no cambia. En GEN queda en `$FF` y debe dar los mismos hashes de audio (`audiotest`, `golden.sh`). |
 | `retro_run.c`: `ORACLE_RAM_SIZE` en `oracle_host.h` (hoy exige 64 KB; Gearsystem y Genesis Plus GX dan 8 KB de RAM en el SMS) | 4 | GEN, NEO, SMS | Por omisión, 64 KB: GEN y NEO no cambian. |
 | `contract.sh` (rama `src/smsrecomp/smsrecomp.c`, su ROM de contrato), `recomp_game.sh` (`sms`, sus cuadros por omisión), `tests/contract.py` (`COMMON`, raíces, `SOLO` de `sstz80.sh`, `MOVIDOS`), `tests/compat_test.py`, la GUI (clase `SMS`, `--sms`, `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA` en `$7FF0`, `PRESETS`, selector de modelo por consola), `index.html` | 4 | todos | El README de retrorecomp: «los cuatro» → «los cinco», las tablas del contrato y de «Diferencias que la interfaz esconde» con una columna SMS/GG. |
+| `z80_recomp.h` (el recompilador del Z80: lo hizo el trabajo de GEN y NEO, retrorecomp#63), con el «por qué» (`from[]`) y la guarda sin booleanos; `disz80.c/h` (el desensamblador del Z80, como `dis68k`); `visor_html.h` (antes copiado en GEN y NEO) | 5 | GEN, NEO, SMS | La guarda cambia el código generado de GEN (el mismo efecto): su `make test` y `golden.sh`. `visor_html.h`: PR en GEN y en NEO que quitan su copia. |
 | `oracle.py`, si sale igual al de GEN (si no, se copia y queda un issue) | 7 | GEN, NEO, SMS | |
 
 Lo que ya está en `shared/` y se usa tal cual: el Z80 (fase 0, el intérprete actual), `sha1`, `console.h`,
@@ -223,13 +224,20 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA`, las subcarpetas de `roms/`, `PRESETS`, el selector de modelo de
   cada consola), `index.html` y el README («los cinco»). `tools/compat/run.py` y `report.py` (la etapa 1 corre); los
   oráculos (`tools/oracles/oracle.py`, Genesis Plus GX y Gearsystem, con `make build/retro_run`).
-- [ ] **5. El recompilador.** Descubrimiento desde las semillas, heurísticas de GBRecomp llevadas al Z80, bancos
-  y vistas por ranura, emisión con `z80_ops.h`, el proyecto generado (`embed`, `Makefile`, `LEEME.txt`),
-  `difftest` y `bench` con la salida común (`difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de
-  los ciclos)`, líneas `DIFERENCIA ...`, «Intérprete por zona» antes de la línea final), código en RAM con
-  `ram_code.h`, `tests/recomp_game.sh`, `--viz`/`--events`/`--why`/`--coverage`/`--html`/`--codemap`/`--dis`,
-  `tests/coverage.sh`. Meta: los juegos de prueba y los comerciales sin diferencias contra el intérprete y el
-  99-100 % de los ciclos recompilados, como en los otros.
+- [x] **5. El recompilador.** Sobre el recompilador común del Z80 (`z80_recomp.h`, que hizo el trabajo de GENRecomp y
+  NEORecomp, retrorecomp#63) en lugar de uno propio: vistas por página y ranura (las del encendido, las de la traza
+  y la de cada salto a otra ranura), semillas en `$0000`, los `RST` y `$0066`, y las heurísticas de GBRecomp
+  llevadas al Z80 (tablas de saltos con `JP (HL)`/`(IX)`/`(IY)` y direcciones apiladas con `LD rr,nn` + `PUSH rr`;
+  `--no-tables`); el despachador por página y ranura con `MAPCHK` (`map_ver`); el código en RAM con `ram_code.h`
+  (la traza lo anota con su clave) y la guarda de `z80_recomp.h`; el salto exacto de los `HALT` (`halt_skip`); el
+  proyecto generado (`embed`, `Makefile`, `LEEME.txt`, la ventana con `-DSMS_RECOMP`: SHA1, la copia de la ROM,
+  `--interp`, `--force`, `--uncovered`); `difftest` y `bench` con la salida común; `tests/recomp_game.sh`,
+  `--viz`/`--events`/`--why`/`--coverage`/`--html`/`--codemap`/`--dis` y `tests/coverage.sh`. En retrorecomp (un
+  PR, con uno en GENRecomp y otro en NEORecomp que mueven el submódulo): `disz80.c/h` (el desensamblador del Z80,
+  probado contra `z80_decode` en las 66 048 instrucciones), `visor_html.h` común (antes copiado en GEN y NEO), el «por
+  qué» en `z80_recomp.h` (`from[]`) y la guarda sin booleanos (XOR). **Meta:** el contrato, Dragon Blaster y los 15
+  juegos de `roms/` sin diferencias contra el intérprete, con el 99-100 % de los ciclos (los que ejecutan
+  instrucciones) en código nativo.
 - [ ] **6. Web y Android.** `make web`, `make apk`, el mando en pantalla; `webtest` y `apktest` en el CI.
 - [ ] **7. Compatibilidad.** `tools/compat` (`run.py` con las colecciones SMS y GG, categorías por mapper y
   tamaño: sin mapper, Sega 128/256/512 KB, con RAM del cartucho, Codemasters; `report.py` idéntico), los oráculos,

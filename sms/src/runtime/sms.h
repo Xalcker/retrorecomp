@@ -101,6 +101,7 @@ typedef struct {
     u8    *ram_saved;                   /* lo último guardado en disco (para ver si cambió) */
     u8     ram_used;                    /* el juego la mapeó alguna vez: tiene partida que guardar */
     u8    *trace;                       /* NULL, o por cada byte de la ROM: 0 no se ejecutó; si no, 1 + la ranura (0-2) con que se ejecutó */
+    void  *ram_code;                    /* con la traza: el código que corrió desde la RAM ($8000-$FFFF), un RcTable de ram_code.h */
 } Cart;
 
 #define CART_RAM_SIZE 0x8000
@@ -188,14 +189,26 @@ int  sms_sram_dirty(const Sms *g);
 u8  *sms_state_save(const Sms *g, size_t *size);   /* malloc; NULL si falla */
 int  sms_state_load(Sms *g, const u8 *data, size_t size);  /* 1 si se cargó */
 
-/* Traza: qué instrucciones de la ROM ejecutó el intérprete (smstrace; para smsrecomp --trace en la fase 5), en
- * líneas "BANCO:DIRECCION" de trace_line.h con bancos de 16 KB (las páginas del mapper). El código que corre desde
- * la RAM llega con el recompilador (ram_code.h) */
+/* Traza: qué instrucciones ejecutó el intérprete (smstrace, sms --trace, difftest --uncovered; la lee
+ * smsrecomp --trace): las de la ROM en líneas "BANCO:DIRECCION" de trace_line.h con bancos de 16 KB (las páginas
+ * del mapper), y las que corrieron desde la RAM ($8000-$FFFF: la de trabajo, su espejo y la del cartucho) en
+ * líneas "ram DIRECCION B0 B1 ..." de ram_code.h, con sus bytes */
 #define SMS_TRACE_SHIFT 14
 void   sms_trace_start(Sms *g);
 int    sms_trace_load(Sms *g, const char *path);    /* suma lo de una traza anterior; 1 si se leyó */
 int    sms_trace_write(const Sms *g, const char *path);
-size_t sms_trace_count(const Sms *g);
+size_t sms_trace_count(const Sms *g);               /* instrucciones de la ROM */
+void   sms_trace_free(Sms *g);
+void   sms_ram_summary(const Sms *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost);
+/* Cuántos bytes identifican la instrucción de b (la clave de ram_code.h): los prefijos y el opcode (DD CB d op
+ * entero), y en JR y DJNZ también el desplazamiento */
+unsigned sms_rc_key(const u8 *b);
+
+/* El código recompilado (con -DSMS_RECOMP, en el proyecto que genera smsrecomp; ver recomp.h): una función
+ * generada si la hay para el PC y el mapeo de ahora, o una instrucción del intérprete. 1 si corrió código nativo.
+ * sms_force_interp (--interp de la ventana, --bench de difftest) lo apaga */
+int    sms_recomp_step(Sms *g);
+extern int sms_force_interp;
 
 /* Sonido (psg.c y audio.c, comunes). Los tiempos son ciclos maestros */
 void audio_reset(Sms *g);

@@ -11,12 +11,16 @@ Hay que clonar con el submódulo de retrorecomp, que trae el código que compart
 `random_pad.h`, `trace_line.h`...): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El
 ZIP de GitHub no lo incluye.
 
-**Estado: fases 0 a 4 de 8.** Lee el cartucho y lo describe; el Z80 común tiene su semántica en una sola fuente de
-verdad; el bus, los mappers, la E/S, las interrupciones, el VDP y el sonido corren los juegos de Master System y Game
-Gear con el intérprete, en la ventana `sms` o sin ella (`smsrun` y las herramientas comunes: `smstrace`, `smsshot`,
-`smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. La recompilación llega en la
-fase 5. El plan
-completo está en [docs/PLAN.md](docs/PLAN.md).
+**Estado: fases 0 a 5 de 8.** Recompila juegos de Master System y Game Gear a C99: `smsrecomp` genera un proyecto
+que se compila en un ejecutable nativo, con el Z80 en código nativo y la ROM del usuario cargada al arrancar. Con el
+intérprete, los juegos corren en la ventana `sms` o sin ella (`smsrun` y las herramientas comunes: `smstrace`,
+`smsshot`, `smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. El navegador y Android
+llegan en la fase 6. El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+
+- **Recompilador:** el Z80 con el recompilador común (`z80_recomp.h`, el de GENRecomp y NEORecomp) por vistas (una
+  página del mapper en una ranura), las heurísticas de tablas de saltos, la traza y el código que el juego copia a la
+  RAM (con una guarda). `difftest` compara el recompilado con el intérprete cuadro a cuadro; los 15 juegos de prueba
+  corren sin diferencias con el 99-100 % de los ciclos en código nativo.
 
 - **Cartucho:** `.sms` y `.gg` (con o sin cabecera de copiador), la cabecera TMR SEGA con su suma (calculada como
   la BIOS), la de Codemasters y la SDSC, el mapper (Sega, Codemasters o ninguno) y el modelo con que correría el
@@ -74,10 +78,20 @@ La partida (la RAM del cartucho), los estados y las preferencias van a la carpet
 sms|gg` (o Entrada → Consola) elige la consola; `--record` y `--play`, un guion de entradas.
 
 ```
+sh tests/recomp_game.sh "roms/juego.sms" juego
+```
+
+Recompila el juego con el ciclo completo: una traza guionada con `smstrace`, `smsrecomp`, `make`, `difftest` con dos
+semillas y otra ronda con lo que cayó al intérprete. El proyecto queda en `build/out/juego` (`./juego`, `./difftest`,
+`./bench`; ver su `LEEME.txt`). A mano: `./smsrecomp roms/juego.sms -o carpeta --trace traza.txt` y `make -C carpeta`.
+`--viz`, `--why`, `--coverage`, `--events`, `--html`, `--codemap` y `--dis` muestran qué se descubrió y por qué (lo
+mismo que la GUI de retrorecomp).
+
+```
 ./smsrecomp "roms/juego.sms"
 ```
 
-Muestra lo que se sabe del cartucho: tamaño y formato, SHA1 y CRC32, la cabecera TMR SEGA (dónde está, código de
+Sin opciones, muestra lo que se sabe del cartucho: tamaño y formato, SHA1 y CRC32, la cabecera TMR SEGA (dónde está, código de
 producto, versión, región, tamaño y si la suma coincide con la que calcula la BIOS), las cabeceras de Codemasters y
 SDSC si las hay, el mapper, y el modelo y el modo con que correría el juego. `--model sms|gg` fuerza el modelo: un
 juego de Master System en el Game Gear corre en su modo SMS.
@@ -96,7 +110,7 @@ resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, 
 
 | Comando | Qué hace |
 |---|---|
-| `smsrecomp juego.sms [--info] [--model sms\|gg]` | Lo que se sabe del cartucho. La recompilación (`-o carpeta`, `--trace`, `--viz`, `--why`...) llega en la fase 5. |
+| `smsrecomp juego.sms -o carpeta [--trace archivo]... [--name nombre] [--model sms\|gg]` | Genera el proyecto recompilado (ver «Lo que hace hoy»). Sin `-o`: `--info` (lo que se sabe del cartucho), `--viz [--color]`, `--coverage traza`, `--why BB:DIRECCION`, `--events`, `--html`, `--codemap`, `--dis OFF:DIR:N`, `--no-tables`. |
 | `sms [rom] [--model sms\|gg] [--scale N] [--fullscreen] [--no-menu] [--record archivo \| --play archivo] [--trace archivo]` | La ventana (ver arriba); `--trace` guarda lo que se ejecutó, como `smstrace`. |
 | `smstrace rom traza.txt`, `smsshot rom salida.png [--expect png] [--hash]`, `smsaudio rom salida.wav`, `smsramdump rom`, `smsbench rom [--repeat N]` | Sin ventana, con las opciones comunes de los otros cuatro (`--frames N`, `--input archivo`, `--seed S`, `boton:desde-hasta`) y `--model sms\|gg`: la traza (`BANCO:DIRECCION`), una captura, el sonido, la RAM y la velocidad del intérprete. |
 | `smsrun rom [--frames N] [--model sms\|gg] [--watch DIR] [--sram archivo] [--sram-text] [--sdsc] [--shot png] [--shots dir [--every N]] [--wav archivo] [boton:desde-hasta]` | Diagnóstico sin ventana (ver arriba). |
@@ -114,12 +128,12 @@ primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo 
 | Ruta | Contenido |
 |---|---|
 | `src/runtime/` | La consola: `sms.h`, `sms.c`, `cart.c`, `smsdb.c`, `bus.c`, `io.c`, `vdp.c`, `vdp_render.c`, `z80_host.h`, `z80_host.c`, `psg_host.h` y `audio_host.h`; de `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h`, `z80.c`; con GENRecomp, `psg.c`, `psg.h` y `audio.c`; y también `sha1` y `console.h`. |
-| `src/platform/` | La ventana `sms` (`main_sdl.c`, `i18n`, `settings.h`, `input_host.h`, el icono); el resto, de `tools/retrorecomp/shared`. |
-| `src/smsrecomp/` | El recompilador. |
+| `src/platform/` | La ventana `sms` (`main_sdl.c`, `i18n`, `settings.h`, `input_host.h`, el icono; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c`; el resto, de `tools/retrorecomp/shared`. |
+| `src/smsrecomp/` | El recompilador (`smsrecomp.c`), con el runtime y la plataforma adentro. |
 | `src/tools/` | `smsrun` y las pruebas (`carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`). |
 | `tools/` | `make_icon.py` (el icono) y `retrorecomp/`: la GUI y el código común con NESRecomp, GBRecomp, GENRecomp y NEORecomp (submódulo). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md` y `COMPATIBILIDAD.md`. |
-| `tests/` | `run_tests.sh` (`make test`), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sstz80.sh`, y `contract.sh` y `recomp_game.sh` (los mismos archivos en los cinco repos). |
+| `tests/` | `run_tests.sh` (`make test`), `golden.sh` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sstz80.sh`, y `contract.sh` y `recomp_game.sh` (los mismos archivos en los cinco repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del Z80, ZEXALL y ZEXDOC, el homebrew MIT y, con `EXTRA=1`, `extra/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

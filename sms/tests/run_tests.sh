@@ -52,6 +52,39 @@ if [ -f "$C" ]; then
 fi
 tiempo "contrato"
 
+# El recompilador con el juego del contrato: lo que lee la GUI (--dis, --why, --events, --viz) y el proyecto generado,
+# compilado y comparado contra el intérprete con difftest (sin diferencias, casi todo en código nativo; lo que queda
+# en el intérprete es la rutina de $C100 con su inmediato parchado, que la guarda deja afuera)
+if [ -f "$C" ]; then
+    D=build/tests; R="$(exe smsrecomp)"
+    "$(exe smstrace)" "$C" "$D/contrato_ciclo.trace" --frames 120 start:30-35 down:60-69 a:60-69 pause:100-101 >/dev/null 2>&1
+    if "$R" "$C" --dis 0:0:3 | grep -q "^000000  \$0000  F3 .*di$" \
+            && "$R" "$C" --trace "$D/contrato_ciclo.trace" --why 03:8000 | grep -q "punto de entrada: traza" \
+            && "$R" "$C" --trace "$D/contrato_ciclo.trace" --events "$D/contrato.events" >/dev/null && grep -q "^00C000 8000 traza - traza ld a,\$5A$" "$D/contrato.events" \
+            && "$R" "$C" --viz --color | grep -q "celdas con código"; then
+        echo "ok    smsrecomp --dis, --why, --events y --viz con el contrato"
+    else echo "FALLA smsrecomp --dis, --why, --events o --viz"; fallas=$((fallas + 1)); fi
+    P=$D/proy_contrato
+    if "$R" "$C" -o "$P" --name contrato --trace "$D/contrato_ciclo.trace" >/dev/null && make -s -C "$P" -j8 >/dev/null 2>&1; then
+        x=; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) x=.exe;; esac
+        o=$("$P/difftest$x" "$C" --frames 300 start:30-35 down:60-69 a:60-69 pause:100-101 --uncovered "$D/contrato.unc" 2>&1)
+        pct=$(echo "$o" | sed -n 's/.*, \([0-9.]*\)% de los ciclos).*/\1/p')
+        if echo "$o" | grep -q "^difftest: 300 cuadros iguales" && awk -v p="${pct:-0}" 'BEGIN { exit !(p >= 95) }' \
+                && grep -q "^ram C100 3E ??$" "$D/contrato.unc"; then
+            echo "ok    el contrato recompilado: 300 cuadros iguales al intérprete, $pct% de los ciclos en código nativo"
+        else echo "FALLA el contrato recompilado"; echo "$o" | tail -5; fallas=$((fallas + 1)); fi
+    else echo "FALLA smsrecomp -o o make del proyecto del contrato"; fallas=$((fallas + 1)); fi
+fi
+# El ciclo completo (tests/recomp_game.sh: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
+# que cayó al intérprete) con Dragon Blaster (make testroms)
+if [ -f testroms/homebrew/dragon_blaster.sms ]; then
+    if sh tests/recomp_game.sh testroms/homebrew/dragon_blaster.sms prueba_dragon 900 1 2 > build/tests/ciclo_dragon.out 2>&1 \
+            && grep -q "^Sin diferencias.$" build/tests/ciclo_dragon.out; then
+        echo "ok    ciclo completo con Dragon Blaster: $(grep "semilla 2" build/tests/ciclo_dragon.out | tail -1 | sed 's/^ *//')"
+    else echo "FALLA ciclo completo con Dragon Blaster"; tail -8 build/tests/ciclo_dragon.out; fallas=$((fallas + 1)); fi
+fi
+tiempo "recompilador"
+
 # Z80: SingleStepTests (make testroms), por el intérprete y por el camino del código generado (z80_ops.h con
 # los bytes de la instrucción; también el ciclo del acceso a cada puerto); en los dos, el decodificador
 if [ -f testroms/z80/v1/00.json.gz ]; then

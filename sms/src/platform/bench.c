@@ -46,7 +46,9 @@ int main(int argc, char **argv)
     double best = 0;
     static Sms sms;
     Sms *g = &sms;
+    z80_stat_of = g;                    /* la línea "Z80: ...": cuánto corre nativo, interpretado o saltado */
     for (int k = 0; k < c.repeat; k++) {
+        z80_stat = (Z80Stat){ 0, 0, 0 };
         const char *err = NULL;
         if (k) sms_free(g);
         if (sms_load(g, rom, (size_t)sz, c.pos[0], model, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
@@ -61,6 +63,7 @@ int main(int argc, char **argv)
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
         if (k == 0 || s < best) best = s;
     }
+    z80_stat_print();
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / 59.92);
     return 0;

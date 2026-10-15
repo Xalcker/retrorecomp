@@ -723,6 +723,8 @@ void gb_lockup(GB *g)
 /* Despachador                                                         */
 /* ------------------------------------------------------------------ */
 
+GbCycles gb_cycles;
+
 void gb_run(GB *g, u64 until)
 {
     Cpu *c = &g->cpu;
@@ -742,20 +744,21 @@ void gb_run(GB *g, u64 until)
                     /* En HALT, IF se muestrea 2 ciclos dentro de cada M-ciclo
                      * (el primero tras HALT, al inicio) y el CPU despierta al
                      * terminar ese M-ciclo */
+                    u64 c0 = g->cyc;
                     u64 sample = c->halt_first ? g->cyc : g->cyc + 2;
                     c->halt_first = 0;
                     ppu_advance(g, rt_at(g, sample));
                     if (PENDING(g)) {
                         c->halted = 0;
                         g->cyc += 4;
-                        g->next_event = 0;
-                        continue;
+                    } else {
+                        /* Dormido: saltar al M-ciclo en cuyo muestreo ya se
+                         * vería el siguiente evento */
+                        u64 t = next_hw_event(g);
+                        t = t > 2 ? (t - 2 + 3) & ~(u64)3 : 0;
+                        g->cyc = t > g->cyc ? t : g->cyc + 4;
                     }
-                    /* Dormido: saltar al M-ciclo en cuyo muestreo ya se vería
-                     * el siguiente evento */
-                    u64 t = next_hw_event(g);
-                    t = t > 2 ? (t - 2 + 3) & ~(u64)3 : 0;
-                    g->cyc = t > g->cyc ? t : g->cyc + 4;
+                    if (g->recomp_lookup) gb_cycles.halt += g->cyc - c0;
                     g->next_event = 0;
                     continue;
                 }
@@ -769,7 +772,9 @@ void gb_run(GB *g, u64 until)
                 }
             }
             if (c->ime && pend) {
+                u64 c0 = g->cyc;
                 service_irq(g);
+                if (g->recomp_lookup) gb_cycles.irq += g->cyc - c0;
                 g->next_event = 0;
                 continue;
             }
@@ -792,7 +797,11 @@ void gb_run(GB *g, u64 until)
         if (g->recomp_lookup && !after_ei && !c->halt_bug && !dma_conflict(g, c->pc))
             fn = g->recomp_lookup(g, c->pc);
         if (fn) fn(g);
-        else gb_interp_step(g);
+        else if (g->recomp_lookup) {
+            u64 c0 = g->cyc;
+            gb_interp_step(g);
+            gb_cycles.interp += g->cyc - c0;
+        } else gb_interp_step(g);
     }
     /* Al terminar la corrida el APU queda al día (estado comparable y audio listo) */
     apu_flush(g);

@@ -340,6 +340,17 @@ struct GB {
     void *link_user;
 };
 
+/* Ciclos de la máquina recompilada (la que tiene recomp_lookup) que el despachador pasa fuera del
+ * código recompilado, para el reparto que imprime difftest. Van fuera de GB para que los estados
+ * guardados (copian GB entero y comprueban su tamaño) y la comparación de difftest no cambien.
+ * Con dos máquinas recompiladas en el mismo proceso (linktest) se suman las dos. */
+typedef struct {
+    u64 halt;       /* dormido en HALT, más los 4 ciclos del despertar */
+    u64 irq;        /* despachando interrupciones (5 M-ciclos cada una) */
+    u64 interp;     /* instrucciones del intérprete */
+} GbCycles;
+extern GbCycles gb_cycles;
+
 /* --- Ciclo de vida --- */
 
 /* Prepara la máquina con la ROM dada (no se copia: debe seguir viva).

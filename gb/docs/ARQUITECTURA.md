@@ -960,11 +960,25 @@ Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecut�
 el intérprete y los bytes del código de WRAM y HRAM que ejecutó (para `gbrecomp --trace`),
 `--screens carpeta --every N` guarda capturas y `--bench` mide la velocidad de cada máquina.
 
-El porcentaje «de los ciclos» de la primera línea cuenta todo el tiempo de la máquina, incluido
-el que el CPU pasa en HALT esperando una interrupción, así que un juego sin nada interpretado
-puede quedar lejos del 100 %: International Superstar Soccer marca 56.5 % con el 43.5 % en HALT,
-y Rayman 20.8 % con el 79.0 % en HALT, los dos con menos del 0.1 % de los ciclos en el
-intérprete. Lo que falta compilar se ve en la línea de instrucciones y en las de abajo.
+El porcentaje «de los ciclos» de la primera línea (el resumen común de los cuatro recompiladores)
+cuenta todo el tiempo de la máquina, incluido el que el CPU pasa en HALT esperando una
+interrupción, así que un juego sin nada interpretado puede quedar lejos del 100 %. La línea
+siguiente reparte esos ciclos:
+
+```
+difftest: 3000 cuadros iguales (379355 llamadas, 379345 a código recompilado, 56.5% de los ciclos)
+Ciclos: 56.5 % recompilado, 43.5 % en HALT, 0.1 % en interrupciones, 0.0 % en el intérprete
+```
+
+Es International Superstar Soccer; Rayman marca 20.8 % recompilado y 79.0 % en HALT. Los dos
+interpretan menos del 0.1 % de los ciclos: no falta nada por compilar. Un porcentaje bajo
+apunta a código sin compilar solo si lo que falta está en el intérprete. Los cuenta el
+despachador (`gb_run`), y solo en la máquina que tiene `recomp_lookup`: HALT es lo que el CPU
+pasa dormido más los 4 ciclos del despertar, las interrupciones son los 5 M-ciclos de cada
+despacho y el intérprete son sus instrucciones. Van en la variable global `gb_cycles` y no en
+`GB`, para no cambiar el tamaño de los estados guardados ni lo que compara `difftest`. Si lo que
+no entra en ninguno de los cuatro (`STOP`, esperas de la DMA por HBlank atendidas por el
+despachador) llega al 0.05 %, sale al final como «otros».
 
 Al final imprime cuántas instrucciones corrieron recompiladas y cuántas en el intérprete (por
 zona: ROM, RAM del cartucho, WRAM y HRAM), las 20 direcciones de ROM que más ejecutó el
@@ -994,7 +1008,7 @@ cambian demasiado.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **143 de 143** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`sh tests/run_tests.sh`: **146 de 146** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`, los de `firstwhite` y `strikethrough`, que copian la
 rutina de DMA de OAM a HRAM y no deben pasar por el intérprete, `ei_di`, una ROM mínima que
@@ -1004,8 +1018,9 @@ rutina a `$C000` y parcha un operando de ella, y `interrupt_time` de Blargg, que
 instrucciones distintas desde WRAM; en las dos, la primera ronda interpreta ese código y la
 segunda, con la traza que deja, no interpreta ninguna; dos más que comprueban que el ejecutable `gb`
 (al jugar con `--uncovered`) y `gbtrace` anotan las mismas líneas de RAM que `difftest` en la ROM
-mínima; y una de `gbrecomp` con dos `--trace`, una de código de RAM y otra de ROM, que comprueba que
-se leen las dos).
+mínima; una de `gbrecomp` con dos `--trace`, una de código de RAM y otra de ROM, que comprueba que
+se leen las dos; una del banco que el modo 1 del MBC1 pone en `$0000-$3FFF`, y una ROM mínima que
+duerme en HALT y despierta en cada HBlank, que comprueba el reparto de los ciclos de `difftest`).
 
 - Blargg: `cpu_instrs` (las 11 y la combinada), `instr_timing`, `mem_timing`,
   `mem_timing-2` y `halt_bug`. No hay un equivalente de `nestest` de NESRecomp

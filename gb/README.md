@@ -149,7 +149,9 @@ las preferencias se guardan también al dejar la app en segundo plano. `make apk
 `make apktest` compila la de `cpu_instrs`.
 
 Si el porcentaje de los ciclos pasa de ~98 % y no hay diferencias, ya está:
-salta al paso 6. Si queda bajo (aquí, 76 %), es que hay
+salta al paso 6. Si queda bajo (aquí, 76 %), mira la línea `Ciclos:` que va
+después: si lo que falta se va en HALT (el juego esperando el siguiente cuadro),
+no hay nada que compilar. Si se va en el intérprete, es que hay
 código al que el análisis estático no llega (saltos por punteros, tablas que
 no reconoce...). Lo que falta lo ejecuta el intérprete, así que el juego
 funciona igual, solo más lento. La traza lo resuelve.
@@ -425,7 +427,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 ## Estado
 
 **Pruebas de hardware** (`make test`, con las ROMs de prueba de `make testroms`):
-143 de 143.
+146 de 146.
 - Blargg `cpu_instrs`, `instr_timing`, `mem_timing` y `halt_bug`.
 - Todas las de aceptación de Mooneye para DMG, más las de MBC1/2/5, las de
   arranque de GBC y SGB, y `dmg-acid2` y `cgb-acid2` (pantalla idéntica).

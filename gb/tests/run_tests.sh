@@ -191,6 +191,29 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# --- difftest: el reparto de los ciclos (recompilado, HALT, interrupciones, intérprete). ROM mínima
+#     armada aquí (checksum del encabezado: 0xE7): activa la interrupción de STAT en HBlank y duerme
+#     en HALT; en $48 solo hay un reti. En cada una de las 144 líneas visibles el CPU despierta, el
+#     despachador atiende la interrupción (20 ciclos) y el código recompilado corre reti, jr y halt
+#     (32 ciclos): 4.1 % y 6.6 % de los 70224 ciclos del cuadro, y el resto en HALT ---
+if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) true ;; *) false ;; esac; }; then
+    rom=build/halt_stat.gb
+    mkdir -p build
+    { head -c 72 /dev/zero; printf '\331'; head -c 183 /dev/zero; printf '\000\303\120\001'; head -c 73 /dev/zero
+      printf '\347'; head -c 2 /dev/zero
+      printf '\076\010\340\101\076\002\340\377\373\166\030\375'; head -c $((32768 - 348)) /dev/zero; } > "$rom"
+    if ./gbrecomp$EXE "$rom" -o build/out/halt_stat --name halt_stat > /tmp/gbtest.out 2>&1 \
+        && make -s -C build/out/halt_stat -j4 >> /tmp/gbtest.out 2>&1 \
+        && build/out/halt_stat/difftest$EXE "$rom" --frames 120 --seed 1 >> /tmp/gbtest.out 2>&1 \
+        && grep -qx 'Ciclos: 6.6 % recompilado, 89.3 % en HALT, 4.1 % en interrupciones, 0.0 % en el intérprete' /tmp/gbtest.out; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  difftest, reparto de los ciclos: $(tail -16 /tmp/gbtest.out)"
+    fi
+fi
+
 # --- Recompilador: --trace se puede repetir y se leen todas (la GUI de retrorecomp pasa varias, y
 #     antes solo contaba la última). Dos trazas sobre la ROM de ei_di, en este orden: una con código
 #     de RAM y otra con un punto de entrada de ROM. Si solo se leyera la última, el código de RAM

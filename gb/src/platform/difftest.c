@@ -479,6 +479,20 @@ int main(int argc, char **argv)
         printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
                frames, recomp_calls + (unsigned long)rec.instr_interp, recomp_calls,
                rec.cyc ? 100.0 * (double)recomp_cycles / (double)rec.cyc : 0.0);
+    /* El reparto de esos ciclos: el porcentaje de arriba (el de los cuatro recompiladores) cuenta
+     * también el tiempo en HALT, así que un juego que duerme mucho sale bajo aunque no interprete
+     * nada. Lo que queda fuera de los cuatro (STOP, esperas de la DMA por HBlank en el
+     * despachador) sale como «otros» si se nota */
+    if (ok && rec.cyc) {
+        double t = (double)rec.cyc;
+        u64 known = recomp_cycles + gb_cycles.halt + gb_cycles.irq + gb_cycles.interp;
+        printf("Ciclos: %.1f %% recompilado, %.1f %% en HALT, %.1f %% en interrupciones, %.1f %% en el intérprete",
+               100.0 * recomp_cycles / t, 100.0 * gb_cycles.halt / t, 100.0 * gb_cycles.irq / t,
+               100.0 * gb_cycles.interp / t);
+        if (known < rec.cyc && 100.0 * (rec.cyc - known) / t >= 0.05)
+            printf(", %.1f %% otros", 100.0 * (rec.cyc - known) / t);
+        printf("\n");
+    }
     u64 total = rec.instr_recomp + rec.instr_interp;
     printf("Instrucciones: %llu recompiladas, %llu en el intérprete (%.3f%% de las instrucciones)\n",
            (unsigned long long)rec.instr_recomp, (unsigned long long)rec.instr_interp,

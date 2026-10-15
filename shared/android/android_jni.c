@@ -15,8 +15,9 @@
 /* El hilo del juego espera a Java (player_common.h no le pide que guarde al irse a segundo plano) */
 SDL_atomic_t android_in_java;
 
-int ask_rom_path(const char *title, char *out, size_t size)
+int ask_rom_path(const char *title, const char *types, char *out, size_t size)
 {
+    (void)types;                /* el selector del sistema no filtra por extensión */
     JNIEnv *env = SDL_AndroidGetJNIEnv();
     jobject activity = env ? (jobject)SDL_AndroidGetActivity() : NULL;
     if (!activity) return 0;

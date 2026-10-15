@@ -34,7 +34,15 @@ SHARED = (os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_ga
 # Lo que antes se copiaba en cada repo y ahora se toma de shared/ por el submódulo tools/retrorecomp
 MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
            os.path.join("src", "runtime", "sha1.c"), os.path.join("src", "runtime", "sha1.h"),
-           *(os.path.join("src", "platform", f) for f in ("ui_menu.c", "ui_menu.h", "ui_font.c", "ui_font.h", "png.c", "png.h", "files.h", "export.c", "export.h")))
+           *(os.path.join("src", "platform", f) for f in ("ui_menu.c", "ui_menu.h", "ui_font.c", "ui_font.h", "png.c", "png.h", "files.h", "files.c", "export.c", "export.h")),
+           os.path.join("src", "runtime", "console.h"), os.path.join("src", "tools", "embed.c"), os.path.join("src", "tools", "json.h"),
+           # Los núcleos del 68000 y del Z80 (GENRecomp y NEORecomp)
+           *(os.path.join("src", "runtime", f) for f in ("m68k.h", "m68k_ops.h", "cpu68k.c", "z80.h", "z80.c")),
+           *(os.path.join("src", "tools", f) for f in ("m68ktest.c", "z80test.c")),
+           *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("dis68k.c", "dis68k.h")))
+
+# Archivos que solo tienen algunos (las consolas con 68000 y Z80): idénticos entre los que los tienen
+SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo")}
 
 # Las entradas guionadas del ciclo son las mismas en NES, Game Boy y Genesis; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)
@@ -129,8 +137,9 @@ def main():
             else:
                 print(f"ok    {sid}/{tool}")
     # Archivos que deben ser idénticos en todos los repositorios (sin contar el fin de línea)
-    for shared in SHARED:
-        found = [s for s in roots if roots[s] and not (s == "neo" and shared in PROPIOS_NEO)]
+    for shared in (*SHARED, *SOLO):
+        found = [s for s in roots if roots[s] and not (s == "neo" and shared in PROPIOS_NEO)
+                 and s in SOLO.get(shared, roots)]
         paths = [os.path.join(roots[s], shared) for s in found]
         if len(paths) < 2:
             continue

@@ -5,6 +5,7 @@
 
 #include "files.h"
 #include "png.h"
+#include "wav.h"
 
 int screenshot_write(const char *path, const uint32_t *argb, int w, int h)
 {
@@ -21,18 +22,9 @@ int screenshot_write(const char *path, const uint32_t *argb, int w, int h)
     return ok;
 }
 
-static void put32(unsigned char *p, uint32_t v) { p[0] = v; p[1] = v >> 8; p[2] = v >> 16; p[3] = v >> 24; }
-static void put16(unsigned char *p, unsigned v) { p[0] = v; p[1] = v >> 8; }
-
 static void wav_header(WavRecorder *w)
 {
-    unsigned char h[44];
-    memcpy(h, "RIFF", 4); put32(h + 4, 36 + w->bytes);
-    memcpy(h + 8, "WAVEfmt ", 8); put32(h + 16, 16); put16(h + 20, 1); put16(h + 22, 1);
-    put32(h + 24, (uint32_t)w->rate); put32(h + 28, (uint32_t)w->rate * 2); put16(h + 32, 2); put16(h + 34, 16);
-    memcpy(h + 36, "data", 4); put32(h + 40, w->bytes);
-    fseek(w->f, 0, SEEK_SET);
-    fwrite(h, 1, sizeof h, w->f);
+    wav_put_header(w->f, (uint32_t)w->rate, 1, w->bytes);   /* mono */
 }
 
 int wav_start(WavRecorder *w, const char *path, int rate)

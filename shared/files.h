@@ -22,8 +22,10 @@ int u8_remove(const char *path);
 /* Crea una carpeta (si ya existe no es error). Devuelve 1 si todo bien. */
 int u8_mkdir(const char *path);
 
-/* Diálogo nativo para elegir la ROM (solo en Windows; en otros sistemas
- * devuelve 0 y la ROM se arrastra a la ventana). `title` es el del diálogo. */
-int ask_rom_path(const char *title, char *out, size_t size);
+/* Diálogo nativo para elegir la ROM (en Windows; en Android, el selector del
+ * sistema; en los demás devuelve 0 y la ROM se arrastra a la ventana). `title`
+ * es el del diálogo y `types` el filtro de la consola, "Descripción|*.a;*.b"
+ * (p. ej. "ROM de NES (*.nes)|*.nes"); el diálogo agrega «Todos los archivos». */
+int ask_rom_path(const char *title, const char *types, char *out, size_t size);
 
 #endif

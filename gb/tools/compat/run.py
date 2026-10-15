@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de GBRecomp con una colección de ROMs (zips de No-Intro de Game Boy y Game Boy Color).
-El motor es común a NESRecomp, GBRecomp y GENRecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo
-propio del Game Boy.
+El motor es común a NESRecomp, GBRecomp, GENRecomp y NEORecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí
+solo va lo propio del Game Boy.
 
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
@@ -39,7 +39,6 @@ class GB(compat.Sistema):
     id, nombre, consola, exts = "gb", "GBRecomp", "Game Boy", (".gb", ".gbc")
     categoria_nombre = "MBC"
     botones = ("A", "B")
-    cuadros_diff = 3600              # un minuto de juego por semilla
     compara = "CPU, ciclos, RAM, VRAM, OAM, registros, timer, PPU y RAM del cartucho al final de cada cuadro"
     escala_mini = 1
     cupo = {"ROM": 3, "MBC1": 10, "MBC1M": 2, "MBC2": 3, "MBC3": 6, "MBC5": 11}

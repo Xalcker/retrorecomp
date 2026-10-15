@@ -558,10 +558,12 @@ static void sample(Neo *g)
 void ym_run(Neo *g, u64 mclk)
 {
     Ym2610 *y = &g->ym;
+    PROF_ENTER(PROF_SONIDO);
     while (y->mclk + MCLK_PER_FM <= mclk) {
         sample(g);
         y->mclk += MCLK_PER_FM;
     }
+    PROF_LEAVE();
 }
 
 u8 ym_read(Neo *g, int port, u64 mclk)

@@ -56,6 +56,7 @@
 #include "console.h"
 #include "trace_line.h"
 #include "ram_code.h"
+#include "z80_recomp.h"
 #include "embedded.h"
 #include "dis68k.h"
 
@@ -1759,6 +1760,26 @@ static void emit_info(const char *dir, const char *sha1, const char *name, unsig
     fclose(f);
 }
 
+/* El Z80: los primeros 32 KB de la M1 ($0000-$7FFF, fijos) con el recompilador común (z80_recomp.h, en
+ * retrorecomp), desde el reset, los RST ($38 es la INT en modo 1) y la NMI ($0066). Las ventanas con bancos
+ * y la RAM quedan en el intérprete. gen/zm1.h, gen/zm1_NNN.c y gen/zm1_dispatch.c (zm1_lookup) */
+static void emit_z80(const char *gdir, const Cart *cart)
+{
+    static Z80Rc zr;
+    static const u8 none[1] = { 0xFF };
+    size_t n = cart->len[REG_M];
+    if (n) z80rc_init(&zr, "zm1_", 0, n >= 0x8000 ? 0x7FFF : (u16)(n - 1), cart->data + cart->off[REG_M]);
+    else z80rc_init(&zr, "zm1_", 0, 0, none);
+    if (n) {
+        for (unsigned a = 0; a <= 0x38; a += 8) z80rc_seed(&zr, (u16)a, Z80RC_SEED);
+        z80rc_seed(&zr, 0x66, Z80RC_SEED);
+    }
+    z80rc_discover(&zr);
+    if (!z80rc_emit(&zr, gdir, "zm1", "neorecomp")) die("no se pudo escribir el código del Z80 en %s", gdir);
+    printf("Z80: %u instrucciones de la M1 en %u funciones\n", zr.ninsns, zr.nfuncs);
+    z80rc_free(&zr);
+}
+
 static void write_embedded(const char *dir)
 {
     for (const EmbeddedFile *e = embedded_files; e->name; e++) {
@@ -2216,12 +2237,14 @@ int main(int argc, char **argv)
     snprintf(gdir, sizeof gdir, "%s/gen", out);
     make_dir(gdir);
     remove_old_code(gdir, "code_");
+    remove_old_code(gdir, "zm1_");
     partition();
     snprintf(fn_prefix, sizeof fn_prefix, "f_");
     emit_code(gdir, "gen.h", "code_");
     emit_dispatch(out);
     emit_ram(out);
     emit_info(out, cart->sha1, name, stat_insns);
+    emit_z80(gdir, cart);
     size_t game_funcs = nfuncs;
 
     /* --- La BIOS --- */

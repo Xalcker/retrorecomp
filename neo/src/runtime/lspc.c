@@ -94,8 +94,11 @@ void lspc_sync(Neo *g)
                 l->vbl_done = l->reload_done = 0;
                 l->frame++;
                 l->frame_done = 1;
-            } else if (l->line >= FIRST_VISIBLE_LINE)
+            } else if (l->line >= FIRST_VISIBLE_LINE) {
+                PROF_ENTER(PROF_VIDEO);
                 lspc_render_line(g, l->line - FIRST_VISIBLE_LINE);
+                PROF_LEAVE();
+            }
         }
     }
     update_ipl(g);

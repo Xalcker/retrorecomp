@@ -46,7 +46,7 @@ RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con GENRecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usarán también neoshot y neoaudio)
@@ -152,7 +152,7 @@ $(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(SHARED)
 	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h z80_ops.h console.h audio.h audio_host.h $(filter-out sha1.c,$(RUNTIME))
+EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h z80_ops.h z80_recomp_host.h console.h audio.h audio_host.h prof.h $(filter-out sha1.c,$(RUNTIME))
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
@@ -176,7 +176,7 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h src/neorecomp/visor_html.h \
+neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h src/neorecomp/visor_html.h \
                  src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm

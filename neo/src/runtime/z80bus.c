@@ -176,8 +176,9 @@ static int loop_pure(Neo *g, Z80Loop *lp, u16 start, u16 jump_at)
 
 static u32 banks_key(const Neo *g) { return (u32)g->z80_bank[0] | g->z80_bank[1] << 8 | g->z80_bank[2] << 16 | (u32)g->z80_bank[3] << 24; }
 
-/* Tras una instrucción que empezó en pc0: ¿se cerró una vuelta de un bucle de espera? */
-static void idle_loop(Neo *g, u16 pc0, u64 target)
+/* Tras una instrucción que empezó en pc0: ¿se cerró una vuelta de un bucle de espera? (también la llama el
+ * código generado del Z80, z80_recomp_host.h) */
+void z80_idle_loop(Neo *g, u16 pc0, u64 target)
 {
     Z80 *z = &g->z80;
     Z80Loop *lp = &g->z80_loop;
@@ -196,7 +197,8 @@ static void idle_loop(Neo *g, u16 pc0, u64 target)
         if (len && lim > g->z80_mclk) {
             u64 k = (lim - g->z80_mclk) / len;
             g->z80_mclk += k * len;
-            z->r = (u8)((z->r & 0x80) | ((z->r + k * (u8)(z->r - lp->r)) & 0x7F));
+            Z80_STAT(g, skipped, k * len / MCLK_PER_Z80);
+            z->r =(u8)((z->r & 0x80) | ((z->r + k * (u8)(z->r - lp->r)) & 0x7F));
             for (int c = 0; c < lp->counters; c++) {
                 u8 *m = &g->zram[lp->counter[c] - 0xF800];
                 *m = (u8)(*m + k * lp->delta[c]);
@@ -212,6 +214,7 @@ void z80_run_until(Neo *g, u64 target)
 {
     Z80 *z = &g->z80;
     Ym2610 *y = &g->ym;
+    PROF_ENTER(PROF_Z80);
     while (g->z80_mclk < target) {
         if (g->z80_mclk >= ym_next_event(y)) ym_update(y, g->z80_mclk);
         z->irq = y->flags != 0;
@@ -222,13 +225,25 @@ void z80_run_until(Neo *g, u64 target)
             if (ev > g->z80_mclk && ev < stop) stop = ev;
             u64 n = (stop - g->z80_mclk + 4 * MCLK_PER_Z80 - 1) / (4 * MCLK_PER_Z80);
             g->z80_mclk += n * 4 * MCLK_PER_Z80;
+            Z80_STAT(g, skipped, n * 4);
             z->r = (u8)((z->r & 0x80) | ((z->r + n) & 0x7F));
             z->q = 0;
             z->p = 0;
             continue;
         }
+#ifdef NEO_RECOMP
+        /* Los primeros 32 KB de la M1 en código nativo (gen/zm1*.c), si no hay nada que atienda z80_step */
+        if (z->pc < 0x8000 && !z->nmi && !(z->irq && z->iff1 && !z->ei) && !z->halted &&
+            !neo_force_interp && (const void *)g != z80_interp_only) {
+            Z80RecompFn fn = zm1_lookup(z->pc);
+            if (fn && fn(g, target)) continue;
+        }
+#endif
         u16 pc0 = z->pc;
-        g->z80_mclk += (u64)z80_step(g, z) * MCLK_PER_Z80;
-        idle_loop(g, pc0, target);
+        int t = z80_step(g, z);
+        g->z80_mclk += (u64)t * MCLK_PER_Z80;
+        Z80_STAT(g, interp, (u64)t);
+        z80_idle_loop(g, pc0, target);
     }
+    PROF_LEAVE();
 }

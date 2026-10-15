@@ -12,7 +12,7 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80 y la mezcla toman de esta consola). De `tools/retrorecomp/shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h`, `z80_recomp_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80, el código generado del Z80 y la mezcla toman de esta consola). De `tools/retrorecomp/shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
 | `src/neorecomp/` | El recompilador (`neorecomp.c`, `visor_html.h`; el desensamblador `dis68k.c` es el de `tools/retrorecomp/shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `tools/retrorecomp/shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `tools/retrorecomp/shared`); diagnóstico: `neorun`. |
@@ -262,11 +262,45 @@ instrucciones (1 con un operando variable) y no deja nada en el intérprete, sin
 ejecutable anotan las mismas líneas que `difftest`. `difftest` dice qué parte del tiempo del intérprete fue ROM
 (P y BIOS) o RAM («Intérprete por zona»).
 
+### El Z80 en código nativo
+
+`neorecomp` compila también los primeros 32 KB de la M1 (`$0000-$7FFF`, fijos) con el recompilador del Z80
+común con GENRecomp y SMSRecomp (`z80_recomp.h`, en `tools/retrorecomp/shared`). Las ventanas con bancos y la
+RAM siguen en el intérprete. El descubrimiento parte del reset, los `RST` (`$38` es la INT en modo 1) y la NMI
+(`$0066`) y sigue el flujo con `z80_decode`. Cada instrucción llama a la rama de `z80_exec` de su primer byte
+(`z80_exec_main`, `_cb`, `_ed` o `_xy`, de `z80_ops.h`) con sus bytes y su PC constantes: la misma semántica y
+los mismos ciclos que el intérprete. Se emiten `gen/zm1.h`, `gen/zm1_NNN.c` (funciones de hasta 64
+instrucciones) y `gen/zm1_dispatch.c` (`zm1_lookup`).
+
+`src/runtime/z80_recomp_host.h` pone, antes y después de cada instrucción, lo mismo que hace
+`z80_run_until` alrededor de `z80_step`:
+
+- **Antes:** se sale si se llegó al destino. Los temporizadores del YM2610 se ponen al día y la INT queda
+  según sus banderas. Se vuelve al intérprete si hay una NMI, una INT con IFF1 (fuera de la instrucción que
+  sigue a `EI`) o un `HALT`.
+- **Después:** el reloj, `Z80_STAT` y los bucles de espera. Esto último solo si se saltó hacia atrás o hay un
+  bucle armado.
+
+`z80_run_until` busca la función con `zm1_lookup` si el PC está en `$0000-$7FFF` y no hay nada que atienda
+`z80_step`. No la busca con `--interp` ni en la máquina A de `difftest` (`z80_interp_only`): así `difftest`
+compara, tras cada paso, el Z80 nativo de B con el intérprete de A.
+
+Compilar una instrucción del Z80 cuesta unos 20 ms, contra ~1 ms una del 68000. El compilador copia la rama
+entera y después la pliega; con `z80_exec` entero era cinco veces más. Los 6129 de Metal Slug compilan en
+unos 37 s con `make -j8`.
+
+Medido en Windows (3000 cuadros; `difftest` con las semillas 1 y 2, sin diferencias):
+
+| | Instrucciones del Z80 | Ciclos del Z80 que no se saltan, en nativo | `bench` antes → después | Tiempo en el Z80 antes → después |
+|---|---|---|---|---|
+| Metal Slug | 6129 | 99,2-99,8 % | 23,5× → 28,1× | 12,1 % → 7,9 % |
+| KOF '94 | 3937 | 99-100 % | (el Z80 casi siempre espera) | 1,4 % → 1,2 % |
+
 ### El proyecto generado
 
 `neorecomp -o carpeta` escribe `runtime/` (el runtime de este repo, que va dentro de `neorecomp`),
 `platform/` (la ventana, `difftest`, `bench`), `gen/` (`code_NNN.c` de unas 3000 instrucciones cada uno,
-para compilar en paralelo, `dispatch.c`, `ram.c` con el código aprendido de RAM, `info.c` con el SHA1 y el nombre, `gen.h`), `bios/` (el código de
+para compilar en paralelo, `dispatch.c`, `ram.c` con el código aprendido de RAM, `info.c` con el SHA1 y el nombre, `gen.h`, y el Z80 en `zm1*`), `bios/` (el código de
 la BIOS de la caché y `bios.c`), un `Makefile` (con `-DNEO_RECOMP`) y `LEEME.txt`. No lleva datos del juego
 ni de la BIOS: el ejecutable busca el juego (el argumento, la copia que guarda la primera vez en su carpeta
 de datos como `juego.neo`, o un `.neo` o `.zip` de la carpeta actual con el SHA1 correcto) o lo pide, y

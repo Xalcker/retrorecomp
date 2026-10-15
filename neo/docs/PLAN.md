@@ -25,7 +25,7 @@ caminos. Se copian y se adaptan (el código es del mismo autor); la semántica d
 | E/S | `$A10000` (versión, mandos), `$A11100` (bus del Z80) | `$300000` P1, `$340000` P2, `$380000` Start/Select y tarjeta, `$320000` comando al Z80 y su respuesta, `$3A0001-$3A001F` latch del sistema (sombra, vectores, tarjeta, paleta; en el AES no hay BRDFIX/CRTFIX), `$3C0000` LSPC, `$400000` paleta (dos bancos), `$800000` tarjeta de memoria | El 68000 nunca toca el bus del Z80: solo un byte de comando y uno de respuesta. |
 | Video | VDP: 2 planos, ventana, 80 sprites, scroll por línea o celda, 3 DMA | LSPC: **sin planos**. 381 sprites de 16 pixeles de ancho, columnas de hasta 32 mosaicos de 16×16 encadenadas (bit pegajoso), reducción horizontal (tabla fija del LSPC) y vertical (tabla L0, chip de la placa), 96 sprites por línea, autoanimación; capa fija de 8×8 (40×32, de la S ROM); paleta de 2×256×16 colores con bit de oscurecido, modo sombra; VRAM de 34 K palabras por un puerto con incremento con signo. Gráficos en las C ROM (hasta 64 MB en los juegos sin cifrar) | El dibujo es de a línea (efectos de trama) y de a sprite: se evalúa qué sprites tocan la línea y se dibuja su tramo de 16 pixeles de una vez. Las C ROM se convierten al cargar a un formato de 4 bits por pixel listo para copiar. |
 | Interrupciones | VINT (6) y HINT (4) del VDP, reconocidas por el CPU | Nivel 1 VBLANK (línea 224 activa, `$1F0` del contador), 2 temporizador de 32 bits a 6 MHz (recarga al llegar a 0, al empezar el cuadro o al escribir; pone efectos a mitad de cuadro), 3 tras el arranque en frío. Autovector, pero **no se borran al atenderlas**: el programa escribe `IRQACK` (`$3C000C`) | `m68k_int_ack` no borra nada; el nivel lo fija el LSPC según lo pendiente y no reconocido. |
-| Segundo CPU | Z80 con código en su RAM (lo sube el 68000) | Z80 con código en la **M1 ROM** del cartucho (32 KB fijos más ventanas de 16/8/4/2 KB por puertos `IN $08-$0B`), 2 KB de RAM. NMI por cada comando del 68000; INT (modo 1) por los temporizadores del YM2610 | El Z80 sigue interpretado. Como su código está en ROM, podría recompilarse (fase 8, solo si el perfil lo pide). |
+| Segundo CPU | Z80 con código en su RAM (lo sube el 68000) | Z80 con código en la **M1 ROM** del cartucho (32 KB fijos más ventanas de 16/8/4/2 KB por puertos `IN $08-$0B`), 2 KB de RAM. NMI por cada comando del 68000; INT (modo 1) por los temporizadores del YM2610 | Los primeros 32 KB de la M1 se recompilan con el recompilador común del Z80 (`z80_recomp.h`, fase 11); las ventanas con bancos y la RAM, en el intérprete. |
 | Sonido | YM2612 (6 FM + DAC) y SN76489 | YM2610: 4 canales FM (los 2, 3, 5 y 6 del OPNA), SSG (3 tonos, ruido, envolvente), ADPCM-A (6 canales a 18 518 Hz) y ADPCM-B (uno, frecuencia variable), desde las V ROM (buses A y B separados en los juegos viejos) | El FM sale del YM2612 de GENRecomp. SSG, ADPCM-A y ADPCM-B son nuevos, escritos desde la documentación. FM a 55 555 Hz; ADPCM-A cada 3 muestras del FM. |
 | Mandos | 3 y 6 botones | Cruz, A B C D, Start y Select (en el AES no hay monedas) | 10 botones en el guion de entradas. |
 | Guardado | SRAM y EEPROM serie en el cartucho | AES: solo la **tarjeta de memoria** (2 KB, la maneja la BIOS con `CARD`). MVS: RAM de respaldo (después) | La tarjeta se emula como un archivo, igual que la SRAM. |
@@ -285,6 +285,13 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   `CARD_ERROR`) usa el formato que deja la original, medido por la interfaz con `neocard`: las tarjetas
   escritas por una BIOS se leen con la otra, y 60 llamadas dan lo mismo (`tests/neobios/`). Falta la
   animación de la pantalla de SNK.
+- [ ] **11. El Z80 en código nativo** (Xalcker/retrorecomp#59). En curso.
+  - Hecho: la métrica (`Z80: N ciclos T: X% nativo, Y% interpretado, Z% saltado` en `bench` y `difftest`) y
+    `--perfil` en `bench` (en qué se va el tiempo: Z80, sonido, video y lo demás; `prof.h`).
+  - Hecho: los primeros 32 KB de la M1 en código nativo con `z80_recomp.h` (ver `ARQUITECTURA.md`, «El Z80 en
+    código nativo»), sin diferencias en `difftest`.
+  - Falta: las ventanas con bancos (por banco, como las vistas por ranura de SMSRecomp), lo que el flujo no
+    encuentra (tablas de `JP (HL)`, una traza del Z80) y la SM1 del MVS.
 
 Después: **MVS** (DIP, RAM de respaldo, monedas, SFIX/SM1, varios slots, el reloj de 24 MHz), **juegos
 cifrados** (NEO-CMC, SMA, PCM2, PVC), **PAL**. Fuera de alcance: Neo Geo CD.
@@ -374,7 +381,8 @@ League Bowling, Thrash Rally), Metal Slug X (protección), los de mahjong, track
    ciclo a ciclo. Lo que el código generado no hace igual (leer los operandos) se cobra igual, y lo que
    depende del tiempo se cobra en el límite de instrucción.
 2. Las interrupciones las atiende siempre el intérprete; el código generado sale apenas hay una pendiente.
-3. El Z80 interpretado al principio; recompilar la M1 solo si el perfil lo justifica.
+3. El Z80 interpretado al principio; después, lo más posible en código nativo (fase 11), con el recompilador
+   del Z80 común con GENRecomp y SMSRecomp.
 4. La BIOS en el intérprete hasta la fase 5; recompilada aparte, una vez por versión, desde la fase 6.
 5. Orden: CPU → bus y BIOS → LSPC → audio → herramientas → recompilador → heurísticas → rendimiento →
    compatibilidad. El audio puede ir en paralelo al LSPC (`difftest` funciona sin él).

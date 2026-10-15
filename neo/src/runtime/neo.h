@@ -11,6 +11,7 @@
 
 #include "m68k.h"
 #include "z80.h"
+#include "prof.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -417,6 +418,10 @@ void lspc_render_line(Neo *g, int sy);  /* dibuja la línea sy (0-223) de la pan
 
 /* --- Z80 y YM2610 (z80bus.c, ym2610.c) --- */
 void z80_run_until(Neo *g, u64 mclk);   /* el Z80 corre hasta ese ciclo maestro */
+void z80_idle_loop(Neo *g, u16 pc0, u64 target);   /* tras cada instrucción: los bucles de espera */
+#ifdef NEO_RECOMP
+Z80RecompFn zm1_lookup(uint16_t pc);    /* gen/zm1_dispatch.c: la M1 ($0000-$7FFF) en código nativo */
+#endif
 NEO_INL void z80_sync(Neo *g) { u64 m = g->cyc * MCLK_PER_M68K; if (g->z80_mclk < m) z80_run_until(g, m); }
 void sound_command(Neo *g, u8 v);       /* el 68000 escribe $320000 */
 void ym_reset(Ym2610 *y);

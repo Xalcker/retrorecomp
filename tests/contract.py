@@ -39,7 +39,15 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
            # Los núcleos del 68000 y del Z80 (GENRecomp y NEORecomp)
            *(os.path.join("src", "runtime", f) for f in ("m68k.h", "m68k_ops.h", "cpu68k.c", "z80.h", "z80.c")),
            *(os.path.join("src", "tools", f) for f in ("m68ktest.c", "z80test.c")),
-           *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("dis68k.c", "dis68k.h")))
+           *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("dis68k.c", "dis68k.h")),
+           # Las preferencias, las opciones comunes de las herramientas, la mezcla de GEN y NEO y sus oráculos
+           os.path.join("src", "platform", "settings.c"), os.path.join("src", "platform", "cli.h"),
+           os.path.join("src", "platform", "inputs.h"), os.path.join("src", "runtime", "audio.c"),
+           os.path.join("tools", "oracles", "retro_run.c"), os.path.join("tools", "oracles", "libretro_min.h"))
+
+# Los movidos que algún repo conserva a propósito: GBRecomp tiene su inputs.h (un jugador, con el modelo en el
+# encabezado) y su src/tools/cli.h
+PROPIOS = {os.path.join("src", "platform", "inputs.h"): ("gb",)}
 
 # Archivos que solo tienen algunos (las consolas con 68000 y Z80): idénticos entre los que los tienen
 SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo")}
@@ -159,7 +167,7 @@ def main():
     # Los archivos movidos a shared/ no deben seguir copiados en los repos
     for s, root in roots.items():
         for m in MOVIDOS:
-            if root and os.path.exists(os.path.join(root, m)):
+            if root and s not in PROPIOS.get(m, ()) and os.path.exists(os.path.join(root, m)):
                 print(f"FALLA {s}: {m} ya vive en retrorecomp/shared; quita la copia")
                 fails += 1
             checked += 1

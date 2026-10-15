@@ -30,6 +30,15 @@ jobs:
         run: |
           cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -o ram_code_test tests/ram_code_test.c
           ./ram_code_test
+  comun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preferencias, entradas grabadas, opciones comunes y mezcla (settings.c, inputs.h, cli.h, audio.c) sin consola
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o comun_test \
+             tests/comun_test.c shared/settings.c shared/files.c shared/audio.c -lm
+          ./comun_test
   touch:
     runs-on: ubuntu-latest
     steps:

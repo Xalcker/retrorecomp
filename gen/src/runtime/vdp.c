@@ -54,7 +54,7 @@ void vdp_sync(Gen *g)
     if (m < v->next_line) return;
     while (m >= v->next_line) {
         v->next_line += MCLK_PER_LINE;
-        if (v->line < v->height) vdp_render_line(g, v->line);
+        if (v->line < v->height) { PROF_ENTER(PROF_VIDEO); vdp_render_line(g, v->line); PROF_LEAVE(); }
         /* Fin de la línea: el contador de HINT baja en las líneas con imagen y en la primera del
          * VBLANK; en el resto se recarga */
         if (v->line <= v->height) {
@@ -72,7 +72,9 @@ void vdp_sync(Gen *g)
         }
         if (v->line == v->height) {
             v->vint_pending = 1; v->f_flag = 1;
-            /* La INT del Z80 sale a la vez y dura una línea */
+            /* La INT del Z80 sale a la vez y dura una línea (el Z80, que corre atrasado, primero se pone al
+             * día con la ventana de antes) */
+            gen_z80_catchup(g);
             g->z80_irq_from = v->next_line - MCLK_PER_LINE;
             g->z80_irq_until = v->next_line;
         }

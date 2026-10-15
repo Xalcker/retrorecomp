@@ -423,12 +423,61 @@ con el primer y el último byte) no están confirmadas con hardware.
 `z80.c`: el Z80 completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades de
 IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
 bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80
-(`z80test`, `tests/sstz80.sh`, en `make test`). Siempre interpretado.
+(`z80test`, `tests/sstz80.sh`, en `make test`).
+
+**El driver en código nativo.** `genrecomp` compila también el driver que el 68000 sube a la RAM del Z80,
+con el recompilador del Z80 común con NEORecomp y SMSRecomp (`z80_recomp.h`, en `tools/retrorecomp/shared`;
+Xalcker/retrorecomp#59). El driver no está en la ROM tal cual: muchos juegos lo suben comprimido. Por eso
+se aprende corriendo el juego en el intérprete (el **sondeo**: `--z80-frames`, 3600 cuadros por omisión, con
+Start y un poco de mando; `0` lo apaga). El gancho `gen_z80_probe` de `z80bus.c` ve cada instrucción que el
+Z80 ejecuta desde su RAM. Si sus bytes no están en ninguna de las versiones ya vistas, se guarda una copia
+de la RAM como versión nueva (hasta 4).
+
+Cada versión se compila aparte (`gen/zrN*.c`), sembrada con lo que se ejecutó de ella, y **con guarda**:
+cada instrucción compara antes sus bytes con la RAM del Z80 (`Z80RC_BYTE`). Si cambiaron (otro driver,
+código que se modifica a sí mismo), la ejecuta el intérprete con lo que hay. `gen/zram.c` (`zram_run`)
+prueba las versiones, primero la que anduvo la última vez. `src/runtime/z80_recomp_host.h` pone lo mismo
+que `z80_run_until` alrededor de `z80_step`. `z80_run_until` la llama si el PC está en `$0000-$1FFF` y no hay
+una INT que atender, salvo con `--interp` o en la máquina A de `difftest` (`z80_interp_only`), que compara
+el Z80 nativo de B con el intérprete de A tras cada paso.
+
+`genbench` y `difftest` dicen cuánto del Z80 corrió nativo, interpretado o saltado (la línea `Z80: ...`,
+`Z80_STAT` de `z80.h`). `genbench --perfil` dice en qué se fue el tiempo: Z80, sonido (YM2612 y PSG), video
+(el dibujo del VDP) y lo demás (`prof.h`). Los drivers de los juegos medidos no usan `HALT`.
+
+**El Z80 corre atrasado.** Antes se ponía al día tras cada instrucción del 68000: corría una o dos
+instrucciones cada vez, y entrar al código generado costaba lo que ahorraba (empataba con el intérprete).
+Ahora cada instrucción del 68000 solo anota hasta dónde le toca (`z80_due`) y el Z80 se pone al día donde se
+toca con el resto:
+
+- **Hasta el ciclo actual** (`z80_sync`, como antes): cuando el 68000 toca el área del Z80 (con el YM2612),
+  el pedido del bus o el reset.
+- **Hasta `z80_due`** (`gen_z80_catchup`): antes de que el 68000 escriba el PSG o el mapper, de que el VDP
+  cambie la ventana de su INT y del audio al final del cuadro.
+
+`z80_due` es justo hasta donde habría llegado si corriera tras cada instrucción, así que todo pasa en el
+mismo orden. `tests/golden.sh` da los mismos hashes de imagen y audio que antes en las 23 ROMs.
+
+Lo único que no puede quedar igual es que el Z80 toque la RAM, el VDP, la E/S o la SRAM del 68000 por la
+ventana de `$8000`: eso pasaría en otro momento. `gen_z80_window_ext` lo cuenta y `genbench` lo dice; en
+las 23 ROMs de `roms/`, con las entradas de `golden.sh`, no pasa nunca.
+
+Medido en Windows (`bench`, 1800 cuadros; el mismo proyecto con el Z80 interpretado, `--z80-frames 0`, y
+nativo; `difftest` con las semillas 1 y 2 sin diferencias):
+
+| | Instrucciones del Z80 | Versiones | Z80 nativo en `difftest` | Antes (al paso, interpretado) | Atrasado, interpretado | Atrasado, nativo |
+|---|---|---|---|---|---|---|
+| Sonic 1 | 130 | 3 | 100 % | 22,0× | 26,6× | 29,0× |
+| Streets of Rage 2 | 258 | 3 | 100 % | 30,3× | 34,3× | 40,3× |
+| Mortal Kombat 3 | 11 672 | 4 (había más) | 97-99 % | 33,2× | 37,6× | 43,7× |
+
+Con el intérprete solo (`genbench`), el Z80 atrasado ya da entre 13 y 19 % más. Con el código nativo, el
+Z80 baja del 14-20 % del tiempo al 5-12 %. Mortal Kombat 3 modifica su propio código y tiene más de 4
+versiones; lo que no entra lo hace el intérprete.
 
 `z80bus.c`: su mapa (RAM de 8 KB con espejo, YM2612, registro de banco de 9 bits, PSG en `$7F11` y la
-ventana de 32 KB al bus del 68000 en `$8000`). Va a 1/15 del reloj maestro y corre detrás del 68000:
-se pone al día hasta el mismo ciclo después de cada instrucción del 68000 y antes de que el 68000 toque
-su bus. No corre con el reset puesto (`$A11200`, que también reinicia el YM2612) ni con el bus pedido.
+ventana de 32 KB al bus del 68000 en `$8000`). Va a 1/15 del reloj maestro y corre atrasado (arriba). No
+corre con el reset puesto (`$A11200`, que también reinicia el YM2612) ni con el bus pedido.
 Su INT dura una línea desde el VBLANK. Cada acceso del Z80 al bus del 68000 le cuesta unos 3 ciclos
 más (espera a que el 68000 le ceda el bus); sin emular todavía: lo que pierde el 68000 en esa cesión.
 

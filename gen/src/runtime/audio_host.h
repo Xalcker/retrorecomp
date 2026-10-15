@@ -12,9 +12,11 @@
 #define AUDIO_NOW(g) ((g)->cyc * MCLK_PER_M68K)
 #define AUDIO_TAKE gen_audio_take
 
-/* Lleva el YM2612 y el PSG hasta t; devuelve hasta dónde llegaron los dos */
+/* Lleva el YM2612 y el PSG hasta t (antes, el Z80, que corre atrasado, hasta donde le tocaba); devuelve
+ * hasta dónde llegaron los dos */
 static inline u64 audio_sync(Gen *g, u64 t)
 {
+    gen_z80_catchup(g);
     ym_run(g, t);
     psg_run(g, t);
     return g->ym.mclk < g->psg.mclk ? g->ym.mclk : g->psg.mclk;

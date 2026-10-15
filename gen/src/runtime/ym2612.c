@@ -328,10 +328,12 @@ static void sample(Gen *g)
 void ym_run(Gen *g, u64 mclk)
 {
     Ym2612 *y = &g->ym;
+    PROF_ENTER(PROF_SONIDO);
     while (y->mclk + MCLK_PER_SAMPLE <= mclk) {
         sample(g);
         y->mclk += MCLK_PER_SAMPLE;
     }
+    PROF_LEAVE();
 }
 
 u8 ym_read(Gen *g, u64 mclk)

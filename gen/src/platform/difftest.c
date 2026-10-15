@@ -190,9 +190,12 @@ int main(int argc, char **argv)
         return 2;
     }
     long frames = c.frames;
+    z80_stat_of = &B;                       /* cuánto del Z80 de B corre nativo */
+    z80_interp_only = &A;                   /* A es la referencia: su Z80 va con el intérprete */
     if (c.bench) {
         printf("%s: %ld cuadros\n", recomp_name, frames);
         bench(&c);
+        z80_stat_print();
         return 0;
     }
     if (c.uncovered) gen_trace_start(&B);   /* solo en B: lo que A (intérprete) ejecuta no cuenta */
@@ -235,6 +238,7 @@ int main(int argc, char **argv)
     if (interp)
         printf("Intérprete por zona: ROM %.1f%%, RAM %.1f%%, otra %.1f%%\n", 100.0 * (double)interp_zone[0] / (double)interp,
                100.0 * (double)interp_zone[1] / (double)interp, 100.0 * (double)interp_zone[2] / (double)interp);
+    z80_stat_print();
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * (double)recomp_cycles / (double)B.cyc : 0.0);
     if (c.uncovered) {

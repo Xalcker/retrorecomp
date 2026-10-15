@@ -43,7 +43,7 @@ RUNTIME := cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c cpu68k.c z80.c z8
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libgenrt.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con NEORecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h psg.c psg.h
+SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h psg.c psg.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usan también genshot y genaudio)
@@ -123,7 +123,7 @@ z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # Archivos que genrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h m68k_host.h z80_host.h cpu68k.c z80.h z80_ops.h z80.c z80bus.c psg.c psg.h psg_host.h ym2612.c audio.c audio.h audio_host.h console.h recomp.h
+EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k.h m68k_ops.h m68k_host.h z80_host.h cpu68k.c z80.h z80_ops.h z80.c z80bus.c psg.c psg.h psg_host.h ym2612.c audio.c audio.h audio_host.h console.h recomp.h prof.h z80_recomp_host.h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
@@ -147,7 +147,7 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h src/genrecomp/visor_html.h \
+genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h src/genrecomp/visor_html.h \
                  src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/genrecomp/genrecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm

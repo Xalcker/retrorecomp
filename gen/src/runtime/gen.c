@@ -11,6 +11,8 @@
 #include "trace_line.h"
 #include "sha1.h"
 
+PROF_DEFINE;            /* la zona que muestrea --perfil (prof.h) */
+
 /* Región para el registro de versión: se prefiere EE. UU. (NTSC, en inglés); si el cartucho solo
  * dice Japón, Japón; si solo dice Europa, PAL. Acepta "JUE" y el formato de un dígito hexadecimal. */
 static u8 region_bits(const GenHeader *h)
@@ -64,7 +66,7 @@ void gen_reset(Gen *g)
     g->z80_reset = 1;
     g->z80_bank = 0;
     z80_reset(&g->z80);
-    g->z80_mclk = 0;
+    g->z80_mclk = g->z80_due = 0;
     g->z80_irq_from = g->z80_irq_until = 0;
     psg_reset(&g->psg);
     ym_reset(&g->ym);

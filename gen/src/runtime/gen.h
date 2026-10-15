@@ -11,6 +11,7 @@
 
 #include "m68k.h"
 #include "z80.h"
+#include "prof.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -35,9 +36,10 @@ enum {
     GEN_START = 128, GEN_Z = 256, GEN_Y = 512, GEN_X = 1024, GEN_MODE = 2048
 };
 
-/* Reloj NTSC: el maestro es de 53.693175 MHz; el 68000 va a /7 y una línea son 3420 ciclos
+/* Reloj NTSC: el maestro es de 53.693175 MHz; el 68000 va a /7, el Z80 a /15 y una línea son 3420 ciclos
  * maestros (488.57 del 68000); 262 líneas por cuadro */
 #define MCLK_PER_M68K  7
+#define MCLK_PER_Z80   15
 #define MCLK_PER_LINE  3420
 #define LINES_NTSC     262
 
@@ -208,6 +210,8 @@ typedef struct Gen {
     u16  z80_bank;              /* banco de 32 KB que ve el Z80 en $8000 (9 bits, $A06000) */
     Z80  z80;
     u64  z80_mclk;              /* ciclo maestro hasta el que corrió el Z80 */
+    u64  z80_due;               /* hasta dónde tendría que haber corrido: el fin de la última instrucción del
+                                   68000 (corre atrasado y se pone al día en gen_z80_catchup) */
     u64  z80_irq_from, z80_irq_until;   /* INT del Z80: una línea desde el VBLANK */
     Psg  psg;
     Ym2612 ym;
@@ -281,6 +285,17 @@ void z80_run_until(Gen *g, u64 mclk);
 void z80_sync(Gen *g);
 void z80_set_reset(Gen *g, int on);     /* $A11200: el reset del Z80 también reinicia el YM2612 */
 void z80_set_busreq(Gen *g, int on);
+/* Si no es NULL, z80_run_until lo llama antes de cada instrucción que ejecuta el intérprete (el sondeo
+ * del driver de genrecomp) */
+extern void (*gen_z80_probe)(Gen *g, u16 pc);
+/* Accesos del Z80, por su ventana de $8000, a lo que no es la ROM del cartucho (la RAM, el VDP o la E/S del
+ * 68000, la SRAM) y escrituras: con el Z80 atrasado no pasan en el mismo momento (diagnóstico) */
+extern unsigned long long gen_z80_window_ext;
+#ifdef GEN_RECOMP
+/* gen/zram.c: corre el driver en código nativo desde el PC (las versiones que vio el sondeo, cada
+ * instrucción con su guarda); 0 si no corrió nada */
+int zram_run(Gen *g, uint64_t target);
+#endif
 u8   bus_read8(Gen *g, u32 addr);       /* el bus del 68000 sin ciclos (para el Z80 y el DMA) */
 void bus_write8(Gen *g, u32 addr, u8 v);
 
@@ -333,7 +348,18 @@ GEN_INL void gen_after_step_inline(Gen *g)
     }
     u64 m = g->cyc * MCLK_PER_M68K;
     if (m >= g->vdp.next_line) vdp_sync(g);
-    if (g->z80_mclk < m) z80_run_until(g, m);
+    g->z80_due = m;
+}
+
+/* El Z80 corre atrasado: se pone al día solo donde se toca con el resto, y justo hasta donde habría
+ * llegado si corriera tras cada instrucción del 68000 (z80_due), así que todo pasa en el mismo orden y
+ * nada cambia un bit (tests/golden.sh). Donde el 68000 toca el área del Z80, el pedido del bus o el reset,
+ * z80_sync lo lleva hasta el ciclo actual, como siempre; aquí: el PSG y el mapper desde el 68000, la
+ * ventana de la INT que fija el VDP y el audio al final del cuadro. Lo único que no puede quedar igual: que
+ * el Z80 toque la RAM, el VDP o la E/S del 68000 por su ventana de $8000 (gen_z80_window_ext lo cuenta) */
+GEN_INL void gen_z80_catchup(Gen *g)
+{
+    if (g->z80_mclk < g->z80_due) z80_run_until(g, g->z80_due);
 }
 
 #endif

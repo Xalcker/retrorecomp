@@ -170,7 +170,10 @@ static void write16(Gen *g, u32 a, u16 v)
         return;
     case 0xC: case 0xD:
         if (!vdp_addr(g, a)) return;
-        if ((a & 0x1F) >= 0x10) { if ((a & 0x1E) == 0x10) psg_write(g, (u8)v, g->cyc * MCLK_PER_M68K); return; }
+        if ((a & 0x1F) >= 0x10) {
+            if ((a & 0x1E) == 0x10) { gen_z80_catchup(g); psg_write(g, (u8)v, g->cyc * MCLK_PER_M68K); }
+            return;
+        }
         vdp_write(g, a & 0x1E, v);
         return;
     case 0xA:
@@ -178,7 +181,7 @@ static void write16(Gen *g, u32 a, u16 v)
         if (a < 0xA10020) { io_write(g, a >> 1 & 0xF, (u8)v); return; }
         if ((a & 0xFFFF00) == 0xA11100) { z80_set_busreq(g, v >> 8 & 1); return; }
         if ((a & 0xFFFF00) == 0xA11200) { z80_set_reset(g, !(v >> 8 & 1)); return; }
-        if ((a & 0xFFFFF0) == 0xA130F0) { mapper_write(g, a + 1, (u8)v); return; }
+        if ((a & 0xFFFFF0) == 0xA130F0) { gen_z80_catchup(g); mapper_write(g, a + 1, (u8)v); return; }
         if ((a & 0xFFFFFC) == 0xA14000) {
             if (a & 2) g->tmss_reg = (g->tmss_reg & 0xFFFF0000u) | v;
             else g->tmss_reg = (g->tmss_reg & 0xFFFFu) | (u32)v << 16;
@@ -201,7 +204,7 @@ static void write8(Gen *g, u32 a, u8 v)
     case 0xC: case 0xD:
         if (!vdp_addr(g, a)) return;
         if ((a & 0x1F) >= 0x10) {                           /* $C00011-$C00017: PSG */
-            if ((a & 0x19) == 0x11) psg_write(g, v, g->cyc * MCLK_PER_M68K);
+            if ((a & 0x19) == 0x11) { gen_z80_catchup(g); psg_write(g, v, g->cyc * MCLK_PER_M68K); }
             return;
         }
         vdp_write(g, a & 0x1E, (u16)(v << 8 | v));          /* el byte va en las dos mitades */
@@ -211,7 +214,7 @@ static void write8(Gen *g, u32 a, u8 v)
         if (a < 0xA10020) { if (a & 1) io_write(g, a >> 1 & 0xF, v); return; }
         if (a == 0xA11100) { z80_set_busreq(g, v & 1); return; }
         if (a == 0xA11200) { z80_set_reset(g, !(v & 1)); return; }
-        if ((a & 0xFFFFF0) == 0xA130F0) { mapper_write(g, a, v); return; }
+        if ((a & 0xFFFFF0) == 0xA130F0) { gen_z80_catchup(g); mapper_write(g, a, v); return; }
         if ((a & 0xFFFFFC) == 0xA14000) {
             int sh = (3 - (int)(a & 3)) * 8;
             g->tmss_reg = (g->tmss_reg & ~(0xFFu << sh)) | (u32)v << sh;

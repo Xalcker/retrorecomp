@@ -91,6 +91,14 @@ mismo contrato de línea de comandos.
   agregaron la FIFO del VDP y el refresco de la DRAM (más parecido con los dos). `tools/compat/` (etapa 1
   con el intérprete, etapa 2 recompilando sin traza, oráculos) y `docs/COMPATIBILIDAD.md` con
   `docs/compat/index.html`. Pendiente: una colección grande (No-Intro) cuando la haya; PAL.
+- [ ] **10. El Z80 en código nativo** (Xalcker/retrorecomp#59). En curso.
+  - Hecho: la métrica (`Z80: ...` en `genbench` y `difftest`) y `genbench --perfil` (`prof.h`).
+  - Hecho: el driver de la RAM del Z80 en código nativo, aprendido con el sondeo de `genrecomp`
+    (`--z80-frames`) y compilado con guarda (ver `ARQUITECTURA.md`, «Z80»), sin diferencias en `difftest`.
+  - Hecho: el Z80 corre atrasado y se pone al día solo donde se toca con el resto, sin cambiar un bit de
+    `golden.sh`: de 22-33× a 29-44× tiempo real con el driver nativo.
+  - Falta: más de 4 versiones del driver (Mortal Kombat 3 modifica su código: agrupar por opcodes y leer los
+    operandos de la RAM) y las líneas del Z80 en la traza, para lo que el sondeo no ve.
 
 ## Comparación con SonicTheHedgehogRecomp (mstan/segagenesisrecomp)
 
@@ -107,6 +115,8 @@ comercial de referencia.
 ## Decisiones
 
 1. Precisión: accesos al bus del 68000 contados (como en NES) con el VDP perezoso; no todo ciclo a ciclo.
-2. El Z80 siempre interpretado (recompilar drivers conocidos como SMPS o GEMS, quizá después).
+2. El Z80 interpretado al principio; después, lo más posible en código nativo con el recompilador del Z80
+   común con NEORecomp y SMSRecomp (`z80_recomp.h`, Xalcker/retrorecomp#59), con una guarda para el driver
+   que el 68000 sube a su RAM.
 3. Fuera de alcance al principio: Sega CD, 32X, modo SMS, Pico. PAL después de NTSC.
 4. Orden: CPU → bus → VDP → herramientas → recompilador; el audio en paralelo (`difftest` sirve sin YM2612 al principio).

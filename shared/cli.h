@@ -6,6 +6,7 @@
  *   --input ARCHIVO  entradas grabadas (inputs.h); las de --record de la ventana sirven
  *   --seed S         suma un mando aleatorio reproducible con esa semilla
  *   --repeat N       corridas (*bench): se reporta la más rápida
+ *   --perfil         (genbench, neobench y su bench) en qué se va el tiempo: Z80, sonido, video y lo demás (prof.h)
  *   --uncovered F    (difftest) escribe lo que el intérprete tuvo que ejecutar
  *   --screens DIR    (difftest) guarda una captura PNG cada --every N cuadros (600 si no se dice)
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
@@ -47,7 +48,7 @@ typedef struct {
     long frames; int frames_given;
     const char *input; InputScript script;
     int use_seed; unsigned seed; RandomPad rp;
-    int repeat;
+    int repeat, perfil;
     const char *uncovered;
     const char *screens, *executed; long every; int bench;     /* solo difftest */
     const char *expect; int hash;                               /* solo *shot */
@@ -81,6 +82,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--input") && i + 1 < argc) c->input = argv[++i];
         else if (!strcmp(a, "--seed") && i + 1 < argc) { c->seed = (unsigned)strtoul(argv[++i], NULL, 0); c->use_seed = 1; }
         else if (!strcmp(a, "--repeat") && i + 1 < argc) c->repeat = atoi(argv[++i]);
+        else if (!strcmp(a, "--perfil")) c->perfil = 1;
         else if (!strcmp(a, "--uncovered") && i + 1 < argc) c->uncovered = argv[++i];
         else if (!strcmp(a, "--screens") && i + 1 < argc) c->screens = argv[++i];
         else if (!strcmp(a, "--every") && i + 1 < argc) c->every = atol(argv[++i]);

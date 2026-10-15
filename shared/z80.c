@@ -12,9 +12,23 @@
  * Los ciclos T salen de la instrucción (no se cuentan accesos al bus; en el Genesis el Z80 solo
  * espera al leer el bus del 68000, y eso lo agrega su z80bus.c).
  */
+#include <stdio.h>
 #include <string.h>
 
 #include "z80_ops.h"
+
+Z80Stat z80_stat;
+const void *z80_stat_of;
+const void *z80_interp_only;
+
+void z80_stat_print(void)
+{
+    uint64_t n = z80_stat.native + z80_stat.interp + z80_stat.skipped;
+    if (!n) return;
+    printf("Z80: %llu ciclos T: %.1f%% nativo, %.1f%% interpretado, %.1f%% saltado (HALT y bucles de espera)\n",
+           (unsigned long long)n, 100.0 * (double)z80_stat.native / (double)n,
+           100.0 * (double)z80_stat.interp / (double)n, 100.0 * (double)z80_stat.skipped / (double)n);
+}
 
 void z80_reset(Z80 *z)
 {

@@ -12,7 +12,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
 SHARED := tools/retrorecomp/shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_touch.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_touch.h files.c wav.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -38,6 +38,9 @@ endif
 
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
+# Lo del runtime que vive en shared/ (console.h)
+SHARED_RT := console.h
+rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 .PHONY: all clean test dist testroms webtest apktest
 all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
@@ -99,15 +102,15 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
                   recomp.h console.h save.c sgb.c compat.c
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h ramtrace.h romtrace.h files.c files.h i18n.c i18n.h settings.c settings.h \
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h player_touch.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
 # La APK de Android (make apk): shared/android va a platform/android del proyecto
 EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
                   AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(EMBED_RUNTIME:%=src/runtime/%) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h \
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h \
              $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
-EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
+EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
               platform/random_pad.h=$(SHARED)/random_pad.h \
               runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
@@ -115,7 +118,7 @@ EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=src/runtime/$(f)) \
               platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk \
               $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
 
-$(BUILD)/embed$(EXE): src/tools/embed.c | $(BUILD)
+$(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen

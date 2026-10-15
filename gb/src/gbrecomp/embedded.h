@@ -1,4 +1,4 @@
-/* Archivos que gbrecomp copia a cada proyecto (los genera src/tools/embed.c) */
+/* Archivos que gbrecomp copia a cada proyecto (los genera embed.c, de tools/retrorecomp/shared) */
 #ifndef EMBEDDED_H
 #define EMBEDDED_H
 

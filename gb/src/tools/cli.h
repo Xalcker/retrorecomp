@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../runtime/console.h"
+#include "console.h"
 #include "../runtime/gb.h"
 #include "../platform/inputs.h"
 

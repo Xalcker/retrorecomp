@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "cli.h"
+#include "wav.h"
 
 int main(int argc, char **argv)
 {
@@ -37,14 +38,8 @@ int main(int argc, char **argv)
             if (tot > cap - 4096) break;
         }
     }
-    FILE *o = fopen(c.out, "wb");
-    if (!o) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
-    u32 data = (u32)(tot * 4), rate = GB_SAMPLE_RATE, br = rate * 4, riff = 36 + data, sixteen = 16;
-    u16 fmt = 1, ch = 2, align = 4, bits = 16;
-    fwrite("RIFF", 1, 4, o); fwrite(&riff, 4, 1, o); fwrite("WAVEfmt ", 1, 8, o);
-    fwrite(&sixteen, 4, 1, o); fwrite(&fmt, 2, 1, o); fwrite(&ch, 2, 1, o); fwrite(&rate, 4, 1, o);
-    fwrite(&br, 4, 1, o); fwrite(&align, 2, 1, o); fwrite(&bits, 2, 1, o);
-    fwrite("data", 1, 4, o); fwrite(&data, 4, 1, o); fwrite(pcm, 2, tot * 2, o); fclose(o);
+    u32 rate = GB_SAMPLE_RATE;
+    if (!wav_save(c.out, pcm, tot, rate, 2)) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
     printf("%s: %zu muestras (%.1f s)\n", c.out, tot, tot / (double)rate);
     for (size_t s = 0; s + rate <= tot || s == 0; s += rate) {
         size_t e = s + rate < tot ? s + rate : tot;

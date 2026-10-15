@@ -43,7 +43,7 @@
 #endif
 
 #include "../emit/sm83_emit.h"
-#include "../runtime/console.h"
+#include "console.h"
 #include "sha1.h"
 #include "embedded.h"
 #include "viz.h"

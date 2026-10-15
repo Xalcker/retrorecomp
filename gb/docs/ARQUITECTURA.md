@@ -920,7 +920,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
 ## Empaquetado y pruebas
 
 - **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y
-  el intérprete generado. `src/tools/embed.c` los convierte en arreglos de C
+  el intérprete generado. `embed.c` (de `tools/retrorecomp/shared`) los convierte en arreglos de C
   (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
   `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
 - **Versión:** sale de `git describe` (`gbrecomp --version`).

@@ -94,6 +94,9 @@ static char interp_title[17] = "Game Boy", interp_name[96] = "gb", interp_sha1[4
 #include "player_audio.h"
 #include "player_touch.h"
 
+/* El filtro del diálogo para elegir la ROM en Windows (ask_rom_path, files.h) */
+#define ROM_TYPES "ROM de Game Boy (*.gb, *.gbc)|*.gb;*.gbc"
+
 static void fail(const char *msg)
 {
     fprintf(stderr, "%s\n", msg);
@@ -168,7 +171,7 @@ static int ask_for_rom(Rom *rom)
     char msg[4096], path[1024];
     int first = 1;
     for (;;) {
-        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path, sizeof path);
+        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), ROM_TYPES, path, sizeof path);
         if (!got) {
 #ifdef __ANDROID__
             return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */

@@ -5,6 +5,7 @@
 
 #include "files.h"
 #include "png.h"
+#include "wav.h"
 
 /* ------------------------------------------------------------------ */
 /* Música: VGM                                                         */
@@ -116,22 +117,7 @@ static void vgm_finish(MusicRecorder *m, const char *title)
 
 static void wav_header(FILE *f, u32 frames)
 {
-    u8 h[44];
-    u32 bytes = frames * 4;
-    memcpy(h, "RIFF", 4);
-    put_le32(h + 4, 36 + bytes);
-    memcpy(h + 8, "WAVEfmt ", 8);
-    put_le32(h + 16, 16);
-    h[20] = 1; h[21] = 0;                       /* PCM */
-    h[22] = 2; h[23] = 0;                       /* estéreo */
-    put_le32(h + 24, GB_SAMPLE_RATE);
-    put_le32(h + 28, GB_SAMPLE_RATE * 4);
-    h[32] = 4; h[33] = 0;                       /* bytes por par */
-    h[34] = 16; h[35] = 0;                      /* bits */
-    memcpy(h + 36, "data", 4);
-    put_le32(h + 40, bytes);
-    fseek(f, 0, SEEK_SET);
-    fwrite(h, 1, sizeof h, f);
+    wav_put_header(f, GB_SAMPLE_RATE, 2, frames * 4);   /* estéreo */
 }
 
 /* ------------------------------------------------------------------ */

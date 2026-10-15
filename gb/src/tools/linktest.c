@@ -17,7 +17,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "../runtime/console.h"
+#include "console.h"
 #include "../runtime/gb.h"
 #include "png.h"
 #include "../platform/inputs.h"

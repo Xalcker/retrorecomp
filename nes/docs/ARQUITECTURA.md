@@ -190,14 +190,16 @@ L_8000: /* lda #$10 */
 
 ### Código que el juego copia a la RAM
 
-Algunos juegos copian código a la RAM interna y lo ejecutan desde ahí: 3-D WorldRunner espera el NMI en un
-bucle en `$0760` (`bit $2002` / `bvc` y un `jmp` sobre sí mismo), y eso era el 38 % de sus ciclos, todos en
-el intérprete. No está en el PRG, así que el descubrimiento no llega. Se aprende de la traza con el módulo
+Algunos juegos copian código a la RAM y lo ejecutan desde ahí: 3-D WorldRunner espera el NMI en un bucle en
+`$0760` de la RAM interna (`bit $2002` / `bvc` y un `jmp` sobre sí mismo), y eso era el 38 % de sus ciclos,
+todos en el intérprete; Gradius 2, Batman y Zelda corren rutinas desde la RAM del cartucho (`$6000-$7FFF`). No está en el PRG, así que el descubrimiento no llega. Se aprende de la traza con el módulo
 común de retrorecomp, `shared/ram_code.h`, que salió de lo que hizo GBRecomp:
 
 1. Con la traza activa (`difftest --uncovered`, el ejecutable con `--uncovered`, `nestrace`), `cpu_step`
    anota con `nes_ram_note` cada instrucción que ejecuta en `$0000-$1FFF` (con la dirección del espejo tal
-   cual): hasta 4 versiones por dirección y qué bytes cambiaron entre ejecuciones. La tabla va aparte de
+   cual) o en `$6000-$7FFF`: hasta 4 versiones por dirección y qué bytes cambiaron entre ejecuciones. La RAM
+   del cartucho se lee con `mapper_ram_ptr` (`mapper.c`), que da el byte que el CPU leería con el mapeo actual
+   sin efectos: el banco del MMC5, y nada si el MMC3 tiene la RAM apagada o el FME-7 pone ROM ahí. La tabla va aparte de
    `NES`, porque los estados guardados la copian entera y comprueban su tamaño. Salen como líneas
    `ram DIRECCION B0 [B1 B2]` (`??` en los bytes que cambiaron) en el mismo archivo de la traza, que
    `trace_line_read` ignora; el ejecutable, que carga el archivo y lo vuelve a escribir, conserva las que
@@ -210,16 +212,18 @@ común de retrorecomp, `shared/ram_code.h`, que salió de lo que hizo GBRecomp:
    arma **bloques**: cadenas de instrucciones sin ambigüedad. Cada bloque es una función de `gen/ram.c` que se
    emite con el mismo cuerpo que las del PRG (`emit_ins_body`, que recibe los operandos como expresiones:
    literales en el PRG, lecturas de RAM en lo variable). El código de las funciones del PRG no cambia.
-4. **La guarda:** `ram_lookup`, al que `recomp_lookup` pregunta por `$0000-$1FFF`, elige el primer bloque cuyos
-   bytes fijos (opcodes y desplazamientos) siguen en RAM; si no, el intérprete. Se comprueba al entrar al
-   bloque, no por instrucción: un bloque que reescribe un opcode propio mientras corre sigue con lo aprendido
-   hasta la siguiente entrada; `difftest` lo delataría.
+4. **La guarda:** `ram_lookup`, al que `recomp_lookup` pregunta por `$0000-$1FFF` y `$6000-$7FFF`, elige el
+   primer bloque cuyos bytes fijos (opcodes y desplazamientos) siguen en RAM; si no, el intérprete. Se comprueba
+   al entrar al bloque, no por instrucción: un bloque que reescribe un opcode propio mientras corre sigue con lo
+   aprendido hasta la siguiente entrada; `difftest` lo delataría. En la RAM del cartucho, además, el bloque sale
+   al despachador si una escritura cambió el mapeo (`MAPCHK`, como en las ventanas intercambiables del PRG), para
+   que la guarda vuelva a mirar los bytes del banco nuevo.
 
-La RAM del cartucho (`$6000-$7FFF`) sigue en el intérprete: en los juegos medidos pesa poco (Gradius 2, ~1.7 % de
-los ciclos; Zelda, 0.3 %) y depende del mapper. `tests/run_tests.sh` lo prueba con una ROM NROM hecha ahí mismo que
-copia una rutina a `$0300`, la llama en un bucle y parcha el inmediato de su `lda`: la segunda ronda compila 6
-instrucciones (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `nestrace` y el
-ejecutable anotan las mismas líneas que `difftest`.
+`tests/run_tests.sh` lo prueba con una ROM NROM hecha ahí mismo que copia una rutina a `$0300` y a `$6100`, llama a
+las dos en un bucle y parcha el inmediato del `lda` de la primera: la segunda ronda compila 10 instrucciones en 2
+bloques (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `nestrace` y el ejecutable
+anotan las mismas líneas que `difftest`. Con el ciclo de `tests/recomp_game.sh` (1500 cuadros, semilla 1), Gradius
+2 pasa del 98.3 % de los ciclos recompilados al 100 %, Batman del 99.3 % y Zelda del 99.7 %, sin diferencias.
 
 ### Proyecto generado
 

@@ -524,6 +524,15 @@ long mapper_prg_offset(const Cart *c, u16 a)
     return m == (size_t)-1 ? -1 : (long)(m + (a & 0x1FFF));                    /* -1: RAM (MMC5) */
 }
 
+const u8 *mapper_ram_ptr(const Cart *c, u16 a)
+{
+    if (a < 0x6000 || a >= 0x8000) return NULL;
+    if (CART_MMC5(c)) return mmc5_ram((Cart *)c, c->m5[0x13]) + (a & 0x1FFF);
+    if (CART_MMC3(c) && !(c->reg[14] & 0x80)) return NULL;
+    if (MAPPER(c) == 69 && (!(c->reg[13] & 0x40) || !(c->reg[13] & 0x80))) return NULL;
+    return c->prg_ram + (a & 0x1FFF);
+}
+
 u8 mapper_cpu_read(NES *n, u16 a)
 {
     Cart *c = &n->cart;

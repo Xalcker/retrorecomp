@@ -222,9 +222,10 @@ ni un byte de imagen o audio.
 
 - Las pruebas que arrastraba el proyecto (`mmc3_test_2` completo, con la revisión vieja del MMC3 en `NES_MMC3_ALT=1`, y
   `cpu_interrupts_v2` 1-5) ya pasan.
-- El código que el descubrimiento no alcanza (y que no está en la traza), o que está en la RAM del cartucho, lo
-  corre el intérprete. Es correcto, solo más lento. El de la RAM interna se aprende de la traza (líneas `ram`, ver
-  `docs/ARQUITECTURA.md`): 3-D WorldRunner pasa del 62 % al 100 % de los ciclos en código recompilado. El descubrimiento especulativo agrega mucho código que nunca
+- El código que el descubrimiento no alcanza (y que no está en la traza) lo corre el intérprete. Es correcto, solo
+  más lento. El que corre desde la RAM interna o la del cartucho se aprende de la traza (líneas `ram`, ver
+  `docs/ARQUITECTURA.md`): 3-D WorldRunner pasa del 62 % al 100 % de los ciclos en código recompilado, y Gradius 2,
+  Batman y Zelda llegan al 100 %. El descubrimiento especulativo agrega mucho código que nunca
   se ejecuta (SMB3: 69 mil instrucciones, ~13 s de compilación con `make -j8`).
 
 ### Compatibilidad

@@ -54,7 +54,7 @@ int cpu_step(NES *n)
     u8 opc = RD(c->pc++);
     if (n->trace) {
         if (pc0 >= 0x8000) nes_trace_note(n, pc0);
-        else if (pc0 < 0x2000) nes_ram_note(n, pc0);      /* código en la RAM interna (ram_code.h) */
+        else if (pc0 < 0x2000 || pc0 >= 0x6000) nes_ram_note(n, pc0);   /* código en RAM (ram_code.h) */
     }
     const Ins *in = &ins_tab[opc];
     int op = in->op, mode = in->mode;

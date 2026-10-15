@@ -21,8 +21,8 @@
  * Las instrucciones se identifican por su desplazamiento en la ROM, no por la
  * dirección del CPU: lo que no se descubrió lo ejecuta el intérprete.
  * Descubrir de más no rompe nada; de menos, tampoco. El código que el juego
- * copia a la RAM interna se aprende de las líneas "ram" de la traza y va a
- * gen/ram.c con una guarda (emit_ram).
+ * copia a la RAM (la interna y la del cartucho) se aprende de las líneas
+ * "ram" de la traza y va a gen/ram.c con una guarda (emit_ram).
  */
 #ifndef _WIN32
 #define _DEFAULT_SOURCE
@@ -615,13 +615,15 @@ static size_t why_arg(const char *arg)
 
 static RcList ram_list;              /* instrucciones de RAM de las trazas (líneas "ram") */
 
-/* Una línea "ram" válida: en la RAM interna ($0000-$1FFF), con la longitud que pide su opcode y sin variar lo que
- * identifica la instrucción (el opcode; en los saltos relativos, también el desplazamiento) */
+/* Una línea "ram" válida: en la RAM interna ($0000-$1FFF) o en la del cartucho ($6000-$7FFF), sin cruzar su final,
+ * con la longitud que pide su opcode y sin variar lo que identifica la instrucción (el opcode; en los saltos
+ * relativos, también el desplazamiento) */
 static void add_ram_line(RcIns *in)
 {
     const Ins *ins = &ins_tab[in->bytes[0]];
     in->key = ins->mode == REL ? 2 : 1;
-    if (in->addr + in->len > 0x2000 || in->len != mode_len[ins->mode] || (in->vol & ((1u << in->key) - 1))) return;
+    int inside = in->addr + in->len <= 0x2000 || (in->addr >= 0x6000 && in->addr + in->len <= 0x8000);
+    if (!inside || in->len != mode_len[ins->mode] || (in->vol & ((1u << in->key) - 1))) return;
     if (!rc_list_add(&ram_list, in)) die("sin memoria");
 }
 
@@ -992,19 +994,21 @@ static void emit_dispatch(const char *dir)
     fprintf(f, "\n};\n\n"
                "RecompFn recomp_lookup(NES *n, u16 pc)\n{\n"
                "    long off = mapper_prg_offset(&n->cart, pc);\n"
-               "    if (off < 0) return pc < 0x2000 ? ram_lookup(n, pc) : 0;\n"
+               "    if (off < 0) return pc < 0x2000 || (pc >= 0x6000 && pc < 0x8000) ? ram_lookup(n, pc) : 0;\n"
                "    u32 i = page_first[off >> 8];\n"
                "    while (i < NFUNCS && f_hi[i] < (u32)off) i++;\n"
                "    return (i < NFUNCS && f_lo[i] <= (u32)off) ? f_fn[i] : 0;\n}\n");
     fclose(f);
 }
 
-/* Código que el juego copia a la RAM interna y ejecuta desde ahí (3-D WorldRunner espera el NMI en un bucle en
- * $0760). No está en el PRG, así que se aprende de las líneas "ram" de la traza (ram_code.h, en retrorecomp). Las
+/* Código que el juego copia a la RAM interna o a la del cartucho y ejecuta desde ahí (3-D WorldRunner espera el NMI
+ * en un bucle en $0760; Gradius 2, Batman y Zelda corren rutinas desde $6000-$7FFF). No está en el PRG, así que se aprende de las líneas "ram" de la traza (ram_code.h, en retrorecomp). Las
  * instrucciones que van una detrás de otra sin ambigüedad forman un bloque, que se compila con sus direcciones
  * como el código del PRG (emit_ins_body). La guarda: ram_lookup elige el primer bloque cuyos opcodes (y
  * desplazamientos de los saltos relativos) siguen en RAM; si el juego cambió el código, cae al intérprete. Los
- * operandos que cambiaron entre ejecuciones se leen de RAM al ejecutar, como en el intérprete */
+ * operandos que cambiaron entre ejecuciones se leen de RAM al ejecutar, como en el intérprete. La RAM del cartucho
+ * se lee con mapper_ram_ptr (el banco y si está activa dependen del mapper); un bloque ahí sale al despachador si
+ * una escritura cambió el mapeo (MAPCHK), para que la guarda vuelva a comprobar sus bytes */
 static int ram_here(const void *ctx, u16 target) { return rc_block_has(&ram_list, ctx, target); }
 
 static void emit_ram(const char *dir)
@@ -1030,7 +1034,12 @@ static void emit_ram(const char *dir)
     if (dropped) printf(" (%zu descartadas por cambiar de estructura)", dropped);
     printf("\n");
 
-    fprintf(f, "static inline u8 ram_b(const NES *n, u16 a) { return n->ram[a & 0x7FF]; }\n\n");
+    fprintf(f, "/* Un byte de RAM sin efectos; -1 si en la del cartucho no hay RAM legible con el mapeo actual */\n"
+               "static inline int ram_g(const NES *n, u16 a)\n{\n"
+               "    if (a < 0x2000) return n->ram[a & 0x7FF];\n"
+               "    const u8 *p = mapper_ram_ptr(&n->cart, a);\n"
+               "    return p ? *p : -1;\n}\n"
+               "static inline u8 ram_b(const NES *n, u16 a) { return (u8)ram_g(n, a); }\n\n");
     for (size_t bi = 0; bi < nb; bi++) {
         const RcBlock *b = &blocks[bi];
         fprintf(f, "/* RAM $%04X-$%04X (%zu instrucciones) */\nstatic int m_%zu(const NES *n)\n{\n    return", b->start,
@@ -1039,11 +1048,14 @@ static void emit_ram(const char *dir)
         for (size_t k = 0; k < b->n; k++) {
             const RcIns *in = &ram_list.ins[b->node[k]];
             for (unsigned j = 0; j < in->key; j++, k3++) {
-                fprintf(f, "%s ram_b(n, 0x%04X) == 0x%02X", first ? "" : (k3 % 4 ? " &&" : " &&\n          "), in->addr + j, in->bytes[j]);
+                fprintf(f, "%s ram_g(n, 0x%04X) == 0x%02X", first ? "" : (k3 % 4 ? " &&" : " &&\n          "), in->addr + j, in->bytes[j]);
                 first = 0;
             }
         }
-        fprintf(f, ";\n}\n\nstatic void r_%zu(NES *n)\n{\n    Cpu *c = &n->cpu;\n    switch (c->pc) {\n", bi);
+        int cart = b->start >= 0x6000;
+        fprintf(f, ";\n}\n\nstatic void r_%zu(NES *n)\n{\n    Cpu *c = &n->cpu;\n", bi);
+        if (cart) fprintf(f, "    u32 ver0 = n->cart.map_ver;\n");
+        fprintf(f, "    switch (c->pc) {\n");
         for (size_t k = 0; k < b->n; k++) {
             u32 a = ram_list.ins[b->node[k]].addr;
             fprintf(f, "    case 0x%04X: goto L_%04X;\n", a, a);
@@ -1069,6 +1081,8 @@ static void emit_ram(const char *dir)
             fprintf(f, "L_%04X: /* RAM %s%s */\n    FRAME(0x%04X);\n", a, dis, in->vol ? " (operandos variables)" : "", a);
             if (emit_ins_body(f, &e)) continue;
             fprintf(f, "    ICHK(0x%04X);\n", next);
+            int kind = op_kind(ins_tab[in->bytes[0]].op);
+            if (cart && (kind == K_WRITE || kind == K_RMW)) fprintf(f, "    MAPCHK(0x%04X);\n", next);
             if (k + 1 == b->n || ram_list.ins[b->node[k + 1]].addr != next) fprintf(f, "    c->pc = 0x%04X;\n    return;\n", next);
         }
         fprintf(f, "}\n\n");
@@ -1076,7 +1090,8 @@ static void emit_ram(const char *dir)
 
     /* El lookup: por cada dirección, los bloques que la tienen, en orden; el primero cuya guarda pasa */
     fprintf(f, "RecompFn ram_lookup(NES *n, u16 pc)\n{\n    switch (pc) {\n");
-    for (u32 a = 0; a < 0x2000; a++) {
+    for (u32 a = 0; a < 0x8000; a++) {
+        if (a == 0x2000) a = 0x6000;
         int any = 0;
         for (size_t bi = 0; bi < nb; bi++)
             if (rc_block_has(&ram_list, &blocks[bi], a)) {

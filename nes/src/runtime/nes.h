@@ -278,6 +278,9 @@ void mapper_scanline(NES *n, int line);          /* MMC5: la PPU empieza una lí
 void mapper_chr_latch(Cart *c, u16 addr);        /* MMC2/MMC4: tras leer un patrón */                      /* recalcula prg_map tras un cambio de bancos */
 u8   mapper_cpu_read(NES *n, u16 addr);          /* $4020-$FFFF */
 long mapper_prg_offset(const Cart *c, u16 addr);   /* rápida: usa prg_map */
+/* El byte de RAM que se lee en $6000-$7FFF con el mapeo actual, sin efectos; NULL si ahí no hay RAM legible
+ * (MMC3 con la RAM apagada, FME-7 con ROM o RAM apagada). Para el código que corre desde la RAM del cartucho */
+const u8 *mapper_ram_ptr(const Cart *c, u16 addr);
 /* Consultas para el recompilador */
 typedef struct { u16 start; u32 size; size_t off; int fixed; } PrgWin;
 int    mapper_prg_window(const Cart *c, u16 addr, PrgWin *w);
@@ -329,7 +332,8 @@ int  apu_take(NES *n, int16_t *dst, int max);    /* saca muestras mono de 44100 
 void nes_trace_start(NES *n);
 void nes_trace_note(NES *n, u16 pc);
 /* Con la traza activa, el intérprete también anota el código que ejecuta desde la RAM interna ($0000-$1FFF,
- * con la dirección de sus espejos tal cual), en líneas "ram" de ram_code.h que la misma traza escribe y lee:
+ * con la dirección de sus espejos tal cual) y desde la del cartucho ($6000-$7FFF, la que lee mapper_ram_ptr),
+ * en líneas "ram" de ram_code.h que la misma traza escribe y lee:
  * nesrecomp --trace lo compila con una guarda. La tabla va aparte de NES (los estados guardados la copian
  * entera y validan su tamaño) */
 void nes_ram_note(NES *n, u16 pc);

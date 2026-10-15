@@ -388,19 +388,20 @@ int nes_sram_dirty(const NES *n)
 
 /* ---- Traza de ejecución ---- */
 
-/* Código ejecutado desde la RAM interna, por máquina (difftest tiene dos) */
-static struct { const NES *n; RcTable t; } ram_tabs[4];
+/* Código ejecutado desde RAM, por máquina (difftest tiene dos): t[0] la interna ($0000-$1FFF), t[1] la del
+ * cartucho ($6000-$7FFF) */
+static struct { const NES *n; RcTable t[2]; } ram_tabs[4];
 
 static RcTable *ram_table(const NES *n, int create)
 {
     for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
-        if (ram_tabs[i].n == n) return &ram_tabs[i].t;
+        if (ram_tabs[i].n == n) return ram_tabs[i].t;
     if (!create) return NULL;
     for (unsigned i = 0; i < sizeof ram_tabs / sizeof *ram_tabs; i++)
         if (!ram_tabs[i].n) {
-            if (!rc_init(&ram_tabs[i].t, 0x0000, 0x2000)) return NULL;
+            if (!rc_init(&ram_tabs[i].t[0], 0x0000, 0x2000) || !rc_init(&ram_tabs[i].t[1], 0x6000, 0x2000)) return NULL;
             ram_tabs[i].n = n;
-            return &ram_tabs[i].t;
+            return ram_tabs[i].t;
         }
     return NULL;
 }
@@ -412,19 +413,24 @@ void nes_ram_note(NES *n, u16 pc)
 {
     RcTable *t = ram_table(n, 0);
     if (!t) return;
-    const Ins *in = &ins_tab[n->ram[pc & 0x7FF]];
+    int cart = pc >= 0x6000;
+    if (cart && !mapper_ram_ptr(&n->cart, pc)) return;
+    const Ins *in = &ins_tab[cart ? *mapper_ram_ptr(&n->cart, pc) : n->ram[pc & 0x7FF]];
     unsigned len = mode_len[in->mode];
+    if (pc + len > (cart ? 0x8000u : 0x2000u)) return;
     u8 b[3];
-    for (unsigned i = 0; i < len; i++) b[i] = n->ram[(pc + i) & 0x7FF];
-    if (pc + len <= 0x2000) rc_observe(t, pc, b, len, in->mode == REL ? 2 : 1);
+    for (unsigned i = 0; i < len; i++) b[i] = cart ? *mapper_ram_ptr(&n->cart, (u16)(pc + i)) : n->ram[(pc + i) & 0x7FF];
+    rc_observe(&t[cart], pc, b, len, in->mode == REL ? 2 : 1);
 }
 
 void nes_ram_summary(const NES *n, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost)
 {
     RcTable *t = ram_table(n, 0);
-    RcSummary s = { 0, 0, 0, 0 };
-    if (t) s = rc_summary(t);
-    *fixed = s.fixed; *vol = s.vol; *multi = s.multi; *lost = s.lost;
+    *fixed = *vol = *multi = *lost = 0;
+    for (int k = 0; t && k < 2; k++) {
+        RcSummary s = rc_summary(&t[k]);
+        *fixed += s.fixed; *vol += s.vol; *multi += s.multi; *lost += s.lost;
+    }
 }
 
 void nes_trace_start(NES *n)
@@ -447,7 +453,7 @@ int nes_trace_write(const NES *n, const char *path)
     for (size_t i = 0; i < n->cart.prg_size; i++)
         if (n->trace[i]) trace_line_write(f, NES_TRACE_SHIFT, 4, i, n->trace[i] & 0xFFFF);
     RcTable *t = ram_table(n, 0);
-    if (t) rc_write(t, f, 4);
+    for (int k = 0; t && k < 2; k++) rc_write(&t[k], f, 4);
     return fclose(f) == 0;
 }
 
@@ -466,7 +472,7 @@ int nes_trace_load(NES *n, const char *path)
             if (off < n->cart.prg_size && !n->trace[off]) { n->trace[off] = 0x10000u | (u32)addr; k++; }
         } else if (t && rc_parse(line, &in)) {
             in.key = ins_tab[in.bytes[0]].mode == REL ? 2 : 1;
-            if (!(in.vol & 1) && in.len == mode_len[ins_tab[in.bytes[0]].mode]) rc_add(t, &in);
+            if (!(in.vol & 1) && in.len == mode_len[ins_tab[in.bytes[0]].mode]) rc_add(&t[in.addr >= 0x6000], &in);
         }
     fclose(f);
     return k;

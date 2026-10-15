@@ -176,7 +176,7 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h src/neorecomp/visor_html.h \
+neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h $(SHARED)/visor_html.h \
                  src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm

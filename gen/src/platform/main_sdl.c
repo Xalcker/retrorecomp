@@ -64,6 +64,8 @@
 #include "player_touch.h"
 
 #define NTSC_FPS (53693175.0 / (MCLK_PER_LINE * LINES_NTSC))      /* 59.92 */
+/* El filtro del diálogo para elegir la ROM en Windows (ask_rom_path, files.h) */
+#define ROM_TYPES "ROM de Sega Genesis (*.bin, *.md, *.gen, *.smd)|*.bin;*.md;*.gen;*.smd"
 
 static void fail(const char *msg);
 
@@ -200,7 +202,7 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     int first = 1;
     (void)app;
     for (;;) {
-        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), path_out, path_size);
+        int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), ROM_TYPES, path_out, path_size);
         if (!got) {
 #ifdef __ANDROID__
             return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
@@ -538,7 +540,7 @@ static int menu_state(void *ctx, int action, int *checked)
 static void ask_open_rom(App *app)
 {
     char path[1024];
-    if (ask_rom_path(tr(T_ROM_CHOOSE), path, sizeof path)) switch_rom(app, path);
+    if (ask_rom_path(tr(T_ROM_CHOOSE), ROM_TYPES, path, sizeof path)) switch_rom(app, path);
     else message(app, tr(T_OPEN_ROM), tr(T_ROM_CHOOSE));   /* sin diálogo nativo: se arrastra */
 }
 

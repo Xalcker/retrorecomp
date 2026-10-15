@@ -20,6 +20,7 @@
 #include "gen.h"
 #include "console.h"
 #include "png.h"
+#include "wav.h"
 
 /* La imagen del cuadro (el tamaño que tiene en ese modo) como PNG */
 static int save_frame(const Gen *g, const char *path)
@@ -129,8 +130,7 @@ int main(int argc, char **argv)
     if (wav) {
         wf = fopen(wav, "wb");
         if (!wf) { fprintf(stderr, "no se pudo crear %s\n", wav); return 1; }
-        static const u8 hdr[44] = { 0 };
-        fwrite(hdr, 1, 44, wf);
+        wav_put_header(wf, AUDIO_RATE, 2, 0);          /* la de verdad, al final */
     }
     if (sram && gen_sram_load(g, sram)) printf("partida cargada de %s\n", sram);
 
@@ -198,23 +198,7 @@ int main(int argc, char **argv)
         hcount[bi] = 0;
     }
     if (wf) {
-        /* Cabecera RIFF/WAVE de 44 bytes (PCM, 2 canales, 16 bits) */
-        u8 h[44];
-        u32 rate = AUDIO_RATE;
-        memcpy(h, "RIFF", 4);
-        u32 v = 36 + wav_bytes; memcpy(h + 4, &v, 4);
-        memcpy(h + 8, "WAVEfmt ", 8);
-        v = 16; memcpy(h + 16, &v, 4);
-        u16 w = 1; memcpy(h + 20, &w, 2);
-        w = 2; memcpy(h + 22, &w, 2);
-        memcpy(h + 24, &rate, 4);
-        v = rate * 4; memcpy(h + 28, &v, 4);
-        w = 4; memcpy(h + 32, &w, 2);
-        w = 16; memcpy(h + 34, &w, 2);
-        memcpy(h + 36, "data", 4);
-        memcpy(h + 40, &wav_bytes, 4);
-        fseek(wf, 0, SEEK_SET);
-        fwrite(h, 1, 44, wf);
+        wav_put_header(wf, AUDIO_RATE, 2, wav_bytes);
         fclose(wf);
         printf("sonido en %s (%.1f s)\n", wav, wav_bytes / 4.0 / AUDIO_RATE);
     }

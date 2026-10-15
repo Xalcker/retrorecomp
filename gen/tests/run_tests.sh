@@ -14,6 +14,7 @@ tiempo() { t=$(date +%s); echo "      ($1: $((t - TS)) s)"; TS=$t; }
 corre "carttest (formatos .bin/.smd, cabecera, suma, SRAM, vectores)" "$(exe carttest)"
 mkdir -p build/tests
 corre "z80test --int (interrupción desde un HALT en modos 1 y 2, RETI)" "$(exe z80test)" --int
+corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 corre "bustest (RAM, ROM, Z80, mandos de 3 y 6 botones, SRAM, EEPROM, TMSS, SSF2, VINT/HINT)" "$(exe bustest)"
 corre "vdptest (puertos, DMA, estado, planos, ventana, sprites, sombra y resalte)" "$(exe vdptest)"
 corre "audiotest (afinación del PSG y del YM2612, panorama, DAC, relajación, temporizador A, ocupado, SSG-EG)" "$(exe audiotest)"

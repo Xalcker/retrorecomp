@@ -156,7 +156,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `recomp.h`, `z80.h`, `z80.c`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`; `sha1`, `console.h` (de GBRecomp). |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `psg.c`, `ym2612.c`, `audio.c`, `m68k_host.h` y `z80_host.h`; de `tools/retrorecomp/shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, y también `sha1` y `console.h`. |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados) y `png`, `files`, `export`, `random_pad.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |

@@ -30,6 +30,15 @@ jobs:
         run: |
           cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -o ram_code_test tests/ram_code_test.c
           ./ram_code_test
+  disz80:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Desensamblador del Z80 (shared/disz80.c) contra z80_decode, todas las instrucciones
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o disz80_test tests/disz80_test.c \
+             shared/disz80.c shared/z80.c
+          ./disz80_test
   comun:
     runs-on: ubuntu-latest
     steps:

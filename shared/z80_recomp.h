@@ -49,8 +49,12 @@
 #ifndef Z80RC_FUNC_MAX
 #define Z80RC_FUNC_MAX 64       /* instrucciones por función */
 #endif
+#ifndef Z80RC_FUNC_GAP
 #define Z80RC_FUNC_GAP 64       /* hueco máximo (bytes) dentro de una función */
+#endif
+#ifndef Z80RC_PER_FILE
 #define Z80RC_PER_FILE 400      /* instrucciones por archivo .c */
+#endif
 
 enum { Z80RC_SEED = 1, Z80RC_FLOW, Z80RC_TRACE };     /* de dónde salió una instrucción */
 
@@ -65,6 +69,8 @@ typedef struct {
     uint8_t  queued[0x10000];   /* ya se puso en la pila */
     uint16_t stack[0x10000];
     uint8_t  how[0x10000];      /* el origen con que se puso en la pila */
+    uint16_t from[0x10000];     /* con Z80RC_FLOW: la instrucción desde la que se llegó (el «por qué» de --why) */
+    uint32_t cur;               /* la instrucción que está descubriendo (0x10000: ninguna, es una semilla) */
     unsigned nstack;
     unsigned ninsns;            /* instrucciones descubiertas */
     Z80RcFunc *funcs;
@@ -80,6 +86,7 @@ static inline void z80rc_init(Z80Rc *r, const char *prefix, uint16_t lo, uint16_
     r->lo = lo;
     r->hi = hi;
     r->img = img;
+    r->cur = 0x10000;
 }
 
 static inline void z80rc_free(Z80Rc *r) { free(r->funcs); r->funcs = NULL; r->nfuncs = 0; }
@@ -131,6 +138,7 @@ static inline void z80rc_seed(Z80Rc *r, uint16_t a, int how)
     if (!z80rc_in(r, a) || r->queued[a]) return;
     r->queued[a] = 1;
     r->how[a] = (uint8_t)how;
+    r->from[a] = (uint16_t)r->cur;
     r->stack[r->nstack++] = a;
 }
 
@@ -147,7 +155,9 @@ static inline void z80rc_discover(Z80Rc *r)
         r->ninsns++;
         uint16_t s[2];
         int n = z80rc_succ(a, &in, s);
+        r->cur = a;
         for (int i = 0; i < n; i++) z80rc_seed(r, s[i], Z80RC_FLOW);
+        r->cur = 0x10000;
     }
 }
 
@@ -187,11 +197,11 @@ static inline void z80rc_emit_ins(FILE *f, const Z80Rc *r, uint16_t a)
     fprintf(f, "L_%04X: /*", a);
     for (int i = 0; i < in.len; i++) fprintf(f, " %02X", b[i]);
     fprintf(f, " */\n    Z80RC_BEFORE(0x%04X);\n", a);
-    if (r->guard) {     /* los bytes de la instrucción (y el siguiente tras un prefijo DD/FD suelto) */
+    if (r->guard) {     /* los bytes de la instrucción (y el siguiente tras un prefijo DD/FD suelto): XOR, sin saltos */
         int need = in.len == 1 && (b[0] == 0xDD || b[0] == 0xFD) ? 2 : in.len;
         fprintf(f, "    if (");
         for (int i = 0; i < need; i++)
-            fprintf(f, "%s(Z80RC_BYTE(0x%04X) != 0x%02X)", i ? " | " : "", (uint16_t)(a + i), b[i]);
+            fprintf(f, "%s(Z80RC_BYTE(0x%04X) ^ 0x%02X)", i ? " | " : "", (uint16_t)(a + i), b[i]);
         fprintf(f, ") return r;\n");
     }
     fprintf(f, "    { static const uint8_t b[4] = { 0x%02X, 0x%02X, 0x%02X, 0x%02X };\n", b[0], b[1], b[2], b[3]);

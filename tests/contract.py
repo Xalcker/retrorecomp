@@ -47,7 +47,9 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
            os.path.join("src", "platform", "inputs.h"), os.path.join("src", "runtime", "audio.c"),
            os.path.join("tools", "oracles", "retro_run.c"), os.path.join("tools", "oracles", "libretro_min.h"),
            # El PSG (SN76489) de GENRecomp, común con SMSRecomp
-           os.path.join("src", "runtime", "psg.c"))
+           os.path.join("src", "runtime", "psg.c"),
+           # El visor de --html de GENRecomp y NEORecomp (y SMSRecomp)
+           *(os.path.join("src", r, "visor_html.h") for r in ("genrecomp", "neorecomp", "smsrecomp")))
 
 # Los movidos que algún repo conserva a propósito: GBRecomp tiene su inputs.h (un jugador, con el modelo en el
 # encabezado) y su src/tools/cli.h

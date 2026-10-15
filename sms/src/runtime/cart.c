@@ -222,11 +222,21 @@ int sms_load(Sms *s, const u8 *data, size_t len, const char *name, int model, co
     else if (c->db) s->sms_mode = c->db->sms_mode;
     else if (c->hdr.found) s->sms_mode = c->hdr.region <= 4;
     else s->sms_mode = !c->ext_gg;
+    /* Lo que leen las ranuras: la imagen en páginas enteras (una ROM de menos de 16 KB, repetida) */
+    c->image = malloc((size_t)c->pages * PAGE_SIZE);
+    c->ram = calloc(1, CART_RAM_SIZE);
+    c->ram_saved = calloc(1, CART_RAM_SIZE);
+    if (!c->image || !c->ram || !c->ram_saved) { sms_free(s); *err = "sin memoria"; return 1; }
+    for (size_t i = 0; i < (size_t)c->pages * PAGE_SIZE; i++) c->image[i] = c->rom[i % c->rom_size];
+    sms_reset(s);
     return 0;
 }
 
 void sms_free(Sms *s)
 {
     free(s->cart.rom);
-    s->cart.rom = NULL;
+    free(s->cart.image);
+    free(s->cart.ram);
+    free(s->cart.ram_saved);
+    s->cart.rom = s->cart.image = s->cart.ram = s->cart.ram_saved = NULL;
 }

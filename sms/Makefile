@@ -39,9 +39,9 @@ endif
 # Lo que hace `make` a secas (las reglas de abajo no siguen el orden en que se usan)
 .DEFAULT_GOAL := all
 
-# Fase 0 (docs/PLAN.md): el cartucho y el Z80 común. El bus, el VDP, el PSG, la ventana y las herramientas
-# llegan en las fases 1 a 4; el recompilador completo, en la 5
-RUNTIME := cart.c smsdb.c z80.c sha1.c
+# El cartucho, el Z80 común, el bus, la E/S y el VDP sin el dibujo (docs/PLAN.md: el dibujo, el PSG, la
+# ventana y las herramientas llegan en las fases 3 y 4; el recompilador completo, en la 5)
+RUNTIME := cart.c smsdb.c sms.c bus.c io.c vdp.c z80_host.c z80.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libsmsrt.a
 # Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp; z80_ops.h es su
@@ -49,13 +49,23 @@ RT := $(BUILD)/libsmsrt.a
 SHARED_RT := z80.h z80_ops.h z80.c console.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
-PROGS := smsrecomp carttest z80test
+PROGS := smsrecomp smsrun carttest bustest statetest z80test
 
 .PHONY: all clean test dist testroms webtest apktest
 all: $(PROGS:%=%$(EXE))
 
 carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
+
+bustest$(EXE): src/tools/bustest.c $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
+
+statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
+
+# Diagnóstico: corre una ROM sin ventana y resume lo que pasó (como genrun)
+smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/smsrun.c $(RT) -lm
 
 # z80test pone su propio bus (memoria plana): no usa el de la consola. Con --recomp ejecuta por el camino del
 # código generado (z80_ops.h)

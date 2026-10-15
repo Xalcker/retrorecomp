@@ -14,7 +14,7 @@ por dentro (el mismo Z80, el VDP del SMS2 con la CRAM de 12 bits y una ventana d
 el estéreo, el mismo mapa de memoria, los mismos mappers y la misma cabecera), y corre los juegos de SMS en su modo
 SMS. Dos repos duplicarían más del 90 % del runtime.
 
-**Estado: fases 0 y 1 hechas.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 a 2 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto a GENRecomp y GBRecomp
 
@@ -176,15 +176,24 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   máquina con los dos destinos y sus ciclos como constantes. En GENRecomp y NEORecomp nada cambia: `sizeof(Z80)`
   igual, sus pruebas completas, `golden.sh` bit a bit y la misma velocidad. PR en retrorecomp, GENRecomp y
   NEORecomp.
-- [ ] **2. Bus, mappers, E/S e interrupciones.** Las tres ranuras, los mappers Sega (con su RAM de 8/16 KB y los
-  registros reflejados en `$DFFC-$DFFF`; tras el reset `$FFFC-$FFFF` = 00 00 01 02), Codemasters (bancos 0, 1, 0
-  al empezar; RAM en `$A000` con el bit 7 de `$4000`) y sin mapper; las gafas 3-D (`$FFF8-$FFFB`, ignoradas); la
-  RAM del cartucho y su guardado; los puertos con su decodificación parcial (`$3E`, `$3F` con TH/TR y la detección
-  de consola de exportación, `$DC`/`$DD`) y los del GG (`$00` con Start y la región, `$01-$05` sin cable, `$06`);
-  el estado que deja la BIOS 1.3 (DI, IM 1, SP = `$DFF0`, RAM a cero, `$C000` = `$AB`, los registros del VDP); el
-  esqueleto del VDP (registros, contadores V y H, interrupción de cuadro y de línea, la Pausa por NMI) con la
-  temporización por línea. `bustest` (con programas de Z80 hechos en la prueba), `statetest`, `smsrun`. Meta:
-  ZEXDOC y ZEXALL pasan (resultado en la SRAM); un juego comercial llega a su título en la RAM.
+- [x] **2. Bus, mappers, E/S e interrupciones.** Hecho: las tres ranuras (`bus.c`), los mappers Sega (el KB fijo,
+  los registros reflejados en `$DFFC-$DFFF`, al encender 00 00 01 02; la RAM del cartucho en la ranura 2 con sus
+  dos bancos y en `$C000`), Codemasters (0, 1, 0 al encender; sin KB fijo; RAM en `$A000` con el bit 7 de `$4000`)
+  y sin mapper; las gafas 3-D, ignoradas; la RAM del cartucho y su guardado (`--sram`); los puertos con su
+  decodificación por A7, A6 y A0 (`io.c`: `$3E`, `$3F` con TH y TR y la detección de consola de exportación,
+  `$DC`/`$DD`, la E/S apagada) y los del GG (`$00` con Start y la región, `$01-$05` sin cable, `$06`; en su modo SMS,
+  sin ellos); el estado que deja la BIOS 1.3 (`sms_reset`); el VDP sin el dibujo (`vdp.c`: comando, búfer, registros,
+  VRAM, la CRAM del SMS y la del GG con su latch, estado, contadores V y H, la bandera de cuadro en `$C1`, la
+  interrupción de línea, la línea IRQ), perezoso de a línea y con el ciclo de cada acceso a un puerto
+  (`Z80_IO_AT`); la Pausa por NMI. Estados guardados. `bustest` (con programas de Z80 hechos en la prueba),
+  `statetest`, `smsrun` (`--watch`, `--sram`, `--sram-text`, `--sdsc`). **Meta:** ZEXDOC y ZEXALL pasan sus 79
+  pruebas (en `make test`, ~30 s); los cinco homebrew de `make testroms` encienden la pantalla y atienden una
+  interrupción por cuadro. Con 15 juegos comerciales de EE. UU. (9 de SMS y 6 de GG, del autor, en `roms/`): todos se
+  reconocen bien (mapper Sega, Codemasters o ninguno; región; modelo), corren 1800 cuadros llenando la VRAM y la
+  CRAM y atienden sus interrupciones (OutRun, Space Harrier, TransBot y Columns, también las de línea); Phantasy Star
+  y Shining Force guardan y vuelven a cargar su partida. Micro Machines del GG usa 224 líneas (para la ventana del GG
+  en la fase 3). Los juegos del GG no traen suma en la cabecera (`$0000`). Pendiente: calibrar en qué punto de la
+  línea pasa cada evento del VDP con el VDPTEST de FluBBa (fase 3) y los oráculos (fase 4).
 - [ ] **3. VDP, sonido y la ventana.** Modo 4 completo (mosaicos, prioridad, sprites con su límite de 8, zoom,
   desborde y colisión, columna izquierda en blanco, bloqueo del scroll, 224 líneas) y lo mínimo de los modos
   TMS9918 (modo 2 para los pocos juegos que lo usan); el GG (CRAM de 12 bits con latch, la ventana de 160×144, el

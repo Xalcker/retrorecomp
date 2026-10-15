@@ -84,7 +84,9 @@ static void print_info(const char *path, const Sms *s)
         printf("tamaño:      $%X (", h->size_code);
         if (declared) print_size(declared); else printf("la BIOS no lo admite");
         printf(")\n");
-        if (h->checksum_ok)
+        if (h->checksum == 0 && h->checksum_calc != 0)
+            printf("suma:        sin suma ($0000; la BIOS del Game Gear y la japonesa no la comprueban)\n");
+        else if (h->checksum_ok)
             printf("suma:        $%04X (calculada $%04X, %s)\n", h->checksum, h->checksum_calc,
                    h->checksum == h->checksum_calc ? "coincide" : "no coincide");
         else

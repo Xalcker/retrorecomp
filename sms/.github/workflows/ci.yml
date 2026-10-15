@@ -1,7 +1,6 @@
 # Compila SMSRecomp en Linux, macOS y Windows, corre las pruebas con las ROMs de prueba libres y arma el
 # paquete. Es el mismo flujo que el de NESRecomp, GBRecomp, GENRecomp y NEORecomp: lo que cambia entre los
 # repos está en los Makefile (make testroms, make test, make dist).
-# Lo que todavía falta respecto a ellos llega con su fase (docs/PLAN.md): make webtest y make apktest en la fase 6.
 # Más corto: las pruebas completas, con las SingleStepTests (que son lo que más pesa), corren solo en Linux;
 # macOS y Windows compilan y corren todo lo demás (SKIP_SST). Un cambio que solo toca documentación (docs/,
 # README.md, LICENSE) salta los pasos pero los jobs terminan en verde: la regla de protección de main los exige,
@@ -119,6 +118,18 @@ jobs:
       - name: Pruebas
         if: steps.cambios.outputs.docs != 'true'
         run: make test
+
+      # El juego recompilado en el navegador (WebAssembly): make webtest compila el proyecto de la ROM mínima
+      # con make web, que sin Emscripten usa Docker (la imagen fija de platform/web.mk); los runners de Linux lo traen
+      - name: Web (WebAssembly)
+        if: steps.cambios.outputs.docs != 'true' && runner.os == 'Linux'
+        run: make webtest
+
+      # El juego recompilado en Android: make apktest compila la APK de la ROM mínima con el SDK, el NDK y el
+      # JDK 17 que traen los runners de Linux (sin SDK, make apk usaría Docker con la imagen de platform/android/Dockerfile)
+      - name: Android (APK)
+        if: steps.cambios.outputs.docs != 'true' && runner.os == 'Linux'
+        run: make apktest
 
       - name: Paquete
         if: steps.cambios.outputs.docs != 'true'

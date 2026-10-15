@@ -29,8 +29,8 @@ static int fallas;
  * página hay); el código va al principio de la página 0 */
 static u8 *make_rom(u32 pages, const u8 *code, size_t len)
 {
-    u8 *r = malloc(pages * PAGE_SIZE);
-    for (u32 p = 0; p < pages; p++) memset(r + p * PAGE_SIZE, (int)p, PAGE_SIZE);
+    u8 *r = malloc(pages * SMS_PAGE_SIZE);
+    for (u32 p = 0; p < pages; p++) memset(r + p * SMS_PAGE_SIZE, (int)p, SMS_PAGE_SIZE);
     if (code) memcpy(r, code, len);
     return r;
 }
@@ -51,7 +51,7 @@ static void memory(void)
 {
     static Sms g;
     u8 *r = make_rom(2, NULL, 0);
-    load(&g, r, 2 * PAGE_SIZE, "a.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "a.sms", MODEL_AUTO);
     CHECK(g.cart.mapper == MAPPER_NONE, "32 KB con mapper");
     z80_write(&g, 0xC123, 0x5A);
     CHECK(z80_read(&g, 0xE123) == 0x5A && z80_read(&g, 0xC123) == 0x5A, "RAM y su espejo en $E000");
@@ -62,12 +62,12 @@ static void memory(void)
     CHECK(z80_read(&g, 0x1000) == 0, "la ROM se escribió");
     sms_free(&g); free(r);
     r = make_rom(3, NULL, 0);
-    load(&g, r, 3 * PAGE_SIZE, "b.sms", MODEL_AUTO);
+    load(&g, r, 3 * SMS_PAGE_SIZE, "b.sms", MODEL_AUTO);
     CHECK(g.cart.mapper == MAPPER_NONE && z80_read(&g, 0x8000) == 2, "48 KB: la página 2 en la ranura 2");
     sms_free(&g); free(r);
     /* Al encender: SP en $DFF0, IM 1, $C000 con lo que la BIOS escribió en $3E */
     r = make_rom(2, NULL, 0);
-    load(&g, r, 2 * PAGE_SIZE, "a.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "a.sms", MODEL_AUTO);
     CHECK(g.z80.sp == 0xDFF0 && g.z80.im == 1 && !g.z80.iff1 && g.ram[0] == 0xAB && g.vdp.reg[1] == 0xA0,
           "estado tras la BIOS: SP $%04X IM %d $C000=$%02X R1=$%02X", g.z80.sp, g.z80.im, g.ram[0], g.vdp.reg[1]);
     sms_free(&g); free(r);
@@ -78,7 +78,7 @@ static void sega(void)
     static Sms g;
     u8 *r = make_rom(8, NULL, 0);
     r[0x0100] = 0xEE;                  /* para ver el primer KB fijo */
-    load(&g, r, 8 * PAGE_SIZE, "s.sms", MODEL_AUTO);
+    load(&g, r, 8 * SMS_PAGE_SIZE, "s.sms", MODEL_AUTO);
     CHECK(g.cart.mapper == MAPPER_SEGA, "128 KB sin mapper Sega");
     CHECK(z80_read(&g, 0x0400) == 0 && z80_read(&g, 0x4000) == 1 && z80_read(&g, 0x8000) == 2, "ranuras al encender");
     z80_write(&g, 0xFFFE, 5);
@@ -116,9 +116,9 @@ static void codemasters(void)
     memset(h, 0, 16);
     h[0] = 8;
     u16 sum = 0;
-    for (u32 a = 0; a < 8 * PAGE_SIZE; a += 2) if (a < 0x7FF0 || a >= 0x8000) sum = (u16)(sum + (r[a] | r[a + 1] << 8));
+    for (u32 a = 0; a < 8 * SMS_PAGE_SIZE; a += 2) if (a < 0x7FF0 || a >= 0x8000) sum = (u16)(sum + (r[a] | r[a + 1] << 8));
     h[6] = (u8)sum; h[7] = (u8)(sum >> 8); h[8] = (u8)(0x10000 - sum); h[9] = (u8)((0x10000 - sum) >> 8);
-    load(&g, r, 8 * PAGE_SIZE, "c.sms", MODEL_AUTO);
+    load(&g, r, 8 * SMS_PAGE_SIZE, "c.sms", MODEL_AUTO);
     CHECK(g.cart.mapper == MAPPER_CODEMASTERS, "sin mapper Codemasters");
     CHECK(z80_read(&g, 0x0000) == 0 && z80_read(&g, 0x4000) == 1 && z80_read(&g, 0x8000) == 0, "ranuras al encender (0, 1, 0)");
     z80_write(&g, 0x8000, 3);
@@ -137,7 +137,7 @@ static void ports(void)
 {
     static Sms g;
     u8 *r = make_rom(2, NULL, 0);
-    load(&g, r, 2 * PAGE_SIZE, "p.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "p.sms", MODEL_AUTO);
     CHECK(z80_in(&g, 0xDC) == 0xFF && z80_in(&g, 0xDD) == 0xFF, "mandos sueltos: $DC=$%02X $DD=$%02X", z80_in(&g, 0xDC), z80_in(&g, 0xDD));
     g.pad[0] = SMS_UP | SMS_A;
     g.pad[1] = SMS_DOWN | SMS_LEFT | SMS_B;
@@ -162,7 +162,7 @@ static void ports(void)
     CHECK(g.psg.vol[0] == 10 && g.psg.period[3] == 5, "las escrituras al PSG por $7F y $41");
     sms_free(&g);
     /* Game Gear */
-    load(&g, r, 2 * PAGE_SIZE, "p.gg", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "p.gg", MODEL_AUTO);
     CHECK(g.model == MODEL_GG && !g.sms_mode && g.ram[0] == 0xA8, "GG: modelo, modo o $C000");
     CHECK(z80_in(&g, 0x00) == 0xC0 && z80_in(&g, 0x01) == 0x7F && z80_in(&g, 0x06) == 0xFF, "GG: $00-$06 al encender");
     g.pad[0] = SMS_START | SMS_A;
@@ -176,7 +176,7 @@ static void ports(void)
     CHECK(z80_in(&g, 0xC2) == 0xFF && z80_in(&g, 0xDC) == 0xFF, "GG: solo $C0/$C1/$DC/$DD");
     sms_free(&g);
     /* Un juego de SMS en el Game Gear: sin $00-$06 */
-    load(&g, r, 2 * PAGE_SIZE, "p.sms", MODEL_GG);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "p.sms", MODEL_GG);
     CHECK(g.model == MODEL_GG && g.sms_mode && z80_in(&g, 0x00) == 0xFF, "GG en modo SMS: $00");
     sms_free(&g); free(r);
 }
@@ -185,7 +185,7 @@ static void vdp(void)
 {
     static Sms g;
     u8 *r = make_rom(2, NULL, 0);
-    load(&g, r, 2 * PAGE_SIZE, "v.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "v.sms", MODEL_AUTO);
     /* Escribir VRAM en $1234 */
     z80_out(&g, 0xBF, 0x34); z80_out(&g, 0xBF, 0x40 | 0x12);
     z80_out(&g, 0xBE, 0xAA); z80_out(&g, 0xBE, 0xBB);
@@ -211,7 +211,7 @@ static void vdp(void)
     CHECK(g.vdp.cram[31] == 0x01 && g.vdp.cram[0] == 0x02, "la CRAM del SMS da la vuelta en $1F");
     sms_free(&g);
     /* Game Gear: el ejemplo de msvdp (latch en el par, se escribe con el impar) */
-    load(&g, r, 2 * PAGE_SIZE, "v.gg", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "v.gg", MODEL_AUTO);
     z80_out(&g, 0xBF, 0x00); z80_out(&g, 0xBF, 0xC0);
     z80_out(&g, 0xBE, 0xFF);
     CHECK(g.vdp.cram[0] == 0 && g.vdp.cram[1] == 0, "GG: el byte par escribió la CRAM");
@@ -225,7 +225,7 @@ static void timing(void)
 {
     static Sms g;
     u8 *r = make_rom(2, NULL, 0);
-    load(&g, r, 2 * PAGE_SIZE, "t.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "t.sms", MODEL_AUTO);
     /* Contador V (192 líneas): $00 en la línea 0, $C0 en la 192, $DA en la 218, $D5 en la 219, $FF en la 261 */
     static const struct { u32 line; u8 v; } vc[] = { { 0, 0x00 }, { 192, 0xC0 }, { 218, 0xDA }, { 219, 0xD5 }, { 261, 0xFF } };
     for (unsigned i = 0; i < 5; i++) {
@@ -252,7 +252,7 @@ static void timing(void)
     CHECK(!g.z80.irq, "IRQ con el registro 1, bit 5 en 0");
     sms_free(&g);
     /* Interrupción de línea con R10 = 3: en las líneas 3, 7, 11... (cada R10 + 1) */
-    load(&g, r, 2 * PAGE_SIZE, "t.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "t.sms", MODEL_AUTO);
     out_at(&g, 0xBF, 0x03, 0); out_at(&g, 0xBF, 0x8A, 0);
     out_at(&g, 0xBF, 0x36 | 0x10, 0); out_at(&g, 0xBF, 0x80, 0);
     in_at(&g, 0xBF, 262 * LINE - 10);                       /* el R10 nuevo entra en las líneas de fuera */
@@ -266,7 +266,7 @@ static void timing(void)
           nh, nh ? hits[0] : -1);
     sms_free(&g);
     /* 224 líneas: $EA en la línea 234, $E5 en la 235, la bandera en la línea $E1 */
-    load(&g, r, 2 * PAGE_SIZE, "t.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "t.sms", MODEL_AUTO);
     out_at(&g, 0xBF, 0x06, 0); out_at(&g, 0xBF, 0x80, 0);
     out_at(&g, 0xBF, 0xB0, 0); out_at(&g, 0xBF, 0x81, 0);
     in_at(&g, 0xBF, 262 * LINE);
@@ -274,7 +274,7 @@ static void timing(void)
     CHECK(g.vdp.height == 224, "no hay 224 líneas (%u)", g.vdp.height);
     CHECK(in_at(&g, 0x7E, base + 234 * LINE) == 0xEA && in_at(&g, 0x7E, base + 235 * LINE) == 0xE5, "contador V con 224 líneas");
     sms_free(&g);
-    load(&g, r, 2 * PAGE_SIZE, "t.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "t.sms", MODEL_AUTO);
     out_at(&g, 0xBF, 0x06, 0); out_at(&g, 0xBF, 0x80, 0);
     out_at(&g, 0xBF, 0xB0, 0); out_at(&g, 0xBF, 0x81, 0);
     in_at(&g, 0xBF, 262 * LINE);
@@ -314,7 +314,7 @@ static void programs(void)
     u8 *r = make_rom(2, code, sizeof code);
     memcpy(r + 0x38, irq, sizeof irq);
     memcpy(r + 0x66, nmi, sizeof nmi);
-    load(&g, r, 2 * PAGE_SIZE, "prog.sms", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "prog.sms", MODEL_AUTO);
     for (int f = 0; f < 60; f++) sms_run_frame(&g);
     CHECK(g.ram[0x100] == 60 || g.ram[0x100] == 59, "interrupciones de cuadro en 60 cuadros: %u", g.ram[0x100]);
     CHECK(g.irq_count == g.ram[0x100], "irq_count %u y el contador %u", g.irq_count, g.ram[0x100]);
@@ -323,11 +323,11 @@ static void programs(void)
     CHECK(g.ram[0x101] == 2 && g.nmi_count == 2, "NMI de la Pausa: %u (esperado 2)", g.ram[0x101]);
     /* En el Game Gear en modo GG, Start no da la NMI */
     sms_free(&g);
-    load(&g, r, 2 * PAGE_SIZE, "prog.gg", MODEL_AUTO);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "prog.gg", MODEL_AUTO);
     for (int f = 0; f < 10; f++) { g.pad[0] = f == 3 ? SMS_START : 0; sms_run_frame(&g); }
     CHECK(g.ram[0x101] == 0, "GG: Start dio la NMI en modo GG");
     sms_free(&g);
-    load(&g, r, 2 * PAGE_SIZE, "prog.sms", MODEL_GG);
+    load(&g, r, 2 * SMS_PAGE_SIZE, "prog.sms", MODEL_GG);
     for (int f = 0; f < 10; f++) { g.pad[0] = f == 3 ? SMS_START : 0; sms_run_frame(&g); }
     CHECK(g.ram[0x101] == 1, "GG en modo SMS: Start no dio la NMI (%u)", g.ram[0x101]);
     sms_free(&g); free(r);

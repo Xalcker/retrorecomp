@@ -74,6 +74,15 @@ if [ -f "$C" ]; then
             echo "ok    el contrato recompilado: 300 cuadros iguales al intérprete, $pct% de los ciclos en código nativo"
         else echo "FALLA el contrato recompilado"; echo "$o" | tail -5; fallas=$((fallas + 1)); fi
     else echo "FALLA smsrecomp -o o make del proyecto del contrato"; fallas=$((fallas + 1)); fi
+    # make web y make apk en el proyecto (los arman make webtest y make apktest): las reglas de retrorecomp/shared y la
+    # copia de la ROM con su extensión (con la de un .gg, el runtime elige la Game Gear)
+    G=testroms/homebrew/waternet.gg
+    if [ -f "$P/platform/web.mk" ] && [ -f "$P/platform/shell.html" ] && [ -f "$P/platform/android/android.mk" ] \
+            && [ -f "$P/platform/android/RecompActivity.java" ] && grep -q "^WEB_CACHE  := rom.sms$" "$P/Makefile" \
+            && grep -q "^include platform/android/android.mk$" "$P/Makefile" && grep -q "make apk" "$P/LEEME.txt" \
+            && { [ ! -f "$G" ] || { "$R" "$G" -o "$D/proy_gg" --name gg >/dev/null && grep -q "^APK_CACHE  := rom.gg$" "$D/proy_gg/Makefile"; }; }; then
+        echo "ok    el proyecto lleva make web y make apk (la copia de la ROM, rom.sms o rom.gg)"
+    else echo "FALLA make web o make apk en el proyecto generado"; fallas=$((fallas + 1)); fi
 fi
 # El ciclo completo (tests/recomp_game.sh: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
 # que cayó al intérprete) con Dragon Blaster (make testroms)

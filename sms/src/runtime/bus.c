@@ -23,7 +23,7 @@
 
 static u32 page_off(const Sms *g, u32 page)
 {
-    return (page % g->cart.pages) * PAGE_SIZE;
+    return (page % g->cart.pages) * SMS_PAGE_SIZE;
 }
 
 /* Las ranuras según los registros del mapper */

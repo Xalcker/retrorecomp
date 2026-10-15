@@ -221,7 +221,7 @@ static void rejects(void)
     static Sms s;
     const char *err = NULL;
     CHECK(sms_load(&s, (const u8 *)"no es una rom", 13, "chica.sms", MODEL_AUTO, &err) && err, "aceptó un archivo de 13 bytes");
-    size_t big = ROM_LIMIT + PAGE_SIZE;
+    size_t big = ROM_LIMIT + SMS_PAGE_SIZE;
     u8 *r = calloc(1, big);
     err = NULL;
     CHECK(sms_load(&s, r, big, "grande.sms", MODEL_AUTO, &err) && err, "aceptó una ROM de más de 4 MB");

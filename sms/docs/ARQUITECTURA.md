@@ -169,7 +169,16 @@ código), `Makefile` (con `-DSMS_RECOMP`) y `LEEME.txt`. El ejecutable carga la 
 (o la busca: la copia que guarda la primera vez, `rom.sms` o `rom.gg` junto al ejecutable o en la carpeta, o una con
 ese SHA1 en la carpeta), con `--interp` (solo el intérprete), `--force` (otra ROM, con el intérprete) y
 `--uncovered` (como `--trace`). «Este juego» dice cuántas instrucciones se compilaron y qué parte de los ciclos del
-Z80 corre en código nativo. El navegador y Android llegan en la fase 6.
+Z80 corre en código nativo.
+
+`make web` (WebAssembly, con Emscripten o con Docker) y `make apk` (Android, con el SDK o con Docker) son los de los
+otros cuatro: `platform/web.mk`, `platform/shell.html` y `platform/android/` salen de `retrorecomp/shared` y el
+`Makefile` del proyecto solo define el nombre, el título, la carpeta de datos y la copia de la ROM (`rom.sms` o
+`rom.gg`, con la extensión de la ROM recompilada, para que el runtime elija el modelo como en el escritorio). La
+página pide la ROM, o la baja de `?rom=`, y la guarda con la partida en IndexedDB; la APK la pide con el selector de
+archivos del teléfono, o la trae con `make apk ROM=juego.sms` (solo para uso personal). En una pantalla táctil, el
+mando en pantalla (`player_touch.h`) es el jugador 1: la cruz, los botones 1 y 2 y, arriba, la Pausa del Master
+System o el Start del Game Gear.
 
 ### difftest
 
@@ -365,8 +374,13 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 - **`make dist`:** deja `dist/smsrecomp-<versión>-<sistema>.tar.gz` con `smsrecomp`, el README, la licencia y este
   documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en los otros cuatro), en Linux, macOS y
-  Windows: `make`, `make testroms`, el contrato común (`sh tests/contract.sh`), `make test` y `make dist`.
-  `make webtest`/`make apktest` llegan en la fase 6 (hoy solo avisan en qué fase llegan).
+  Windows: `make`, `make testroms`, el contrato común (`sh tests/contract.sh`), `make test` y `make dist`; en Linux,
+  además, `make webtest` y `make apktest`.
+- **`make webtest` y `make apktest`:** recompilan la ROM mínima (`mkcontrato --minima`, en `build/tests/`) y arman
+  su proyecto con `make web` y `make apk` (sin Emscripten ni SDK, con Docker y las imágenes de versión fija de
+  `retrorecomp/shared`). Con otro juego: `make webtest WEBTEST_ROM=...` o `make apktest APKTEST_ROM=...`
+  (`APK_ABIS="x86_64"` para una sola arquitectura). La ROM mínima evita compilar con emcc y con el clang del NDK el
+  código generado de un juego grande, que `make test` ya compila y compara con el cc nativo.
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del Z80 (el mismo commit que GENRecomp y NEORecomp; `SKIP_SST=1` las salta, como
   el CI de macOS y Windows), ZEXALL y ZEXDOC para el SMS (GPL-2.0, v0.21) y juegos homebrew con licencia MIT (Dragon
@@ -429,7 +443,11 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
   donde lo que queda es código de la RAM con operandos que cambian. Cada juego tarda entre medio minuto y dos
   minutos en una máquina de 8 núcleos (compilar el código generado es lo que pesa).
 
-**Todavía no:** el navegador, Android y lo demás (ver [PLAN.md](PLAN.md)).
+- **Navegador y Android:** Dragon Blaster recompilado corre en el navegador (Chrome, con el mando en pantalla al
+  tocar); la APK se arma para arm64-v8a y x86_64 con el juego del contrato y con la ROM mínima, sin avisos del clang
+  del NDK (`SMS_PAGE_SIZE` se llamaba `PAGE_SIZE`, que en Android ya es el tamaño de página de la memoria).
+
+**Todavía no:** la corrida de compatibilidad completa y lo demás (ver [PLAN.md](PLAN.md)).
 
 ### Línea base para optimizar el runtime
 
@@ -467,7 +485,7 @@ entradas en las tres salidas: dibuja un mosaico blanco por cada botón apretado 
 traza) y toca un tono con periodo `$100` + botones cuando cambian. Prueba además lo que necesitará el recompilador:
 el mapper Sega (cada cuadro llama a una rutina de la página 3 puesta en la ranura 2), la RAM del cartucho (escribe y
 lee), código en RAM (una rutina copiada a `$C100` con el inmediato parchado cada cuadro), las interrupciones de
-cuadro y de línea y la Pausa. `mkcontrato --minima` da la ROM mínima de `make webtest` y `make apktest` (fase 6).
+cuadro y de línea y la Pausa. `mkcontrato --minima` da la ROM mínima de `make webtest` y `make apktest`.
 
 ## Compatibilidad y oráculos
 

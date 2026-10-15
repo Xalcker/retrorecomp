@@ -130,10 +130,16 @@ EMBED_RUNTIME  := sms.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h \
                   player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h difftest.c bench.c
+# La APK de Android (make apk): shared/android va a platform/android del proyecto
+EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
+                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
 EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h \
-             $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
+             $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h $(SHARED)/web/shell.html $(SHARED)/web/web.mk \
+             $(EMBED_ANDROID:%=$(SHARED)/android/%)
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
+              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f)) \
+              platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -190,10 +196,32 @@ $(BUILD):
 test: all
 	sh tests/run_tests.sh
 
-# El juego recompilado en el navegador y en Android (make web y make apk del proyecto generado): llegan en la
-# fase 6, cuando smsrecomp genere proyectos. El CI los agrega entonces
-webtest apktest:
-	@echo "make $@: llega en la fase 6 (docs/PLAN.md)"
+# webtest y apktest usan por omisión la ROM mínima (mkcontrato --minima: DI y HALT, 32 KB): comprueban que la web y la
+# APK se arman (con todo el runtime, la plataforma y SDL2) sin compilar el código generado de un juego grande, que con
+# el clang del NDK tarda minutos por ABI; ese código ya lo compila y lo compara make test con el cc nativo. Con otro
+# juego: make apktest APKTEST_ROM=testroms/homebrew/dragon_blaster.sms
+MINIMA      := $(BUILD)/tests/minima.sms
+WEBTEST_ROM ?= $(MINIMA)
+APKTEST_ROM ?= $(MINIMA)
+$(MINIMA): $(BUILD)/mkcontrato$(EXE)
+	mkdir -p $(dir $@)
+	$(BUILD)/mkcontrato$(EXE) --minima $@ >/dev/null
+
+# El juego recompilado en el navegador (retrorecomp#44): el proyecto de WEBTEST_ROM con make web (Emscripten, o
+# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
+webtest: smsrecomp$(EXE) $(WEBTEST_ROM)
+	rm -rf $(BUILD)/proy_web
+	./smsrecomp$(EXE) $(WEBTEST_ROM) -o $(BUILD)/proy_web --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_web web
+	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web ($(notdir $(WEBTEST_ROM)))"
+
+# El juego recompilado en Android (retrorecomp#45): el proyecto de APKTEST_ROM con make apk (el SDK de Android, o
+# Docker con la imagen de platform/android/Dockerfile). El CI lo corre en Linux, con el SDK que traen los runners
+apktest: smsrecomp$(EXE) $(APKTEST_ROM)
+	rm -rf $(BUILD)/proy_apk
+	./smsrecomp$(EXE) $(APKTEST_ROM) -o $(BUILD)/proy_apk --name prueba >/dev/null
+	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
+	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && echo "ok    make apk ($(notdir $(APKTEST_ROM)))"
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del Z80, ZEXALL y
 # homebrew con licencia MIT (ver tests/testroms.sh; con EXTRA=1, también las pruebas sin licencia)

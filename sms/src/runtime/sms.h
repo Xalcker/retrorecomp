@@ -22,8 +22,8 @@ typedef uint64_t u64;
 /* El Z80 es little-endian */
 static inline u16 rd16le(const u8 *p) { return (u16)(p[0] | p[1] << 8); }
 
-#define PAGE_SIZE  0x4000u          /* páginas de 16 KB: lo que eligen los mappers */
-#define ROM_LIMIT  (4u << 20)       /* 4 MB: más de lo que direcciona el mapper Sega (256 páginas) */
+#define SMS_PAGE_SIZE  0x4000u      /* páginas de 16 KB: lo que eligen los mappers */
+#define ROM_LIMIT      (4u << 20)   /* 4 MB: más de lo que direcciona el mapper Sega (256 páginas) */
 
 /* Reloj NTSC: el maestro es de 53.693175 MHz (el mismo del Genesis); el Z80 va a /15 y una línea
  * son 342 pixeles de 10 ciclos maestros (228 del Z80); 262 líneas por cuadro */

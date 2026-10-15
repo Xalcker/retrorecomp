@@ -212,11 +212,11 @@ static unsigned stat_insns, stat_bytes, stat_trace, stat_views_trace;
 
 static u32 off_of(const View *v, u16 a)
 {
-    u32 off = (sega && v->slot == 0 && a < 0x400) ? a : (u32)v->page * PAGE_SIZE + (a & 0x3FFF);
+    u32 off = (sega && v->slot == 0 && a < 0x400) ? a : (u32)v->page * SMS_PAGE_SIZE + (a & 0x3FFF);
     return (u32)(off % rom_size);
 }
 
-static int default_page(int slot) { return (int)(sms->map.slot[slot] / PAGE_SIZE); }
+static int default_page(int slot) { return (int)(sms->map.slot[slot] / SMS_PAGE_SIZE); }
 
 static void seed_vectors(View *v)
 {
@@ -235,16 +235,16 @@ static View *get_view(int page, int slot)
     View *v = &views[nviews++];
     v->page = page;
     v->slot = slot;
-    v->img = malloc(PAGE_SIZE);
+    v->img = malloc(SMS_PAGE_SIZE);
     v->r = malloc(sizeof *v->r);
-    v->xsrc = calloc(PAGE_SIZE, sizeof *v->xsrc);
+    v->xsrc = calloc(SMS_PAGE_SIZE, sizeof *v->xsrc);
     if (!v->img || !v->r || !v->xsrc) die("sin memoria");
-    u16 lo = (u16)(slot * PAGE_SIZE);
-    for (u32 i = 0; i < PAGE_SIZE; i++)
-        v->img[i] = (sega && slot == 0 && i < 0x400) ? sms->cart.image[i] : sms->cart.image[(size_t)page * PAGE_SIZE + i];
+    u16 lo = (u16)(slot * SMS_PAGE_SIZE);
+    for (u32 i = 0; i < SMS_PAGE_SIZE; i++)
+        v->img[i] = (sega && slot == 0 && i < 0x400) ? sms->cart.image[i] : sms->cart.image[(size_t)page * SMS_PAGE_SIZE + i];
     char prefix[16];
     snprintf(prefix, sizeof prefix, "p%02Xs%d_", page, slot);
-    z80rc_init(v->r, prefix, lo, (u16)(lo + PAGE_SIZE - 1), v->img);
+    z80rc_init(v->r, prefix, lo, (u16)(lo + SMS_PAGE_SIZE - 1), v->img);
     view_at[page][slot] = nviews;
     seed_vectors(v);
     return v;
@@ -275,7 +275,7 @@ static int peek_view(int vi, u32 a)
     if (z80rc_in(views[vi].r, a)) return views[vi].img[a & 0x3FFF];
     int ts = (int)(a >> 14);
     if (sega && ts == 0 && a < 0x400) return sms->cart.image[a];
-    return sms->cart.image[(size_t)default_page(ts) * PAGE_SIZE + (a & 0x3FFF)];
+    return sms->cart.image[(size_t)default_page(ts) * SMS_PAGE_SIZE + (a & 0x3FFF)];
 }
 
 /* ¿Lo que hay en t parece código? Se decodifica hasta el primer salto incondicional (o 24 instrucciones) y se
@@ -491,7 +491,7 @@ static void load_trace(const char *path)
     while (fgets(line, sizeof line, f)) {
         if (trace_line_read(line, SMS_TRACE_SHIFT, &off, &addr)) {
             if (off >= rom_size || addr >= 0xC000) continue;
-            int slot = (int)(addr >> 14), page = (int)(off / PAGE_SIZE);
+            int slot = (int)(addr >> 14), page = (int)(off / SMS_PAGE_SIZE);
             if (sega && slot == 0 && addr < 0x400) page = default_page(0);
             int had = view_at[page < MAX_PAGES ? page : 0][slot];
             View *v = get_view(page, slot);
@@ -887,7 +887,7 @@ static void emit_dispatch(const char *dir)
     }
     fprintf(f, "Z80RecompFn recomp_lookup(Sms *g, u16 pc)\n{\n"
                "    if (pc < 0xC000 && bus_rom_offset(g, pc) >= 0) {\n"
-               "        unsigned slot = pc >> 14, page = (unsigned)(g->map.slot[slot] / PAGE_SIZE);\n"
+               "        unsigned slot = pc >> 14, page = (unsigned)(g->map.slot[slot] / SMS_PAGE_SIZE);\n"
                "        ViewLookup v = page < %uu ? views[page][slot] : 0;\n"
                "        return v ? v(pc) : 0;\n"
                "    }\n", pages);
@@ -908,7 +908,7 @@ static void emit_info(const char *dir, const char *sha1, const char *name)
     fclose(f);
 }
 
-static void emit_makefile(const char *dir, const char *name)
+static void emit_makefile(const char *dir, const char *name, const char *ext)
 {
     FILE *f = open_out(dir, "Makefile");
     fprintf(f,
@@ -968,8 +968,23 @@ static void emit_makefile(const char *dir, const char *name)
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name);
+        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk). La copia de la ROM\n"
+        "# lleva la extensión del juego: con ella el runtime elige el modelo (.gg es la Game Gear)\n"
+        "WEB_NAME   := %s\n"
+        "WEB_TITLE  := %s\n"
+        "WEB_PREF   := /libsdl/SMSRecomp/%s/\n"
+        "WEB_CACHE  := rom%s\n"
+        "WEB_ACCEPT := .sms,.gg,.sg\n"
+        "include platform/web.mk\n\n"
+        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk)\n"
+        "APK_NAME   := %s\n"
+        "APK_TITLE  := %s\n"
+        "APK_SYSTEM := smsrecomp\n"
+        "APK_CACHE  := rom%s\n"
+        "APK_ICON   := platform/icono.h\n"
+        "include platform/android/android.mk\n\n"
+        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name, name, name, ext, name, name, ext, name);
     fclose(f);
 }
 
@@ -995,7 +1010,15 @@ static void emit_readme(const char *dir, const char *name, const char *sha1, con
         "  ./difftest juego%s 3600 --seed 1 --uncovered faltante.txt\n"
         "Velocidad:\n"
         "  ./bench juego%s\n\n"
-        "El navegador (make web) y Android (make apk) llegan en la fase 6 de SMSRecomp.\n", name, ext, sha1, ext, ext, ext);
+        "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
+        "  make web\n"
+        "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
+        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n\n"
+        "En Android (necesita el SDK de Android y un JDK 17, o Docker):\n"
+        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
+        "La primera vez el juego pide la ROM con el selector de archivos del teléfono y la guarda.\n"
+        "make apk ROM=juego%s la mete en la APK (solo para uso personal: no compartas esa APK).\n"
+        "En una pantalla táctil, el mando en pantalla es el jugador 1.\n", name, ext, sha1, ext, ext, ext, name, name, ext);
     fclose(f);
 }
 
@@ -1101,7 +1124,7 @@ int main(int argc, char **argv)
     if (verbose)
         for (int i = 0; i < nviews; i++)
             printf("  página %02X en la ranura %d ($%04X): %u instrucciones\n", views[i].page, views[i].slot,
-                   views[i].slot * PAGE_SIZE, views[i].r->ninsns);
+                   views[i].slot * SMS_PAGE_SIZE, views[i].r->ninsns);
 
     if (events_path) write_events(events_path);
     if (codemap_path) write_codemap(codemap_path);
@@ -1137,9 +1160,11 @@ int main(int argc, char **argv)
     emit_views(gdir);
     emit_dispatch(out);
     emit_info(out, cart->sha1, name);
-    emit_makefile(out, name);
+    /* La extensión de la ROM: la de la copia que guarda el juego (rom.sms o rom.gg, como en main_sdl.c) */
     const char *dot = strrchr(rom_path, '.');
-    emit_readme(out, name, cart->sha1, dot && (!strcmp(dot, ".gg") || !strcmp(dot, ".GG")) ? ".gg" : ".sms");
+    const char *ext = dot && (!strcmp(dot, ".gg") || !strcmp(dot, ".GG")) ? ".gg" : ".sms";
+    emit_makefile(out, name, ext);
+    emit_readme(out, name, cart->sha1, ext);
     printf("%u instrucciones compiladas en %s/gen (%d vistas%s); el ejecutable se llamará %s\n", compiled_insns, out, nviews,
            nram ? " y el código de la RAM" : "", name);
     return 0;

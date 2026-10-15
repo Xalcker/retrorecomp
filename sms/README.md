@@ -11,11 +11,12 @@ Hay que clonar con el submódulo de retrorecomp, que trae el código que compart
 `random_pad.h`, `trace_line.h`...): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El
 ZIP de GitHub no lo incluye.
 
-**Estado: fases 0 a 5 de 8.** Recompila juegos de Master System y Game Gear a C99: `smsrecomp` genera un proyecto
+**Estado: fases 0 a 6 de 8.** Recompila juegos de Master System y Game Gear a C99: `smsrecomp` genera un proyecto
 que se compila en un ejecutable nativo, con el Z80 en código nativo y la ROM del usuario cargada al arrancar. Con el
 intérprete, los juegos corren en la ventana `sms` o sin ella (`smsrun` y las herramientas comunes: `smstrace`,
-`smsshot`, `smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. El navegador y Android
-llegan en la fase 6. El plan completo está en [docs/PLAN.md](docs/PLAN.md).
+`smsshot`, `smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. El proyecto generado
+también se arma para el navegador (`make web`) y para Android (`make apk`), con el mando en pantalla. El plan completo
+está en [docs/PLAN.md](docs/PLAN.md).
 
 - **Recompilador:** el Z80 con el recompilador común (`z80_recomp.h`, el de GENRecomp y NEORecomp) por vistas (una
   página del mapper en una ranura), las heurísticas de tablas de saltos, la traza y el código que el juego copia a la

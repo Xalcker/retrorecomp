@@ -238,7 +238,11 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   qué» en `z80_recomp.h` (`from[]`) y la guarda sin booleanos (XOR). **Meta:** el contrato, Dragon Blaster y los 15
   juegos de `roms/` sin diferencias contra el intérprete, con el 99-100 % de los ciclos (los que ejecutan
   instrucciones) en código nativo.
-- [ ] **6. Web y Android.** `make web`, `make apk`, el mando en pantalla; `webtest` y `apktest` en el CI.
+- [x] **6. Web y Android.** `make web` y `make apk` en el proyecto generado, con `web/` y `android/` de
+  `retrorecomp/shared` (embebidos como en los otros cuatro; la copia de la ROM lleva la extensión del juego, `rom.sms`
+  o `rom.gg`); el mando en pantalla (la cruz, 1, 2 y la Pausa o el Start), que ya traía la ventana desde la fase 3;
+  `make webtest` y `make apktest` con la ROM mínima (`mkcontrato --minima`) y los dos en el CI de Linux. **Meta:**
+  Dragon Blaster recompilado jugable en el navegador y la APK armada sin avisos.
 - [ ] **7. Compatibilidad.** `tools/compat` (`run.py` con las colecciones SMS y GG, categorías por mapper y
   tamaño: sin mapper, Sega 128/256/512 KB, con RAM del cartucho, Codemasters; `report.py` idéntico), los oráculos,
   `compat_test.py`, `docs/COMPATIBILIDAD.md` y los README de los cinco repos. La corrida completa sobre las

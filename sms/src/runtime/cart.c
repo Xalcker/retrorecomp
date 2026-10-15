@@ -24,7 +24,7 @@
 u8 *cart_normalize(const u8 *data, size_t len, size_t *out_len, int *copier, const char **err)
 {
     *copier = 0;
-    if (len % PAGE_SIZE == 512 && len > 512) {          /* cabecera de copiador */
+    if (len % SMS_PAGE_SIZE == 512 && len > 512) {          /* cabecera de copiador */
         data += 512;
         len -= 512;
         *copier = 1;
@@ -143,7 +143,7 @@ void cart_parse_headers(Cart *c)
             m->banks = h[0];
             m->day = h[1]; m->month = h[2]; m->year = h[3]; m->hour = h[4]; m->minute = h[5];
             /* Palabras little-endian de las páginas que dice, sin la cabecera de Sega */
-            u32 end = (u32)m->banks * PAGE_SIZE;
+            u32 end = (u32)m->banks * SMS_PAGE_SIZE;
             if (end > c->rom_size) end = (u32)c->rom_size & ~1u;
             u16 sum = 0;
             for (u32 a = 0; a + 1 < end; a += 2)
@@ -157,7 +157,7 @@ int cart_detect_mapper(const Cart *c)
 {
     if (c->db && c->db->mapper >= 0) return c->db->mapper;
     if (c->cm.found) return MAPPER_CODEMASTERS;
-    if (c->rom_size <= 3 * PAGE_SIZE) return MAPPER_NONE;      /* hasta 48 KB: las tres ranuras fijas */
+    if (c->rom_size <= 3 * SMS_PAGE_SIZE) return MAPPER_NONE;      /* hasta 48 KB: las tres ranuras fijas */
     return MAPPER_SEGA;
 }
 
@@ -202,7 +202,7 @@ int sms_load(Sms *s, const u8 *data, size_t len, const char *name, int model, co
     if (!c->rom) return 1;
     sha1_hex(c->rom, c->rom_size, c->sha1);
     c->crc32 = cart_crc32(c->rom, c->rom_size);
-    c->pages = (u32)((c->rom_size + PAGE_SIZE - 1) / PAGE_SIZE);
+    c->pages = (u32)((c->rom_size + SMS_PAGE_SIZE - 1) / SMS_PAGE_SIZE);
     cart_parse_headers(c);
     c->db = smsdb_find(c->sha1);
     c->mapper = cart_detect_mapper(c);
@@ -223,11 +223,11 @@ int sms_load(Sms *s, const u8 *data, size_t len, const char *name, int model, co
     else if (c->hdr.found) s->sms_mode = c->hdr.region <= 4;
     else s->sms_mode = !c->ext_gg;
     /* Lo que leen las ranuras: la imagen en páginas enteras (una ROM de menos de 16 KB, repetida) */
-    c->image = malloc((size_t)c->pages * PAGE_SIZE);
+    c->image = malloc((size_t)c->pages * SMS_PAGE_SIZE);
     c->ram = calloc(1, CART_RAM_SIZE);
     c->ram_saved = calloc(1, CART_RAM_SIZE);
     if (!c->image || !c->ram || !c->ram_saved) { sms_free(s); *err = "sin memoria"; return 1; }
-    for (size_t i = 0; i < (size_t)c->pages * PAGE_SIZE; i++) c->image[i] = c->rom[i % c->rom_size];
+    for (size_t i = 0; i < (size_t)c->pages * SMS_PAGE_SIZE; i++) c->image[i] = c->rom[i % c->rom_size];
     sms_reset(s);
     return 0;
 }

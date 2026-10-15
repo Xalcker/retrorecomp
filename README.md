@@ -195,12 +195,15 @@ explica cómo llevarlo a otra consola). Los lectores de `BANCO:DIRECCION` las ig
 quien una, filtre o cuente trazas debe tratarlas por líneas enteras, no por palabras: `compat.py` las partía por espacios
 y las deshacía.
 
-`python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los tres mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
-mirando todos los repositorios que encuentre. Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
+`python3 tests/contract.py` comprueba (sin ROMs) que las herramientas compiladas de los cuatro mencionan esas opciones y que el código compartido (`SHARED`) sea idéntico,
+mirando todos los repositorios que encuentre. También que la prueba de compatibilidad sea gemela: `tools/compat/report.py`
+igual en los cuatro salvo el nombre del `Sistema`, ningún `run.py` que fije lo que es común (cuadros, métrica) y una sola
+carpeta `docs/compat`, sin rutas locales en su `results.json` (lo de los datos publicados sale como «pendiente»: se arregla
+al volver a correr la prueba). Si cambias una opción en un recompilador, cámbiala también en los otros y aquí.
 
 ## Prueba de compatibilidad
 
-`compat.py` es el motor común de la prueba de compatibilidad de los tres (solo la biblioteca estándar). Cada
+`compat.py` es el motor común de la prueba de compatibilidad de los cuatro (solo la biblioteca estándar). Cada
 recompilador lo llama desde su `tools/compat/run.py`, que define solo lo propio de su consola (una subclase de
 `compat.Sistema`: leer la cabecera, la categoría de cada ROM —mapper, MBC o tipo de cartucho—, qué se soporta, los
 botones), y desde `tools/compat/report.py`, que arma el informe HTML. Usa solo la línea de comandos de la tabla:
@@ -220,6 +223,35 @@ de la etapa 1); la misma orden sigue donde iba y salta las ROMs que ya tienen re
 recompilador: un hash del contenido de `src/` y del `Makefile` (commiteado o no), no el commit. Así un commit que solo
 toca `docs/` o `tests/`, o una fusión, no obliga a repetir una corrida a medias. Este motor y el guion no cuentan: si
 cambian de forma que altere los resultados, `--rehacer` repite todo.
+
+Lo mismo en los cuatro, en el motor y no en cada `run.py`: las semillas (1 y 2), los cuadros de `difftest` por
+semilla (1800), los de `--bench` (1800), los estados, las columnas y las tablas del informe, y la carpeta de salida,
+`docs/compat` (un solo informe por repo: si hay más de una colección, van en el mismo `results.json` y las distingue el
+campo `coleccion`). `results.json` se publica, así que guarda solo nombres de archivo: el motor quita las carpetas de la
+corrida de los mensajes que guarda y el informe avisa si encuentra una ruta local.
+
+**Lo que define la subclase de `compat.Sistema`** en `tools/compat/run.py` (un recompilador nuevo solo necesita esto):
+
+| | Qué es | Ejemplos |
+|---|---|---|
+| `id`, `nombre`, `consola` | prefijo de las herramientas (`{id}shot`, `{id}recomp`), el nombre del repo y el de la consola | `"gb"`, `"GBRecomp"`, `"Game Boy"` |
+| `exts` | extensiones de ROM, sueltas o dentro de los zips | `(".gb", ".gbc")` |
+| `leer(rom)` | datos de la cabecera; `{"error": ...}` si no sirve | mapper, MBC, tamaños, batería |
+| `soportado(r)` | si el recompilador soporta esa ROM | mapper o MBC conocido; NEO: no cifrado |
+| `categoria(r)`, `categoria_nombre`, `orden_categoria(c)`, `nombre_categoria(c)` | la tabla «Por …» del informe y el filtro | `"Mapper"`, `4` → `"4 MMC3"` |
+| `cupo`, `cupo_def` | cuántas ROMs de cada categoría pasan a la etapa 2 | `{"MBC5": 11}` |
+| `botones` | los dos botones de acción del guion común | `("A", "B")`; GEN `("B", "C")` |
+| `compara` | qué compara `difftest`, para el texto del informe | `"CPU, ciclos, RAM…"` |
+| `escala_mini` | la miniatura es la captura dividida entre esto | 1 en GB, 2 en los demás |
+| `combinacion(r)`, `tamano(r)`, `tamano_titulo()`, `caracteristicas(r)`, `subtitulo(r)`, `otros_resumenes()` | columnas y variedad de la selección | `"PRG/CHR KB"`, «batería» |
+| opcional: `coleccion(carpeta)` | el nombre de la colección (por omisión, la carpeta) | GB: `"GB"`/`"GBC"`; NEO: la BIOS |
+| opcional: `es_juego(p)`, `juego_zip`, `cuadros1`, `guiones()` | lo que el Neo Geo cambia por su BIOS | NEO salta `aes.zip` y captura más tarde |
+| opcional: `oraculos(f, guion)`, `nombres_oraculos`, `columnas_oraculos(r)` | emuladores de referencia (`--oraculos`): una celda por nombre | GEN: Genesis Plus GX y BlastEm; NEO: Geolith y FBNeo |
+| opcional: `migrar(r)` | pasar filas de un `results.json` anterior al motor común | hasta regenerar los de NES y GB |
+
+`python3 tests/compat_test.py` (en el CI) arma un `results.json` sintético para cada uno de los cuatro sistemas y
+genera su informe: comprueba las cabeceras de los oráculos, los estados y que no queden rutas locales. Corre antes de
+publicar el primer informe de un recompilador nuevo, con su `Sistema` agregado a la prueba.
 
 ## Diferencias que la interfaz esconde
 

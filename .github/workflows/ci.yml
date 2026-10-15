@@ -9,7 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Sintaxis de Python
-        run: python3 -m py_compile retrorecomp_gui.py tests/contract.py
+        run: python3 -m py_compile retrorecomp_gui.py compat.py tests/contract.py tests/compat_test.py
+      - name: Informe de compatibilidad gemelo en los cuatro sistemas (results.json sintéticos)
+        run: python3 tests/compat_test.py
       - name: La página no usa nada fuera de la biblioteca estándar ni recursos externos
         run: "! grep -E 'https?://' index.html"
   audio:

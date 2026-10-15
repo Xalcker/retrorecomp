@@ -44,8 +44,9 @@ endif
 RUNTIME := cart.c smsdb.c z80.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libsmsrt.a
-# Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp) y console.h
-SHARED_RT := z80.h z80.c console.h
+# Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp; z80_ops.h es su
+# semántica, la misma para el intérprete y el código generado) y console.h
+SHARED_RT := z80.h z80_ops.h z80.c console.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 PROGS := smsrecomp carttest z80test
@@ -56,8 +57,9 @@ all: $(PROGS:%=%$(EXE))
 carttest$(EXE): src/tools/carttest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
-# z80test pone su propio bus (memoria plana): no usa el de la consola
-z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(RT)
+# z80test pone su propio bus (memoria plana): no usa el de la consola. Con --recomp ejecuta por el camino del
+# código generado (z80_ops.h)
+z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(SHARED)/z80_ops.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # El recompilador: por ahora solo lee el cartucho (--info); el runtime y la plataforma van adentro
@@ -79,7 +81,7 @@ $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/sms.h src/runtime/z80_host.h $(SHAR
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 # El núcleo del Z80 (shared/)
-$(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/sms.h src/runtime/z80_host.h $(SHARED)/z80.h | $(BUILD)
+$(BUILD)/rt_z80.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/sms.h src/runtime/z80_host.h $(SHARED)/z80.h $(SHARED)/z80_ops.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

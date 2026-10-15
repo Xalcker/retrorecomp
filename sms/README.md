@@ -11,15 +11,17 @@ Hay que clonar con el submódulo de retrorecomp, que trae el código que compart
 `random_pad.h`, `trace_line.h`...): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El
 ZIP de GitHub no lo incluye.
 
-**Estado: fase 0 de 8.** Lee el cartucho y lo describe; el Z80 común pasa sus SingleStepTests. El plan completo
+**Estado: fases 0 y 1 de 8.** Lee el cartucho y lo describe; el Z80 común tiene su semántica en una sola fuente
+de verdad y pasa sus SingleStepTests por los dos caminos. El plan completo
 está en [docs/PLAN.md](docs/PLAN.md).
 
 - **Cartucho:** `.sms` y `.gg` (con o sin cabecera de copiador), la cabecera TMR SEGA con su suma (calculada como
   la BIOS), la de Codemasters y la SDSC, el mapper (Sega, Codemasters o ninguno) y el modelo con que correría el
   juego (Master System II o Game Gear, y el modo SMS del Game Gear).
-- **Z80:** el núcleo común de GENRecomp y NEORecomp (retrorecomp/shared) pasa las 1 604 000
-  [SingleStepTests](https://github.com/SingleStepTests/z80). En la fase 1 su semántica pasa a una sola fuente de
-  verdad para el intérprete y el código generado.
+- **Z80:** el núcleo común de GENRecomp y NEORecomp (retrorecomp/shared), con la semántica de cada instrucción en
+  un solo lugar (`z80_ops.h`) para el intérprete y el código generado, como el 68000 de GENRecomp. Pasa las
+  1 604 000 [SingleStepTests](https://github.com/SingleStepTests/z80) por los dos caminos, con su decodificador
+  y el ciclo de cada acceso a un puerto.
 
 ## Compilar
 
@@ -62,7 +64,7 @@ juego de Master System en el Game Gear corre en su modo SMS.
 | Comando | Qué hace |
 |---|---|
 | `smsrecomp juego.sms [--info] [--model sms\|gg]` | Lo que se sabe del cartucho. La recompilación (`-o carpeta`, `--trace`, `--viz`, `--why`...) llega en la fase 5. |
-| `carttest`, `z80test` | Pruebas; `make test` corre todas. `z80test` (de `tools/retrorecomp/shared`) corre las SingleStepTests del Z80 (`sh tests/sstz80.sh`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
+| `carttest`, `z80test` | Pruebas; `make test` corre todas. `z80test` (de `tools/retrorecomp/shared`) corre las SingleStepTests del Z80 (`sh tests/sstz80.sh`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sstz80.sh`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
 
 La ventana `sms` y las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsbench`, `smsramdump`, con
 las opciones comunes `--frames`, `--input` y `--seed` de los otros cuatro) llegan en las fases 3 y 4.
@@ -71,7 +73,7 @@ las opciones comunes `--frames`, `--input` y `--seed` de los otros cuatro) llega
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `sms.h`, `cart.c`, `smsdb.c` y `z80_host.h`; de `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80.c`, y también `sha1` y `console.h`. |
+| `src/runtime/` | La consola: `sms.h`, `cart.c`, `smsdb.c` y `z80_host.h`; de `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h`, `z80.c`, y también `sha1` y `console.h`. |
 | `src/smsrecomp/` | El recompilador. |
 | `src/tools/` | Las pruebas (`carttest`). |
 | `tools/` | `retrorecomp/`: la GUI y el código común con NESRecomp, GBRecomp, GENRecomp y NEORecomp (submódulo). |

@@ -16,14 +16,17 @@ corre "z80test --int (interrupción desde un HALT en modos 1 y 2, RETI)" "$(exe 
 corre "z80test --nmi (NMI, salida del HALT, RETN, INT en modo 1)" "$(exe z80test)" --nmi
 tiempo "pruebas unitarias"
 
-# Z80: SingleStepTests (make testroms)
+# Z80: SingleStepTests (make testroms), por el intérprete y por el camino del código generado (z80_ops.h con
+# los bytes de la instrucción; también el ciclo del acceso a cada puerto); en los dos, el decodificador
 if [ -f testroms/z80/v1/00.json.gz ]; then
-    r=$(sh tests/sstz80.sh | tail -1)
-    case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    for modo in "" --recomp; do
+        r=$(SST_OPTS=$modo sh tests/sstz80.sh | tail -1)
+        case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    done
 else
     echo "(sin testroms/z80 se omiten las SingleStepTests del Z80: make testroms)"
 fi
-tiempo "SingleStepTests del Z80"
+tiempo "SingleStepTests del Z80 (intérprete y --recomp)"
 
 # smsrecomp: un archivo que no puede ser una ROM debe fallar sin caerse, y sin ROM, dar el uso
 S="$(exe smsrecomp)"

@@ -14,7 +14,7 @@ por dentro (el mismo Z80, el VDP del SMS2 con la CRAM de 12 bits y una ventana d
 el estéreo, el mismo mapa de memoria, los mismos mappers y la misma cabecera), y corre los juegos de SMS en su modo
 SMS. Dos repos duplicarían más del 90 % del runtime.
 
-**Estado: fase 0 hecha.** Cada fase empieza con la aprobación del autor.
+**Estado: fases 0 y 1 hechas.** Cada fase empieza con la aprobación del autor.
 
 ## Qué cambia respecto a GENRecomp y GBRecomp
 
@@ -166,8 +166,16 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   (`z80test` con las 1 604 000 SingleStepTests, `--int` y `--nmi`); `tests/testroms.sh` (SingleStepTests, ZEXALL y
   el homebrew MIT; con `EXTRA=1` las pruebas sin licencia); `make test`; `docs/ARQUITECTURA.md` con las secciones
   de los otros cuatro.
-- [ ] **1. El Z80 de una sola fuente de verdad.** `shared/z80_ops.h`, `z80_decode`, `Z80_IO_AT`, `z80test
-  --recomp`; PR en retrorecomp, GENRecomp y NEORecomp. Ver arriba.
+- [x] **1. El Z80 de una sola fuente de verdad.** Hecho: `shared/z80_ops.h` (la semántica, con un contexto
+  `Z80X` que lleva el PC y, para el código generado, los bytes de la instrucción), `z80.c` sobre él (las
+  interrupciones, la NMI y el HALT), `z80_decode` y `Z80_IO_AT` (9 ciclos en `IN`/`OUT (n)`, 13 con prefijo; 10
+  en `(C)`; 11 en `INI` y los suyos; 14 en `OUTI` y los suyos). Las 1 604 000 SingleStepTests pasan por los dos
+  caminos (`z80test --recomp`, `SST_OPTS=--recomp sh tests/sstz80.sh`), y en los dos también el decodificador
+  (largo, destino y ciclos con y sin salto) y, por el camino del código generado, el ciclo de cada acceso a un
+  puerto. Con los bytes constantes el compilador pliega la instrucción: `JR NZ` queda en ~19 instrucciones de
+  máquina con los dos destinos y sus ciclos como constantes. En GENRecomp y NEORecomp nada cambia: `sizeof(Z80)`
+  igual, sus pruebas completas, `golden.sh` bit a bit y la misma velocidad. PR en retrorecomp, GENRecomp y
+  NEORecomp.
 - [ ] **2. Bus, mappers, E/S e interrupciones.** Las tres ranuras, los mappers Sega (con su RAM de 8/16 KB y los
   registros reflejados en `$DFFC-$DFFF`; tras el reset `$FFFC-$FFFF` = 00 00 01 02), Codemasters (bancos 0, 1, 0
   al empezar; RAM en `$A000` con el bit 7 de `$4000`) y sin mapper; las gafas 3-D (`$FFF8-$FFFB`, ignoradas); la

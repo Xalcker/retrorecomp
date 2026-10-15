@@ -6,13 +6,14 @@ distribuyen datos de la ROM.
 
 Las secciones son las mismas, y en el mismo orden, que en `docs/ARQUITECTURA.md` de NESRecomp, GBRecomp,
 GENRecomp y NEORecomp: lo que cambia entre las consolas queda dentro de cada una. Las que todavía no tienen
-contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan. Hoy está hecha la fase 0: el cartucho y el Z80 común.
+contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan. Hoy están hechas las fases 0 y 1: el cartucho y el Z80 común,
+con su semántica en una sola fuente de verdad.
 
 ## Piezas
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `z80_host.h` (lo que el Z80 común toma de esta consola). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`/`z80.c` (el Z80); también `sha1` y `console.h`. El bus, los mappers, la E/S, el VDP y el PSG llegan en las fases 2 y 3. |
+| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `z80_host.h` (lo que el Z80 común toma de esta consola). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); también `sha1` y `console.h`. El bus, los mappers, la E/S, el VDP y el PSG llegan en las fases 2 y 3. |
 | `src/smsrecomp/` | El recompilador. Hoy, `--info`; la recompilación llega en la fase 5. |
 | `src/platform/` | La ventana con SDL2, `difftest` y `bench`: fases 3 a 5. |
 | `src/tools/` | `carttest`; de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). Las herramientas sin ventana (`smstrace`, `smsshot`, `smsaudio`, `smsramdump`, `smsbench`), `smsrun` y las demás pruebas llegan en las fases 2 a 4. |
@@ -21,11 +22,31 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan. Hoy está hecha la fa
 
 ## Una sola fuente de verdad para el CPU
 
-Llega en la fase 1. Hoy el Z80 es el intérprete común de GENRecomp y NEORecomp tal cual (`shared/z80.c`): pasa las
-1 604 000 [SingleStepTests del Z80](https://github.com/SingleStepTests/z80) (`z80test`, `tests/sstz80.sh`, en `make
-test`) y las pruebas propias de interrupciones (`z80test --int`: la INT desde un `HALT` en los modos 1 y 2;
-`--nmi`: la NMI, que aquí es la Pausa). En la fase 1 su semántica pasa a `shared/z80_ops.h`, la usan el intérprete
-y el código generado, y `z80test --recomp` corre las mismas pruebas por los dos caminos (ver PLAN.md).
+`z80_ops.h` (de `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp, como `m68k_ops.h` para el 68000)
+tiene la semántica de cada instrucción del Z80. Todo pasa por un contexto, `Z80X`, con el PC y, para el código
+generado, los bytes de la instrucción:
+
+- El **intérprete** (`z80_step`, en `z80.c`) lo arma con `ops = NULL`: el opcode y los operandos se leen del bus.
+  `z80_step` atiende antes la NMI (la Pausa), la interrupción (IM 0/1/2, con el retraso de `EI`) y el `HALT`.
+- El **código generado** (fase 5) lo arma con `ops` apuntando a los bytes de la instrucción, leídos de la ROM al
+  recompilar, y el PC constante. `z80_exec` devuelve los ciclos y deja el PC siguiente; el compilador pliega los
+  `switch`: `JR NZ,e` queda en unas 19 instrucciones de máquina con los dos destinos y sus ciclos (12 y 7) como
+  constantes.
+
+R sube con cada M1 igual por los dos caminos (los juegos hacen `LD A,R` para el azar), y WZ (MEMPTR), Q, P y el
+retraso de `EI` quedan en el estado del Z80, cuyo tamaño no cambió (los estados guardados de GENRecomp y NEORecomp
+lo validan). `z80_decode` da, para el descubrimiento, el largo, el tipo de salto, la condición, el destino
+constante y los ciclos con y sin salto. `Z80_IO_AT(g, t)`, un gancho opcional, dice en qué ciclo de la instrucción
+se accede a cada puerto: 9 en `IN`/`OUT (n)` (13 con un prefijo `DD`/`FD` delante), 10 en `IN`/`OUT (C)`, 11 en
+`INI`, `IND`, `INIR` e `INDR`, y 14 en `OUTI`, `OUTD`, `OTIR` y `OTDR`; lo usarán los contadores y las
+interrupciones del VDP (fase 2).
+
+**Validación:** las 1 604 000 [SingleStepTests del Z80](https://github.com/SingleStepTests/z80) (registros, con
+WZ, Q y P; RAM; puertos; ciclos) **por los dos caminos**: el intérprete (`z80test`) y el del código generado
+(`z80test --recomp`; `SST_OPTS=--recomp sh tests/sstz80.sh`), en `make test`. En los dos se comprueba además el
+decodificador contra cada prueba (el PC final con o sin salto y los ciclos) y, por el camino del código generado,
+el ciclo del acceso al puerto contra el que marcan las pruebas. Más las pruebas propias de interrupciones
+(`z80test --int`: la INT desde un `HALT` en los modos 1 y 2; `--nmi`: la NMI, que aquí es la Pausa).
 
 ## Temporización
 
@@ -177,7 +198,8 @@ de `tools/retrorecomp/shared`), en español e inglés.
 
 `make test` (`tests/run_tests.sh`), en Linux, macOS y Windows en cada PR:
 
-- **CPU:** las 1 604 000 SingleStepTests del Z80 (`z80test`, en Linux) y las interrupciones (`--int`, `--nmi`).
+- **CPU:** las 1 604 000 SingleStepTests del Z80 por el intérprete y por el camino del código generado, con el
+  decodificador y el ciclo de los puertos (`z80test` y `--recomp`, en Linux), y las interrupciones (`--int`, `--nmi`).
 - **Cartucho:** `carttest` (cabeceras TMR SEGA en sus tres lugares, Codemasters y SDSC, la suma de cada código de
   tamaño, la cabecera de copiador, el mapper, el modelo y el modo, los archivos que no pueden ser una ROM, el
   CRC32) y `smsrecomp --info` con las ROMs de prueba.

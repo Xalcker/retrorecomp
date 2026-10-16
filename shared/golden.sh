@@ -7,6 +7,8 @@
 #   sh tests/golden.sh --recompilado   lo mismo con el código recompilado: recompila cada ROM (sin traza, en
 #                                      build/golden_rec/SHA1), compila el bench del proyecto y compara su --hash
 #                                      con la misma línea base (si hace lo mismo que el intérprete, da lo mismo)
+#   sh tests/golden.sh --libres        solo los casos de testroms/ (las ROMs libres que baja make testroms: lo
+#                                      que corre el CI completo)
 #   sh tests/golden.sh ROM...          solo los casos de esas ROMs
 #   GOLDEN_SHOT=ruta                   otro *shot
 #   GOLDEN_JOBS=N                      casos a la vez (por omisión, uno por procesador)
@@ -36,11 +38,13 @@ command -v golden_sha1 >/dev/null 2>&1 || golden_sha1() { sha1_file < "$1"; }
 
 UPDATE=
 REC=
+LIBRES=
 ONLY=
 for a in "$@"; do
     case $a in
         --update) UPDATE=1 ;;
         --recompilado) REC=1 ;;
+        --libres) LIBRES=1 ;;
         -*) echo "opción desconocida: $a" >&2; exit 2 ;;
         *) ONLY="$ONLY
 $a" ;;
@@ -81,6 +85,7 @@ caso() {
     if [ $# -gt 0 ] && [ "$1" != "--" ]; then var=$1; shift; fi
     [ "$1" = "--" ] && shift
     [ -f "$rom" ] || return 0
+    case $rom in testroms/*) ;; *) [ -n "$LIBRES" ] && return 0 ;; esac
     if [ -n "$ONLY" ]; then
         printf '%s\n' "$ONLY" | grep -qxF "$rom" || return 0
     fi

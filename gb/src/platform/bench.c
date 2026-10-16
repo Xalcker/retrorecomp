@@ -2,12 +2,16 @@
  * bench: velocidad de emulación (CPU, PPU, APU...) sin ventana ni límite de
  * cuadros.
  *
- * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]
+ * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]
  *   --frames  cuadros por corrida (por omisión 3600, un minuto de juego).
  *   --repeat  corridas; se reporta la más rápida, que es la menos afectada por
  *             otros programas en la máquina (por omisión 3).
  *   --input   entradas grabadas (src/platform/inputs.h).
  *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp).
+ *   --hash    corre una vez e imprime el hash de todos los cuadros y de todo el
+ *             audio, el mismo que gbshot --hash (gb_golden.h): así
+ *             tests/golden.sh --recompilado compara el código recompilado con la
+ *             misma línea base.
  *   Sin --input ni --seed: Start en los cuadros 121-124 y la derecha desde el 401,
  *   el mismo guion que nesbench y genbench.
  * El audio se genera y se saca de la cola en cada cuadro, como en la ventana.
@@ -23,6 +27,7 @@
 #include "console.h"
 #include "gb.h"
 #include "inputs.h"
+#include "gb_golden.h"
 #ifdef GB_RECOMP
 #include "recomp.h"
 #include "sha1.h"
@@ -52,7 +57,7 @@ int main(int argc, char **argv)
     console_utf8();
     const char *rom_path = NULL, *input_path = NULL;
     long frames = 3600;
-    int repeat = 3, model = GB_MODEL_AUTO, seed_given = 0;
+    int repeat = 3, model = GB_MODEL_AUTO, seed_given = 0, hash = 0;
     unsigned seed = 1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
@@ -63,10 +68,11 @@ int main(int argc, char **argv)
             model = model_from_name(argv[++i]);
             if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
         }
+        else if (!strcmp(argv[i], "--hash")) hash = 1;
         else rom_path = argv[i];
     }
     if (!rom_path || frames <= 0 || repeat <= 0) {
-        fprintf(stderr, "uso: " BENCH_NAME " rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S]\n");
+        fprintf(stderr, "uso: " BENCH_NAME " rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]\n");
         return 2;
     }
     long size;
@@ -90,6 +96,8 @@ int main(int argc, char **argv)
     static GB g;
     static float aud[4096 * 2];
     double best = 0;
+    GoldenHash gh;
+    if (hash) repeat = 1;
     for (int k = 0; k < repeat; k++) {
         const char *err = gb_init_model(&g, rom, (u32)size, model);
         if (err) { fprintf(stderr, "%s: %s\n", rom_path, err); return 2; }
@@ -101,6 +109,7 @@ int main(int argc, char **argv)
         RandomPad rp;
         random_pad_init(&rp, seed);
         int scripted = input_path || seed_given;
+        golden_init(&gh);
         clock_t t0 = clock();
         for (long f = 0; f < frames; f++) {
             u8 pad = input_path ? inputs_pad(&script, f) : 0;
@@ -108,6 +117,7 @@ int main(int argc, char **argv)
             if (!scripted) pad = (f > 120 && f < 125) ? PAD_START : (f > 400 ? PAD_RIGHT : 0);
             gb_set_pad(&g, pad);
             gb_run_frame(&g);
+            if (hash) gb_golden_frame(&g, &gh);
             while (gb_audio_pull(&g, aud, 4096) > 0) {}
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
@@ -118,6 +128,7 @@ int main(int argc, char **argv)
     double real = frames * ((double)GB_CYCLES_FRAME / GB_CPU_HZ);
     printf("%ld cuadros en %.3f s (mejor de %d): %.0f cuadros/s, %.1fx tiempo real\n",
            frames, best, repeat, best > 0 ? frames / best : 0.0, best > 0 ? real / best : 0.0);
+    if (hash) golden_print(&gh);
     free(rom);
     return 0;
 }

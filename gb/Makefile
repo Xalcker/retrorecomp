@@ -8,6 +8,9 @@ ifeq ($(origin CC),default)
 CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
+# Sin contraer a*b+c en FMA (clang en arm64 lo hace por omisión): el mismo audio, bit a bit, en todas las
+# plataformas (tests/golden.sh). Con override, también si se da CFLAGS en la línea de make
+override CFLAGS += -ffp-contract=off
 BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
 SHARED := ../shared

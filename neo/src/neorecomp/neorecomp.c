@@ -1807,6 +1807,8 @@ static void emit_makefile(const char *dir, const char *name)
         "CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)\n"
         "endif\n"
         "CFLAGS ?= -std=c99 -O2 -Wall -Wno-unused-label\n"
+        "# Sin FMA: el mismo audio, bit a bit, que el intérprete en cualquier plataforma\n"
+        "override CFLAGS += -ffp-contract=off\n"
         "INC    := -Iruntime -Igen -Ibios -Iplatform -DNEO_RECOMP\n\n"
         "# Windows (MSYS2): .exe, carpeta temporal en build/ (el make de MSYS2 no le pasa\n"
         "# TMP a gcc), SDL2 enlazado de forma estática (el .exe no pide SDL2.dll) e icono\n"

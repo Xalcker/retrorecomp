@@ -53,14 +53,16 @@ jobs:
             sel=$todos; rapidas=; sst=1
           else
             cambios=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
-            echo "$cambios"
+            echo "$(grep -c . <<< "$cambios") archivos cambiados"
+            # Con here-strings y no con echo | grep -q: con pipefail, el echo que pierde su lector hace fallar la prueba
             sel=
-            if echo "$cambios" | grep -qE '^(shared/|tests/|\.github/)'; then sel=$todos
+            if grep -qE '^(shared/|tests/|\.github/)' <<< "$cambios"; then sel=$todos
             else for s in $todos; do   # la documentación sola de un sistema no lo prueba
-                   echo "$cambios" | grep "^$s/" | grep -qvE "^$s/(docs/|README\.md$)" && sel="$sel $s"; done; fi
+                   n=$(grep "^$s/" <<< "$cambios" | grep -cvE "^$s/(docs/|README\.md$)" || true)
+                   [ "${n:-0}" -gt 0 ] && sel="$sel $s"; done; fi
             rapidas=1
             # Las SingleStepTests solo si cambian los núcleos de CPU (o sus pruebas)
-            if echo "$cambios" | grep -qE '^shared/(z80|m68k|cpu68k|dis68k|disz80|json\.h|sst)'; then sst=1; else sst=; fi
+            if grep -qE '^shared/(z80|m68k|cpu68k|dis68k|disz80|json\.h|sst)' <<< "$cambios"; then sst=1; else sst=; fi
           fi
           sel=$(echo $sel)
           json=$(printf '%s\n' $sel | jq -R . | jq -sc 'map(select(length > 0))')

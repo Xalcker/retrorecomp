@@ -132,7 +132,8 @@ if [ -x "$(exe gen)" ]; then
     else echo "FALLA el ejecutable y el código de RAM"; fallas=$((fallas + 1)); fi
 fi
 tiempo "código en RAM"
-[ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
+# RAPIDAS=1 (el CI de cada PR): sin el proyecto de Overdrive, lo más caro (corre en main y en el nocturno)
+[ -z "$RAPIDAS" ] && [ -f testroms/demos/overdrive.bin ] && recompila overdrive testroms/demos/overdrive.bin 600
 tiempo "proyecto generado: overdrive"
 for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do
     [ -f "$r" ] || continue

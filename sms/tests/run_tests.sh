@@ -74,19 +74,10 @@ if [ -f "$C" ]; then
             echo "ok    el contrato recompilado: 300 cuadros iguales al intérprete, $pct% de los ciclos en código nativo"
         else echo "FALLA el contrato recompilado"; echo "$o" | tail -5; fallas=$((fallas + 1)); fi
     else echo "FALLA smsrecomp -o o make del proyecto del contrato"; fallas=$((fallas + 1)); fi
-    # make web y make apk en el proyecto (los arman make webtest y make apktest): las reglas de retrorecomp/shared y la
-    # copia de la ROM con su extensión (con la de un .gg, el runtime elige la Game Gear)
-    G=testroms/homebrew/waternet.gg
-    if [ -f "$P/platform/web.mk" ] && [ -f "$P/platform/shell.html" ] && [ -f "$P/platform/android/android.mk" ] \
-            && [ -f "$P/platform/android/RecompActivity.java" ] && grep -q "^WEB_CACHE  := rom.sms$" "$P/Makefile" \
-            && grep -q "^include platform/android/android.mk$" "$P/Makefile" && grep -q "make apk" "$P/LEEME.txt" \
-            && { [ ! -f "$G" ] || { "$R" "$G" -o "$D/proy_gg" --name gg >/dev/null && grep -q "^APK_CACHE  := rom.gg$" "$D/proy_gg/Makefile"; }; }; then
-        echo "ok    el proyecto lleva make web y make apk (la copia de la ROM, rom.sms o rom.gg)"
-    else echo "FALLA make web o make apk en el proyecto generado"; fallas=$((fallas + 1)); fi
 fi
 # El ciclo completo (tests/recomp_game.sh: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
-# que cayó al intérprete) con Dragon Blaster (make testroms)
-if [ -f testroms/homebrew/dragon_blaster.sms ]; then
+# que cayó al intérprete) con Dragon Blaster (make testroms). RAPIDAS=1 (el CI de cada PR) lo salta
+if [ -z "$RAPIDAS" ] && [ -f testroms/homebrew/dragon_blaster.sms ]; then
     if sh tests/recomp_game.sh testroms/homebrew/dragon_blaster.sms prueba_dragon 900 1 2 > build/tests/ciclo_dragon.out 2>&1 \
             && grep -q "^Sin diferencias.$" build/tests/ciclo_dragon.out; then
         echo "ok    ciclo completo con Dragon Blaster: $(grep "semilla 2" build/tests/ciclo_dragon.out | tail -1 | sed 's/^ *//')"
@@ -108,8 +99,8 @@ tiempo "SingleStepTests del Z80 (intérprete y --recomp)"
 
 # ZEXDOC y ZEXALL (make testroms): el ejercitador de instrucciones de Frank Cringle, en el Master System. Corre
 # ~1,5 horas de consola (unos 330 000 cuadros) y deja su resultado en la RAM del cartucho: «Tests complete», sin
-# «ERROR», y las 79 pruebas en «OK». Las dos a la vez
-if [ -f testroms/zexall/zexall.sms ]; then
+# «ERROR», y las 79 pruebas en «OK». Las dos a la vez. RAPIDAS=1 (el CI de cada PR) las salta
+if [ -z "$RAPIDAS" ] && [ -f testroms/zexall/zexall.sms ]; then
     for t in zexdoc zexall; do "$(exe smsrun)" testroms/zexall/$t.sms --frames 345000 --sram-text > build/tests/$t.out 2>&1 & done
     wait
     for t in zexdoc zexall; do

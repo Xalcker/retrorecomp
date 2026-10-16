@@ -16,6 +16,11 @@
 # (Start, A, derecha...) son las de tests/inputs/ciclo_traza.txt y ciclo_difftest.txt, las
 # mismas para todos los juegos (las del Neo Geo van desplazadas 1200 cuadros): sirven para pasar del título al juego y moverse un poco. Las
 # semillas agregan un mando aleatorio.
+#
+# Además de las líneas para leer, deja líneas "RESUMEN {json}" para la GUI y los scripts: una al empezar cada ronda
+# ({"evento":"ronda","ronda":N,"direcciones":D}, D las de la traza en la segunda), una por semilla
+# ({"evento":"semilla","ronda":N,"semilla":"S","difftest":{el RESUMEN de difftest, o null}}) y la última
+# ({"evento":"fin","ok":true|false}); todas con "herramienta":"recomp_game".
 REG=$(dirname "$0")/sistemas.json
 # Un número del registro: campo $2 del sistema $1. El registro lleva una clave por línea (tests/contract.py lo comprueba).
 reg() {
@@ -47,31 +52,43 @@ if [ -z "$NOTRACE" ]; then
 fi
 
 falla=0
+resumen() { printf 'RESUMEN {"herramienta":"recomp_game",%s}\n' "$1"; }
 ronda() {
     "./${CON}recomp$EXE" "$ROM" -o "$OUT" --name "$NAME" --trace "$TRACE" | grep -E "código|funciones" || exit 2
     make -s -C "$OUT" ${CC:+CC="$CC"} -j8 2>&1 | grep -E "error" && exit 2
     # Entradas distintas a las de la traza guionada, más el mando aleatorio de cada semilla
     for s in $SEEDS; do
         printf '  semilla %-4s ' "$s"
-        if ! "$OUT/difftest$EXE" "$ROM" --frames "$DF" --input "$IN_D" \
-                --seed "$s" --uncovered "$OUT/unc_$s.txt" > "$OUT/difftest.log" 2>&1; then
+        "$OUT/difftest$EXE" "$ROM" --frames "$DF" --input "$IN_D" \
+            --seed "$s" --uncovered "$OUT/unc_$s.txt" > "$OUT/difftest.log" 2>&1
+        rc=$?
+        dt=$(grep '^RESUMEN ' "$OUT/difftest.log" | tail -n 1 | sed 's/^RESUMEN //')
+        if [ $rc -ne 0 ]; then
             echo "DIFERENCIA"
-            cat "$OUT/difftest.log"
+            grep -v '^RESUMEN ' "$OUT/difftest.log"
+            resumen "\"evento\":\"semilla\",\"ronda\":$R,\"semilla\":\"$s\",\"difftest\":${dt:-null}"
             falla=1
             return
         fi
         grep -oE '[0-9.]+% de las instrucciones nativas' "$OUT/difftest.log" | tr '\n' ' '
         grep -oE 'Instrucciones de (PRG|ROM) interpretadas: [0-9]+' "$OUT/difftest.log" || echo
+        resumen "\"evento\":\"semilla\",\"ronda\":$R,\"semilla\":\"$s\",\"difftest\":${dt:-null}"
         cat "$OUT/unc_$s.txt" >> "$TRACE"
     done
     sort -u "$TRACE" -o "$TRACE"
 }
 
 echo "$NAME: primera ronda"
+R=1
+resumen '"evento":"ronda","ronda":1'
 ronda
 if [ $falla -eq 0 ]; then
-    echo "$NAME: con la traza ($(wc -l < "$TRACE") direcciones)"
+    D=$(wc -l < "$TRACE" | tr -d ' ')
+    echo "$NAME: con la traza ($D direcciones)"
+    R=2
+    resumen "\"evento\":\"ronda\",\"ronda\":2,\"direcciones\":$D"
     ronda
 fi
 [ $falla -eq 0 ] && echo "Sin diferencias." || echo "HAY DIFERENCIAS."
+[ $falla -eq 0 ] && resumen '"evento":"fin","ok":true' || resumen '"evento":"fin","ok":false'
 exit $falla

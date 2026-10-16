@@ -100,6 +100,21 @@ def short_name(rom, sid=""):
     return n
 
 
+def resumenes(text, herramienta=None):
+    """Las líneas "RESUMEN {json}" de una salida (difftest, bench, --viz, recomp_game.sh), como dicts y en orden;
+    con `herramienta`, solo las suyas. Así la GUI no lee el texto en español."""
+    out = []
+    for ln in text.splitlines():
+        if ln.startswith("RESUMEN {"):
+            try:
+                r = json.loads(ln[len("RESUMEN "):])
+            except ValueError:
+                continue
+            if herramienta in (None, r.get("herramienta")):
+                out.append(r)
+    return out
+
+
 def safe_name(n, what="nombre"):
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,60}", n or ""):
         raise ValueError(f"{what}: solo letras, números, punto, guion y guion bajo")
@@ -229,10 +244,6 @@ class NES(System):
     def project_dir(self, name):
         return os.path.join(self.root, "build", "out", name)
 
-    def header_stats(self, ln, stats):
-        m = re.search(r"mapper (\d+), PRG (\d+) KB, CHR (\d+) KB", ln)
-        if m:
-            stats.update(mapper=f"mapper {m.group(1)}", banks=int(m.group(2)) // 16, size=int(m.group(2)) * 1024)
 
     def info(self, path):
         try:
@@ -256,7 +267,7 @@ class NES(System):
         rc, out = self.run(argv, 120)
         if rc != 0:
             raise RuntimeError(out.strip() or f"falló {self.recomp}")
-        banks, stats = [], {}
+        banks = []
         for ln in out.splitlines():
             m = re.match(r"^([0-9A-F]{6}) (.*)$", ln)
             if m and "celdas" not in ln:
@@ -272,18 +283,16 @@ class NES(System):
                         n = int(code.split(";")[-1]) if code else 0
                         cells.append([256 if ch == "#" else 100, self.ORG_COLOR.get(n, 0), 0])
                 banks.append({"label": m.group(1), "base": int(m.group(1), 16), "cells": cells})
-                continue
-            self.header_stats(ln, stats)
-            m = re.search(r"código: (\d+) instrucciones \((\d+) bytes, ([\d.]+)% (?:del PRG|de la ROM|de P)\)", ln)
-            if m:
-                stats.update(instr=int(m.group(1)), bytes=int(m.group(2)), pct=float(m.group(3)))
-            m = re.search(r"cobertura: (\d+) de (\d+) instrucciones ejecutadas descubiertas sin traza \(([\d.]+)% *\)", ln)
-            if m:
-                tot = int(m.group(2))
-                stats.update(cov_total=tot, cov_missing=tot - int(m.group(1)), cov_pct=float(m.group(3)))
-            m = re.search(r"(\d+) de (\d+) celdas con código", ln)
-            if m:
-                stats.update(cells_code=int(m.group(1)), cells=int(m.group(2)))
+        # Las cifras salen de la línea RESUMEN de --viz; una fila del mapa por banco
+        r = (resumenes(out, "viz") or [{}])[-1]
+        stats = {"mapper": r.get("mapper") or self.info(rom_path).get("mapper", ""), "banks": len(banks), "size": r.get("tam")}
+        if "instrucciones" in r:
+            stats.update(instr=r["instrucciones"], bytes=r["bytes"], pct=r["pct"], cells_code=r["celdas_codigo"], cells=r["celdas"])
+        cov = r.get("cobertura")
+        if cov:
+            tot = cov["total"]
+            stats.update(cov_total=tot, cov_missing=tot - cov["halladas"],
+                         cov_pct=round(100.0 * cov["halladas"] / tot, 1) if tot else 100.0)
         return {"banks": banks, "stats": stats}
 
     # -- instrucciones de una celda (de --events)
@@ -388,11 +397,6 @@ class GEN(NES):
         title = d[0x150:0x180].decode("latin-1", "replace").strip() or d[0x120:0x150].decode("latin-1", "replace").strip()
         return {"title": " ".join(title.split()), "mapper": "Genesis", "banks": max(1, size // BANK), "size": size}
 
-    def header_stats(self, ln, stats):
-        m = re.search(r": ROM (\d+) KB, SHA1", ln)
-        if m:
-            kb = int(m.group(1))
-            stats.update(mapper="Genesis", banks=max(1, kb // 16), size=kb * 1024)
 
     def record_trace(self, argv, env, path):
         argv += ["--trace", path]
@@ -437,11 +441,6 @@ class NEO(GEN):
             self.info_cache[key] = r
         return r
 
-    def header_stats(self, ln, stats):
-        m = re.search(r": P (\d+) KB", ln)
-        if m:
-            size = int(m.group(1)) * 1024
-            stats.update(mapper="Neo Geo", banks=max(1, -(-size // (64 * self.map_cell(size)))), size=size)
 
     def cell(self, rom_path, traces, bank_i, ci, banks):
         cell = self.map_cell(self.info(rom_path).get("size", 0))
@@ -484,11 +483,6 @@ class SMS(GEN):
             return {}
         return {"title": "", "mapper": "Game Gear" if gg else "Master System", "banks": max(1, -(-size // BANK)), "size": size}
 
-    def header_stats(self, ln, stats):
-        m = re.search(r": (\d+) KB", ln)
-        if m and "mapper" not in stats:
-            kb = int(m.group(1))
-            stats.update(mapper="Master System", banks=max(1, -(-kb // 16)), size=kb * 1024)
 
     def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
         return super().bench_argv(rp, pdir, frames, repeat, inp, model, recompiled) + (["--model", model] if model else [])
@@ -933,28 +927,25 @@ class Job:
             return
         text = "".join(self.log)
         rec = {"when": int(time.time()), "status": self.status}
-        # La línea común de difftest y bench (shared/metrica.h)
-        met = re.search(r"Métrica: ([\d.]+)% de las instrucciones nativas .*?; ciclos: ([\d.]+)% nativo, ([\d.]+)% "
-                        r"intérprete en ROM, ([\d.]+)% intérprete en RAM, ([\d.]+)% entrada a interrupciones, "
-                        r"([\d.]+)% espera \(HALT/STOP\), ([\d.]+)% otros", text)
+        # La línea RESUMEN de la herramienta (la última): la métrica común de difftest y bench (shared/metrica.h)
+        r = (resumenes(text, {"difftest": "difftest", "bench": "bench", "recomp_game": "recomp_game"}.get(self.kind, "")) or [{}])[-1]
+        met = r.get("metrica")
         if met:
-            rec["pct_nativas"] = float(met.group(1))
-            rec["ciclos"] = dict(zip(("nativo", "rom", "ram", "irq", "espera", "otros"), map(float, met.groups()[1:])))
+            rec["pct_nativas"] = met["nativas_pct"]
+            rec["ciclos"] = met["ciclos"]
         if self.kind == "difftest":
             if met:
-                rec["pct_recomp"] = rec["ciclos"]["nativo"]
-            m = re.search(r"(\d+) cuadros", text)
-            if m:
-                rec["frames"] = int(m.group(1))
-            rec["ok"] = self.status == "ok" and "cuadros iguales" in text
+                rec["pct_recomp"] = met["ciclos"]["nativo"]
+            if "cuadros" in r or "cuadro" in r:
+                rec["frames"] = r.get("cuadros", r.get("cuadro"))      # los comparados, o el de la diferencia
+            rec["ok"] = self.status == "ok" and r.get("ok") is True
             update_state(self.rid, difftest=rec)
         elif self.kind == "bench":
-            m = re.findall(r"([\d.]+)x tiempo real", text)
-            if m:
-                rec["speed"] = float(m[0])
+            if "x_tiempo_real" in r:
+                rec["speed"] = r["x_tiempo_real"]
             update_state(self.rid, bench=rec)
         elif self.kind == "recomp_game":
-            rec["ok"] = self.status == "ok" and "Sin diferencias" in text
+            rec["ok"] = self.status == "ok" and r.get("evento") == "fin" and r.get("ok") is True
             update_state(self.rid, recomp_game=rec)
         elif self.kind == "recomp":
             update_state(self.rid, recomp=rec)

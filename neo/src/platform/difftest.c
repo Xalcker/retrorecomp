@@ -202,7 +202,7 @@ int main(int argc, char **argv)
             u32 pc0 = B.cpu.pc;
             u64 c0 = B.cyc;
             int native = step_b();
-            if (c.estricto && metrica_estricto(f, 6, NULL)) return 1;
+            if (c.estricto && metrica_estricto(f, 6, NULL)) { metrica_resumen_falla(f, 1); return 1; }
             if (native) recomp_calls++;
             else interp_zone[neo_code_offset(&B, pc0) >= 0 ? 0 : (pc0 & 0xFF0000) == 0x100000 ? 1 : 2] += B.cyc - c0;
             calls++;
@@ -212,12 +212,13 @@ int main(int argc, char **argv)
                        f, pc0, (unsigned long long)B.cyc, native ? "recompilado" : "intérprete");
                 print_cpu("A (intérprete) ", &A.cpu);
                 print_cpu("B (recompilado)", &B.cpu);
+                metrica_resumen_falla(f, 0);
                 return 1;
             }
         }
         audio_end_frame(&A);
         audio_end_frame(&B);
-        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); return 1; }
+        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); metrica_resumen_falla(f, 0); return 1; }
         A.audio.n = B.audio.n = 0;
         if (c.screens && c.every > 0 && (f + 1) % c.every == 0) {
             char path[1024];
@@ -233,11 +234,14 @@ int main(int argc, char **argv)
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
            frames, calls, recomp_calls);
     metrica_imprimir(&metrica, B.cyc - cyc0);
+    char res[160];
+    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu", frames, calls, recomp_calls);
     metrica_imprimir_motivos(&metrica);
     if (c.uncovered) {
         size_t cnt = neo_trace_count(&B);
         if (!neo_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }
         printf("Instrucciones de ROM interpretadas: %zu\n", cnt);
+        snprintf(res + nres, sizeof res - (size_t)nres, ",\"interpretadas\":%zu", cnt);
         unsigned fixed, vol, multi, lost;
         neo_ram_summary(&B, &fixed, &vol, &multi, &lost);
         if (fixed || vol || lost)
@@ -245,5 +249,6 @@ int main(int argc, char **argv)
                    "%u que cambian demasiado\n", fixed, vol, multi, lost);
     }
     if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
+    metrica_resumen("difftest", 1, res, &metrica, B.cyc - cyc0);
     return 0;
 }

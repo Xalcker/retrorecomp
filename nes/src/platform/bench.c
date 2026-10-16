@@ -56,13 +56,18 @@ int main(int argc, char **argv)
         if (k == 0 || s < best) best = s;
         total_cyc = n.cyc - cyc0;
     }
+    double xtr = frames / best / 60.0988;
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", frames, best,
-           c.repeat > 1 ? " (mejor corrida)" : "", frames / best, frames / best / 60.0988);
+           c.repeat > 1 ? " (mejor corrida)" : "", frames / best, xtr);
+    const Metrica *mres = NULL;
 #ifdef NES_RECOMP
     metrica_imprimir(&metrica, total_cyc);      /* la métrica común (metrica.h) */
-#else
-    (void)total_cyc;
+    mres = &metrica;
 #endif
     if (c.hash) golden_print(&gh);
+    char res[200];
+    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", frames, best, xtr);
+    if (c.hash) snprintf(res + nres, sizeof res - (size_t)nres, ",\"hash_imagen\":\"%016llx\",\"hash_audio\":\"%016llx\"", gh.img, gh.aud);
+    metrica_resumen("bench", 1, res, mres, total_cyc);     /* la última línea (metrica.h) */
     return 0;
 }

@@ -132,6 +132,22 @@ La interfaz no conoce el interior de los recompiladores, solo esta línea de com
 | `bench` (cada proyecto) | las opciones de `nesbench` / `gbbench` / `genbench` / `neobench` / `smsbench`, con el código recompilado |
 | `nesrecomp` / `gbrecomp` / `genrecomp` / `neorecomp` / `smsrecomp` | `rom -o carpeta --name nombre [--trace archivo]...`, más `--viz` (`--color`), `--events`, `--why`, `--coverage`, `--html archivo`, `--codemap archivo` (sin `-o`, sin proyecto) |
 
+**Salida para máquinas: la línea `RESUMEN {json}`.** `difftest`, `bench` (el de la consola y el del proyecto),
+`*recomp --viz` y `recomp_game.sh` terminan con una línea `RESUMEN ` seguida de un objeto JSON en una sola línea,
+con lo mismo que dicen las líneas para leer. La GUI lee solo esa línea, no el texto en español:
+
+- `difftest`: `{"herramienta":"difftest","ok":true,"cuadros":N,"llamadas":L,"recompilado":R,"interpretadas":K,"metrica":{...}}`
+  (`interpretadas` solo con `--uncovered`). Si falla: `{"herramienta":"difftest","ok":false,"cuadro":N,"motivo":"diferencia"|"estricto"}`.
+- `bench`: `{"herramienta":"bench","ok":true,"cuadros":N,"segundos":S,"x_tiempo_real":X}`, más `hash_imagen` y
+  `hash_audio` con `--hash`, y `metrica` en el del proyecto.
+- `metrica` (`shared/metrica.h`): `{"nativas_pct","nativas","instrucciones","ciclos":{"nativo","rom","ram","irq","espera","otros"},"motivos":{"falta","ram","forzado","detenido"}}`.
+- `--viz` (NES, Genesis, Neo Geo y Master System): `{"herramienta":"viz","tam":BYTES,"instrucciones","bytes","pct","celdas_codigo","celdas"}`,
+  más `"cobertura":{"halladas","total"}` con `--coverage` y `mapper` en NES.
+- `recomp_game.sh` deja una línea por evento, todas con `"herramienta":"recomp_game"`:
+  - una al empezar cada ronda: `{"evento":"ronda","ronda":N}`, y en la segunda también `"direcciones":D`;
+  - una por semilla: `{"evento":"semilla","ronda":N,"semilla":"S","difftest":{el RESUMEN de difftest}}`;
+  - la última: `{"evento":"fin","ok":...}`.
+
 Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus propias herramientas, y su CI la corre
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
 token.) Cuando la tabla de arriba cambie, actualiza `shared/contract.sh` y `tests/contract.py` de este repo.

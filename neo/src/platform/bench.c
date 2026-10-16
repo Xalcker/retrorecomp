@@ -64,15 +64,20 @@ int main(int argc, char **argv)
         total_cyc = g.cyc - cyc0;
     }
     if (c.perfil) prof_stop();
+    double xtr = c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K));
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
-           c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K)));
+           c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, xtr);
+    const Metrica *mres = NULL;
 #ifdef NEO_RECOMP
     metrica_imprimir(&metrica, total_cyc);
-#else
-    (void)total_cyc;
+    mres = &metrica;
 #endif
     z80_stat_print();
     if (c.perfil) prof_print();
     if (c.hash) golden_print(&gh);
+    char res[200];
+    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", c.frames, best, xtr);
+    if (c.hash) snprintf(res + nres, sizeof res - (size_t)nres, ",\"hash_imagen\":\"%016llx\",\"hash_audio\":\"%016llx\"", gh.img, gh.aud);
+    metrica_resumen("bench", 1, res, mres, total_cyc);     /* la última línea (metrica.h) */
     return 0;
 }

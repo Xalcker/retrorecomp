@@ -59,7 +59,8 @@ RecompFn recomp_lookup(NES *n, u16 pc);
 /* Un paso del despachador: la función recompilada `fn` o, si es NULL, una instrucción del intérprete, con la
  * métrica (metrica.h). La entrada a una interrupción (nes_interrupt, dentro del paso) va aparte; el intérprete es
  * de ROM con el PC en $8000-$FFFF y de RAM en el resto (RAM, RAM del cartucho). Con el CPU detenido (KIL) no
- * cuenta: sus ciclos salen como «otros» */
+ * cuenta: sus ciclos salen como «otros». Cada paso del intérprete anota su motivo: el intérprete forzado, el CPU
+ * detenido, código en RAM o, en la ROM, código que falta (lo que difftest --estricto no deja pasar) */
 static inline void nes_paso(NES *n, RecompFn fn)
 {
     u64 c0 = n->cyc, irq0 = metrica.irq;
@@ -67,7 +68,10 @@ static inline void nes_paso(NES *n, RecompFn fn)
     int parado = n->cpu.jammed;
     if (fn) { fn(n); n->cyc_recomp += n->cyc - c0; }
     else cpu_step(n);
-    if (n != metrica_de || parado) return;
+    if (n != metrica_de) return;
+    if (!fn) metrica.motivo[nes_force_interp ? MOTIVO_FORZADO : parado ? MOTIVO_DETENIDO
+                            : pc0 >= 0x8000 ? MOTIVO_FALTA : MOTIVO_RAM]++;
+    if (parado) return;
     u64 d = n->cyc - c0 - (metrica.irq - irq0);
     if (fn) metrica.nat += d;
     else {

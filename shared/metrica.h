@@ -13,6 +13,10 @@
  *   espera           el CPU dormido en HALT o STOP hasta la siguiente interrupción
  *   otros            lo que queda (DMA que detiene al CPU fuera de una instrucción, el CPU detenido...)
  *
+ * Cada entrada al intérprete lleva además un motivo (metrica_motivo): el código que falta (una instrucción de la ROM
+ * que el recompilador no encontró: lo que difftest --estricto no deja pasar), código en RAM, el intérprete forzado o
+ * el CPU detenido. Por ahora lo anota el despachador de NES (el piloto de --estricto).
+ *
  * Los contadores van fuera de la máquina (y de los estados guardados, que la copian entera, y de la comparación de
  * difftest). Solo cuentan los de la máquina `metrica_de` (la recompilada en difftest; la única en el bench y en la
  * ventana): METRICA(g, campo, n) suma n si g es esa máquina. Cada sistema define las dos variables con
@@ -29,7 +33,12 @@ typedef struct {
     unsigned long long rom, ram;            /* ciclos: el intérprete con el PC en ROM / en RAM */
     unsigned long long irq;                 /* ciclos: entrada a interrupciones */
     unsigned long long espera;              /* ciclos: HALT / STOP */
+    unsigned long long motivo[4];           /* entradas al intérprete por motivo (MOTIVO_...) */
 } Metrica;
+
+/* Por qué el despachador usó el intérprete */
+enum { MOTIVO_FALTA, MOTIVO_RAM, MOTIVO_FORZADO, MOTIVO_DETENIDO, MOTIVOS };
+static const char *const metrica_motivos[MOTIVOS] = { "código que falta", "RAM", "intérprete forzado", "CPU detenido" };
 
 extern Metrica metrica;
 extern const void *metrica_de;
@@ -39,7 +48,7 @@ extern const void *metrica_de;
 
 static inline void metrica_reiniciar(const void *maquina)
 {
-    Metrica cero = { 0, 0, 0, 0, 0, 0, 0 };
+    static const Metrica cero;
     metrica = cero;
     metrica_de = maquina;
 }
@@ -57,6 +66,18 @@ static inline void metrica_imprimir(const Metrica *m, unsigned long long total)
            "%.1f%% intérprete en RAM, %.1f%% entrada a interrupciones, %.1f%% espera (HALT/STOP), %.1f%% otros\n",
            metrica_pct(m->ins_nat, ins), m->ins_nat, ins, metrica_pct(m->nat, total), metrica_pct(m->rom, total),
            metrica_pct(m->ram, total), metrica_pct(m->irq, total), metrica_pct(m->espera, total), metrica_pct(otros, total));
+}
+
+/* "Intérprete por motivo: ..." (nada si no se anotó ningún motivo) */
+static inline void metrica_imprimir_motivos(const Metrica *m)
+{
+    unsigned long long t = 0;
+    for (int i = 0; i < MOTIVOS; i++) t += m->motivo[i];
+    if (!t) return;
+    printf("Intérprete por motivo:");
+    for (int i = 0, n = 0; i < MOTIVOS; i++)
+        if (m->motivo[i]) printf("%s %llu %s", n++ ? "," : "", m->motivo[i], metrica_motivos[i]);
+    printf("\n");
 }
 
 #endif

@@ -112,6 +112,11 @@ Usa entradas **distintas** de las de la traza (ver abajo) para ejercitar caminos
 formato de traza, las instrucciones de PRG que tuvo que interpretar (sirve como `--trace` de `nesrecomp`); `--screens carpeta`
 guarda una captura PNG cada `--every N` cuadros (600 si no se dice); `--executed archivo` escribe qué bytes de PRG se ejecutaron
 (una letra por byte, `C` = ejecutado); y `--bench` mide la velocidad del código recompilado y la del intérprete, sin comparar.
+`--estricto` falla (código 1) en la primera instrucción de PRG que el intérprete ejecuta porque no está recompilada
+(`ESTRICTO: código que falta en $PC ...`); el código en RAM, que se descubre al correr, sí pasa. Sirve después de
+recompilar con una traza hecha con las mismas entradas: entonces no debe faltar nada (`tests/estricto.sh` lo prueba con
+las ROMs de prueba). Al final, además de la línea `Métrica: ...` común a los cinco recompiladores, `Intérprete por motivo:
+...` cuenta las entradas al intérprete por motivo (código que falta, RAM, intérprete forzado, CPU detenido).
 
 **6. Velocidad** (sin ventana ni límite de cuadros):
 

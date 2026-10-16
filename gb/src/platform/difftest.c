@@ -449,6 +449,7 @@ int main(int argc, char **argv)
         return 0;
     }
     int ok = 1;
+    long falla = -1;     /* el cuadro de la diferencia */
     for (long frame = 0; frame < frames; frame++) {
         u8 pad = pad_for(frame);
         gb_copy_state(&snap_rec, &rec);
@@ -469,9 +470,10 @@ int main(int argc, char **argv)
             gb_copy_state(&snap_ref, &ref);
             locate(frame);
             ok = 0;
+            falla = frame;
             break;
         }
-        if (estricto && metrica_estricto(frame, 4, NULL)) return 1;
+        if (estricto && metrica_estricto(frame, 4, NULL)) { metrica_resumen_falla(frame, 1); return 1; }
         if (screens && every > 0 && (frame + 1) % every == 0) {
             char path[1024];
             snprintf(path, sizeof path, "%s/cuadro_%06ld.png", screens, frame + 1);
@@ -553,5 +555,12 @@ int main(int argc, char **argv)
     if (save_out && !gb_save_write(&rec, save_out, 0))
         fprintf(stderr, "no se pudo escribir %s\n", save_out);
 
+    if (ok) {
+        char res[160];
+        snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu,\"interpretadas\":%u", frames,
+                 recomp_calls + (unsigned long)metrica.ins_int, recomp_calls, distinct);
+        metrica_resumen("difftest", 1, res, &metrica, rec.cyc);
+    } else
+        metrica_resumen_falla(falla, 0);
     return ok ? 0 : 1;
 }

@@ -1043,6 +1043,10 @@ static void load_trace(const char *path)
 }
 
 /* --coverage: de las instrucciones del juego de una traza, cuántas encontró el análisis sin ayuda */
+/* La cobertura medida con --coverage, para el RESUMEN de --viz */
+static int cov_hecha;
+static unsigned cov_halladas, cov_total;
+
 static void coverage_report(const char *path)
 {
     missing_mark = calloc(rom_size / 2 + 1, 1);
@@ -1064,6 +1068,7 @@ static void coverage_report(const char *path)
         }
     }
     fclose(f);
+    cov_hecha = 1, cov_halladas = found, cov_total = total;
     printf("cobertura: %u de %u instrucciones ejecutadas descubiertas sin traza (%.1f%%); descubiertas en total %u\n",
            found, total, total ? 100.0 * found / total : 100.0, stat_insns);
 }
@@ -1193,6 +1198,12 @@ static void viz_map(int color)
         putchar('\n');
     }
     printf("\n%u de %u celdas con código (%.1f%% del programa en bytes)\n", code_cells, cells, 100.0 * stat_bytes / (double)rom_size);
+    /* La misma información para la GUI y los scripts, en una línea (la última) */
+    printf("RESUMEN {\"herramienta\":\"viz\",\"tam\":%zu,\"instrucciones\":%u,\"bytes\":%u,\"pct\":%.2f,"
+           "\"celdas_codigo\":%u,\"celdas\":%u", (size_t)rom_size, stat_insns, stat_bytes,
+           100.0 * stat_bytes / (double)rom_size, code_cells, cells);
+    if (cov_hecha) printf(",\"cobertura\":{\"halladas\":%u,\"total\":%u}", cov_halladas, cov_total);
+    printf("}\n");
 }
 
 /* --codemap: qué bytes del programa se tomaron como código (C) y cuáles no (.), 64 por línea. El mismo

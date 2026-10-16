@@ -101,4 +101,42 @@ static inline void metrica_imprimir_motivos(const Metrica *m)
     printf("\n");
 }
 
+/*
+ * La línea "RESUMEN {json}" de difftest y del bench: lo mismo que las líneas de arriba, para la GUI y los scripts, que
+ * así no leen el texto. Es la última línea de la salida (en una sola línea):
+ *   RESUMEN {"herramienta":"difftest","ok":true,"cuadros":1500,"llamadas":40,"recompilado":38,
+ *            "metrica":{"nativas_pct":97.3,"nativas":1234567,"instrucciones":1268800,
+ *                       "ciclos":{"nativo":80.1,"rom":2.0,"ram":0.5,"irq":1.2,"espera":16.0,"otros":0.2},
+ *                       "motivos":{"falta":0,"ram":3,"forzado":0,"detenido":0}}}
+ * `campos` son los propios de la herramienta, ya en JSON y sin llaves (pueden ir vacíos); sin `m`, sin "metrica".
+ */
+static inline void metrica_resumen(const char *herramienta, int ok, const char *campos, const Metrica *m,
+                                   unsigned long long total)
+{
+    printf("RESUMEN {\"herramienta\":\"%s\",\"ok\":%s%s%s", herramienta, ok ? "true" : "false",
+           campos && *campos ? "," : "", campos ? campos : "");
+    if (m) {
+        unsigned long long ins = m->ins_nat + m->ins_int;
+        unsigned long long conocidos = m->nat + m->rom + m->ram + m->irq + m->espera;
+        unsigned long long otros = total > conocidos ? total - conocidos : 0;
+        if (total < conocidos) total = conocidos;
+        printf(",\"metrica\":{\"nativas_pct\":%.1f,\"nativas\":%llu,\"instrucciones\":%llu,\"ciclos\":{\"nativo\":%.1f,"
+               "\"rom\":%.1f,\"ram\":%.1f,\"irq\":%.1f,\"espera\":%.1f,\"otros\":%.1f},\"motivos\":{\"falta\":%llu,"
+               "\"ram\":%llu,\"forzado\":%llu,\"detenido\":%llu}}",
+               metrica_pct(m->ins_nat, ins), m->ins_nat, ins, metrica_pct(m->nat, total), metrica_pct(m->rom, total),
+               metrica_pct(m->ram, total), metrica_pct(m->irq, total), metrica_pct(m->espera, total),
+               metrica_pct(otros, total), m->motivo[MOTIVO_FALTA], m->motivo[MOTIVO_RAM], m->motivo[MOTIVO_FORZADO],
+               m->motivo[MOTIVO_DETENIDO]);
+    }
+    printf("}\n");
+}
+
+/* El RESUMEN de un difftest que falló en `cuadro`: por una diferencia o, con --estricto, por código que falta */
+static inline void metrica_resumen_falla(long cuadro, int estricto)
+{
+    char c[96];
+    snprintf(c, sizeof c, "\"cuadro\":%ld,\"motivo\":\"%s\"", cuadro, estricto ? "estricto" : "diferencia");
+    metrica_resumen("difftest", 0, c, NULL, 0);
+}
+
 #endif

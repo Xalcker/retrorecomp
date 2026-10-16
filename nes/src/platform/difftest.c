@@ -178,6 +178,7 @@ int main(int argc, char **argv)
                 char prg[24];
                 snprintf(prg, sizeof prg, "PRG $%05lX", (unsigned long)mapper_prg_offset(&B.cart, pc0));
                 metrica_estricto(f, 4, prg);
+                metrica_resumen_falla(f, 1);
                 return 1;
             }
             if (fn) recomp_calls++;
@@ -191,10 +192,11 @@ int main(int argc, char **argv)
                        f, pc0, (unsigned long long)B.cyc, fn ? "recompilado" : "intérprete",
                        A.cpu.pc, A.cpu.a, A.cpu.x, A.cpu.y, A.cpu.p, A.cpu.sp,
                        B.cpu.pc, B.cpu.a, B.cpu.x, B.cpu.y, B.cpu.p, B.cpu.sp);
+                metrica_resumen_falla(f, 0);
                 return 1;
             }
         }
-        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); return 1; }
+        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); metrica_resumen_falla(f, 0); return 1; }
         A.apu.nbuf = B.apu.nbuf = 0;
         if (c.screens && c.every > 0 && (f + 1) % c.every == 0) {
             char path[1024];
@@ -210,12 +212,15 @@ int main(int argc, char **argv)
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
            frames, calls, recomp_calls);
     metrica_imprimir(&metrica, B.cyc - cyc0);
+    char res[160];
+    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu", frames, calls, recomp_calls);
     metrica_imprimir_motivos(&metrica);
     if (uncovered) {
         size_t cnt = 0;
         for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;
         if (!nes_trace_write(&B, uncovered)) { fprintf(stderr, "no pude escribir %s\n", uncovered); return 2; }
         printf("Instrucciones de PRG interpretadas: %zu\n", cnt);
+        snprintf(res + nres, sizeof res - (size_t)nres, ",\"interpretadas\":%zu", cnt);
         unsigned fixed, vol, multi, lost;
         nes_ram_summary(&B, &fixed, &vol, &multi, &lost);
         if (fixed || vol || lost)
@@ -223,5 +228,6 @@ int main(int argc, char **argv)
                    "%u que cambian demasiado\n", fixed, vol, multi, lost);
     }
     if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
+    metrica_resumen("difftest", 1, res, &metrica, B.cyc - cyc0);
     return 0;
 }

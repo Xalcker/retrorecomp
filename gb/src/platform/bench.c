@@ -130,14 +130,19 @@ int main(int argc, char **argv)
     }
     /* Un cuadro dura GB_CYCLES_FRAME ciclos a GB_CPU_HZ (59.73 por segundo) */
     double real = frames * ((double)GB_CYCLES_FRAME / GB_CPU_HZ);
+    double xtr = best > 0 ? real / best : 0.0;
     printf("%ld cuadros en %.3f s (mejor de %d): %.0f cuadros/s, %.1fx tiempo real\n",
-           frames, best, repeat, best > 0 ? frames / best : 0.0, best > 0 ? real / best : 0.0);
+           frames, best, repeat, best > 0 ? frames / best : 0.0, xtr);
+    const Metrica *mres = NULL;
 #ifdef GB_RECOMP
     metrica_imprimir(&metrica, total_cyc);
-#else
-    (void)total_cyc;
+    mres = &metrica;
 #endif
     if (hash) golden_print(&gh);
+    char res[200];
+    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", frames, best, xtr);
+    if (hash) snprintf(res + nres, sizeof res - (size_t)nres, ",\"hash_imagen\":\"%016llx\",\"hash_audio\":\"%016llx\"", gh.img, gh.aud);
+    metrica_resumen("bench", 1, res, mres, total_cyc);     /* la última línea (metrica.h) */
     free(rom);
     return 0;
 }

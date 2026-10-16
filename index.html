@@ -577,17 +577,18 @@ async function pollJob(){
 }
 
 /* ---------- ciclo completo ---------- */
-// Lee el registro de recomp_game.sh (igual en los tres): «NOMBRE: primera ronda», «NOMBRE: con la traza (N …)»,
-// «  semilla S  P% … interpretad…: K» o «DIFERENCIA», y al final «Sin diferencias.» / «HAY DIFERENCIAS.»
+// Lee las líneas «RESUMEN {json}» de recomp_game.sh: una por ronda ({"evento":"ronda","ronda":N,"direcciones":D}), una
+// por semilla ({"evento":"semilla",...,"difftest":{el RESUMEN de difftest}}) y la del final ({"evento":"fin","ok":...})
 function parseCycle(text){
-  const rounds=[]; let cur=null, res=null, m;
+  const rounds=[]; let cur=null, res=null;
   for(const l of text.split("\n")){
-    if(/: primera ronda$/.test(l)){cur={title:"Primera ronda: recompilar con lo que halla el análisis",seeds:[]};rounds.push(cur);continue}
-    if(m=l.match(/: con la traza \((\d+) (instrucciones|direcciones)\)/)){cur={title:"Segunda ronda: recompilar con la traza ("+m[1]+" "+m[2]+")",seeds:[]};rounds.push(cur);continue}
-    if(cur&&(m=l.match(/^\s+semilla (\S+)\s*(.*)$/))){
-      const r=m[2], p=r.match(/([\d.]+)% de las instrucciones nativas/), i=r.match(/interpretad\w+: (\d+)/), bad=/DIFERENCIA/.test(r);
-      cur.seeds.push({s:m[1],bad,pct:p?p[1]:null,interp:i?i[1]:null,done:bad||!!p||!!i});continue}
-    if(/^Sin diferencias\.$/.test(l)) res="ok"; else if(/^HAY DIFERENCIAS\.$/.test(l)) res="bad";
+    if(!l.startsWith("RESUMEN {")) continue;
+    let r; try{r=JSON.parse(l.slice(8))}catch(e){continue}
+    if(r.herramienta!=="recomp_game") continue;
+    if(r.evento==="ronda"){cur={title:r.direcciones!=null?"Segunda ronda: recompilar con la traza ("+r.direcciones+" direcciones)":"Primera ronda: recompilar con lo que halla el análisis",seeds:[]};rounds.push(cur)}
+    else if(r.evento==="semilla"&&cur){const d=r.difftest||{}, bad=d.ok!==true;
+      cur.seeds.push({s:r.semilla,bad,pct:d.metrica?d.metrica.nativas_pct:null,interp:d.interpretadas??null,done:true})}
+    else if(r.evento==="fin") res=r.ok?"ok":"bad";
   }
   return {rounds,res};
 }
@@ -609,7 +610,8 @@ async function renderCycle(){
   rounds.forEach((r,k)=>{
     const last=k===rounds.length-1, anyBad=r.seeds.some(x=>x.bad);
     const st=anyBad?"bad":(last&&running?"run":((last&&!res)?"bad":"ok"));
-    const chips=r.seeds.map(x=>'<span class="chip '+(x.bad?"st-error":(x.done?"st-ok":"st-running"))+'">semilla '+esc(x.s)+" · "+(x.bad?"DIFERENCIA":(x.done?(x.pct?x.pct+"% recompilado":"iguales"):"…"))+(x.interp?" · "+x.interp+" interpretadas":"")+"</span>").join("");
+    const seeds=last&&running&&!anyBad?[...r.seeds,{s:"",done:false}]:r.seeds;     // la que corre ahora
+    const chips=seeds.map(x=>'<span class="chip '+(x.bad?"st-error":(x.done?"st-ok":"st-running"))+'">'+(x.s?"semilla "+esc(x.s)+" · ":"semilla ")+(x.bad?"DIFERENCIA":(x.done?(x.pct?x.pct+"% recompilado":"iguales"):"…"))+(x.interp?" · "+x.interp+" interpretadas":"")+"</span>").join("");
     items.push([st,r.title,"",chips]);
   });
   box.innerHTML=items.map(([st,t,d,chips])=>'<div class="cs"><div class="ic">'+icon[st]+'</div><div><div class="t">'+esc(t)+"</div>"+(d?'<div class="mut" style="font-size:12px">'+esc(d)+"</div>":"")+(chips?'<div class="seeds">'+chips+"</div>":"")+"</div></div>").join("");

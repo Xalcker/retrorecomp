@@ -10,7 +10,7 @@ endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
-SHARED := tools/retrorecomp/shared
+SHARED := ../shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
 SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))

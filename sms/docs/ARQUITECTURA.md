@@ -14,16 +14,16 @@ ventana, las herramientas sin ventana con el contrato común y el recompilador.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados, traza, el despachador del código recompilado y el salto de los `HALT`), `recomp.h` y `z80_recomp_host.h` (la interfaz con el código generado), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
-| `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `disz80` y el visor de `--html` es `visor_html.h`, de `tools/retrorecomp/shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
-| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `tools/retrorecomp/shared`. |
-| `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `tools/retrorecomp/shared`, `z80test` (SingleStepTests, con `json.h`). |
+| `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados, traza, el despachador del código recompilado y el salto de los `HALT`), `recomp.h` y `z80_recomp_host.h` (la interfaz con el código generado), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `../shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
+| `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `disz80` y el visor de `--html` es `visor_html.h`, de `../shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `../shared`. |
+| `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `../shared`, `z80test` (SingleStepTests, con `json.h`). |
 | `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
 
-`z80_ops.h` (de `tools/retrorecomp/shared`, común con GENRecomp y NEORecomp, como `m68k_ops.h` para el 68000)
+`z80_ops.h` (de `../shared`, común con GENRecomp y NEORecomp, como `m68k_ops.h` para el 68000)
 tiene la semántica de cada instrucción del Z80. Todo pasa por un contexto, `Z80X`, con el PC y, para el código
 generado, los bytes de la instrucción:
 
@@ -109,7 +109,7 @@ páginas de 16 KB, en celdas de 256 bytes.
 
 ### Descubrimiento
 
-Con el recompilador común del Z80 (`z80_recomp.h`, en `tools/retrorecomp/shared`, el mismo de GENRecomp y NEORecomp),
+Con el recompilador común del Z80 (`z80_recomp.h`, en `../shared`, el mismo de GENRecomp y NEORecomp),
 por **vistas**: una página en una ranura, con los 16 KB que ve el Z80 ahí. Como el mapper puede poner la misma página
 en cualquier ranura, el código de una página se compila para la ranura donde corre (las vistas de GBRecomp).
 
@@ -313,14 +313,14 @@ GG.
 
 ### Z80
 
-El núcleo común de `tools/retrorecomp/shared` (ver «Una sola fuente de verdad para el CPU»). Aquí es el CPU
+El núcleo común de `../shared` (ver «Una sola fuente de verdad para el CPU»). Aquí es el CPU
 principal: su bus es `bus.c` (memoria y puertos), y `Z80_IO_AT` le da a los puertos el ciclo de cada acceso.
 ZEXDOC y ZEXALL (el ejercitador de Frank Cringle portado al SMS) pasan sus 79 pruebas, también con las banderas no
 documentadas.
 
 ### Audio
 
-El SN76489 de `tools/retrorecomp/shared/psg.c`, el mismo de GENRecomp, que pasó a `shared/` en esta fase. Lo que
+El SN76489 de `../shared/psg.c`, el mismo de GENRecomp, que pasó a `shared/` en esta fase. Lo que
 cambia entre las consolas va en `psg_host.h`: `PSG_STEREO` (el Game Gear en su modo GG manda cada canal a la
 izquierda con los bits 4-7 del puerto `$06` y a la derecha con los 0-3; el SMS y el Genesis, a los dos lados),
 `PSG_MUTED` (el menú Audio: bits 0-3 de `audio.mute`) y `PSG_LEVEL` (el volumen al lado de la FM del Genesis; aquí
@@ -355,7 +355,7 @@ Los accesorios (Light Phaser, gafas 3-D, cable de enlace) llegan en la fase 8.
 ## Interfaz del ejecutable
 
 La ventana `sms` (`src/platform/main_sdl.c`) es la de GENRecomp con lo que cambia para esta consola: la barra de
-menús y los diálogos comunes (`ui_menu`, `ui_font`, `player_*.h` de `tools/retrorecomp/shared`), en español e inglés
+menús y los diálogos comunes (`ui_menu`, `ui_font`, `player_*.h` de `../shared`), en español e inglés
 (`i18n.c`). Menús: Juego (abrir ROM, reiniciar, pausa, estados guardados en 4 ranuras con F5 y F8), Video (tamaño,
 pantalla completa, ocultar la barra, escala entera y pixeles de 8:7 en el Master System; la pantalla del Game Gear
 queda con pixeles cuadrados), Audio (sonido, volumen y los cuatro canales del PSG), Entrada (la consola: la que pide
@@ -489,7 +489,7 @@ cuadro y de línea y la Pausa. `mkcontrato --minima` da la ROM mínima de `make 
 
 ## Compatibilidad y oráculos
 
-`tools/compat/run.py` es la prueba de compatibilidad sobre el motor común (`tools/retrorecomp/compat.py`): lo propio
+`tools/compat/run.py` es la prueba de compatibilidad sobre el motor común (`../compat.py`): lo propio
 de esta consola es leer `smsrecomp --info` y las categorías (SMS y GG por tamaño, Codemasters y los juegos de SMS en
 el GG). La etapa 1 (capturas con `smsshot`) ya corre; la etapa 2 (recompilar y `difftest`), desde la fase 5.
 `report.py` es el mismo de los otros cuatro.

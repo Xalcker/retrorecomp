@@ -1,7 +1,7 @@
 /*
  * Interfaz entre el runtime y el código que genera smsrecomp (en el proyecto generado, con -DSMS_RECOMP).
  *
- * El Z80 en código nativo con el recompilador común (z80_recomp.h, en tools/retrorecomp/shared): cada vista
+ * El Z80 en código nativo con el recompilador común (z80_recomp.h, en ../shared): cada vista
  * (una página de la ROM en una ranura: gen/zpPPsS*.c; y el código aprendido de la RAM, gen/zramN*.c) tiene sus
  * funciones de tramos contiguos, que llaman a la rama de z80_exec de cada instrucción con sus bytes y su PC
  * constantes: la misma semántica, los mismos accesos al bus y los mismos ciclos que el intérprete. Antes y después

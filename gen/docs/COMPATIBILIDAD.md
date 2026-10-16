@@ -54,7 +54,7 @@ Las 24 de la etapa 1 que no corren, contra Genesis Plus GX y BlastEm con el mism
 ## Cómo se probó
 
 `tools/compat/` (Python 3 sin dependencias, desde la raíz del repo y con `make` ya hecho). El motor es el mismo
-de NESRecomp y GBRecomp, `tools/retrorecomp/compat.py`; `run.py` solo dice lo propio del Genesis (cabecera con
+de NESRecomp y GBRecomp, `../compat.py`; `run.py` solo dice lo propio del Genesis (cabecera con
 `genrecomp --info`, categorías de cartucho, cupo) y los oráculos:
 
 ```

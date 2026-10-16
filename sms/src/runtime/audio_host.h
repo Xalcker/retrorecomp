@@ -1,5 +1,5 @@
 /*
- * Lo que la mezcla común (tools/retrorecomp/shared: audio.c, la misma de GENRecomp y NEORecomp) toma del Master
+ * Lo que la mezcla común (../shared: audio.c, la misma de GENRecomp y NEORecomp) toma del Master
  * System: el reloj maestro (el del Genesis) y su único chip, el PSG (223 722 pasos por segundo).
  */
 #ifndef SMS_AUDIO_HOST_H

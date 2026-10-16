@@ -1,5 +1,5 @@
 /*
- * Lo que el PSG común (tools/retrorecomp/shared: psg.h, psg.c, el mismo de SMSRecomp) toma del Genesis: su tipo,
+ * Lo que el PSG común (../shared: psg.h, psg.c, el mismo de SMSRecomp) toma del Genesis: su tipo,
  * el campo psg, el silencio del menú Audio (bit 6 de audio.mute, el PSG entero) y su nivel junto al YM2612. El
  * Genesis no tiene estéreo en el PSG: los dos lados iguales.
  */

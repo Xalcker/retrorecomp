@@ -2,7 +2,7 @@
 """Oráculos: emuladores de referencia (núcleos libretro de Genesis Plus GX y Gearsystem) para comparar con
 SMSRecomp. No van en el repositorio: se bajan la primera vez a build/oracles/ desde buildbot.libretro.com
 (la compilación nocturna de cada núcleo; el SHA-256 de lo que se bajó queda en build/oracles/NUCLEO/SHA256
-y se imprime) y los maneja build/retro_run (tools/retrorecomp/shared/retro_run.c), sin ventana. Genesis Plus GX
+y se imprime) y los maneja build/retro_run (../shared/retro_run.c), sin ventana. Genesis Plus GX
 tiene una licencia no comercial y Gearsystem es GPL-3: solo se usan como programas aparte. Es el oracle.py de
 GENRecomp con los núcleos y la RAM de esta consola (si sale igual, pasa a retrorecomp/shared en la fase 7).
 

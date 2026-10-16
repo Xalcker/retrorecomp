@@ -1,5 +1,5 @@
 /*
- * Lo que el código generado del Z80 (z80_recomp.h, en tools/retrorecomp/shared) toma del Genesis: lo mismo
+ * Lo que el código generado del Z80 (z80_recomp.h, en ../shared) toma del Genesis: lo mismo
  * que hace z80_run_until (z80bus.c) antes y después de cada z80_step. genrecomp compila el driver que el
  * 68000 sube a los 8 KB de RAM del Z80 (gen/zr*.c, una vista por cada versión que vio el sondeo), con una
  * guarda: cada instrucción compara antes sus bytes con la RAM y, si cambiaron, la ejecuta el intérprete.

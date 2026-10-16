@@ -33,7 +33,7 @@ python3 tools/compat/run.py [carpeta] [--oraculos] [--etapa2 N] [--hilos N] [--s
 python3 tools/compat/report.py                                   # docs/compat/index.html
 ```
 
-El motor es el común de los cuatro recompiladores (`tools/retrorecomp/compat.py`); `tools/compat/run.py` pone lo
+El motor es el común de los cuatro recompiladores (`../compat.py`); `tools/compat/run.py` pone lo
 propio del Neo Geo: el juego es el zip de MAME entero (o un `.neo`), los zips de las BIOS (`aes.zip`, `neogeo.zip`)
 se saltan, los datos salen de `neorecomp --info`, los cifrados o protegidos quedan «sin soporte» y, como la BIOS
 del AES tarda unos 20 s en dejar el juego en su demo, las capturas van a los cuadros 1200, 2400 y 3600 y los

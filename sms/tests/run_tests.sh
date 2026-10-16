@@ -142,13 +142,13 @@ if [ -x "$(exe sms)" ]; then
     # Cargar estado (5), Controles (34), Acerca de (36) y la barra oculta con F9 (37), los números de A_LOAD_STATE,
     # A_HELP_CONTROLS... en main_sdl.c (Este juego, 35, no: muestra la carpeta de datos), y sin barra con --no-menu
     # (aunque se pida un menú) y con --fullscreen
-    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe sms)" build/tests/minima.sms tests/ui_golden.txt "0 1 2 3 4 5 6" "5 34 36 37" \
+    if sh ../shared/ui_golden.sh "$(exe sms)" build/tests/minima.sms tests/ui_golden.txt "0 1 2 3 4 5 6" "5 34 36 37" \
             "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
         echo "ok    sms: los 7 menús, 3 diálogos, la barra oculta, --no-menu y --fullscreen coinciden con la referencia"
     else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
     # El Game Gear (la ventana de 160×144, más angosta): el menú Entrada y los Controles; y un juego de SMS en el
     # Game Gear, que se ve entero (256×192)
-    if sh tools/retrorecomp/shared/ui_golden.sh "$(exe sms)" build/tests/minima.gg tests/ui_golden_gg.txt "3" "34" \
+    if sh ../shared/ui_golden.sh "$(exe sms)" build/tests/minima.gg tests/ui_golden_gg.txt "3" "34" \
             "--model,sms" > build/ui_golden_gg.out 2>&1; then
         echo "ok    sms con el Game Gear: el menú Entrada, los Controles y --model sms coinciden con la referencia"
     else cat build/ui_golden_gg.out; fallas=$((fallas + 1)); fi

@@ -136,7 +136,7 @@ typedef struct {
                                    (0 normal, 1 sombra, 2 resalte) */
 } Vdp;
 
-/* PSG SN76489 (psg.c y psg.h, comunes: tools/retrorecomp/shared): 3 tonos y ruido, al reloj del Z80 / 16 */
+/* PSG SN76489 (psg.c y psg.h, comunes: ../shared): 3 tonos y ruido, al reloj del Z80 / 16 */
 #include "psg.h"
 
 /* YM2612 (ym2612.c): 6 canales FM de 4 operadores, DAC, LFO y temporizadores */
@@ -179,7 +179,7 @@ typedef struct {
     u64  mclk;                  /* ciclo maestro hasta el que va */
 } Ym2612;
 
-/* Audio (audio.c, común: tools/retrorecomp/shared): los dos chips mezclados a 44100 Hz en estéreo de 16 bits.
+/* Audio (audio.c, común: ../shared): los dos chips mezclados a 44100 Hz en estéreo de 16 bits.
  * Bits de Audio.mute: 0-5 los canales FM 1-6, 6 el PSG */
 #include "audio.h"
 

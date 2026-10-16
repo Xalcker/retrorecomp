@@ -1,5 +1,5 @@
 /*
- * Lo que el código generado del Z80 (z80_recomp.h, en tools/retrorecomp/shared) toma del Neo Geo: lo mismo
+ * Lo que el código generado del Z80 (z80_recomp.h, en ../shared) toma del Neo Geo: lo mismo
  * que hace z80_run_until (z80bus.c) antes y después de cada z80_step. neorecomp compila los primeros 32 KB
  * de la M1 ($0000-$7FFF, fijos; gen/zm1*.c); las ventanas con bancos y la RAM siguen en el intérprete.
  *

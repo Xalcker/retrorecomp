@@ -262,7 +262,7 @@ typedef struct {
     u64  mclk;                  /* ciclo maestro hasta el que se generó el sonido */
 } Ym2610;
 
-/* Audio (audio.c, común: tools/retrorecomp/shared): el YM2610 mezclado a 44 100 Hz en estéreo de 16 bits.
+/* Audio (audio.c, común: ../shared): el YM2610 mezclado a 44 100 Hz en estéreo de 16 bits.
  * Bits de Audio.mute: 0-3 FM 1-4, 4 SSG, 5 ADPCM-A, 6 ADPCM-B */
 #define MCLK_HZ    24167829.0       /* el reloj maestro del AES (fija cuántas muestras salen por cuadro) */
 #include "audio.h"

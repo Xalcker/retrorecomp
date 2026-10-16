@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de GBRecomp con una colección de ROMs (zips de No-Intro de Game Boy y Game Boy Color).
-El motor es común a NESRecomp, GBRecomp, GENRecomp y NEORecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí
+El motor es común a NESRecomp, GBRecomp, GENRecomp y NEORecomp (../compat.py, ver su ayuda); aquí
 solo va lo propio del Game Boy.
 
 Uso (en la raíz del repo, con todo compilado con "make"):
@@ -13,7 +13,7 @@ miniaturas en docs/compat/thumbs/. Las ROMs se extraen a build/compat/roms y los
 import pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
+sys.path.insert(0, str(ROOT.parent))
 import compat  # noqa: E402
 
 # Tipo de cartucho ($147): (MBC, RAM, batería, RTC, rumble). Los que mbc.c no conoce quedan sin soporte.

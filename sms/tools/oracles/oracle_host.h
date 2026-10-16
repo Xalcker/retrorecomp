@@ -1,5 +1,5 @@
 /*
- * Lo que retro_run común (tools/retrorecomp/shared, el mismo de GENRecomp y NEORecomp) toma del Master System y
+ * Lo que retro_run común (../shared, el mismo de GENRecomp y NEORecomp) toma del Master System y
  * el Game Gear: las descripciones de botón de Genesis Plus GX y Gearsystem, y la RAM de trabajo (8 KB en $C000),
  * como smsramdump.
  * Los núcleos nombran distinto los dos botones del mando: Gearsystem "1" y "2"; Genesis Plus GX usa los nombres del

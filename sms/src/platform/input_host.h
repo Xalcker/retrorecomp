@@ -1,5 +1,5 @@
 /*
- * Lo que inputs.h y cli.h comunes (tools/retrorecomp/shared, los mismos de NESRecomp, GENRecomp y NEORecomp)
+ * Lo que inputs.h y cli.h comunes (../shared, los mismos de NESRecomp, GENRecomp y NEORecomp)
  * toman del Master System y el Game Gear: los botones del mando (SMS_* de sms.h).
  */
 #ifndef SMS_INPUT_HOST_H

@@ -1,5 +1,5 @@
 /*
- * Lo que la mezcla común (tools/retrorecomp/shared: audio.c, la misma de NEORecomp) toma del Genesis: el
+ * Lo que la mezcla común (../shared: audio.c, la misma de NEORecomp) toma del Genesis: el
  * reloj maestro y sus dos chips, el YM2612 (53 267 muestras por segundo) y el PSG (223 722).
  */
 #ifndef GEN_AUDIO_HOST_H

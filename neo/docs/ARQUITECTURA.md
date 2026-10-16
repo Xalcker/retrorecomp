@@ -12,16 +12,16 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h`, `z80_recomp_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80, el código generado del Z80 y la mezcla toman de esta consola). De `tools/retrorecomp/shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
-| `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `dis68k.c` y la página de `--html`, `visor_html.h`, son los de `tools/retrorecomp/shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
-| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `tools/retrorecomp/shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
-| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `tools/retrorecomp/shared`); diagnóstico: `neorun`. |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h`, `z80_recomp_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80, el código generado del Z80 y la mezcla toman de esta consola). De `../shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
+| `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `dis68k.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
+| `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`); diagnóstico: `neorun`. |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
 
-El 68000 y el Z80 son los mismos de GENRecomp: viven en `tools/retrorecomp/shared` (`m68k.h`, `m68k_ops.h`,
+El 68000 y el Z80 son los mismos de GENRecomp: viven en `../shared` (`m68k.h`, `m68k_ops.h`,
 `cpu68k.c`, `dis68k.c`, `z80.h`, `z80.c`, con `m68ktest.c` y `z80test.c`). Lo único propio de esta consola está en
 `src/runtime/m68k_host.h` (el tipo `Neo`, su cabecera y la traza con `neo_trace_mark`, ver Recompilador) y
 `src/runtime/z80_host.h`. La NMI del Z80 y la vuelta de un `HALT` (abajo) son las mismas en los dos.
@@ -265,7 +265,7 @@ ejecutable anotan las mismas líneas que `difftest`. `difftest` dice qué parte 
 ### El Z80 en código nativo
 
 `neorecomp` compila también los primeros 32 KB de la M1 (`$0000-$7FFF`, fijos) con el recompilador del Z80
-común con GENRecomp y SMSRecomp (`z80_recomp.h`, en `tools/retrorecomp/shared`). Las ventanas con bancos y la
+común con GENRecomp y SMSRecomp (`z80_recomp.h`, en `../shared`). Las ventanas con bancos y la
 RAM siguen en el intérprete. El descubrimiento parte del reset, los `RST` (`$38` es la INT en modo 1) y la NMI
 (`$0066`) y sigue el flujo con `z80_decode`. Cada instrucción llama a la rama de `z80_exec` de su primer byte
 (`z80_exec_main`, `_cb`, `_ed` o `_xy`, de `z80_ops.h`) con sus bytes y su PC constantes: la misma semántica y
@@ -599,7 +599,7 @@ vuelta se mide entre dos llegadas seguidas al comienzo.
   - **Temporizadores:** A (10 bits) de a una muestra del FM y B (8 bits) de a 16, sin llevarlos muestra a
     muestra (se guarda cuándo vence cada uno: el Z80 los necesita para saber cuándo despertar de un
     `HALT`); sus banderas y la IRQ.
-- **Mezcla** (`audio.c`, común con GENRecomp en `tools/retrorecomp/shared`): cada muestra de salida (44 100 Hz, estéreo de 16 bits) es el
+- **Mezcla** (`audio.c`, común con GENRecomp en `../shared`): cada muestra de salida (44 100 Hz, estéreo de 16 bits) es el
   promedio de lo que sonó durante ella; después, un pasa-altos de ~10 Hz como el acople de la salida de la
   consola. El tiempo real sale del reloj del AES (740 muestras por cuadro). **Niveles** (fase 9, medidos
   con `tools/oracles/oracle.py mix` contra Geolith y FBNeo en Metal Slug, Neo Turf Masters y Samurai
@@ -706,7 +706,7 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   mismo ritmo que NEORecomp, coincide en Metal Slug un 99,9 % en la RAM y un 100 % en la imagen. `mix`
   estima los niveles de la mezcla (ver Audio).
 - **Prueba de compatibilidad** (`tools/compat/run.py`, `report.py`): el motor es el común de los cuatro
-  recompiladores (`tools/retrorecomp/compat.py`); aquí va lo propio del Neo Geo (el zip entero es el juego,
+  recompiladores (`../compat.py`); aquí va lo propio del Neo Geo (el zip entero es el juego,
   los zips de BIOS se saltan, los datos de `neorecomp --info`, categorías por el programa, capturas y guiones
   más tarde porque la BIOS tarda unos 20 s, y los oráculos). Resultado en `docs/COMPATIBILIDAD.md` y
   `docs/compat/`.

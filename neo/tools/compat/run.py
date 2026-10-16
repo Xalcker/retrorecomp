@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de NEORecomp con una colección de juegos (por omisión, los de roms/). El motor es
-común a NESRecomp, GBRecomp, GENRecomp y NEORecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo
+común a NESRecomp, GBRecomp, GENRecomp y NEORecomp (../compat.py, ver su ayuda); aquí solo va lo
 propio del Neo Geo, más los oráculos: con --oraculos, la RAM del 68000 y la imagen a los cuadros 1200 y 2400 de
 los juegos de la etapa 2 contra Geolith y FBNeo (tools/oracles/oracle.py, que los baja la primera vez).
 
@@ -20,7 +20,7 @@ miniaturas en docs/compat/thumbs/.
 import os, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
+sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT / "tools" / "oracles"))
 import compat  # noqa: E402
 

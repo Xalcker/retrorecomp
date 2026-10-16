@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de GENRecomp con una colección de ROMs (por omisión, las de roms/). El motor es común a
-NESRecomp, GBRecomp, GENRecomp y NEORecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio del Genesis,
+NESRecomp, GBRecomp, GENRecomp y NEORecomp (../compat.py, ver su ayuda); aquí solo va lo propio del Genesis,
 más los oráculos: con --oraculos, la RAM del 68000 y la imagen a los cuadros 600 y 1200 de las ROMs de la etapa 2
 contra Genesis Plus GX y BlastEm (tools/oracles/oracle.py, que los baja la primera vez).
 
@@ -14,7 +14,7 @@ CARPETA puede tener .bin, .md, .gen, .smd o .zip (se extraen a build/compat/roms
 import pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
+sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT / "tools" / "oracles"))
 import compat  # noqa: E402
 

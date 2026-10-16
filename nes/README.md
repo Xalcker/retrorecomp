@@ -248,11 +248,11 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
 | `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
-| `python3 tools/compat/{run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML, con el motor común de `tools/retrorecomp/compat.py` ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
+| `python3 tools/compat/{run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML, con el motor común de `../compat.py` ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
 `bench` de cada proyecto) aceptan las mismas opciones que `gbtrace`, `gbshot`, `gbaudio`, `gbbench` y `difftest` de
-GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `tools/retrorecomp/shared/inputs.h`),
+GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES`, ver `../shared/inputs.h`),
 `--seed S` (suma un mando aleatorio reproducible: `src/platform/random_pad.h`, idéntico en GBRecomp, así que la misma
 semilla da la misma secuencia de botones en las dos consolas) y, en `nesbench`/`bench`, `--repeat N` (se reporta la corrida más rápida).
 Sigue valiendo la sintaxis de antes (el número de cuadros suelto y `boton:desde-hasta`):
@@ -278,7 +278,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 |---|---|
 | `src/runtime/` | La consola: `nes.c`, `cpu6502.c`, `cpu_ops.h`, `ppu.c`, `apu.c`, `mapper.c`, `recomp.h`; `sha1`, `console.h` (de GBRecomp). |
 | `src/nesrecomp/` | El recompilador. |
-| `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `input_host.h`; varios de `tools/retrorecomp/shared`, como `inputs.h` y `cli.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
+| `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `input_host.h`; varios de `../shared`, como `inputs.h` y `cli.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `tools/` | `retrorecomp/`: la GUI común con GBRecomp, GENRecomp y NEORecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |

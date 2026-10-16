@@ -31,7 +31,7 @@ Mappers agregados en la ronda del 10 de octubre (14 ROMs que antes no cargaban):
 ## Cómo se probó
 
 `tools/compat/` (Python 3 sin dependencias, desde la raíz del repo y con `make` ya hecho; en Windows el proyecto generado
-se compila solo dentro de MSYS2 UCRT64). El motor es el mismo de GBRecomp y GENRecomp, `tools/retrorecomp/compat.py`;
+se compila solo dentro de MSYS2 UCRT64). El motor es el mismo de GBRecomp y GENRecomp, `../compat.py`;
 `run.py` solo dice lo propio de la NES (cabecera iNES, mappers soportados, cupo por mapper):
 
 ```

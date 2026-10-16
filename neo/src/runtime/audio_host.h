@@ -1,5 +1,5 @@
 /*
- * Lo que la mezcla común (tools/retrorecomp/shared: audio.c, la de GENRecomp) toma del Neo Geo: el reloj
+ * Lo que la mezcla común (../shared: audio.c, la de GENRecomp) toma del Neo Geo: el reloj
  * maestro del AES (MCLK_HZ, en neo.h: con él un cuadro, 59,60 por segundo, da 740 muestras) y su chip,
  * el YM2610 (una muestra cada 432 ciclos maestros, 55 944 Hz).
  */

@@ -1,5 +1,5 @@
 /*
- * Lo que inputs.h y cli.h comunes (tools/retrorecomp/shared, los mismos de NESRecomp y GENRecomp) toman
+ * Lo que inputs.h y cli.h comunes (../shared, los mismos de NESRecomp y GENRecomp) toman
  * del Neo Geo: los botones del mando (NEO_* de neo.h).
  */
 #ifndef NEO_INPUT_HOST_H

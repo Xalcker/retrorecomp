@@ -7,7 +7,7 @@
  * Genera un proyecto completo (código recompilado, runtime, plataforma y Makefile). El proyecto no contiene datos
  * de la ROM: el ejecutable carga la ROM del usuario y valida su SHA1.
  *
- * El Z80 se compila con el recompilador común (z80_recomp.h, en tools/retrorecomp/shared), por vistas: una página
+ * El Z80 se compila con el recompilador común (z80_recomp.h, en ../shared), por vistas: una página
  * de 16 KB de la ROM en una de las tres ranuras del mapper ($0000, $4000, $8000), con los bytes que ve el Z80 ahí
  * (en el mapper Sega, la de la ranura 0 lleva el primer KB de la página 0, que no se mueve). Como el mapper puede
  * poner una página en cualquier ranura, el código de una página se compila para la ranura donde corre:
@@ -671,7 +671,7 @@ static void json_str(FILE *f, const char *t)
     fputc('"', f);
 }
 
-#define VISOR_NAME "SMSRecomp"     /* el título de la página (visor_html.h, común en tools/retrorecomp/shared) */
+#define VISOR_NAME "SMSRecomp"     /* el título de la página (visor_html.h, común en ../shared) */
 #include "visor_html.h"
 
 static void write_html(const char *path, const char *rom_name)

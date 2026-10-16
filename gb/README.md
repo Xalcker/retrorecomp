@@ -352,7 +352,7 @@ gbramdump rom.gb          --frames 600 --input partida.txt                 # WRA
 `gbtrace` corre el intérprete, así que no necesita el proyecto compilado: la traza se pasa a
 `gbrecomp --trace` o a `--coverage` igual que la de `--uncovered`. Sin `--input` ni `--seed` no se
 pulsa ningún botón; `--seed S` suma al guion un mando al azar reproducible
-(`random_pad.h`, en `tools/retrorecomp/shared`), el mismo en todas las herramientas, en `difftest` y en
+(`random_pad.h`, en `../shared`), el mismo en todas las herramientas, en `difftest` y en
 NESRecomp: con la misma semilla, la misma secuencia de botones en las dos consolas.
 
 **GUI local.** `python3 tools/retrorecomp/retrorecomp_gui.py` abre en el navegador (solo Python
@@ -504,7 +504,7 @@ soportado (issue #55). Las 31 que pasan por el recompilador quedan sin
 diferencias.
 Se genera con dos scripts de Python 3 sin dependencias, desde la raíz del
 repo y con todo compilado con `make`. El motor es el mismo de NESRecomp,
-GENRecomp y NEORecomp, `tools/retrorecomp/compat.py`; `run.py` solo dice lo propio del
+GENRecomp y NEORecomp, `../compat.py`; `run.py` solo dice lo propio del
 Game Boy (cabecera, MBC soportados, cupo por MBC):
 
 ```

@@ -135,7 +135,8 @@ def main():
     for sid, tools in COMMON.items():
         root = roots[sid]
         if not root:
-            print(f"{sid}: repositorio no encontrado (omitido)")
+            print(f"FALLA {sid}: sistema no encontrado")
+            fails += 1
             continue
         for tool, opts in tools.items():
             exe = os.path.join(root, tool + rr.EXE)

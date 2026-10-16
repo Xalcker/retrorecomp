@@ -1,5 +1,5 @@
 /*
- * Lo que el código generado del Z80 (z80_recomp.h, en tools/retrorecomp/shared) toma del Master System y el Game
+ * Lo que el código generado del Z80 (z80_recomp.h, en ../shared) toma del Master System y el Game
  * Gear: lo mismo que sms_recomp_step y sms_step (sms.c) antes y después de cada instrucción.
  *
  * Antes: se sale si terminó el cuadro, o si hay algo que atiende z80_step (la NMI de la Pausa, una INT con IFF1

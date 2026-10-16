@@ -1,5 +1,5 @@
 /*
- * Lo que inputs.h y cli.h comunes (tools/retrorecomp/shared, los mismos de NESRecomp y NEORecomp) toman
+ * Lo que inputs.h y cli.h comunes (../shared, los mismos de NESRecomp y NEORecomp) toman
  * del Genesis: los botones del mando de 6 botones (GEN_* de gen.h).
  */
 #ifndef GEN_INPUT_HOST_H

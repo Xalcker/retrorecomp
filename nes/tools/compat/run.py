@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de NESRecomp con una colección de ROMs. El motor es común a NESRecomp, GBRecomp, GENRecomp y NEORecomp
-(tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo propio de la NES.
+(../compat.py, ver su ayuda); aquí solo va lo propio de la NES.
 
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
@@ -12,7 +12,7 @@ miniaturas en docs/compat/thumbs/. Las ROMs se extraen a build/compat/roms (no s
 import pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
+sys.path.insert(0, str(ROOT.parent))
 import compat  # noqa: E402
 
 SUPPORTED = {0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 13, 18, 19, 21, 22, 23, 24, 25, 26, 34, 66, 69, 71, 75, 79, 85, 87, 95, 115,

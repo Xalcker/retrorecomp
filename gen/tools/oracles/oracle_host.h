@@ -1,5 +1,5 @@
 /*
- * Lo que retro_run común (tools/retrorecomp/shared, el mismo de NEORecomp) toma del Genesis: las
+ * Lo que retro_run común (../shared, el mismo de NEORecomp) toma del Genesis: las
  * descripciones de botón de Genesis Plus GX y BlastEm, y la RAM del 68000 ($FF0000), como genramdump.
  */
 #ifndef GEN_ORACLE_HOST_H

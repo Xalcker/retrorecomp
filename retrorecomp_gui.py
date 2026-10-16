@@ -716,7 +716,7 @@ def get_events(system, rom_path, traces):
 # --------------------------------------------------------------------------- detección de repos y ROMs
 
 def find_repo(name, env, explicit, marker):
-    cands = [explicit, os.environ.get(env)]
+    cands = [explicit, os.environ.get(env), os.path.join(HERE, name[:-len("Recomp")].lower())]   # monorepo: gb/, nes/...
     parent = os.path.dirname(HERE)
     for up in (parent, os.path.dirname(parent)):
         cands.append(up)                                  # retrorecomp dentro del repo (submódulo)

@@ -16,7 +16,7 @@ typedef struct {
     char language[8];       /* "es", "en"; vacío = el del sistema */
 } Settings;
 
-/* Los campos de settings.ini, en el orden en que se escriben (settings.c, común: tools/retrorecomp/shared) */
+/* Los campos de settings.ini, en el orden en que se escriben (settings.c, común: ../shared) */
 #define SETTINGS_FIELDS(I, B, S) \
     I(scale, 3, 1, 6) B(sound, 1) I(volume, 100, 25, 100) I(slot, 1, 1, 4) B(aspect, 1) \
     B(integer, 1) I(model, -1, -1, 1) B(hide_menu, 0) I(mute, 0, 0, 15) S(language, "", 2)

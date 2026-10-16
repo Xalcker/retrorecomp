@@ -262,7 +262,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     `build/oracles/sys/`; **FBNeo** (no comercial, aparte) con el zip de MAME por el nombre del set y un
     `neogeo.zip` con las BIOS del AES armado en `build/oracles/fbneo_roms/`. Los dos en modo AES, bajados del
     buildbot con su SHA-256.
-  - `tools/compat/`: el motor común de `tools/retrorecomp/compat.py` (el submódulo, que ganó tres puntos de
+  - `tools/compat/`: el motor común de `../compat.py` (el submódulo, que ganó tres puntos de
     extensión para el Neo Geo: el zip entero es el juego, saltar los zips de BIOS, capturas y guiones propios)
     con lo propio del Neo Geo. **Los 8 juegos de `roms/` recompilados sin traza y sin diferencias**, 42-78× el
     tiempo real; contra Geolith la RAM coincide un 99,6-100 %. `docs/COMPATIBILIDAD.md` y `docs/compat/`.

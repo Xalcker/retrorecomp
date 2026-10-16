@@ -1,5 +1,5 @@
 /*
- * Lo que inputs.h y cli.h comunes (tools/retrorecomp/shared, los mismos de GENRecomp y NEORecomp) toman de
+ * Lo que inputs.h y cli.h comunes (../shared, los mismos de GENRecomp y NEORecomp) toman de
  * la NES: los botones del mando (BTN_* de nes.h) y las opciones propias de nesshot (la Zapper y
  * --entradas-241).
  */

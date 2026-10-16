@@ -24,7 +24,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
-| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `tools/retrorecomp/shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
+| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana; `--hash` para golden), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
@@ -907,7 +907,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
     También entran los mosaicos que el juego usa para mandar datos a la SNES
     en SGB (parecen ruido).
 - **Audio:** la salida común de los cuatro recompiladores
-  (`tools/retrorecomp/shared/player_audio.h`): una cola de SDL con silencio
+  (`../shared/player_audio.h`): una cola de SDL con silencio
   delante al empezar o al volver de una pausa, rampas de 5 ms para no
   chasquear y control de ritmo (remuestrea cada cuadro, ±1 % a lo más, para
   que la cola no crezca ni se vacíe). Con el cable, la mezcla de los dos
@@ -920,7 +920,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
 ## Empaquetado y pruebas
 
 - **Un solo ejecutable:** `gbrecomp` lleva adentro el runtime, la plataforma y
-  el intérprete generado. `embed.c` (de `tools/retrorecomp/shared`) los convierte en arreglos de C
+  el intérprete generado. `embed.c` (de `../shared`) los convierte en arreglos de C
   (`build/gen/embedded.c`) cuando se compila. La lista de archivos está en el
   `Makefile` (`EMBED_RUNTIME`, `EMBED_PLATFORM`).
 - **Versión:** sale de `git describe` (`gbrecomp --version`).

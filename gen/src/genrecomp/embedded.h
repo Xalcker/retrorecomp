@@ -1,4 +1,4 @@
-/* Archivos que genrecomp copia a cada proyecto (los genera embed.c, de tools/retrorecomp/shared) */
+/* Archivos que genrecomp copia a cada proyecto (los genera embed.c, de ../shared) */
 #ifndef EMBEDDED_H
 #define EMBEDDED_H
 

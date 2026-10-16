@@ -1,5 +1,5 @@
 /*
- * Lo que retro_run común (tools/retrorecomp/shared, el de GENRecomp) toma del Neo Geo: las descripciones
+ * Lo que retro_run común (../shared, el de GENRecomp) toma del Neo Geo: las descripciones
  * de botón de Geolith y FBNeo, y la RAM del 68000 ($100000), como neoramdump.
  */
 #ifndef NEO_ORACLE_HOST_H

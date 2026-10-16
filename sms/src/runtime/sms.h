@@ -1,7 +1,7 @@
 /*
  * SMSRecomp: estado de la consola y su interfaz (Sega Master System II y Game Gear de EE. UU., NTSC).
  * Cartucho (formatos, cabeceras TMR SEGA, Codemasters y SDSC, mappers, RAM del cartucho), Z80 y PSG (comunes,
- * tools/retrorecomp/shared), mapa de memoria y puertos, mandos, el VDP (registros, VRAM, CRAM, contadores,
+ * ../shared), mapa de memoria y puertos, mandos, el VDP (registros, VRAM, CRAM, contadores,
  * interrupciones y el dibujo) y la mezcla del sonido.
  */
 #ifndef SMS_H
@@ -163,7 +163,7 @@ typedef struct Sms {
     Mapper map;
     Vdp  vdp;
     Io   io;
-    Psg  psg;                           /* el SN76489 (común con GENRecomp: tools/retrorecomp/shared/psg.c) */
+    Psg  psg;                           /* el SN76489 (común con GENRecomp: ../shared/psg.c) */
     Audio audio;                        /* la mezcla a 44 100 Hz (audio.c, común). Bits de mute: 0-3 los canales del PSG */
     int  model;                         /* MODEL_SMS o MODEL_GG */
     int  sms_mode;                      /* el juego corre en el modo SMS (siempre en el SMS; en el GG, un cartucho de SMS) */

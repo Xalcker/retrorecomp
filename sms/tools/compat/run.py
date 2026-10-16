@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Prueba de compatibilidad de SMSRecomp con una colección de ROMs (por omisión, las de roms/). El motor es común a
-NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp (tools/retrorecomp/compat.py, ver su ayuda); aquí solo va lo
+NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp (../compat.py, ver su ayuda); aquí solo va lo
 propio del Master System y el Game Gear, más los oráculos: con --oraculos, la RAM de trabajo y la imagen a los
 cuadros 600 y 1200 de las ROMs de la etapa 2 contra Genesis Plus GX y Gearsystem (tools/oracles/oracle.py, que los
 baja la primera vez). La etapa 2 (el recompilador) llega con la fase 5 (docs/PLAN.md); hasta entonces, --solo etapa1.
@@ -15,7 +15,7 @@ cada ROM: si se corta, la misma orden sigue donde iba) y las miniaturas en docs/
 import pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "tools" / "retrorecomp"))
+sys.path.insert(0, str(ROOT.parent))
 sys.path.insert(0, str(ROOT / "tools" / "oracles"))
 import compat  # noqa: E402
 

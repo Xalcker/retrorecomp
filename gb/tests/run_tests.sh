@@ -371,6 +371,15 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     fi
 fi
 
+# difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
+if sh tests/estricto.sh > /tmp/gbestricto.out 2>&1; then
+    pasa=$((pasa + 1))
+else
+    falla=$((falla + 1))
+    fallidas="$fallidas
+  difftest --estricto: $(grep FALLA /tmp/gbestricto.out)"
+fi
+
 total=$((pasa + falla))
 echo "Pasan $pasa de $total"
 if [ "$falla" -gt 0 ]; then

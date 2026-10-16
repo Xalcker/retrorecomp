@@ -190,6 +190,10 @@ for r in roms/*.sms roms/*.gg roms/*/*.sms roms/*/*.gg; do
 done
 tiempo "ROMs de roms/"
 
+# difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
+sh tests/estricto.sh || fallas=$((fallas + 1))
+tiempo "--estricto"
+
 echo "      (total: $(($(date +%s) - T0)) s)"
 [ $fallas -eq 0 ] && echo "Todas las pruebas pasaron." || echo "$fallas pruebas fallaron."
 [ $fallas -eq 0 ]

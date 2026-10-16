@@ -13,9 +13,10 @@
  *   espera           el CPU dormido en HALT o STOP hasta la siguiente interrupción
  *   otros            lo que queda (DMA que detiene al CPU fuera de una instrucción, el CPU detenido...)
  *
- * Cada entrada al intérprete lleva además un motivo (metrica_motivo): el código que falta (una instrucción de la ROM
- * que el recompilador no encontró: lo que difftest --estricto no deja pasar), código en RAM, el intérprete forzado o
- * el CPU detenido. Por ahora lo anota el despachador de NES (el piloto de --estricto).
+ * Cada entrada al intérprete lleva además un motivo (metrica_motivo, en el despachador de cada sistema): el código que
+ * falta (una instrucción de la ROM que el recompilador no encontró: lo que difftest --estricto no deja pasar), código
+ * en RAM, el intérprete forzado (a propósito: tras EI o un bug de HALT en GB, con --interp...) o el CPU detenido. Las
+ * interrupciones y las esperas no son entradas al intérprete: van en sus ciclos.
  *
  * Los contadores van fuera de la máquina (y de los estados guardados, que la copian entera, y de la comparación de
  * difftest). Solo cuentan los de la máquina `metrica_de` (la recompilada en difftest; la única en el bench y en la
@@ -34,6 +35,7 @@ typedef struct {
     unsigned long long irq;                 /* ciclos: entrada a interrupciones */
     unsigned long long espera;              /* ciclos: HALT / STOP */
     unsigned long long motivo[4];           /* entradas al intérprete por motivo (MOTIVO_...) */
+    unsigned long falta_pc;                 /* el PC del primer código que falta (si motivo[MOTIVO_FALTA]) */
 } Metrica;
 
 /* Por qué el despachador usó el intérprete */
@@ -66,6 +68,25 @@ static inline void metrica_imprimir(const Metrica *m, unsigned long long total)
            "%.1f%% intérprete en RAM, %.1f%% entrada a interrupciones, %.1f%% espera (HALT/STOP), %.1f%% otros\n",
            metrica_pct(m->ins_nat, ins), m->ins_nat, ins, metrica_pct(m->nat, total), metrica_pct(m->rom, total),
            metrica_pct(m->ram, total), metrica_pct(m->irq, total), metrica_pct(m->espera, total), metrica_pct(otros, total));
+}
+
+/* El despachador de `g` usó el intérprete en `pc` por `motivo` (solo cuenta si g es metrica_de) */
+static inline void metrica_motivo(const void *g, int motivo, unsigned long pc)
+{
+    if (g != metrica_de) return;
+    if (motivo == MOTIVO_FALTA && !metrica.motivo[MOTIVO_FALTA]) metrica.falta_pc = pc;
+    metrica.motivo[motivo]++;
+}
+
+/* difftest --estricto: si ya hubo código que falta, lo dice (con `cifras` hexadecimales en el PC y, si no es NULL,
+ * `detalle` entre paréntesis) y devuelve 1 */
+static inline int metrica_estricto(long cuadro, int cifras, const char *detalle)
+{
+    if (!metrica.motivo[MOTIVO_FALTA]) return 0;
+    printf("ESTRICTO: código que falta en $%0*lX%s%s%s, cuadro %ld: el intérprete ejecutó una instrucción de la ROM que "
+           "no está recompilada\n", cifras, metrica.falta_pc, detalle ? " (" : "", detalle ? detalle : "",
+           detalle ? ")" : "", cuadro);
+    return 1;
 }
 
 /* "Intérprete por motivo: ..." (nada si no se anotó ningún motivo) */

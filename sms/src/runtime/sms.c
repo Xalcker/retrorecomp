@@ -114,14 +114,19 @@ int sms_recomp_step(Sms *g)
 {
     Z80 *z = &g->z80;
     if (halt_skip(g)) return 0;
-    if (!sms_force_interp && (const void *)g != z80_interp_only && !z->nmi && !(z->irq && z->iff1 && !z->ei) &&
-        !z->halted) {
+    int instr = !z->nmi && !(z->irq && z->iff1 && !z->ei) && !z->halted;    /* no es entrada a interrupción ni HALT */
+    if (instr && (sms_force_interp || (const void *)g == z80_interp_only))
+        metrica_motivo(g, MOTIVO_FORZADO, z->pc);
+    else if (instr) {
         Z80RecompFn fn = recomp_lookup(g, z->pc);
         if (fn) {
             sms_rc_map_ver = g->map.map_ver;
             u64 c0 = g->cyc;
             if (fn(g, 0)) { METRICA(g, nat, g->cyc - c0); return 1; }
         }
+        /* Sin código recompilado para el PC: en la ROM es código que falta (difftest --estricto); en RAM, código que
+         * se descubre al correr (metrica.h) */
+        metrica_motivo(g, bus_rom_offset(g, z->pc) >= 0 ? MOTIVO_FALTA : MOTIVO_RAM, z->pc);
     }
     sms_step(g);
     return 0;

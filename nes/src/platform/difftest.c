@@ -173,11 +173,11 @@ int main(int argc, char **argv)
             u16 pc0 = B.cpu.pc; u64 c0 = B.cyc;
             RecompFn fn = recomp_lookup(&B, B.cpu.pc);
             if (B.cpu.jammed) fn = NULL;
-            unsigned long long falta0 = metrica.motivo[MOTIVO_FALTA];
             nes_paso(&B, fn);
-            if (c.estricto && metrica.motivo[MOTIVO_FALTA] != falta0) {
-                printf("ESTRICTO: código que falta en $%04X (PRG $%05lX), cuadro %ld: el intérprete ejecutó una "
-                       "instrucción de la ROM que no está recompilada\n", pc0, (unsigned long)mapper_prg_offset(&B.cart, pc0), f);
+            if (c.estricto && metrica.motivo[MOTIVO_FALTA]) {
+                char prg[24];
+                snprintf(prg, sizeof prg, "PRG $%05lX", (unsigned long)mapper_prg_offset(&B.cart, pc0));
+                metrica_estricto(f, 4, prg);
                 return 1;
             }
             if (fn) { recomp_calls++; recomp_cycles += B.cyc - c0; }

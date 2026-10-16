@@ -53,6 +53,13 @@ static inline void m68k_leave(Gen *g, u32 pc)
 
 /* Generado por genrecomp (gen/dispatch.c y gen/info.c) */
 RecompFn recomp_lookup(Gen *g, u32 pc);
+
+/* El despachador no tuvo código recompilado para el PC (o el intérprete va forzado): el motivo para la métrica
+ * (metrica.h). En la ROM es código que falta, lo que difftest --estricto no deja pasar */
+static inline void gen_motivo(Gen *g, u32 pc)
+{
+    metrica_motivo(g, gen_force_interp ? MOTIVO_FORZADO : pc < 0x400000 ? MOTIVO_FALTA : MOTIVO_RAM, pc);
+}
 extern const char recomp_rom_sha1[41];
 extern const char recomp_name[];
 extern const unsigned recomp_instructions;

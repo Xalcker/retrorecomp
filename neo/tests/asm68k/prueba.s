@@ -1,0 +1,117 @@
+; Prueba de asm68k: cada instrucción se desensambla con dis68k y tiene que dar el mismo texto
+        org     $C00000
+inicio:
+        move.b  d0,($300001).l
+        move.w  #$1234,d1
+        move.l  #$12345678,(a0)+
+        move.w  (a1),-(a2)
+        move.l  $10(a3),-$20(a4)
+        move.b  $5(a5,d2.w),d3
+        move.w  -$8(a6,a1.l),d4
+        move.l  ($1234).w,d5
+        move.w  inicio(pc),d6
+        move.b  inicio(pc,d0.w),d7
+        movea.l #$10F300,a7
+        movea.w d0,a1
+        moveq   #$7F,d0
+        moveq   #-$1,d7
+        move.w  d0,sr
+        move.w  sr,d1
+        move    #$2700,sr
+        move.w  d2,ccr
+        move.l  a0,usp
+        move.l  usp,a1
+        movem.l d0-d7/a0-a6,-(a7)
+        movem.l (a7)+,d0-d7/a0-a6
+        movem.w d0/d2/a3,($100000).l
+        lea     ($10F300).l,a5
+        lea     $10(a0),a1
+        lea     inicio(pc),a2
+        pea     ($C00402).l
+        clr.b   d0
+        clr.w   (a0)
+        clr.l   ($10FD80).l
+        tst.b   ($10FD80).l
+        tst.w   d1
+        neg.l   d2
+        not.b   d3
+        ext.w   d4
+        ext.l   d5
+        swap    d6
+        add.w   d1,d0
+        add.l   (a0),d1
+        add.b   d2,(a1)
+        adda.l  #$100,a0
+        adda.w  d0,a1
+        addi.w  #$10,d3
+        addi.b  #$1,($10FDB4).l
+        addq.w  #$1,d0
+        addq.l  #$8,a0
+        sub.w   d1,d0
+        suba.l  d0,a0
+        subi.l  #$1000,d1
+        subq.b  #$1,d2
+        and.w   d0,d1
+        and.b   #$F,d0
+        andi.w  #$FF,d1
+        andi.b  #$FE,ccr
+        andi.w  #$F8FF,sr
+        or.l    d1,(a0)
+        ori.b   #$80,($10FD80).l
+        ori.w   #$700,sr
+        eor.w   d1,d2
+        eori.b  #$FF,d0
+        cmp.w   d1,d0
+        cmp.b   ($10FDAE).l,d0
+        cmpa.l  a1,a0
+        cmpi.w  #$4E75,d0
+        cmpi.b  #$2,($10FDAE).l
+        mulu.w  d1,d0
+        muls.w  #$10,d2
+        divu.w  #$A,d0
+        divs.w  d3,d4
+        lsl.w   #$2,d0
+        lsr.l   #$8,d1
+        asl.b   #$1,d2
+        asr.w   d0,d3
+        rol.l   #$4,d4
+        ror.w   d1,d5
+        roxl.b  #$1,d6
+        lsl.w   (a0)
+        btst    #$0,d0
+        btst    #$7,($10FD80).l
+        btst    d1,(a0)
+        bset    #$0,($10FDC2).l
+        bclr    #$1,d2
+        bchg    d3,d4
+cerca:
+        beq.w   inicio
+        bne.s   cerca
+        bra.w   inicio
+        bsr.w   inicio
+        bcc.w   inicio
+        bmi.s   cerca
+        dbf     d0,inicio
+        dbeq    d1,inicio
+        seq     d0
+        sne     ($100000).l
+        jmp     ($C00444).l
+        jsr     (a0)
+        jsr     $4(a0)
+        jmp     cerca(pc,d0.w)
+        rts
+        rte
+        rtr
+        nop
+        stop    #$2000
+        trap    #$F
+        exg     d0,d1
+        exg     a0,a1
+        exg     d0,a1
+        link    a6,#-$10
+        unlk    a6
+        tas     ($100000).l
+        chk.w   d1,d0
+        illegal
+        reset
+        trapv

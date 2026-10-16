@@ -32,26 +32,15 @@ static const char *file_name(const char *path)
     return s;
 }
 
-/* La escala de la barra de menús y los diálogos. En Android la pantalla tiene muchos más pixeles por centímetro y se
- * toca con el dedo: crece con el ancho */
+/* La escala de la barra de menús y los diálogos: crece con el ancho */
 static int ui_scale(int width)
 {
-#ifdef __ANDROID__
-    return width >= 960 ? width / 480 : 2;
-#else
     return width >= 640 ? 2 : 1;
-#endif
 }
 
-/* Espera a que se arrastre un archivo a la ventana (0 si se cierra o con Esc). En el navegador no se puede
- * esperar sin colgar la página: devuelve 0 enseguida (la página da la ROM antes de arrancar). En Android no se
- * arrastran archivos (se eligen con el selector del sistema, ask_rom_path): también 0 */
+/* Espera a que se arrastre un archivo a la ventana (0 si se cierra o con Esc) */
 static int wait_for_drop(char *out, size_t size)
 {
-#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
-    (void)out; (void)size;
-    return 0;
-#endif
     SDL_Event ev;
     while (SDL_WaitEvent(&ev)) {
         if (ev.type == SDL_QUIT) return 0;

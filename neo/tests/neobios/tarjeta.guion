@@ -1,0 +1,90 @@
+# Órdenes de tools/neocard para la prueba de la tarjeta de memoria (una por línea; '_' es un espacio en los
+# títulos). Lo esperado (tarjeta.esperado y tarjeta.estructura) sale de correrlas con la BIOS original.
+# Sin formato, formatear, guardar varias, reemplazar, buscar, cargar, título, borrar, el nombre
+leernombre
+buscar:201
+formatear
+leernombre
+guardar:201:0:1C:METAL_SLUG_UNO
+guardar:201:3:50:METAL_SLUG_TRES
+guardar:63:0:40:SAMURAI
+buscar:201
+buscar:63
+buscar:99
+cargar:201:3:50
+titulo:201:0
+cargar:201:1:10
+guardar:201:3:20:OTRA_VEZ
+borrar:201:0
+buscar:201
+borrar:201:7
+cargar:201:0:10
+nombre:YAEL
+leernombre
+# Sin lugar, y una partida que se reemplaza por otra más grande
+guardar:201:1:6C0:GRANDE
+guardar:201:2:40:LLENO
+guardar:201:2:C0:LLENO2
+buscar:201
+cargar:201:2:C0
+# Protegida y sin tarjeta
+proteger
+guardar:201:0:10:X
+borrar:201:2
+formatear
+nombre:Z
+cargar:201:3:20
+desproteger
+sacar
+buscar:201
+cargar:201:3:20
+meter
+# FAT dañadas (cada caso desde una tarjeta recién formateada con una partida de dos bloques, el 5 y el 6): una
+# copia mal se rehace con la otra; las dos mal, $83 (buscar no mira la FAT)
+formatear
+guardar:201:3:50:BASE
+poner:C5=00
+cargar:201:3:50
+poner:105=00
+titulo:201:3
+poner:C5=00
+poner:105=00
+cargar:201:3:50
+buscar:201
+guardar:201:4:10:NO
+borrar:201:3
+formatear
+guardar:201:3:50:BASE
+# Fuera de las primeras 32 entradas de la FAT también cuenta para la suma
+poner:E0=05
+cargar:201:3:50
+poner:E0=05
+poner:120=05
+cargar:201:3:50
+formatear
+guardar:201:3:50:BASE
+# Las dos con su suma bien pero distintas: gana la FAT 1
+poner:107=05
+poner:E=16
+cargar:201:3:50
+guardar:201:4:10:OTRA
+formatear
+guardar:201:3:50:BASE
+# La cabecera: la suma escrita mal, el tamaño, la marca (solo los bytes pares), el nombre puesto con otro valor
+poner:D=00
+cargar:201:3:50
+poner:A=20
+cargar:201:3:50
+buscar:201
+poner:A=10
+poner:21=00
+buscar:201
+poner:F=12
+leernombre
+poner:20=00
+buscar:201
+poner:20=4E
+buscar:201
+guardar:201:5:A0:FINAL
+nombre:FIN
+buscar:201

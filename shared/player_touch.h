@@ -1,9 +1,9 @@
 /*
- * Mando en pantalla para las pantallas táctiles (Android, o una pantalla táctil en escritorio), dibujado con el
- * renderer de SDL e igual en los cuatro recompiladores; los botones de cada consola van en una tabla (TouchLayout)
+ * Mando en pantalla para las pantallas táctiles, dibujado con el
+ * renderer de SDL e igual en todos los sistemas; los botones de cada consola van en una tabla (TouchLayout)
  * de su main_sdl.c. Es multitáctil: cada dedo se queda con la zona donde tocó (la cruz, los botones o el botón del
  * menú) y en los botones puede deslizarse de uno a otro; entre dos botones aprieta los dos. Aparece al tocar la
- * pantalla (en Android, desde el principio) y se esconde al usar un mando o el teclado.
+ * pantalla y se esconde al usar un mando o el teclado.
  * Va entre los #include de main_sdl.c, después de ui_font.h.
  */
 #ifndef PLAYER_TOUCH_H
@@ -36,7 +36,7 @@ typedef struct {
     int shown;              /* se dibuja y recibe los toques */
     int menu;               /* tocaron el botón del menú: lo atiende el bucle */
     int mouse_pass;         /* el toque que SDL también manda como ratón va a la barra de menús */
-    int real_mouse;         /* Android: se apretó un ratón de verdad (ver touch_event) */
+    int real_mouse;         /* se apretó un ratón de verdad (ver touch_event) */
     int w, h;               /* la pantalla del último toque */
     struct { SDL_FingerID id; int zone; float x, y; } finger[TOUCH_FINGERS];
     int fingers;
@@ -54,9 +54,6 @@ static void touch_init(TouchPad *t, const TouchLayout *layout)
 {
     memset(t, 0, sizeof *t);
     t->layout = layout;
-#ifdef __ANDROID__
-    t->shown = 1;
-#endif
 }
 
 static void touch_dpad_center(int w, int h, float *x, float *y)
@@ -172,11 +169,6 @@ static int touch_event(TouchPad *t, const SDL_Event *e, int w, int h, int ui_ope
             }
         return 0;
     case SDL_MOUSEMOTION:
-#ifdef __ANDROID__
-        /* Al recibir el foco, SDL mueve el ratón a (0, 0) o al último toque, y mostraría la barra oculta: el ratón que
-         * no viene de un toque se ignora hasta que se aprieta el botón de un ratón de verdad */
-        if (e->motion.which != SDL_TOUCH_MOUSEID && !t->real_mouse) return 1;
-#endif
         if (e->motion.which != SDL_TOUCH_MOUSEID) return 0;
         return !(ui_open || (e->motion.y < top && touch_zone(t, w, h, (float)e->motion.x, (float)e->motion.y) == TOUCH_NONE));
     case SDL_MOUSEBUTTONDOWN:

@@ -1,0 +1,22 @@
+# Ciclo completo: entradas de cada difftest (distintas a las de la traza guionada)
+# Generado a partir de pulsaciones sostenidas (boton desde-hasta); sirve en los tres
+# recompiladores: solo usa A, B, START, LEFT y RIGHT.
+0 -
+150 START
+156 -
+350 START
+356 -
+450 A
+456 -
+650 START
+656 -
+700 RIGHT
+760 A+RIGHT
+801 RIGHT
+900 B+RIGHT
+1000 A+B+RIGHT
+1001 A+RIGHT
+1041 RIGHT
+1200 A+RIGHT
+1221 RIGHT
+1501 -

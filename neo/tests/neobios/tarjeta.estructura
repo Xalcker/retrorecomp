@@ -1,0 +1,10 @@
+tamaño $1000 (32 bloques, datos desde el 5)
+FAT 1: suma $23 (cabecera $23)
+FAT 2: suma $23 (cabecera $23)
+FAT 1: 02 02 02 02 02 06 01 08 09 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+nombre: 'FIN             '
+región: 2
+entrada  0: NGH $0201 sub 3, bloques [5, 6], título 'BASE                '
+            datos: 42415345202020202020202020202020202020208f969da4abb2b9c0c7ced5dce3eaf1f8ff060d141b222930373e454c535a61686f767d848b9299a0a7aeb5bc
+entrada  1: NGH $0201 sub 5, bloques [7, 8, 9], título 'FINAL               '
+            datos: 46494e414c20202020202020202020202020202091989fa6adb4bbc2c9d0d7dee5ecf3fa01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3dae1e8eff6fd040b121920272e353c434a51585f666d747b828990979ea5acb3bac1c8cfd6dde4ebf2f900070e151c232a31383f464d545b626970777e

@@ -1,10 +1,79 @@
+# CI del monorepo, en dos niveles.
+#   Rápido (cada PR): solo los sistemas que el PR toca (gb/, nes/, gen/, neo/, sms/; shared/ y tests/ tocan a
+#     todos), con RAPIDAS=1 (sin Overdrive, ZEX ni el ciclo de Dragon Blaster) y sin las SingleStepTests salvo que
+#     el PR toque los núcleos de CPU de shared/. Linux un job por sistema; macOS y Windows un job cada uno, que
+#     prueba los sistemas en serie (el plan gratuito corre 5 jobs de macOS a la vez).
+#   Completo (push a main, etiquetas, cada noche, Run workflow o la etiqueta «ci-completo» en el PR): los cinco
+#     sistemas, todo, en los tres sistemas operativos, más make dist.
+# La regla de protección de main exige solo el job «ci», que junta a todos: así un sistema que el PR no toca
+# (job saltado) no deja checks pendientes. Para probar una herramienta a mano: sh tests/ci_sistema.sh <sistema>.
+
 name: ci
+
 on:
   push:
     branches: [main]
+    tags: ["*-v*"]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+# Un push nuevo al mismo PR cancela la corrida anterior; en main no, para no perder cachés ni paquetes
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+
 jobs:
-  lint:
+  # Qué sistemas probar y en qué nivel
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      sistemas: ${{ steps.p.outputs.sistemas }}
+      lista: ${{ steps.p.outputs.lista }}
+      rapidas: ${{ steps.p.outputs.rapidas }}
+      sst: ${{ steps.p.outputs.sst }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: p
+        shell: bash
+        run: |
+          todos="gb nes gen neo sms"
+          completo=1
+          if [ "${{ github.event_name }}" = pull_request ] && \
+             ! ${{ contains(github.event.pull_request.labels.*.name, 'ci-completo') }}; then completo=; fi
+          if [ -n "$completo" ]; then
+            sel=$todos; rapidas=; sst=1
+          else
+            cambios=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD)
+            echo "$(grep -c . <<< "$cambios") archivos cambiados"
+            # Con here-strings y no con echo | grep -q: con pipefail, el echo que pierde su lector hace fallar la prueba
+            sel=
+            if grep -qE '^(shared/|tests/|\.github/)' <<< "$cambios"; then sel=$todos
+            else for s in $todos; do   # la documentación sola de un sistema no lo prueba
+                   n=$(grep "^$s/" <<< "$cambios" | grep -cvE "^$s/(docs/|README\.md$)" || true)
+                   [ "${n:-0}" -gt 0 ] && sel="$sel $s"; done; fi
+            rapidas=1
+            # Las SingleStepTests solo si cambian los núcleos de CPU (o sus pruebas)
+            if grep -qE '^shared/(z80|m68k|cpu68k|dis68k|disz80|json\.h|sst)' <<< "$cambios"; then sst=1; else sst=; fi
+          fi
+          sel=$(echo $sel)
+          json=$(printf '%s\n' $sel | jq -R . | jq -sc 'map(select(length > 0))')
+          echo "sistemas=$json" >> "$GITHUB_OUTPUT"
+          echo "lista=$sel" >> "$GITHUB_OUTPUT"
+          echo "rapidas=$rapidas" >> "$GITHUB_OUTPUT"
+          echo "sst=$sst" >> "$GITHUB_OUTPUT"
+          echo "sistemas: ${sel:-ninguno}; rápidas: ${rapidas:-no}; SingleStepTests: ${sst:-no}"
+
+  # Lo común sin consola: Python, la GUI, el contrato entre sistemas y las pruebas de shared/
+  comun:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,48 +83,153 @@ jobs:
         run: python3 tests/compat_test.py
       - name: La página no usa nada fuera de la biblioteca estándar ni recursos externos
         run: "! grep -E 'https?://' index.html"
-  audio:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Salida de sonido común (shared/player_audio.h) con una tarjeta simulada
-        run: |
-          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -o player_audio_test tests/player_audio_test.c -lm
-          ./player_audio_test
-  ram_code:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Código que el juego ejecuta desde RAM (shared/ram_code.h) sin consola
-        run: |
-          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -o ram_code_test tests/ram_code_test.c
-          ./ram_code_test
-  disz80:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Desensamblador del Z80 (shared/disz80.c) contra z80_decode, todas las instrucciones
-        run: |
-          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o disz80_test tests/disz80_test.c \
-             shared/disz80.c shared/z80.c
-          ./disz80_test
-  comun:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Preferencias, entradas grabadas, opciones comunes y mezcla (settings.c, inputs.h, cli.h, audio.c) sin consola
-        run: |
-          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o comun_test \
-             tests/comun_test.c shared/settings.c shared/files.c shared/audio.c -lm
-          ./comun_test
-  touch:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - name: SDL2
         run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
-      - name: Mando en pantalla común (shared/player_touch.h) con toques simulados
+      - name: Pruebas de shared/ sin consola
         run: |
+          set -e
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -o player_audio_test tests/player_audio_test.c -lm && ./player_audio_test
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -o ram_code_test tests/ram_code_test.c && ./ram_code_test
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o disz80_test tests/disz80_test.c \
+             shared/disz80.c shared/z80.c && ./disz80_test
+          cc -std=c99 -O2 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o comun_test \
+             tests/comun_test.c shared/settings.c shared/files.c shared/audio.c -lm && ./comun_test
           cc -std=c99 -O2 -Wall -Wextra -Werror -Ishared -Itests/stub $(pkg-config --cflags sdl2) -o player_touch_test \
-             tests/player_touch_test.c shared/ui_font.c shared/ui_menu.c $(pkg-config --libs sdl2) -lm
-          ./player_touch_test
+             tests/player_touch_test.c shared/ui_font.c shared/ui_menu.c $(pkg-config --libs sdl2) -lm && ./player_touch_test
+      # Archivos gemelos, MOVIDOS, compat gemelo y opciones (compila y corre las herramientas de los cinco)
+      - name: Contrato entre sistemas
+        run: |
+          for s in gb nes gen neo sms; do make -C $s -j4 >/dev/null; done
+          python3 tests/contract.py
+
+  linux:
+    needs: plan
+    if: needs.plan.outputs.sistemas != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        sistema: ${{ fromJSON(needs.plan.outputs.sistemas) }}
+    runs-on: ubuntu-latest
+    env:
+      RAPIDAS: ${{ needs.plan.outputs.rapidas }}
+      SKIP_SST: ${{ needs.plan.outputs.sst != '1' && '1' || '' }}
+      DIST: ${{ needs.plan.outputs.rapidas != '1' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Dependencias
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libsdl2-dev
+      # Las ROMs de prueba tienen versiones fijas: se guardan solo desde main (una copia por versión, no una por PR).
+      # Sin restore-keys a propósito: un caché de otra versión haría que make testroms creyera que ya están
+      - name: Caché de las ROMs de prueba
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ matrix.sistema }}/testroms
+          key: testroms-${{ matrix.sistema }}-Linux-${{ env.SKIP_SST && 'sinsst' || 'sst' }}-${{ hashFiles(format('{0}/tests/testroms.sh', matrix.sistema), format('{0}/Makefile', matrix.sistema)) }}
+      - name: Compilar y probar
+        run: sh tests/ci_sistema.sh ${{ matrix.sistema }}
+      - name: Guardar las ROMs de prueba
+        if: github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ matrix.sistema }}/testroms
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v4
+        if: env.DIST == '1'
+        with:
+          name: ${{ matrix.sistema }}-Linux
+          path: ${{ matrix.sistema }}/dist/*.tar.gz
+
+  macos:
+    needs: plan
+    if: needs.plan.outputs.sistemas != '[]'
+    runs-on: macos-latest
+    env:
+      RAPIDAS: ${{ needs.plan.outputs.rapidas }}
+      SKIP_SST: "1"
+      DIST: ${{ needs.plan.outputs.rapidas != '1' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Dependencias
+        run: brew install sdl2 pkg-config
+      - name: Compilar y probar ${{ needs.plan.outputs.lista }}
+        run: for s in ${{ needs.plan.outputs.lista }}; do sh tests/ci_sistema.sh $s || exit 1; done
+      - uses: actions/upload-artifact@v4
+        if: env.DIST == '1'
+        with:
+          name: todos-macOS
+          path: "*/dist/*.tar.gz"
+
+  windows:
+    needs: plan
+    if: needs.plan.outputs.sistemas != '[]'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      RAPIDAS: ${{ needs.plan.outputs.rapidas }}
+      SKIP_SST: "1"
+      DIST: ${{ needs.plan.outputs.rapidas != '1' && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # git: para que la versión (git describe) salga también en Windows; python y diffutils: las pruebas de NEO
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            make
+            git
+            unzip
+            diffutils
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+      - name: Compilar y probar ${{ needs.plan.outputs.lista }}
+        run: for s in ${{ needs.plan.outputs.lista }}; do sh tests/ci_sistema.sh $s || exit 1; done
+      - uses: actions/upload-artifact@v4
+        if: env.DIST == '1'
+        with:
+          name: todos-Windows
+          path: "*/dist/*.tar.gz"
+
+  # El único check que exige la regla de protección de main
+  ci:
+    if: always()
+    needs: [plan, comun, linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resultado
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          ! echo '${{ toJSON(needs) }}' | jq -e 'to_entries | any(.value.result == "failure" or .value.result == "cancelled")' >/dev/null
+
+  # Con una etiqueta <sistema>-vX.Y.Z (p. ej. gen-v0.2.0): release con los paquetes de ese sistema
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          s=${GITHUB_REF_NAME%%-v*}
+          ls -R dist
+          files=$(find dist -name "*.tar.gz" | grep -i "/${s}" || true)
+          [ -n "$files" ] || { echo "no hay paquetes de $s"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" $files --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

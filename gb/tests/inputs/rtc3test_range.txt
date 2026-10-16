@@ -1,0 +1,5 @@
+# rtc3test: pruebas de rango
+30 DOWN
+36 -
+42 A
+48 -

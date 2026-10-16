@@ -1,0 +1,2 @@
+/* Icono del .exe en Windows (lo compila windres; ver el Makefile). Se genera con tools/make_icon.py. */
+1 ICON "icono.ico"

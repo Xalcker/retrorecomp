@@ -1,0 +1,33 @@
+modelo cgb
+# Warlocked VS por cable (jugador A): salta la introducción (START), escribe
+# el nombre "A" (A, bajar a OK, A), elige VS en el menú (DOWN DOWN A) y empieza
+# la partida. Va con warlocked_vs_b.txt, que entra a VS 100 cuadros después:
+# si los dos entran en el mismo cuadro, los dos inician la transferencia y
+# no se conectan (igual que en el hardware).
+0 -
+900 START
+930 -
+1000 A
+1006 -
+1060 A
+1066 -
+1090 DOWN
+1096 -
+1110 DOWN
+1116 -
+1130 DOWN
+1136 -
+1150 DOWN
+1156 -
+1180 A
+1186 -
+1340 DOWN
+1346 -
+1370 DOWN
+1376 -
+1400 A
+1406 -
+2500 A
+2506 -
+2700 A
+2706 -

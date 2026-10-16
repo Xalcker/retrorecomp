@@ -99,7 +99,6 @@ int u8_remove(const char *path) { return remove(path); }
 int u8_mkdir(const char *path) { return mkdir(path, 0755) == 0 || errno == EEXIST; }
 static int u8_replace(const char *from, const char *to) { return rename(from, to) == 0; }
 
-#ifndef __ANDROID__     /* en Android la da platform/android/android_jni.c (el selector de archivos del sistema) */
 int ask_rom_path(const char *title, const char *types, char *out, size_t size)
 {
     (void)title;
@@ -108,7 +107,6 @@ int ask_rom_path(const char *title, const char *types, char *out, size_t size)
     (void)size;
     return 0;
 }
-#endif
 
 #endif
 

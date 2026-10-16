@@ -1,0 +1,12 @@
+modelo dmg
+# Tetris 2P por cable (jugador A): elige 2PLAYER, inicia la partida, confirma
+# la música y su altura; no mueve piezas. Va con tetris_2p_b.txt.
+0 -
+640 RIGHT
+650 -
+680 START
+690 -
+800 START
+810 -
+950 START
+960 -

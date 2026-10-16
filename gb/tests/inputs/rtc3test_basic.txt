@@ -1,0 +1,3 @@
+# rtc3test: pruebas básicas
+30 A
+36 -

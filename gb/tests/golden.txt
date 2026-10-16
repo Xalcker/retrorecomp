@@ -1,24 +1,22 @@
-cgb_acid2 imagen a4e5b8976cba1da3 audio 1e2a32dbb221e921
-cgb_acid_hell imagen df6be86c692a22d1 audio 1e2a32dbb221e921
-cgb_sound imagen f9c97ecca6dd8e33 audio f76a809c9588c299
-dkl2 imagen 3fb1a6f7b68cdc6c audio 1fa494423a34d7a1
-dmg_acid2 imagen b77d032e6c7f0285 audio 1e2a32dbb221e921
-dmg_acid2_cgb imagen 6980c409afab61dd audio 1e2a32dbb221e921
-harrypotter imagen 79314f76ceb5565a audio ce16ac0d3fb7286d
-hdma_timing imagen 621747d9e58f8a77 audio 7c5470526deb29b5
-mealybug_m2_win_en_toggle imagen 672d8c0fd4478175 audio 9f5235c0d63f3995
-mealybug_m3_bgp_change_sprites imagen c02b61b28155f75e audio 9f5235c0d63f3995
-mealybug_m3_lcdc_obj_size_change_scx imagen e46f944842092355 audio 9f5235c0d63f3995
-mealybug_m3_lcdc_win_en_change_multiple_wx imagen 4bb27380db070485 audio 9f5235c0d63f3995
-mealybug_m3_scx_low_3_bits imagen 32858864269b0505 audio 9f5235c0d63f3995
-mealybug_m3_scy_change imagen ea42f26cb19cae86 audio 9f5235c0d63f3995
-mealybug_m3_window_timing imagen 826197dd09cc8f95 audio 9f5235c0d63f3995
-pokegold imagen c7d309ed0ef3f163 audio d964768b30bd0881
-pokered imagen a7a69429ad93eda6 audio 623051ace4fa4719
-pokeyellow imagen d1881a028a993af7 audio d47cc9902c6c112d
-smbdx imagen f7b367a7526013e5 audio 135ca6a4460453d1
-sml imagen 2ece57d45c8d71e7 audio 65f28ba4a8baf0e0
-tetris imagen 6f9a2e29df221156 audio 749af9a34ef5855c
-tetris_gbc imagen 6e55f03bfcdebbc2 audio 8fd926ae2b8e22a8
-tetrisdx imagen 55ede3253bf46b31 audio 9bd7de10e23952a9
-wario2 imagen 72e786857e81e2ff audio c58b42ab0ddda3c9
+13f2fc0945fb7a90f4d87d8c4e310dec9af6b792 hash imagen 52684f93c8969632 audio bb300e89b62c21dd  # International Superstar Soccer (USA, Europe) (SGB Enhanced).gb
+90979baa1d0e24b41b5c304c5ddaf77450692d5a hash imagen bff192bd06e9dc96 audio 5ccff2285595ce29  # Kirby's Dream Land (USA, Europe).gb
+385f8fafa53a83f8f65e1e619fe124bbf7db4a98 hash imagen 741c41480de67257 audio 6f7ae4ebac11fe25  # bomberc.gb
+74591cc9501af93873f9a5d3eb12da12c0723bbc hash imagen 55b08a56b00014f5 audio 1aacc53ee86c40fe  # tetris.gb
+2d1e47bf3fb4a28ffb82a4fd2ae779ec99aaa87d hash imagen 1a53ad58e6d9f8b9 audio 2a28369441590191  # Perfect Dark (USA, Europe) (En,Fr,De,Es,It) (Rumble Version).gbc
+5a6999c0ca4be80a6259664fdffbc79fd4bb1ed6 hash imagen fb40f9b52f7f0914 audio 4e7108b2a66ca50d  # Rayman (USA) (En,Fr,De,Es,It,Nl).gbc
+ca26852ee2c0e691cd0fc30a44de84fd1465b4de hash imagen d38812b37cc5c5bc audio 31268026da8d451d  # sfa2.gbc
+520e48c50f6e997fcd841ca368fc9abc1dbddec1 hash imagen 24675fc634e94cf1 audio 66152a822b18fd5a  # shantae.gbc
+2f9c05f74476368bd6dbba7d675e7870cf8ca27c hash imagen 9d9fdfb013d5bc02 audio 94e0414cc97c082d  # warlocked.gbc
+e04b6f1b754fca299bea97fc54d00763a6f6b3ef/dmg hash imagen b77d032e6c7f0285 audio 1e2a32dbb221e921  # dmg-acid2.gb
+e04b6f1b754fca299bea97fc54d00763a6f6b3ef/cgb hash imagen 6980c409afab61dd audio 1e2a32dbb221e921  # dmg-acid2.gb
+c2514e74e80e10b5a6294ff49ece4ac58ca2ef0d hash imagen a4e5b8976cba1da3 audio 1e2a32dbb221e921  # cgb-acid2.gbc
+93936d048f85d6295f8d10f8658108e91bb75117 hash imagen df6be86c692a22d1 audio 1e2a32dbb221e921  # cgb-acid-hell.gbc
+bf0ca39473931b8d003c219558fea6efe2e66b62/dmg hash imagen c02b61b28155f75e audio 9f5235c0d63f3995  # m3_bgp_change_sprites.gb
+c6a6652d18e99165dacc6f1c25bd45f858328964/dmg hash imagen e46f944842092355 audio 9f5235c0d63f3995  # m3_lcdc_obj_size_change_scx.gb
+3fe4fa2ee5ba11fda3068b9400fcab17d66a357d/dmg hash imagen 4bb27380db070485 audio 9f5235c0d63f3995  # m3_lcdc_win_en_change_multiple_wx.gb
+4582b920ef104903a0b3b54a5381762a502bdb78/dmg hash imagen 32858864269b0505 audio 9f5235c0d63f3995  # m3_scx_low_3_bits.gb
+70dca8e791878bdd32426391e4233ea52b47cdd1/dmg hash imagen ea42f26cb19cae86 audio 9f5235c0d63f3995  # m3_scy_change.gb
+7032d19434240e3e77cdec54f4227388b821664f/dmg hash imagen 826197dd09cc8f95 audio 9f5235c0d63f3995  # m3_window_timing.gb
+fbe1f9892e9d039906e1f31e472a0af51c9a6648/dmg hash imagen 672d8c0fd4478175 audio 9f5235c0d63f3995  # m2_win_en_toggle.gb
+78287fa2c2a5a2b7c9cf2b102232af9d81ccc9ce/cgb hash imagen 621747d9e58f8a77 audio 7c5470526deb29b5  # hdma_timing-C.gb
+6a179c9b19e65cfa69209147e7de3fb8f59ad741/cgb hash imagen e54d8202515ef90d audio 9fc4d4399683b7b1  # cgb_sound.gb

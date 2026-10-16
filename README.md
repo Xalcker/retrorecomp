@@ -240,7 +240,7 @@ publicar el primer informe de un recompilador nuevo, con su `Sistema` agregado a
 | Filas del mapa | 16 KB de PRG (`--viz --color`) | un banco (`--events`) | 16 KB de ROM (`--viz --color`) | 64 celdas del programa P (`--viz --color`): de 256 bytes hasta 1 MB, más grandes después | una página de 16 KB (`--viz --color`) |
 | Banco de la traza (`BB:AAAA`) | 8 KB del PRG | 16 KB (el banco del MBC) | 512 KB de la ROM (las ventanas de SSF2) | 1 MB de P (P1 y cada banco de P2); `FF` la BIOS | 16 KB (la página del mapper), con la dirección del Z80 |
 | Jugar y grabar traza | `nes` (intérprete) con `NES_TRACE` | `gb` (intérprete) o el recompilado, con `--uncovered` | `gen` (intérprete) con `--trace` | `neo` (intérprete) con `--trace` | `sms` (intérprete) con `--trace` |
-| Visor | `--html`: página sola con el mapa del PRG | `--html`: `tools/visor.html` con los eventos adentro | `--html`: página sola con el mapa de la ROM | `--html`: página sola con el mapa de P | `--html`: página sola con el mapa de la ROM |
+| Visor | `--html`: página sola con el mapa del PRG | `--html`: página sola con el mapa de la ROM | `--html`: página sola con el mapa de la ROM | `--html`: página sola con el mapa de P | `--html`: página sola con el mapa de la ROM |
 | Extras | segunda columna (jugador 2), Zapper en `nesshot` | `--model dmg/cgb/sgb` | segunda columna (jugador 2), botones C X Y Z MODE (sin SELECT) | segunda columna (jugador 2), botones C y D; la BIOS tarda unos 20 s en dejar el juego en su demo | `--model sms/gg`, segunda columna (jugador 2), botones A B (1 y 2) START (el del GG; en el SMS, el botón 1) y PAUSE |
 
 ## Licencia

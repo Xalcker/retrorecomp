@@ -27,7 +27,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
-| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
+| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
 
@@ -112,12 +112,10 @@ la instrucción o entrada de tabla que lo agregó, cada instrucción, las tablas
 y sus entradas, los saltos al área de bancos sin banco conocido y los `jp hl`
 sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
-`tools/visor.html` lee el mismo registro en el navegador (mapa, línea de
-tiempo, desensamblado y la cadena de `--why`); su desensamblador y su
-explicación dan lo mismo que `gbrecomp --dis` y `--why`. `gbrecomp --html`
-escribe en cambio la página común de los cinco recompiladores (`visor_html.h`,
-en `../shared`): sin línea de tiempo, con lo que sale del mismo registro (por
-cada instrucción, cómo se llegó a ella y desde cuál) ya adentro.
+`gbrecomp --html` escribe la página común de los cinco recompiladores
+(`visor_html.h`, en `../shared`) con lo que sale del mismo registro (por cada
+instrucción, cómo se llegó a ella y desde cuál) ya adentro: el mapa, el
+desensamblado de cada celda y la cadena de `--why`.
 
 Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
 cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia

@@ -201,15 +201,14 @@ heurística de descubrimiento rendiría más (ver `docs/ARQUITECTURA.md`).
 
 **5. Verlo en el navegador**
 
-Abre `tools/visor.html` (doble clic; no necesita servidor) y arrastra a la
-ventana:
-- `build/sfa2_traza.txt` (o `build/sfa2_eventos.txt`, la primera pasada),
-- `roms/sfa2.gbc`, para el desensamblado,
-- `build/sfa2.trace`, como cobertura.
+```
+./gbrecomp roms/sfa2.gbc --html build/sfa2.html --coverage build/sfa2.trace
+```
 
-Con la línea de tiempo se avanza, retrocede o reproduce el descubrimiento;
-la fase "traza" muestra el rojo apagándose. Al hacer clic en una celda se ven
-sus instrucciones, y al hacer clic en una dirección, la cadena de `--why`.
+Abre `build/sfa2.html` (doble clic; no necesita servidor): el mapa de la ROM
+con lo que el juego ejecutó y no se descubrió en rojo. Al hacer clic en una
+celda se ven sus instrucciones, y al hacer clic en una, la cadena de `--why`.
+Con `--trace build/sfa2.trace`, el rojo desaparece.
 
 **6. Jugar**
 
@@ -307,19 +306,11 @@ como código: la cadena de saltos y tablas desde un punto de entrada.
 Sirve para revisar código descubierto de más, por ejemplo una tabla de
 punteros que se leyó más allá de su final.
 
-`tools/visor.html` es lo mismo en el navegador: se abre directo (sin
-servidor) y se le arrastra el registro de `--events`, y si se quiere la ROM y
-una lista de cobertura. Muestra el mapa de la ROM con una línea de tiempo para
-avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
-desensambla sus instrucciones y explica, como `--why`, por qué cada una es
-código. Los archivos se leen en la computadora; no se mandan a ningún lado.
-
 `gbrecomp juego.gb --html visor.html` escribe la página común de los cinco
 recompiladores (`visor_html.h`, la misma de `nesrecomp`, `genrecomp`, `neorecomp` y
 `smsrecomp --html`): una página sola, ya cargada, con el mapa de la ROM coloreado por
 origen, las instrucciones desensambladas de cada celda y, al elegir una, la cadena
-de `--why`; con `--coverage`, en rojo lo ejecutado que no se descubrió. No trae la
-línea de tiempo: para eso está `tools/visor.html` con el registro de `--events`. Sin `-o`, `--viz`, `--events`, `--html`, `--codemap` y
+de `--why`; con `--coverage`, en rojo lo ejecutado que no se descubrió. Sin `-o`, `--viz`, `--events`, `--html`, `--codemap` y
 `--coverage` no generan el proyecto. `--viz --color` colorea el mapa aunque la
 salida no sea una terminal (la GUI lo usa), sin animación.
 

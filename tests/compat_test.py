@@ -4,8 +4,8 @@ sintético para cada uno de los cinco sistemas, con una fila por estado, genera 
 salgan gemelos (las mismas columnas salvo las propias de cada consola), que las cabeceras de los oráculos sean las
 del sistema y que no quede ninguna ruta local en lo que se publica (retrorecomp#25).
 
-Los Sistema de aquí imitan los de tools/compat/run.py de cada recompilador en lo que cambia el informe. Al dar de alta
-un recompilador nuevo, agrega el suyo a SISTEMAS y corre esto antes de publicar su primer informe.
+Los Sistema de aquí imitan los de tools/compat/run.py de cada recompilador en lo que cambia el informe. Deben ser los
+del registro (shared/sistemas.json): al dar de alta un sistema nuevo, agrega el suyo a SISTEMAS.
 
     python3 tests/compat_test.py
 """
@@ -220,6 +220,12 @@ def main():
     T(compat.leer_metrica("difftest: 1 cuadros iguales (1 llamadas, 1 a código recompilado)") is None,
       "leer_metrica sin la línea")
     print("ok    métrica: la línea Métrica: (y recompilado_pct, sus ciclos nativos)")
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "shared", "sistemas.json"), encoding="utf-8") as f:
+        registro = json.load(f)
+    T([S.id for S in SISTEMAS] == list(registro), f"SISTEMAS ({[S.id for S in SISTEMAS]}) no son los del registro ({list(registro)})")
+    for S in SISTEMAS:
+        T(S.id not in registro or S.nombre == registro[S.id]["repo"], f"{S.id}: nombre {S.nombre}, el registro dice {registro.get(S.id, {}).get('repo')}")
+    print("ok    registro: un Sistema por cada entrada de shared/sistemas.json")
     print(f"compat: {'sin fallas' if not fallas else f'{fallas} fallas'}")
     return 1 if fallas else 0
 

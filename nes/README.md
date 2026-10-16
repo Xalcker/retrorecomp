@@ -1,6 +1,6 @@
-
-Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cuatro recompiladores (`random_pad.h`, `trace_line.h`): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El ZIP de GitHub no lo incluye.
 # NESRecomp
+
+Parte de [retrorecomp](../README.md): el código común está en [`../shared`](../shared/).
 
 Recompilador estático de juegos de NES, basado en la arquitectura de GBRecomp: toma una ROM
 (`.nes`) y genera un proyecto C99 portable que se compila en un ejecutable nativo con SDL2. Híbrido
@@ -130,28 +130,10 @@ traza de lo que el juego ejecuta. Se graba sin ventana con las mismas entradas p
 
 `sh tests/recomp_game.sh rom nombre [cuadros] [semillas...]` hace los pasos 3, 4 y 5 de una vez, con los mismos argumentos que en GBRecomp, GENRecomp y NEORecomp (`cuadros`: los de cada `difftest`, 1500; `TRACE_FRAMES=N`: los de la traza guionada, 2400; `NOTRACE=1`: solo con el análisis estático). Corre `difftest` con varias semillas (`--seed`, por omisión 1 2 3), junta las instrucciones que cayeron al intérprete (`--uncovered`), recompila con esa traza y vuelve a probar. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
-**En el navegador** (WebAssembly): el mismo proyecto se compila con `make web`, con Emscripten si está instalado o
-si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`):
-
 ```
 make -C juegos/smb web
 python3 -m http.server -d juegos/smb/web      # y abrir http://localhost:8000/smb.html
 ```
-
-La página pide la ROM (no va en el build), comprueba el SHA1 como el ejecutable y la guarda en el navegador junto
-con la partida, los estados y las preferencias (IndexedDB), así que la siguiente vez basta con «Jugar». La página
-es la misma en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la de nestest.
-
-**En Android** (APK): `make -C juegos/smb apk` deja `juegos/smb/apk/<nombre>-debug.apk`, que se instala con `adb
-install -r`. Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en
-`JAVA_HOME`; el JBR de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de
-`platform/android/Dockerfile`, que se construye la primera vez (unos 3 GB). En el teléfono el juego arranca
-horizontal y en pantalla completa, con un mando en pantalla (o un mando Bluetooth); Atrás o el botón de las tres
-rayas abren el menú. La primera vez pide la ROM con el selector de archivos del teléfono y la guarda; las partidas y
-las preferencias se guardan también al dejar la app en segundo plano. `make apk ROM=smb.nes` mete la ROM en la APK
-(solo para uso personal: esa APK no se comparte) y `APK_RELEASE=1` firma una de release con tu keystore (ver
-`platform/android/android.mk`). Es la misma plantilla en los cuatro recompiladores (`retrorecomp/shared/android`);
-`make apktest` compila la de nestest.
 
 **8. Entender qué encontró el recompilador**
 
@@ -247,7 +229,7 @@ como prueba (por mapper) no tuvieron diferencias. Detalle, lista por juego y có
 | `nesramdump rom [--frames N] [--input archivo] [...]` | Vuelca la RAM tras correr la ROM (lo usa `tests/accuracycoin.py`; en GBRecomp, `gbramdump`). |
 | `nestest`, `sramtest`, `statetest`, `mappertest`, `inputtest` | Pruebas. `make test` corre todas. |
 | `difftest`, `bench` (en cada proyecto generado) | Comparan el código recompilado contra el intérprete y miden la velocidad. |
-| `python3 tools/retrorecomp/retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
+| `python3 ../retrorecomp_gui.py` | **GUI** local en el navegador (solo Python estándar), común con GBRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`; `git submodule update --init`): mapa del PRG como `--viz` en colores con clic por celda y la cadena de «por qué», avance por ROM, trazas, entradas, recompilar, `difftest`, `bench`, `tests/recomp_game.sh`, sincronizar el repo y la salida en vivo. |
 | `python3 tools/compat/{run,report}.py` | Prueba de compatibilidad con una colección de ROMs y su informe HTML, con el motor común de `../compat.py` ([docs/COMPATIBILIDAD.md](docs/COMPATIBILIDAD.md)). |
 
 **Opciones comunes.** Las herramientas sin ventana (`nestrace`, `nesshot`, `nesaudio`, `nesbench`, y `difftest` y
@@ -280,7 +262,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 | `src/nesrecomp/` | El recompilador. |
 | `src/platform/` | La interfaz SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `files`, `export`, `png`, `input_host.h`; varios de `../shared`, como `inputs.h` y `cli.h`), `difftest.c` y `bench.c`. Se copian a cada proyecto generado. |
 | `src/tools/` | Herramientas sin ventana y `embed`. |
-| `tools/` | `retrorecomp/`: la GUI común con GBRecomp, GENRecomp y NEORecomp (submódulo). `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
+| `tools/` | `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |

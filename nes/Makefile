@@ -25,7 +25,7 @@ export TEMP := $(TMPDIR_WIN)
 endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(patsubst nes-%,%,$(shell git describe --tags --match 'nes-v*' --always --dirty 2>/dev/null || echo dev))
 # Sistema para el nombre del paquete de make dist: windows, macos o linux
 ifeq ($(OS),Windows_NT)
 PLATFORM := windows
@@ -54,7 +54,7 @@ RT := $(BUILD)/libnesrt.a
 
 PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest nesramdump nesbench nes nesrecomp
 
-.PHONY: all clean test dist testroms webtest apktest
+.PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE))
 
 nestest$(EXE): src/tools/nestest.c $(RT)
@@ -73,21 +73,15 @@ nestrace$(EXE): src/tools/nestrace.c $(SHARED)/cli.h $(SHARED)/inputs.h src/plat
 EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h inputs.h input_host.h icono.h icono.rc icono.ico
-# La APK de Android (make apk): shared/android va a platform/android del proyecto
-EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
-                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
-             $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
-              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h \
-	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -152,22 +146,6 @@ $(BUILD):
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
 	sh tests/run_tests.sh
-
-# El juego recompilado en el navegador (retrorecomp#44): el proyecto de nestest con make web (Emscripten, o
-# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
-webtest: nesrecomp$(EXE)
-	rm -rf $(BUILD)/proy_web
-	./nesrecomp$(EXE) testroms/nes-test-roms/other/nestest.nes -o $(BUILD)/proy_web --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_web web
-	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (nestest)"
-
-# El juego recompilado en Android (retrorecomp#45): el proyecto de nestest con make apk (el SDK de Android, o Docker
-# con la imagen de platform/android/Dockerfile). El CI lo corre en Linux, con el SDK que traen los runners
-apktest: nesrecomp$(EXE)
-	rm -rf $(BUILD)/proy_apk
-	./nesrecomp$(EXE) testroms/nes-test-roms/other/nestest.nes -o $(BUILD)/proy_apk --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
-	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && echo "ok    make apk (nestest)"
 
 # ROMs de prueba libres en testroms/ (no se versionan): christopherpow/nes-test-roms
 # en un commit fijo (el repositorio no tiene releases)

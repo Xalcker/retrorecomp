@@ -25,7 +25,7 @@ export TEMP := $(TMPDIR_WIN)
 endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(patsubst gen-%,%,$(shell git describe --tags --match 'gen-v*' --always --dirty 2>/dev/null || echo dev))
 # Sistema para el nombre del paquete de make dist: windows, macos o linux
 ifeq ($(OS),Windows_NT)
 PLATFORM := windows
@@ -74,7 +74,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms webtest apktest
+.PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ)
 
 carttest$(EXE): src/tools/carttest.c $(RT)
@@ -127,21 +127,15 @@ EMBED_RUNTIME  := gen.h cart.c gen.c bus.c io.c eeprom.c vdp.c vdp_render.c m68k
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
-# La APK de Android (make apk): shared/android va a platform/android del proyecto
-EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
-                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
-             $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
-              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h \
-	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -200,33 +194,6 @@ $(BUILD):
 
 test: all
 	sh tests/run_tests.sh
-
-# webtest y apktest usan por omisión la ROM mínima de las pruebas (tests/minima.sh): comprueban que la web y la APK se
-# arman (con todo el runtime, la plataforma y SDL2) sin compilar el código generado grande de overdrive.bin, que con el
-# clang del NDK tarda ~5,5 min por ABI y con emcc ~45 s; ese código ya lo compila y lo compara make test con el cc
-# nativo. Con código generado grande (p. ej. después de tocar las banderas de shared/android/CMakeLists.txt, como el
-# -g0 que evita que clang se quede sin memoria): make apktest APKTEST_ROM=testroms/demos/overdrive.bin
-MINIMA      := $(BUILD)/tests/minima.bin
-WEBTEST_ROM ?= $(MINIMA)
-APKTEST_ROM ?= $(MINIMA)
-$(MINIMA): tests/minima.sh
-	sh tests/minima.sh $@
-
-# El juego recompilado en el navegador (retrorecomp#44): el proyecto de WEBTEST_ROM con make web (Emscripten, o
-# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
-webtest: genrecomp$(EXE) $(WEBTEST_ROM)
-	rm -rf $(BUILD)/proy_web
-	./genrecomp$(EXE) $(WEBTEST_ROM) -o $(BUILD)/proy_web --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_web web
-	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web ($(notdir $(WEBTEST_ROM)))"
-
-# El juego recompilado en Android (retrorecomp#45): el proyecto de APKTEST_ROM con make apk (el SDK de Android, o
-# Docker con la imagen de platform/android/Dockerfile). El CI lo corre en Linux, con el SDK que traen los runners
-apktest: genrecomp$(EXE) $(APKTEST_ROM)
-	rm -rf $(BUILD)/proy_apk
-	./genrecomp$(EXE) $(APKTEST_ROM) -o $(BUILD)/proy_apk --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
-	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && echo "ok    make apk ($(notdir $(APKTEST_ROM)))"
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del
 # 68000 y las demos Overdrive de Titan (ver tests/testroms.sh)

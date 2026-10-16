@@ -25,7 +25,7 @@ export TEMP := $(TMPDIR_WIN)
 endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(patsubst gb-%,%,$(shell git describe --tags --match 'gb-v*' --always --dirty 2>/dev/null || echo dev))
 # Sistema para el nombre del paquete de make dist: windows, macos o linux
 ifeq ($(OS),Windows_NT)
 PLATFORM := windows
@@ -42,7 +42,7 @@ RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 SHARED_RT := console.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
-.PHONY: all clean test dist testroms webtest apktest
+.PHONY: all clean test dist testroms
 all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
@@ -105,18 +105,12 @@ EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h player_touch.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-# La APK de Android (make apk): shared/android va a platform/android del proyecto
-EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
-                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h \
-             $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
               platform/random_pad.h=$(SHARED)/random_pad.h \
               runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
-              tools/visor.html=tools/visor.html \
-              platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk \
-              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
+              tools/visor.html=tools/visor.html
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -143,22 +137,6 @@ dist: gbrecomp$(EXE)
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
 	sh tests/run_tests.sh
-
-# El juego recompilado en el navegador (retrorecomp#44): el proyecto de cpu_instrs con make web (Emscripten, o
-# Docker con la imagen fija de platform/web.mk). El CI lo corre en Linux
-webtest: gbrecomp$(EXE)
-	rm -rf $(BUILD)/proy_web
-	./gbrecomp$(EXE) testroms/blargg/cpu_instrs/cpu_instrs.gb -o $(BUILD)/proy_web --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_web web
-	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (cpu_instrs)"
-
-# El juego recompilado en Android (retrorecomp#45): el proyecto de cpu_instrs con make apk (el SDK de Android, o Docker
-# con la imagen de platform/android/Dockerfile). El CI lo corre en Linux, con el SDK que traen los runners
-apktest: gbrecomp$(EXE)
-	rm -rf $(BUILD)/proy_apk
-	./gbrecomp$(EXE) testroms/blargg/cpu_instrs/cpu_instrs.gb -o $(BUILD)/proy_apk --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
-	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && echo "ok    make apk (cpu_instrs)"
 
 # ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0
 TESTROMS_URL := https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip

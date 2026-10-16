@@ -1,6 +1,6 @@
-
-Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cuatro recompiladores (`random_pad.h`, `trace_line.h`): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El ZIP de GitHub no lo incluye.
 # GENRecomp
+
+Parte de [retrorecomp](../README.md): el código común está en [`../shared`](../shared/).
 
 Recompilador estático de juegos de Sega Genesis, con la misma arquitectura que
 [NESRecomp](https://github.com/Xalcker/NESRecomp), [GBRecomp](https://github.com/Xalcker/GBRecomp) y [NEORecomp](https://github.com/Xalcker/NEORecomp):
@@ -48,7 +48,6 @@ Los mismos paquetes que en NESRecomp, GBRecomp y NEORecomp: compilador C99, `mak
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-git submodule update --init     # la GUI común (tools/retrorecomp)
 make            # gen (la ventana), genrecomp, genrun y las pruebas
 make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas) y las demos Overdrive
 make test       # pruebas
@@ -86,26 +85,6 @@ código (y una traza, para lo que se le escape) y escribe un proyecto con el có
 y `bench`. El ejecutable no lleva la ROM: la busca o la pide una vez y comprueba su SHA1. `difftest`
 corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
-
-**En el navegador** (WebAssembly): `make -C juego web` compila el mismo proyecto con Emscripten si está
-instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
-`python3 -m http.server -d juego/web` lo sirve (abrir `http://localhost:8000/juego.html`). La página pide la ROM (no
-va en el build), comprueba el SHA1 y la guarda en el navegador con la partida, los estados y las preferencias
-(IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
-de la ROM mínima de las pruebas (`tests/minima.sh`; otra con `WEBTEST_ROM=`).
-
-**En Android** (APK): `make -C juego apk` deja `juego/apk/<nombre>-debug.apk`, que se instala con `adb install -r`.
-Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en `JAVA_HOME`; el JBR
-de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de `platform/android/Dockerfile`, que se
-construye la primera vez (unos 3 GB). En el teléfono el juego arranca horizontal y en pantalla completa, con un mando
-en pantalla (o un mando Bluetooth); Atrás o el botón de las tres rayas abren el menú. La primera vez pide la ROM con
-el selector de archivos del teléfono y la guarda; las partidas y las preferencias se guardan también al dejar la app
-en segundo plano. `make apk ROM=juego.bin` mete la ROM en la APK (solo para uso personal: esa APK no se comparte) y
-`APK_RELEASE=1` firma una de release con tu keystore (ver `platform/android/android.mk`). Es la misma plantilla en
-los cuatro recompiladores (`retrorecomp/shared/android`); Con un juego grande la primera compilación tarda: el clang
-del NDK se demora en algunas funciones del código generado (con Overdrive, unos 5,5 min por arquitectura en un equipo
-de 4 núcleos), y `APK_ABIS=arm64-v8a` compila solo la de los teléfonos. `make apktest` compila la de la ROM mínima de
-las pruebas (otra con `APKTEST_ROM=`, p. ej. `testroms/demos/overdrive.bin`).
 
 ```
 ./genrecomp "roms/juego.bin"
@@ -160,7 +139,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` y, de `../shared`, `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
-| `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad), `retrorecomp/`: la GUI común con NESRecomp, GBRecomp y NEORecomp (submódulo). |
+| `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad) |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
 | `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst68k.sh`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |

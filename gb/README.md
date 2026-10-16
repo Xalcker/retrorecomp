@@ -1,6 +1,6 @@
-Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cuatro recompiladores (`random_pad.h`, `trace_line.h`): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El ZIP de GitHub no lo incluye.
-
 # GBRecomp
+
+Parte de [retrorecomp](../README.md): el código común está en [`../shared`](../shared/).
 
 Recompilador estático de juegos de Game Boy. Toma una ROM (`.gb` o `.gbc`) sin
 desensamblado previo y genera un proyecto en C99 portable que se compila en
@@ -129,24 +129,6 @@ Instrucciones de ROM interpretadas: 10299
 
 `build/out/sfa2/bench roms/sfa2.gbc` mide la velocidad del código recompilado sin
 ventana, con las mismas opciones que `gbbench` (el intérprete).
-
-**En el navegador** (WebAssembly): `make -C build/out/sfa2 web` compila el mismo proyecto con Emscripten si
-está instalado, o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
-`python3 -m http.server -d build/out/sfa2/web` lo sirve (abrir `http://localhost:8000/sfa2.html`). La página pide
-la ROM (no va en el build), comprueba el SHA1 y la guarda en el navegador con la partida, los estados y las
-preferencias (IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make
-webtest` compila la de `cpu_instrs`.
-
-**En Android** (APK): `make -C build/out/sfa2 apk` deja `build/out/sfa2/apk/<nombre>-debug.apk`, que se instala con
-`adb install -r`. Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en
-`JAVA_HOME`; el JBR de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de
-`platform/android/Dockerfile`, que se construye la primera vez (unos 3 GB). En el teléfono el juego arranca
-horizontal y en pantalla completa, con un mando en pantalla (o un mando Bluetooth); Atrás o el botón de las tres
-rayas abren el menú. La primera vez pide la ROM con el selector de archivos del teléfono y la guarda; las partidas y
-las preferencias se guardan también al dejar la app en segundo plano. `make apk ROM=sfa2.gb` mete la ROM en la APK
-(solo para uso personal: esa APK no se comparte) y `APK_RELEASE=1` firma una de release con tu keystore (ver
-`platform/android/android.mk`). Es la misma plantilla en los cuatro recompiladores (`retrorecomp/shared/android`);
-`make apktest` compila la de `cpu_instrs`.
 
 Si el porcentaje de los ciclos pasa de ~98 % y no hay diferencias, ya está:
 salta al paso 6. Si queda bajo (aquí, 76 %), mira la línea `Ciclos:` que va
@@ -355,10 +337,9 @@ pulsa ningún botón; `--seed S` suma al guion un mando al azar reproducible
 (`random_pad.h`, en `../shared`), el mismo en todas las herramientas, en `difftest` y en
 NESRecomp: con la misma semilla, la misma secuencia de botones en las dos consolas.
 
-**GUI local.** `python3 tools/retrorecomp/retrorecomp_gui.py` abre en el navegador (solo Python
+**GUI local.** `python3 ../retrorecomp_gui.py` abre en el navegador (solo Python
 estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterior, común con
-NESRecomp, GENRecomp y NEORecomp ([retrorecomp](https://github.com/Xalcker/retrorecomp), submódulo en `tools/retrorecomp`:
-`git submodule update --init`): el mapa de cada banco como `--viz` con clic por celda y la cadena de
+NESRecomp, GENRecomp y NEORecomp (en la raíz de [retrorecomp](../README.md)): el mapa de cada banco como `--viz` con clic por celda y la cadena de
 `--why`, el avance por ROM (análisis, cobertura, proyecto, `difftest`, velocidad), trazas con
 `gbtrace`, `difftest --uncovered` o jugando, guiones de entradas (`--input`, `--play`, `--record`),
 `gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`, `tests/recomp_game.sh`, sincronizar el repo y la

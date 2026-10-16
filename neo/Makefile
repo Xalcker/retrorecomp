@@ -25,7 +25,7 @@ export TEMP := $(TMPDIR_WIN)
 endif
 endif
 # Versión: la etiqueta de git más cercana (o "dev" fuera de un repo)
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+VERSION := $(patsubst neo-%,%,$(shell git describe --tags --match 'neo-v*' --always --dirty 2>/dev/null || echo dev))
 # Sistema para el nombre del paquete de make dist: windows, macos o linux
 ifeq ($(OS),Windows_NT)
 PLATFORM := windows
@@ -77,7 +77,7 @@ else
 SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
 endif
 
-.PHONY: all clean test dist testroms neobios webtest apktest
+.PHONY: all clean test dist testroms neobios
 # La BIOS propia (build/neobios.bin, la primera que se busca) se ensambla con make si hay python3
 NEOBIOS_ALL := $(if $(shell command -v python3 2>/dev/null),$(BUILD)/neobios.bin)
 all: $(PROGS:%=%$(EXE)) $(PLAT_OBJ) $(BUILD)/embed$(EXE) $(NEOBIOS_ALL)
@@ -156,21 +156,15 @@ EMBED_RUNTIME  := neo.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h \
                   difftest.c bench.c
-# La APK de Android (make apk): shared/android va a platform/android del proyecto
-EMBED_ANDROID  := android.mk Dockerfile settings.gradle build.gradle gradle.properties gradle-wrapper.properties app.gradle \
-                  AndroidManifest.xml CMakeLists.txt RecompActivity.java android_jni.c
-EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h \
-             $(SHARED)/web/shell.html $(SHARED)/web/web.mk $(EMBED_ANDROID:%=$(SHARED)/android/%)
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
-              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
-              $(foreach f,$(EMBED_ANDROID),platform/android/$(f)=$(SHARED)/android/$(f))
+              $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f)))
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/gen
-	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h \
-	    platform/shell.html=$(SHARED)/web/shell.html platform/web.mk=$(SHARED)/web/web.mk
+	$(BUILD)/embed$(EXE) $@ $(EMBED_ARGS) runtime/sha1.c=$(SHARED)/sha1.c runtime/sha1.h=$(SHARED)/sha1.h platform/random_pad.h=$(SHARED)/random_pad.h runtime/trace_line.h=$(SHARED)/trace_line.h runtime/ram_code.h=$(SHARED)/ram_code.h
 
 $(BUILD)/gen:
 	mkdir -p $@
@@ -221,28 +215,6 @@ $(BUILD):
 
 test: all
 	sh tests/run_tests.sh
-
-# Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del 68000 y
-# del Z80 (ver tests/testroms.sh)
-# El juego recompilado en el navegador (retrorecomp#44): el proyecto del juego del contrato, recompilado con la
-# BIOS propia (que va dentro del build), con make web (Emscripten, o Docker con la imagen fija de
-# platform/web.mk). El CI lo corre en Linux
-webtest: neorecomp$(EXE) $(BUILD)/neobios.bin
-	rm -rf $(BUILD)/proy_web
-	NEO_BIOS=$(BUILD)/neobios.bin ./neorecomp$(EXE) testroms/neo/contrato.neo -o $(BUILD)/proy_web --name prueba >/dev/null
-	test -s $(BUILD)/proy_web/bios/neobios.bin
-	$(MAKE) -C $(BUILD)/proy_web web
-	test -s $(BUILD)/proy_web/web/prueba.wasm && test -s $(BUILD)/proy_web/web/prueba.html && echo "ok    make web (contrato, BIOS propia)"
-
-# El juego recompilado en Android (retrorecomp#45): el mismo proyecto con make apk (el SDK de Android, o Docker con la
-# imagen de platform/android/Dockerfile), con la BIOS propia dentro de la APK. El CI lo corre en Linux, con el SDK
-# que traen los runners
-apktest: neorecomp$(EXE) $(BUILD)/neobios.bin
-	rm -rf $(BUILD)/proy_apk
-	NEO_BIOS=$(BUILD)/neobios.bin ./neorecomp$(EXE) testroms/neo/contrato.neo -o $(BUILD)/proy_apk --name prueba >/dev/null
-	$(MAKE) -C $(BUILD)/proy_apk apk $(if $(APK_ABIS),APK_ABIS="$(APK_ABIS)")
-	unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'lib/.*/libmain.so' && \
-	    unzip -l $(BUILD)/proy_apk/apk/prueba-debug.apk | grep -q 'assets/datos/bios.bin' && echo "ok    make apk (contrato, BIOS propia)"
 
 testroms:
 	sh tests/testroms.sh

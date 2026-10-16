@@ -908,7 +908,7 @@ static void emit_info(const char *dir, const char *sha1, const char *name)
     fclose(f);
 }
 
-static void emit_makefile(const char *dir, const char *name, const char *ext)
+static void emit_makefile(const char *dir, const char *name)
 {
     FILE *f = open_out(dir, "Makefile");
     fprintf(f,
@@ -968,23 +968,8 @@ static void emit_makefile(const char *dir, const char *name, const char *ext)
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk). La copia de la ROM\n"
-        "# lleva la extensión del juego: con ella el runtime elige el modelo (.gg es la Game Gear)\n"
-        "WEB_NAME   := %s\n"
-        "WEB_TITLE  := %s\n"
-        "WEB_PREF   := /libsdl/SMSRecomp/%s/\n"
-        "WEB_CACHE  := rom%s\n"
-        "WEB_ACCEPT := .sms,.gg,.sg\n"
-        "include platform/web.mk\n\n"
-        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk)\n"
-        "APK_NAME   := %s\n"
-        "APK_TITLE  := %s\n"
-        "APK_SYSTEM := smsrecomp\n"
-        "APK_CACHE  := rom%s\n"
-        "APK_ICON   := platform/icono.h\n"
-        "include platform/android/android.mk\n\n"
-        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name, name, name, ext, name, name, ext, name);
+        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name);
     fclose(f);
 }
 
@@ -1010,15 +995,8 @@ static void emit_readme(const char *dir, const char *name, const char *sha1, con
         "  ./difftest juego%s 3600 --seed 1 --uncovered faltante.txt\n"
         "Velocidad:\n"
         "  ./bench juego%s\n\n"
-        "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
-        "  make web\n"
-        "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
-        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n\n"
-        "En Android (necesita el SDK de Android y un JDK 17, o Docker):\n"
-        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
-        "La primera vez el juego pide la ROM con el selector de archivos del teléfono y la guarda.\n"
-        "make apk ROM=juego%s la mete en la APK (solo para uso personal: no compartas esa APK).\n"
-        "En una pantalla táctil, el mando en pantalla es el jugador 1.\n", name, ext, sha1, ext, ext, ext, name, name, ext);
+        "En una pantalla táctil, el mando en pantalla es el jugador 1.\n",
+        name, ext, sha1, ext, ext, ext);
     fclose(f);
 }
 
@@ -1163,7 +1141,7 @@ int main(int argc, char **argv)
     /* La extensión de la ROM: la de la copia que guarda el juego (rom.sms o rom.gg, como en main_sdl.c) */
     const char *dot = strrchr(rom_path, '.');
     const char *ext = dot && (!strcmp(dot, ".gg") || !strcmp(dot, ".GG")) ? ".gg" : ".sms";
-    emit_makefile(out, name, ext);
+    emit_makefile(out, name);
     emit_readme(out, name, cart->sha1, ext);
     printf("%u instrucciones compiladas en %s/gen (%d vistas%s); el ejecutable se llamará %s\n", compiled_insns, out, nviews,
            nram ? " y el código de la RAM" : "", name);

@@ -1,7 +1,6 @@
 /*
  * mkcontrato: arma el juego de prueba del contrato común (tests/contract.sh) y lo escribe como .sms:
  *   mkcontrato testroms/sms/contrato.sms
- *   mkcontrato --minima salida.sms        la ROM mínima de make webtest y make apktest (fase 6)
  * Es un programa propio (MIT), hecho aquí y no bajado de ningún lado, para que el contrato se cumpla con una
  * prueba libre, sin ensamblador: este archivo pone los bytes del Z80. Depende de las entradas en las tres
  * salidas que compara el contrato:
@@ -210,26 +209,14 @@ static void header(void)
     h[0xA] = (unsigned char)sum; h[0xB] = (unsigned char)(sum >> 8);
 }
 
-/* La mínima: apaga las interrupciones y se queda en un HALT, con la pantalla apagada (32 KB, sin mapper) */
-static size_t minima(void)
-{
-    memset(rom, 0, 0x8000);
-    at(0); b(0xF3); b(0x76); b(0x18); b(0xFD);              /* DI; HALT; JR -3 */
-    return 0x8000;
-}
-
 int main(int argc, char **argv)
 {
     console_utf8();
-    int min = argc == 3 && !strcmp(argv[1], "--minima");
-    if (argc != 2 && !min) { fprintf(stderr, "uso: mkcontrato [--minima] salida.sms\n"); return 2; }
+    if (argc != 2) { fprintf(stderr, "uso: mkcontrato salida.sms\n"); return 2; }
     size_t size = ROM_SIZE;
-    if (min) size = minima();
-    else {
-        for (pass = 0; pass < 2; pass++) program();
-        header();
-    }
-    const char *out = argv[argc - 1];
+    for (pass = 0; pass < 2; pass++) program();
+    header();
+    const char *out = argv[1];
     FILE *f = fopen(out, "wb");
     if (!f || fwrite(rom, 1, size, f) != size || fclose(f)) { fprintf(stderr, "no se pudo escribir %s\n", out); return 2; }
     printf("%s: %zu bytes\n", out, size);

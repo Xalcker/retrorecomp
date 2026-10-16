@@ -1,5 +1,7 @@
 # SMSRecomp
 
+Parte de [retrorecomp](../README.md): el código común está en [`../shared`](../shared/).
+
 Recompilador estático de juegos de Sega Master System y Game Gear (EE. UU., NTSC), con la misma arquitectura que
 [NESRecomp](https://github.com/Xalcker/NESRecomp), [GBRecomp](https://github.com/Xalcker/GBRecomp),
 [GENRecomp](https://github.com/Xalcker/GENRecomp) y [NEORecomp](https://github.com/Xalcker/NEORecomp): tomará una
@@ -7,15 +9,10 @@ ROM y generará un proyecto C99 portable que se compila en un ejecutable nativo 
 recompilado más un intérprete Z80 de respaldo), sin datos de la ROM en el proyecto generado (valida su SHA1) y con
 `difftest` para comprobar el código recompilado contra el intérprete.
 
-Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cinco recompiladores (el Z80,
-`random_pad.h`, `trace_line.h`...): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El
-ZIP de GitHub no lo incluye.
-
 **Estado: fases 0 a 6 de 8.** Recompila juegos de Master System y Game Gear a C99: `smsrecomp` genera un proyecto
 que se compila en un ejecutable nativo, con el Z80 en código nativo y la ROM del usuario cargada al arrancar. Con el
 intérprete, los juegos corren en la ventana `sms` o sin ella (`smsrun` y las herramientas comunes: `smstrace`,
-`smsshot`, `smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. El proyecto generado
-también se arma para el navegador (`make web`) y para Android (`make apk`), con el mando en pantalla. El plan completo
+`smsshot`, `smsaudio`, `smsramdump`, `smsbench`), con el contrato común de los cinco en verde. El plan completo
 está en [docs/PLAN.md](docs/PLAN.md).
 
 - **Recompilador:** el Z80 con el recompilador común (`z80_recomp.h`, el de GENRecomp y NEORecomp) por vistas (una
@@ -53,7 +50,6 @@ Los mismos paquetes que en NESRecomp, GBRecomp, GENRecomp y NEORecomp: compilado
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-git submodule update --init     # el código común y la GUI (tools/retrorecomp)
 make            # smsrecomp, la ventana sms y las pruebas
 make testroms   # una sola vez: las SingleStepTests del Z80 (comprimidas), ZEXALL y homebrew con licencia MIT
 make test       # pruebas
@@ -119,7 +115,7 @@ resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, 
 
 `sh tests/contract.sh` es el contrato común de los cinco (opciones y comportamiento, con el juego del contrato,
 `testroms/sms/contrato.sms`, que hace `make testroms`); `sh tests/golden.sh`, la línea base exacta (el hash de todos
-los cuadros y del audio de cada ROM). La GUI de retrorecomp (`python3 tools/retrorecomp/retrorecomp_gui.py`)
+los cuadros y del audio de cada ROM). La GUI de retrorecomp (`python3 ../retrorecomp_gui.py`)
 reconoce las ROMs de Master System y Game Gear, también en `roms/sms` y `roms/gg`. Para comparar con emuladores de
 referencia: `python3 tools/oracles/oracle.py compare rom.sms --frames 600` (baja Genesis Plus GX y Gearsystem la
 primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo etapa1`.
@@ -132,7 +128,7 @@ primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo 
 | `src/platform/` | La ventana `sms` (`main_sdl.c`, `i18n`, `settings.h`, `input_host.h`, el icono; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c`; el resto, de `../shared`. |
 | `src/smsrecomp/` | El recompilador (`smsrecomp.c`), con el runtime y la plataforma adentro. |
 | `src/tools/` | `smsrun` y las pruebas (`carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`). |
-| `tools/` | `make_icon.py` (el icono) y `retrorecomp/`: la GUI y el código común con NESRecomp, GBRecomp, GENRecomp y NEORecomp (submódulo). |
+| `tools/` | `make_icon.py` (el icono). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md` y `COMPATIBILIDAD.md`. |
 | `tests/` | `run_tests.sh` (`make test`), `golden.sh` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sstz80.sh`, y `contract.sh` y `recomp_game.sh` (los mismos archivos en los cinco repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del Z80, ZEXALL y ZEXDOC, el homebrew MIT y, con `EXTRA=1`, `extra/`. No se versionan. |

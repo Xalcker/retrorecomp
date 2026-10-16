@@ -1543,22 +1543,8 @@ static void emit_makefile(const char *dir, const char *name)
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk)\n"
-        "WEB_NAME   := %s\n"
-        "WEB_TITLE  := %s\n"
-        "WEB_PREF   := /libsdl/GENRecomp/%s/\n"
-        "WEB_CACHE  := rom.bin\n"
-        "WEB_ACCEPT := .bin,.md,.gen,.smd\n"
-        "include platform/web.mk\n\n"
-        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk)\n"
-        "APK_NAME   := %s\n"
-        "APK_TITLE  := %s\n"
-        "APK_SYSTEM := genrecomp\n"
-        "APK_CACHE  := rom.bin\n"
-        "APK_ICON   := platform/icono.h\n"
-        "include platform/android/android.mk\n\n"
-        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name, name, name, name, name, name);
+        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name);
     fclose(f);
 }
 
@@ -1581,15 +1567,8 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "Prueba diferencial (código recompilado contra el intérprete):\n"
         "  ./difftest juego.bin 600\n"
         "Lo que el intérprete tuvo que ejecutar (para recompilar de nuevo con genrecomp --trace):\n"
-        "  ./difftest juego.bin 3600 --seed 1 --uncovered faltante.txt\n\n"
-        "En el navegador (WebAssembly; necesita Emscripten o Docker):\n"
-        "  make web\n"
-        "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
-        "La página pide la ROM (no va en el build) y la guarda en el navegador con la partida.\n\n"
-        "En Android (necesita el SDK de Android y un JDK 17, o Docker):\n"
-        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
-        "La primera vez el juego pide la ROM con el selector de archivos del teléfono y la guarda.\n"
-        "make apk ROM=juego.bin la mete en la APK (solo para uso personal: no compartas esa APK).\n", name, sha1, name, name);
+        "  ./difftest juego.bin 3600 --seed 1 --uncovered faltante.txt\n\n",
+        name, sha1);
     fclose(f);
 }
 

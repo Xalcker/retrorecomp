@@ -4,7 +4,7 @@
  * cuadro, ya con el volumen; la grabación WAV, el silencio por canal y el audio del cable link de GB se
  * quedan en cada consola. Va entre los #include de main_sdl.c (necesita SDL.h).
  *
- * El bucle marca el ritmo de la consola con el reloj del sistema (o del navegador), que nunca coincide
+ * El bucle marca el ritmo de la consola con el reloj del sistema, que nunca coincide
  * exacto con el de la tarjeta de sonido: la cola crecería o se vaciaría poco a poco. Para tenerla cerca de
  * 'target' cada cuadro se remuestrea (cúbico) con una razón que se ajusta a lo más ±1 %: un control PI sobre
  * la cola promediada, cuya parte integral ('drift') aprende la diferencia entre los dos relojes.
@@ -24,13 +24,8 @@
 #define PA_SMOOTH 0.02        /* promedio de la cola: ~50 cuadros */
 #define PA_KP     0.02        /* parte proporcional, por unidad de error (cola vacía o al doble) */
 #define PA_KI     0.00003     /* parte integral, por cuadro: con PA_KP, amortiguado sin oscilar */
-/* Cuadros de 60 Hz en la cola además del bloque que pide la tarjeta. En el navegador la tarjeta y el
- * juego comparten el hilo principal y se atrasan más: uno de margen */
-#ifdef __EMSCRIPTEN__
-#define PA_AHEAD 2
-#else
+/* Cuadros de 60 Hz en la cola además del bloque que pide la tarjeta: uno de margen */
 #define PA_AHEAD 1
-#endif
 
 typedef struct {
     SDL_AudioDeviceID dev;  /* 0: sin sonido (sin tarjeta, o en las capturas de prueba) */

@@ -1,12 +1,20 @@
 # retrorecomp
 
-Una sola interfaz local para los recompiladores estáticos de esta serie:
-[NESRecomp](https://github.com/Xalcker/NESRecomp) (NES), [GBRecomp](https://github.com/Xalcker/GBRecomp)
-(Game Boy, Game Boy Color y Super Game Boy), [GENRecomp](https://github.com/Xalcker/GENRecomp) (Sega Genesis),
-[NEORecomp](https://github.com/Xalcker/NEORecomp) (Neo Geo AES) y [SMSRecomp](https://github.com/Xalcker/SMSRecomp)
-(Master System y Game Gear).
-Detecta el sistema de cada ROM por su cabecera y llama a las herramientas del recompilador que corresponda;
-cada uno sigue siendo su propio repositorio.
+Recompiladores estáticos de consolas clásicas, en un solo repositorio, con una interfaz local común:
+
+| Carpeta | Sistema |
+|---|---|
+| [`gb/`](gb/README.md) | GBRecomp: Game Boy, Game Boy Color y Super Game Boy |
+| [`nes/`](nes/README.md) | NESRecomp: NES |
+| [`gen/`](gen/README.md) | GENRecomp: Sega Genesis |
+| [`neo/`](neo/README.md) | NEORecomp: Neo Geo AES |
+| [`sms/`](sms/README.md) | SMSRecomp: Master System y Game Gear |
+
+El código común (núcleos del 68000 y del Z80, la ventana, menús, archivos, sonido, pruebas) está en
+[`shared/`](shared/), y cada sistema lo toma por la ruta `../shared`. Hasta octubre de 2026 cada sistema era su
+propio repositorio (Xalcker/GBRecomp, …, que quedan archivados) y `shared/` les llegaba como submódulo; la historia de los
+cinco está aquí, en su carpeta. La interfaz detecta el sistema de cada ROM por su cabecera y llama a las herramientas
+que corresponden.
 
 ```
 python3 retrorecomp_gui.py            # abre el navegador; solo Python 3, sin dependencias
@@ -22,11 +30,8 @@ uv run --python 3 .\retrorecomp_gui.py
 uv elige un Python 3 y corre el script; como solo usa la biblioteca estándar, no hay que instalar dependencias
 ni crear un entorno. El navegador se abre solo. Para detener el servidor, presiona `Ctrl+C`.
 
-Busca los repositorios en `--nes DIR` / `--gb DIR` / `--gen DIR` / `--neo DIR` / `--sms DIR`, en `NESRECOMP_DIR` /
-`GBRECOMP_DIR` / `GENRECOMP_DIR` / `NEORECOMP_DIR` / `SMSRECOMP_DIR`, en la carpeta que contiene a este (si va como
-submódulo de uno de ellos) o en las hermanas `NESRecomp`, `GBRecomp`, `GENRecomp`, `NEORecomp` y `SMSRecomp` (si es
-submódulo de uno, los otros se buscan junto a ese). Los que no encuentre no aparecen.
-Como submódulo: `git submodule update --init` y `python3 tools/retrorecomp/retrorecomp_gui.py`. Las ROMs salen
+Encuentra los sistemas en sus carpetas (`gb/`, `nes/`, …); con `--nes DIR` / `--gb DIR` / `--gen DIR` / `--neo DIR` /
+`--sms DIR`, o con `NESRECOMP_DIR` / `GBRECOMP_DIR` / `GENRECOMP_DIR` / `NEORECOMP_DIR` / `SMSRECOMP_DIR`, usa otra copia. Las ROMs salen
 de la carpeta `roms/` de cada uno (en SMSRecomp, también de sus subcarpetas, como `roms/sms` y `roms/gg`) y de
 las que se pasen con `--roms DIR`. Compila las herramientas desde la
 propia interfaz («Compilar herramientas»), o con `make` en cada repositorio.
@@ -53,83 +58,27 @@ SDL2 se enlaza estático: el `.exe` no pide `SDL2.dll`.
 
 Hay dos `git`. El de MSYS2 solo da la versión (`git describe`; sin él sale «dev»). La GUI usa el del PATH de Windows,
 [Git for Windows](https://git-scm.com) (`winget install --id Git.Git -e`), para el estado de cada repo y para
-«sincronizar»; sin él solo fallan esas dos cosas. Cada uno tiene su propio `.gitconfig`, así que un `git config
---global submodule.recurse true` hecho en uno no vale para el otro. Clona con `--recursive` (ver «Código compartido»
-más abajo). Después de un `winget install`, abre otro PowerShell para que se vea el PATH nuevo.
+«sincronizar»; sin él solo fallan esas dos cosas. Después de un `winget install`, abre otro PowerShell para que se vea el PATH nuevo.
 
 **La GUI.** uv (`winget install --id astral-sh.uv -e`) y el comando de arriba, o cualquier Python 3 de Windows: solo
 usa la biblioteca estándar. make no ve ese Python; por eso NEORecomp pide además el de pacman.
-
-**`make web` («Jugar en el navegador»), opcional.** Lo más simple es el Emscripten de MSYS2:
-
-```
-pacman -S --needed mingw-w64-ucrt-x86_64-emscripten
-```
-
-Pone `emcc` en el PATH de los shells de login, que es lo que usa la GUI (`bash -lc`); una terminal hay que abrirla de
-nuevo. La primera compilación baja el port de SDL2 y necesita internet. Un emsdk instalado aparte no sirve: make no
-lo ve. La otra opción es Docker Desktop (ver las trampas).
-
-**`make apk` («Crear APK»), opcional.** [Android Studio](https://developer.android.com/studio) instala el SDK (por
-omisión en `%LOCALAPPDATA%\Android\Sdk`) con Platform-Tools y acepta las licencias. make apk pide además Android 15
-(API 35), Build-Tools 35.0.0, NDK 27.3.13750724 y CMake 3.22.1 (`shared/android/app.gradle`). Con las licencias
-aceptadas, Gradle los baja en el primer make apk (varios minutos, con internet). Si no, se instalan en el SDK
-Manager: API 35 en «SDK Platforms», y lo demás en «SDK Tools» con «Show Package Details». Sin Android Studio: las
-Command-line Tools en `<sdk>\cmdline-tools\latest`, un JDK aparte y, desde PowerShell, `sdkmanager.bat --licenses` y
-`sdkmanager.bat "platform-tools"`.
-
-Android Studio no define las variables que necesita make apk. Créalas como variables de usuario, en PowerShell:
-
-```
-[Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", 'User')
-[Environment]::SetEnvironmentVariable('JAVA_HOME', 'C:\Program Files\Android\Android Studio\jbr', 'User')
-```
-
-ANDROID_HOME (o ANDROID_SDK_ROOT) apunta al SDK; sin ella, make apk busca Docker. JAVA_HOME es obligatoria (en MSYS2
-no hay `java`) y tiene que ser un JDK de 17 a 23: Gradle 8.13 no corre con Java 24 ni 25, y make apk lo avisa.
-Compruébalo con `& 'C:\Program Files\Android\Android Studio\jbr\bin\java.exe' -version`; si dice 24 o más, instala
-Temurin 21 (`winget install EclipseAdoptium.Temurin.21.JDK`) y apunta JAVA_HOME a él, sin `\` al final.
-
-Para que «Crear APK» la instale, adb (el de `%ANDROID_HOME%\platform-tools`; no hace falta en el PATH) tiene que ver
-el dispositivo **antes** de pulsar el botón; uno «unauthorized» no cuenta. En el teléfono: Opciones de desarrollador
-→ Depuración por USB, y acepta la huella del PC; en Windows hace falta el driver USB (Google USB Driver, en SDK
-Tools, para un Pixel; el del fabricante para otras marcas). Para un emulador: un AVD x86_64 en el Device Manager, con
-la virtualización activa en la BIOS y la «Plataforma del hipervisor de Windows». Una APK de depuración hecha en otra
-máquina no se instala encima de la anterior: hay que desinstalar esa primero.
 
 **Trampas de Windows.**
 
 - La GUI pasa su entorno a cada trabajo: después de crear una variable, abre otro PowerShell (o reinicia VS Code)
   antes de `uv run`.
 - El `bash -lc` de MSYS2 no hereda el PATH de Windows (`MSYS2_PATH_TYPE=minimal`), así que make no ve `java`,
-  `docker`, emsdk ni el Python de Windows. Las variables como JAVA_HOME y ANDROID_HOME sí llegan.
-- Docker Desktop (para `make web` sin emcc o `make apk` sin SDK; usa WSL 2): para que make lo vea, crea la variable
-  de usuario `MSYS2_PATH_TYPE=inherit`. Con ella, el `python3` de Windows (o su alias) también entra al PATH: instala
-  el de pacman. Este camino no está probado en Windows; Emscripten y el SDK son los recomendados.
+  ni el Python de Windows.
 - Rutas sin espacios: los Makefile usan `$(CURDIR)` sin comillas. Clona en algo corto, como `C:\dev\NESRecomp`; con
   el NDK, una ruta larga puede pasar el límite de 250 caracteres de CMake.
-- Si tu usuario de Windows tiene espacios, el SDK por omisión y la caché de make apk (`$(HOME)/.cache/retrorecomp`)
-  también. Elige en Android Studio un SDK como `C:\Android\Sdk` (y apunta ANDROID_HOME ahí), y crea la variable de
-  usuario `APK_CACHE_DIR` con una ruta POSIX sin espacios, como `/c/rrcache`.
 - `make testroms` de GENRecomp y NEORecomp baja las SingleStepTests del 68000 y del Z80 (unos 450 MB por repo; las
   del Z80 se recomprimen una por una), que en MSYS2 tardan mucho. `SKIP_SST=1 make testroms` las salta, como el CI de
   Windows.
-- `make web` y `make apk` solo los prueba el CI de Linux; en Windows están sin probar.
 
 ## Modos
 
 El interruptor de la barra superior elige entre dos modos (se recuerda en el navegador):
 
-- **Fácil** (por omisión): lista de ROMs y un solo botón, «Jugar». Si falta algo, primero lo prepara solo
-  (compila las herramientas, recompila la ROM y compila el proyecto, con las trazas que ya existan) y luego abre
-  la versión recompilada nativa. «Mostrar detalles» muestra el registro del trabajo. Las casillas «pantalla completa»
-  y «sin menús» (también en los ajustes de Experto; se recuerdan en el navegador) abren el juego con `--fullscreen` y
-  `--no-menu`. «Jugar en el navegador» (en Fácil y en Experto → Trazas y entradas) compila el juego con `make web`
-  (Emscripten, o Docker con la imagen fija de `shared/web/web.mk`) y lo abre en otra pestaña con la ROM de tu disco:
-  la GUI lo sirve en `/play/<token>/<rom>/`, solo en 127.0.0.1. En Neo Geo hace falta que el proyecto se haya
-  recompilado con la BIOS propia, que va dentro del build. «Crear APK» (en los mismos dos lugares) compila el juego
-  para Android con `make apk` (el SDK de Android si `ANDROID_HOME` lo dice, o Docker con la imagen fija de
-  `shared/android`) y, si `adb` ve un teléfono o un emulador conectado, lo instala; la APK queda en `apk/` del proyecto.
 - **Experto**: todo lo de abajo, paso por paso. Abre en la pestaña **Ciclo**: el botón «Correr ciclo completo»
   (`tests/recomp_game.sh`) con el avance por pasos (traza guionada, cada ronda y cada semilla con su % recompilado) y
   el resultado final; recompilar, `difftest` y la velocidad sueltos quedan en «Pasos sueltos». Las otras pestañas son
@@ -176,7 +125,7 @@ Cada recompilador trae `sh tests/contract.sh`, la misma comprobación sobre sus 
 en cada PR. (Lo hacen por separado porque, con repos privados, un CI no puede leer el otro repositorio sin un
 token.) Cuando la tabla de arriba cambie, actualiza `shared/contract.sh` y `tests/contract.py` de este repo.
 
-**Código compartido (`shared/`).** Lo que antes se copiaba idéntico en los recompiladores vive aquí y cada uno lo toma por el submódulo `tools/retrorecomp`: `random_pad.h` (el mando aleatorio de `--seed`), `trace_line.h` (el formato `BANCO:DIRECCION`), `sha1.c` y `sha1.h`, la interfaz de la ventana (`ui_menu`, `ui_font`), `png`, `files.h` y `files.c` (rutas en UTF-8 y el diálogo para elegir la ROM, con el filtro de cada consola como argumento de `ask_rom_path`), `export` (captura PNG y grabadora WAV) y `wav.h` (la cabecera WAV de las herramientas `*audio`, `*run` y la exportación), `console.h` (UTF-8 en la consola de Windows), `embed.c` (mete el runtime y la plataforma en el recompilador), **los núcleos del 68000 y del Z80 de GENRecomp y NEORecomp** (`m68k.h`, `m68k_ops.h`, `cpu68k.c`, `dis68k.c/h`, `z80.h`, `z80_ops.h`, `z80.c`, `disz80.c/h` (el desensamblador del Z80, como `dis68k`: `tests/disz80_test.c` comprueba en el CI de este repo que dé el largo de `z80_decode` en todas las instrucciones), con sus pruebas `m68ktest.c`, `z80test.c`, `json.h`, `sst68k.sh` y `sstz80.sh`: cada consola pone un `m68k_host.h` y un `z80_host.h` con su tipo (`Gen`, `Neo`, `Sms`), su cabecera y cómo anota la traza; el resto es igual, así que un arreglo, como el del HALT del Z80 de GENRecomp#15, llega a todos. Como `m68k_ops.h` para el 68000, `z80_ops.h` tiene la semántica de cada instrucción del Z80 para el intérprete y para el código generado de SMSRecomp, donde el Z80 es el CPU principal; `z80test --recomp` y `SST_OPTS=--recomp sh tests/sstz80.sh` corren las SingleStepTests por ese camino, y en los dos caminos comprueban también el decodificador `z80_decode` y, por el gancho opcional `Z80_IO_AT`, en qué ciclo de la instrucción se accede a cada puerto), `z80_recomp.h` (el recompilador del Z80, común a NEORecomp, GENRecomp y SMSRecomp: descubre el código de un tramo fijo desde sus semillas con `z80_decode` (y guarda desde qué instrucción se llegó a cada una, para `--why`) y lo emite en C, una etiqueta por instrucción que llama a la rama de `z80_exec` de su primer byte, con despacho por tabla directa; cada consola pone en su `z80_recomp_host.h` lo que hace su bucle antes y después de cada `z80_step`. Hoy lo usan NEORecomp, para los primeros 32 KB de la M1, y GENRecomp, para el driver que el 68000 sube a la RAM del Z80, aprendido con un sondeo en el intérprete y compilado con una guarda que compara los bytes de cada instrucción con la RAM; y SMSRecomp, donde el Z80 es el CPU principal, para todo el juego por vistas —una página del mapper en una ranura— y el código que el juego copia a la RAM, también con guarda; Xalcker/retrorecomp#59), `visor_html.h` (la página de `--html` de genrecomp, neorecomp y smsrecomp, la misma de nesrecomp; cada uno define `VISOR_NAME` antes de incluirlo), la estadística del Z80 en `z80.h` (`Z80_STAT`: ciclos nativos, interpretados y saltados, que `bench` y `difftest` imprimen en la línea `Z80: ...`) y `prof.h` (`--perfil` de `genbench`, `neobench` y su `bench`: un hilo que muestrea la zona que el runtime marca), `ui_golden.sh` (capturas de la interfaz contra una referencia), `player_util.h`, `player_common.h` y `player_rom.h` (funciones de la ventana iguales en los cinco; `player_rom.h` no lo usa GBRecomp), `player_audio.h` (la salida de sonido: una cola de SDL con pre-búfer, rampas al pausar y volver, y control de ritmo por remuestreo; `tests/player_audio_test.c` la prueba con una tarjeta simulada y corre en el CI de este repo), `player_touch.h` (el mando en pantalla de las pantallas táctiles: la cruz y los botones dibujados con el renderer, multitáctil, con una tabla de botones en cada consola; `tests/player_touch_test.c` lo prueba con toques simulados y corre en el CI de este repo), `web/` (`make web`: la página y las reglas de Emscripten), `android/` (`make apk`: la plantilla de Gradle y CMake que compila SDL2 2.32 desde su código fuente, la actividad de Java con el selector de archivos del teléfono, el puente JNI y la imagen Docker de versiones fijas; en `player_common.h` van Atrás, que abre el menú, y el guardado al irse a segundo plano), `ram_code.h` (el código que el juego copia a RAM y ejecuta desde ahí: el intérprete lo anota en líneas `ram DIRECCION B0 B1 ...` del mismo archivo de traza, que `trace_line_read` ignora, y el recompilador lo une y lo arma en bloques que compila con una guarda; cada consola pone cuánto mide una instrucción y qué bytes la identifican. Lo usan GENRecomp, NESRecomp (la RAM interna y la del cartucho, que lee según el mapper) y NEORecomp; GBRecomp tiene el suyo, del que salió, y `tests/ram_code_test.c` lo prueba en el CI de este repo), `settings.c` (las preferencias de la ventana, `settings.ini`: cada consola pone en su `settings.h` la estructura y la lista de sus campos, `SETTINGS_FIELDS`, con su valor por omisión y su rango), `inputs.h` y `cli.h` (las entradas grabadas `cuadro BOTONES` y las opciones comunes de las herramientas sin ventana, de NESRecomp, GENRecomp, NEORecomp y SMSRecomp: cada uno pone un `input_host.h` con el tipo y los nombres de sus botones, cómo cae en ellos el mando aleatorio y, en NES, las opciones propias de `nesshot`; GBRecomp tiene los suyos, de un jugador y con el modelo en el encabezado), `audio.c` y `audio.h` (la mezcla a 44 100 Hz de GENRecomp, NEORecomp y SMSRecomp: cada consola pone un `audio_host.h` con su reloj maestro y cómo lleva sus chips al final del cuadro), `psg.c` y `psg.h` (el SN76489 de Sega, de GENRecomp y SMSRecomp, con el estéreo del Game Gear: cada consola pone un `psg_host.h` con su tipo, el campo, qué canales están silenciados, el estéreo —`$FF` en el Genesis— y el nivel), `retro_run.c` y `libretro_min.h` (el oráculo libretro de GENRecomp, NEORecomp y SMSRecomp: cada consola pone en `tools/oracles/oracle_host.h` las descripciones de botón de sus núcleos y qué RAM vuelca —`ORACLE_RAM_SIZE`, 64 KB si no se dice; 8 KB en el Master System— y, si hace falta, cómo traducir sus botones a los del núcleo, `ORACLE_PAD`; `oracle.py`, que baja los núcleos, sigue en cada repo), `tests/comun_test.c` prueba `settings.c`, `inputs.h`, `cli.h` y `audio.c` con consolas de mentira y corre en el CI de este repo, `contract.sh` y `recomp_game.sh`. Lo que sigue en cada repo es lo que depende de la consola: el puente de la ventana con el runtime (`main_sdl.c`, lo común ya está en `player_*.h`), los textos de `i18n`, `difftest.c` y `bench.c` (qué se compara), los estados guardados (cada formato valida su propia cabecera; unificarlos invalidaría las partidas guardadas) y `golden.sh`. Los repos compilan con `-Itools/retrorecomp/shared` y embeben esos headers en los proyectos que generan; `tests/contract.sh` y `tests/recomp_game.sh` son envoltorios idénticos que entran a la raíz del repo y llaman a `shared/`. Por eso compilar un recompilador exige el submódulo (`git clone --recursive`, o `git submodule update --init`); el ZIP de GitHub no lo trae. `git pull` mueve el commit al que apunta el submódulo pero no lo que hay en la carpeta (`git status` muestra ` M tools/retrorecomp`): después de un `pull` que lo mueva hay que repetir `git submodule update --init`, o configurar una vez `git config --global submodule.recurse true`. Si no, `make` falla con «No rule to make target `tools/retrorecomp/shared/...`». `tests/contract.py` comprueba que los envoltorios sean idénticos y que nadie conserve una copia vieja de los headers.
+**Código compartido (`shared/`).** Lo que antes se copiaba idéntico en los recompiladores vive aquí y cada uno lo toma por la ruta `../shared`: `random_pad.h` (el mando aleatorio de `--seed`), `trace_line.h` (el formato `BANCO:DIRECCION`), `sha1.c` y `sha1.h`, la interfaz de la ventana (`ui_menu`, `ui_font`), `png`, `files.h` y `files.c` (rutas en UTF-8 y el diálogo para elegir la ROM, con el filtro de cada consola como argumento de `ask_rom_path`), `export` (captura PNG y grabadora WAV) y `wav.h` (la cabecera WAV de las herramientas `*audio`, `*run` y la exportación), `console.h` (UTF-8 en la consola de Windows), `embed.c` (mete el runtime y la plataforma en el recompilador), **los núcleos del 68000 y del Z80 de GENRecomp y NEORecomp** (`m68k.h`, `m68k_ops.h`, `cpu68k.c`, `dis68k.c/h`, `z80.h`, `z80_ops.h`, `z80.c`, `disz80.c/h` (el desensamblador del Z80, como `dis68k`: `tests/disz80_test.c` comprueba en el CI de este repo que dé el largo de `z80_decode` en todas las instrucciones), con sus pruebas `m68ktest.c`, `z80test.c`, `json.h`, `sst68k.sh` y `sstz80.sh`: cada consola pone un `m68k_host.h` y un `z80_host.h` con su tipo (`Gen`, `Neo`, `Sms`), su cabecera y cómo anota la traza; el resto es igual, así que un arreglo, como el del HALT del Z80 de GENRecomp#15, llega a todos. Como `m68k_ops.h` para el 68000, `z80_ops.h` tiene la semántica de cada instrucción del Z80 para el intérprete y para el código generado de SMSRecomp, donde el Z80 es el CPU principal; `z80test --recomp` y `SST_OPTS=--recomp sh tests/sstz80.sh` corren las SingleStepTests por ese camino, y en los dos caminos comprueban también el decodificador `z80_decode` y, por el gancho opcional `Z80_IO_AT`, en qué ciclo de la instrucción se accede a cada puerto), `z80_recomp.h` (el recompilador del Z80, común a NEORecomp, GENRecomp y SMSRecomp: descubre el código de un tramo fijo desde sus semillas con `z80_decode` (y guarda desde qué instrucción se llegó a cada una, para `--why`) y lo emite en C, una etiqueta por instrucción que llama a la rama de `z80_exec` de su primer byte, con despacho por tabla directa; cada consola pone en su `z80_recomp_host.h` lo que hace su bucle antes y después de cada `z80_step`. Hoy lo usan NEORecomp, para los primeros 32 KB de la M1, y GENRecomp, para el driver que el 68000 sube a la RAM del Z80, aprendido con un sondeo en el intérprete y compilado con una guarda que compara los bytes de cada instrucción con la RAM; y SMSRecomp, donde el Z80 es el CPU principal, para todo el juego por vistas —una página del mapper en una ranura— y el código que el juego copia a la RAM, también con guarda; Xalcker/retrorecomp#59), `visor_html.h` (la página de `--html` de genrecomp, neorecomp y smsrecomp, la misma de nesrecomp; cada uno define `VISOR_NAME` antes de incluirlo), la estadística del Z80 en `z80.h` (`Z80_STAT`: ciclos nativos, interpretados y saltados, que `bench` y `difftest` imprimen en la línea `Z80: ...`) y `prof.h` (`--perfil` de `genbench`, `neobench` y su `bench`: un hilo que muestrea la zona que el runtime marca), `ui_golden.sh` (capturas de la interfaz contra una referencia), `player_util.h`, `player_common.h` y `player_rom.h` (funciones de la ventana iguales en los cinco; `player_rom.h` no lo usa GBRecomp), `player_audio.h` (la salida de sonido: una cola de SDL con pre-búfer, rampas al pausar y volver, y control de ritmo por remuestreo; `tests/player_audio_test.c` la prueba con una tarjeta simulada y corre en el CI de este repo), `player_touch.h` (el mando en pantalla de las pantallas táctiles: la cruz y los botones dibujados con el renderer, multitáctil, con una tabla de botones en cada consola; `tests/player_touch_test.c` lo prueba con toques simulados y corre en el CI de este repo),  `ram_code.h` (el código que el juego copia a RAM y ejecuta desde ahí: el intérprete lo anota en líneas `ram DIRECCION B0 B1 ...` del mismo archivo de traza, que `trace_line_read` ignora, y el recompilador lo une y lo arma en bloques que compila con una guarda; cada consola pone cuánto mide una instrucción y qué bytes la identifican. Lo usan GENRecomp, NESRecomp (la RAM interna y la del cartucho, que lee según el mapper) y NEORecomp; GBRecomp tiene el suyo, del que salió, y `tests/ram_code_test.c` lo prueba en el CI de este repo), `settings.c` (las preferencias de la ventana, `settings.ini`: cada consola pone en su `settings.h` la estructura y la lista de sus campos, `SETTINGS_FIELDS`, con su valor por omisión y su rango), `inputs.h` y `cli.h` (las entradas grabadas `cuadro BOTONES` y las opciones comunes de las herramientas sin ventana, de NESRecomp, GENRecomp, NEORecomp y SMSRecomp: cada uno pone un `input_host.h` con el tipo y los nombres de sus botones, cómo cae en ellos el mando aleatorio y, en NES, las opciones propias de `nesshot`; GBRecomp tiene los suyos, de un jugador y con el modelo en el encabezado), `audio.c` y `audio.h` (la mezcla a 44 100 Hz de GENRecomp, NEORecomp y SMSRecomp: cada consola pone un `audio_host.h` con su reloj maestro y cómo lleva sus chips al final del cuadro), `psg.c` y `psg.h` (el SN76489 de Sega, de GENRecomp y SMSRecomp, con el estéreo del Game Gear: cada consola pone un `psg_host.h` con su tipo, el campo, qué canales están silenciados, el estéreo —`$FF` en el Genesis— y el nivel), `retro_run.c` y `libretro_min.h` (el oráculo libretro de GENRecomp, NEORecomp y SMSRecomp: cada consola pone en `tools/oracles/oracle_host.h` las descripciones de botón de sus núcleos y qué RAM vuelca —`ORACLE_RAM_SIZE`, 64 KB si no se dice; 8 KB en el Master System— y, si hace falta, cómo traducir sus botones a los del núcleo, `ORACLE_PAD`; `oracle.py`, que baja los núcleos, sigue en cada repo), `tests/comun_test.c` prueba `settings.c`, `inputs.h`, `cli.h` y `audio.c` con consolas de mentira y corre en el CI de este repo, `contract.sh` y `recomp_game.sh`. Lo que sigue en cada repo es lo que depende de la consola: el puente de la ventana con el runtime (`main_sdl.c`, lo común ya está en `player_*.h`), los textos de `i18n`, `difftest.c` y `bench.c` (qué se compara), los estados guardados (cada formato valida su propia cabecera; unificarlos invalidaría las partidas guardadas) y `golden.sh`. Los repos compilan con `-Itools/retrorecomp/shared` y embeben esos headers en los proyectos que generan; `tests/contract.sh` y `tests/recomp_game.sh` son envoltorios idénticos que entran a la raíz del repo y llaman a `shared/`. Por eso compilar un recompilador exige el submódulo (`git clone --recursive`, o `git submodule update --init`); el ZIP de GitHub no lo trae. `git pull` mueve el commit al que apunta el submódulo pero no lo que hay en la carpeta (`git status` muestra ` M tools/retrorecomp`): después de un `pull` que lo mueva hay que repetir `git submodule update --init`, o configurar una vez `git config --global submodule.recurse true`. Si no, `make` falla con «No rule to make target `tools/retrorecomp/shared/...`». `tests/contract.py` comprueba que los envoltorios sean idénticos y que nadie conserve una copia vieja de los headers.
 
 Los tres se compilan igual: mismos paquetes (MSYS2 UCRT64 en Windows), el mismo bloque común al principio del
 `Makefile` y los mismos objetivos, `make`, `make testroms` (ROMs de prueba libres), `make test` y `make dist`. El

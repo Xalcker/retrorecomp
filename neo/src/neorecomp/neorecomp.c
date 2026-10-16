@@ -1859,26 +1859,8 @@ static void emit_makefile(const char *dir, const char *name)
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(CODE_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^ -lm\n\n"
-        "# Navegador (WebAssembly): make web, con Emscripten o con Docker (ver platform/web.mk). La BIOS propia\n"
-        "# (bios/neobios.bin, si se recompiló con ella) va dentro del build; la de SNK nunca\n"
-        "WEB_NAME   := %s\n"
-        "WEB_TITLE  := %s\n"
-        "WEB_PREF   := /libsdl/NEORecomp/%s/\n"
-        "WEB_CACHE  := juego.neo\n"
-        "WEB_ACCEPT := .neo,.zip\n"
-        "WEB_EXTRA  := $(if $(wildcard bios/neobios.bin),--embed-file bios/neobios.bin@/neobios.bin)\n"
-        "include platform/web.mk\n\n"
-        "# Android: make apk, con el SDK de Android o con Docker (ver platform/android/android.mk). La BIOS propia va\n"
-        "# dentro de la APK y el juego la copia a su carpeta de datos; la de SNK nunca\n"
-        "APK_NAME   := %s\n"
-        "APK_TITLE  := %s\n"
-        "APK_SYSTEM := neorecomp\n"
-        "APK_CACHE  := juego.neo\n"
-        "APK_ICON   := platform/icono.h\n"
-        "APK_DATA   := $(if $(wildcard bios/neobios.bin),bios/neobios.bin=bios.bin)\n"
-        "include platform/android/android.mk\n\n"
-        "clean:\n\trm -rf build dist web apk %s$(EXE) difftest$(EXE) bench$(EXE)\n",
-        name, name, name, name, name, name, name, name, name);
+        "clean:\n\trm -rf build dist %s$(EXE) difftest$(EXE) bench$(EXE)\n",
+        name, name, name, name);
     fclose(f);
 }
 
@@ -1896,7 +1878,7 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "  make -j\n"
         "  ./%s juego.zip\n\n"
         "El proyecto no contiene el juego ni la BIOS de SNK (la propia sí, en bios/neobios.bin, si se\n"
-        "recompiló con ella: la usa make web). El ejecutable pide el juego (.neo, .zip de MAME o\n"
+        "recompiló con ella). El ejecutable pide el juego (.neo, .zip de MAME o\n"
         "una carpeta con los chips) y comprueba que el SHA1 de su imagen normalizada sea\n"
         "%s.\n"
         "Si se ejecuta sin argumentos busca en la carpeta actual un juego con ese SHA1. La BIOS del AES\n"
@@ -1906,15 +1888,8 @@ static void emit_readme(const char *dir, const char *name, const char *sha1)
         "Prueba diferencial (código recompilado contra el intérprete):\n"
         "  ./difftest juego.zip 600\n"
         "Lo que el intérprete tuvo que ejecutar (para recompilar de nuevo con neorecomp --trace):\n"
-        "  ./difftest juego.zip 3600 --seed 1 --uncovered faltante.txt\n\n"
-        "En el navegador (WebAssembly; necesita Emscripten o Docker y la BIOS propia en bios/):\n"
-        "  make web\n"
-        "  python3 -m http.server -d web     y abrir http://localhost:8000/%s.html\n"
-        "La página pide el juego (no va en el build) y lo guarda en el navegador con la tarjeta.\n\n"
-        "En Android (necesita el SDK de Android y un JDK 17, o Docker; la BIOS propia va en la APK):\n"
-        "  make apk                       y luego  adb install -r apk/%s-debug.apk\n"
-        "La primera vez el juego pide el .neo o el .zip con el selector de archivos del teléfono y lo guarda.\n"
-        "make apk ROM=juego.zip lo mete en la APK (solo para uso personal: no compartas esa APK).\n", name, sha1, name, name);
+        "  ./difftest juego.zip 3600 --seed 1 --uncovered faltante.txt\n\n",
+        name, sha1);
     fclose(f);
 }
 
@@ -2257,7 +2232,7 @@ int main(int argc, char **argv)
     }
     if (!nb) printf("sin BIOS (%s): la BIOS correrá en el intérprete\n", bios_err ? bios_err : "no se encontró");
     emit_bios_table(out, bout, nb);
-    /* La BIOS propia (MIT) va también como archivo: make web la mete en el build (la de SNK nunca) */
+    /* La BIOS propia (MIT) va también como archivo en bios/ (la de SNK nunca) */
     char bin[1100];
     snprintf(bin, sizeof bin, "%s/bios/neobios.bin", out);
     remove(bin);

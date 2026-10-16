@@ -17,7 +17,7 @@
  *
  * Jugador 1: flechas, Z = B, X = A, Enter = Start, Mayús/Retroceso = Select. Jugador 2: WASD,
  * F = B, G = A, C = Start, V = Select. Mandos: el primero es el jugador 1 y el segundo el 2. En una pantalla
- * táctil, el mando en pantalla (player_touch.h) es el jugador 1; en Android, Atrás abre el menú.
+ * táctil, el mando en pantalla (player_touch.h) es el jugador 1.
  *
  * Un juego recompilado pide la ROM una sola vez. Se busca, en orden: el argumento, la copia
  * guardada en la carpeta de datos del juego, "rom.nes" junto al ejecutable o en la carpeta
@@ -36,9 +36,6 @@
  * juego se pausa.
  */
 #include <SDL.h>
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -222,9 +219,6 @@ static int ask_for_rom(App *app, Rom *rom, char *path_out, size_t path_size)
     for (;;) {
         int got = ask_rom_path(tr(first ? T_ROM_CHOOSE : T_ROM_CHOOSE_AGAIN), ROM_TYPES, path_out, path_size);
         if (!got) {
-#ifdef __ANDROID__
-            return 0;       /* canceló el selector de archivos: no hay ventana a la cual arrastrarla */
-#endif
             /* Sin diálogo nativo (o cancelado en Windows: se ofrece arrastrar) */
             snprintf(msg, sizeof msg, tr(T_ROM_DROP_FMT), app->title[0] ? app->title : "NES");
             if (first) inform(msg);
@@ -1005,7 +999,7 @@ static void render(App *app)
 /* ------------------------------------------------------------------ */
 
 /* Un cuadro de la ventana en tres partes: los eventos, la emulación (un cuadro, o cuatro sin audio en avance
- * rápido) y el dibujo. El bucle de escritorio las llama con su ritmo; en el navegador, web_frame */
+ * rápido) y el dibujo. El bucle de la ventana las llama a su ritmo */
 static void frame_input(App *app)
 {
     SDL_Event ev;
@@ -1057,49 +1051,7 @@ static void finish(App *app, int save_settings)
     free(app->rom.data);
 }
 
-#ifdef __ANDROID__
-/* Al irse a segundo plano (player_common.h): la partida y las preferencias, como al salir */
-static void app_save(App *app)
-{
-    settings_save(&app->cfg, app->settings_path);
-    save_game(app);
-}
-#endif
 
-#ifdef __EMSCRIPTEN__
-/* En el navegador (make web): el navegador llama a esto en cada refresco de la pantalla, que puede ir a 60,
- * 120 o 144 Hz; se emulan los cuadros que tocan por el tiempo pasado (a lo más cuatro, para no ponerse al
- * día de golpe al volver a una pestaña). Cada dos segundos guarda las preferencias si cambiaron y copia la
- * carpeta de datos (IDBFS) a IndexedDB, porque una pestaña cerrada no avisa */
-static void web_frame(void *arg)
-{
-    App *app = arg;
-    static double last, pending;
-    static Settings saved;
-    static unsigned ticks;
-    const double frame_ms = 1000.0 / NTSC_FPS;
-    double now = emscripten_get_now();
-    pending += last ? now - last : frame_ms;
-    last = now;
-    if (pending > 4 * frame_ms) pending = frame_ms;
-    frame_input(app);
-    if (!app->running) {
-        finish(app, 1);
-        emscripten_run_script("FS.syncfs(false, function () {})");
-        emscripten_cancel_main_loop();
-        return;
-    }
-    for (int n = 0; pending >= frame_ms && n < 4; n++, pending -= frame_ms) frame_run(app);
-    frame_draw(app);
-    if (++ticks % 120 == 0) {
-        if (memcmp(&saved, &app->cfg, sizeof saved)) {
-            settings_save(&app->cfg, app->settings_path);
-            saved = app->cfg;
-        }
-        emscripten_run_script("if (!Module.syncing) { Module.syncing = 1; FS.syncfs(false, function () { Module.syncing = 0; }); }");
-    }
-}
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -1297,12 +1249,6 @@ int main(int argc, char *argv[])
         app->running = 1;
     }
 
-#ifdef __EMSCRIPTEN__
-    if (app->running) {
-        emscripten_set_main_loop_arg(web_frame, app, 0, 1);    /* no vuelve */
-        return 0;
-    }
-#endif
     const double frame_seconds = 1.0 / NTSC_FPS;
     const Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 next = SDL_GetPerformanceCounter();

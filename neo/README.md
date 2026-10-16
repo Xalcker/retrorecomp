@@ -1,6 +1,6 @@
-
-Hay que clonar con el submódulo de retrorecomp, que trae el código que comparten los cuatro recompiladores (`random_pad.h`, `trace_line.h`): `git clone --recursive`, o `git submodule update --init` en un clon ya hecho. El ZIP de GitHub no lo incluye.
 # NEORecomp
+
+Parte de [retrorecomp](../README.md): el código común está en [`../shared`](../shared/).
 
 Recompilador estático de juegos de Neo Geo, con la misma arquitectura que
 [GENRecomp](https://github.com/Xalcker/GENRecomp), [NESRecomp](https://github.com/Xalcker/NESRecomp) y
@@ -27,7 +27,6 @@ Los mismos paquetes que en GENRecomp, NESRecomp y GBRecomp: compilador C99, `mak
 | macOS | `brew install sdl2 pkg-config` |
 
 ```
-git submodule update --init     # la GUI común (tools/retrorecomp)
 make            # neo (la ventana), neorecomp, neorun y las pruebas
 make testroms   # una sola vez: las SingleStepTests del 68000 y del Z80 (~450 MB, comprimidas) y el juego de prueba
 make test       # pruebas
@@ -80,27 +79,6 @@ corre el código recompilado y el intérprete lado a lado y se detiene en la pri
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
 `sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla (en el Neo Geo van desplazadas 1200 cuadros, lo que tarda la BIOS del AES en dejar el juego, y los valores por omisión son 3000 cuadros por `difftest` y 3600 de traza); `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
-**En el navegador** (WebAssembly): `make -C mslug web` compila el mismo proyecto con Emscripten si está instalado,
-o si no con Docker (la imagen `emscripten/emsdk` de versión fija que dice `platform/web.mk`), y
-`python3 -m http.server -d mslug/web` lo sirve (abrir `http://localhost:8000/mslug.html`). Hace falta haberlo
-recompilado con la BIOS propia (`NEO_BIOS=build/neobios.bin`, o la que se busca primero), que `neorecomp` deja en
-`mslug/bios/neobios.bin` y va dentro del build; la de SNK nunca. La página pide el juego (no va en el build),
-comprueba el SHA1 y lo guarda en el navegador con la tarjeta de memoria, los estados y las preferencias
-(IndexedDB). Es la misma página en los cuatro recompiladores (`retrorecomp/shared/web`); `make webtest` compila la
-del juego del contrato.
-
-**En Android** (APK): `make -C mslug apk` deja `mslug/apk/<nombre>-debug.apk`, que se instala con `adb install -r`.
-Usa el SDK de Android si lo hay (`ANDROID_HOME` o `ANDROID_SDK_ROOT`, y un JDK 17 o más nuevo en `JAVA_HOME`; el JBR
-de Android Studio sirve) y si no, Docker con la imagen de versiones fijas de `platform/android/Dockerfile`, que se
-construye la primera vez (unos 3 GB). La BIOS propia (`mslug/bios/neobios.bin`, si se recompiló con ella) va dentro
-de la APK; la de SNK nunca: sin la propia, el juego la pide en el teléfono. En el teléfono el juego arranca
-horizontal y en pantalla completa, con un mando en pantalla (o un mando Bluetooth); Atrás o el botón de las tres
-rayas abren el menú. La primera vez pide el juego (.neo o .zip) con el selector de archivos del teléfono y lo guarda;
-las partidas y las preferencias se guardan también al dejar la app en segundo plano. `make apk ROM=mslug.zip` mete el
-juego en la APK (solo para uso personal: esa APK no se comparte) y `APK_RELEASE=1` firma una de release con tu
-keystore (ver `platform/android/android.mk`). Es la misma plantilla en los cuatro recompiladores
-(`retrorecomp/shared/android`); `make apktest` compila la del juego del contrato.
-
 ## Herramientas
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp, GBRecomp y
@@ -148,7 +126,7 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 | `src/neorecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `input_host.h` y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `neocard`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
-| `tools/` | `retrorecomp/`: la GUI común con los otros recompiladores y el motor de la prueba de compatibilidad (submódulo); `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
+| `tools/` | `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
 | `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe). |

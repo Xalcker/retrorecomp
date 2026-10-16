@@ -8,6 +8,9 @@
 #define M68K_HOST        Neo
 #define M68K_HOST_HEADER "neo.h"
 
+/* Para la métrica (metrica.h): el intérprete corre ROM si en el PC hay programa (P1, el banco de P2) o BIOS */
+#define M68K_PC_EN_ROM(g, pc) (neo_code_offset((g), (pc)) >= 0)
+
 /* Con la traza activa: P1, los bancos de P2 y la BIOS los marca neo_trace_mark; la RAM ($100000-$10FFFF)
  * la anota quien puso m68k_ram_trace */
 #define M68K_TRACE(g, pc) do {                                                                       \

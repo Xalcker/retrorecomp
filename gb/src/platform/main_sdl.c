@@ -663,6 +663,7 @@ static void power_on(App *app)
 #ifndef GB_INTERP
     if (!app->interp_only) app->gb.recomp_lookup = recomp_lookup;
 #endif
+    metrica_reiniciar(&app->gb);
     app->gb.apu.enabled = 1;
     if (app->uncovered_path) app->gb.trace = mark_uncovered;
     if (gb_has_battery(&app->gb)) load_game(&app->gb, app->save_path);
@@ -1042,13 +1043,13 @@ static void do_action(App *app, int action)
     }
     case A_HELP_GAME: {
         char text[2048], folder[64];
-        u64 total = app->gb.instr_recomp + app->gb.instr_interp;
+        u64 total = metrica.ins_nat + metrica.ins_int;     /* desde que se cargó la ROM (metrica.h) */
         /* Una ruta larga no cabe en el diálogo: se deja el final */
         size_t len = strlen(app->pref);
         if (len > 44) snprintf(folder, sizeof folder, "…%s", app->pref + len - 43);
         else snprintf(folder, sizeof folder, "%s", app->pref);
         snprintf(text, sizeof text, tr(T_GAME_TEXT_FMT), recomp_rom_title, recomp_rom_sha1,
-                 model_label(&app->gb), total ? 100.0 * app->gb.instr_recomp / total : 0.0, folder);
+                 model_label(&app->gb), total ? 100.0 * metrica.ins_nat / total : 0.0, folder);
         message(app, tr(T_GAME_TITLE), text);
         break;
     }

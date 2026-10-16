@@ -48,6 +48,7 @@ int main(int argc, char **argv)
     fclose(f);
     int scripted = c.input || c.nh || c.use_seed;
     double best = 0;
+    u64 total_cyc = 0;
     GoldenHash gh;
     static int16_t snd[AUDIO_BINS * 2];
     if (c.hash) c.repeat = 1;
@@ -56,11 +57,13 @@ int main(int argc, char **argv)
     z80_stat_of = g;                    /* la línea "Z80: ...": cuánto corre nativo, interpretado o saltado */
     for (int k = 0; k < c.repeat; k++) {
         z80_stat = (Z80Stat){ 0, 0, 0 };
+        metrica_reiniciar(g);           /* todas las corridas dan lo mismo: se queda la última (metrica.h) */
         const char *err = NULL;
         if (k) sms_free(g);
         if (sms_load(g, rom, (size_t)sz, c.pos[0], model, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
         cli_rewind(&c);
         golden_init(&gh);
+        u64 cyc0 = g->cyc;
         clock_t t0 = clock();
         for (long i = 0; i < c.frames; i++) {
             if (scripted) { g->pad[0] = cli_pad(&c, i, 0); g->pad[1] = cli_pad(&c, i, 1); }
@@ -75,7 +78,13 @@ int main(int argc, char **argv)
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
         if (k == 0 || s < best) best = s;
+        total_cyc = g->cyc - cyc0;
     }
+#ifdef SMS_RECOMP
+    metrica_imprimir(&metrica, total_cyc);
+#else
+    (void)total_cyc;
+#endif
     z80_stat_print();
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / 59.92);

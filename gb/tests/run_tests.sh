@@ -205,7 +205,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
     if ./gbrecomp$EXE "$rom" -o build/out/halt_stat --name halt_stat > /tmp/gbtest.out 2>&1 \
         && make -s -C build/out/halt_stat -j4 >> /tmp/gbtest.out 2>&1 \
         && build/out/halt_stat/difftest$EXE "$rom" --frames 120 --seed 1 >> /tmp/gbtest.out 2>&1 \
-        && grep -qx 'Ciclos: 6.6 % recompilado, 89.3 % en HALT, 4.1 % en interrupciones, 0.0 % en el intérprete' /tmp/gbtest.out; then
+        && grep -q '^Métrica: .*; ciclos: 6.6% nativo, 0.0% intérprete en ROM, 0.0% intérprete en RAM, 4.1% entrada a interrupciones, 89.3% espera (HALT/STOP), 0.0% otros$' /tmp/gbtest.out; then
         pasa=$((pasa + 1))
     else
         falla=$((falla + 1))

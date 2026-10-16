@@ -269,25 +269,41 @@ static void interrupt(struct M68K_HOST *g, int lvl)
  * un puntero para que el CPU no dependa del resto de la consola, como en m68ktest) */
 void (*m68k_ram_trace)(struct M68K_HOST *g, u32 pc);
 
+/* La métrica común (metrica.h) de la máquina metrica_de: la entrada a una interrupción, la espera en STOP y lo que
+ * ejecuta el intérprete, de ROM o de RAM según M68K_PC_EN_ROM (m68k_host.h de la consola). El CPU detenido (doble
+ * falta) no cuenta: sale como «otros» */
+#ifndef M68K_PC_EN_ROM
+#define M68K_PC_EN_ROM(g, pc) 1
+#endif
+METRICA_DEFINIR     /* aquí y no en gen.c/neo.c: m68ktest enlaza el núcleo sin el resto de la consola */
+
 /* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
 static void step_body(struct M68K_HOST *g)
 {
     M68k *c = &g->cpu;
     if (c->halted) { m68k_idle(g, 4); return; }
+    u64 c0 = g->cyc;
     int lvl = c->ipl;
     if (lvl > c->ipm || (lvl == 7 && c->nmi_edge)) {
         c->nmi_edge = 0;
         interrupt(g, lvl);
+        METRICA(g, irq, g->cyc - c0);
     } else if (c->stopped) {
         m68k_idle(g, 4);
+        METRICA(g, espera, 4);
     } else {
         int trace = c->t;
         u16 op = c->ir;
+        u32 pc0 = c->pc;
         if (g->trace) M68K_TRACE(g, c->pc);            /* lo que ejecuta el intérprete (m68k_host.h) */
         kind_fn[kind_tab[op]](g, op, NULL, c->pc);
         if (trace) {
             X xs = { g, c, NULL, 0, c->pc, c->pc + 2, c->ir, c->pc + 2 };
             m68k_exception(&xs, VEC_TRACE, c->pc, 4);
+        }
+        if ((const void *)g == metrica_de) {
+            metrica.ins_int++;
+            if (M68K_PC_EN_ROM(g, pc0)) metrica.rom += g->cyc - c0; else metrica.ram += g->cyc - c0;
         }
     }
 }

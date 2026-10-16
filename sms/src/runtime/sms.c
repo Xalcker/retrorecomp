@@ -63,15 +63,28 @@ static void trace_note(Sms *g, u16 pc)
     }
 }
 
+METRICA_DEFINIR
+
 void sms_step(Sms *g)
 {
     Z80 *z = &g->z80;
-    if (z->nmi) g->nmi_count++;
-    else if (z->irq && z->iff1 && !z->ei) g->irq_count++;
-    else if (g->cart.trace && !z->halted) trace_note(g, z->pc);
+    int que = 0;                /* para la métrica: 0 instrucción, 1 entrada a una interrupción, 2 HALT */
+    u16 pc0 = z->pc;
+    if (z->nmi) { g->nmi_count++; que = 1; }
+    else if (z->irq && z->iff1 && !z->ei) { g->irq_count++; que = 1; }
+    else if (z->halted) que = 2;
+    else if (g->cart.trace) trace_note(g, z->pc);
     int t = z80_step(g, z);
     g->cyc += (u64)t;
     Z80_STAT(g, interp, (u64)t);
+    if ((const void *)g == metrica_de) {
+        if (que == 1) metrica.irq += (u64)t;
+        else if (que == 2) metrica.espera += (u64)t;
+        else {
+            metrica.ins_int++;
+            if (bus_rom_offset(g, pc0) >= 0) metrica.rom += (u64)t; else metrica.ram += (u64)t;
+        }
+    }
     sms_after_step(g);
 }
 
@@ -85,6 +98,7 @@ static int halt_skip(Sms *g)
     u64 n = g->vdp.next_event > g->cyc ? (g->vdp.next_event - g->cyc + 3) / 4 : 1;
     g->cyc += 4 * n;
     Z80_STAT(g, skipped, 4 * n);
+    METRICA(g, espera, 4 * n);
     z->r = (u8)((z->r & 0x80) | ((z->r + n) & 0x7F));
     z->q = 0;
     z->p = 0;
@@ -105,7 +119,8 @@ int sms_recomp_step(Sms *g)
         Z80RecompFn fn = recomp_lookup(g, z->pc);
         if (fn) {
             sms_rc_map_ver = g->map.map_ver;
-            if (fn(g, 0)) return 1;
+            u64 c0 = g->cyc;
+            if (fn(g, 0)) { METRICA(g, nat, g->cyc - c0); return 1; }
         }
     }
     sms_step(g);

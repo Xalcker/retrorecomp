@@ -31,6 +31,7 @@ int main(int argc, char **argv)
     }
     int scripted = c.input || c.nh || c.use_seed;
     double best = 0;
+    u64 total_cyc = 0;
     GoldenHash gh;
     static int16_t snd[AUDIO_BINS * 2];
     if (c.hash) c.repeat = 1;
@@ -43,6 +44,8 @@ int main(int argc, char **argv)
         if (neo_load(&g, c.pos[0], NULL, &err)) { fprintf(stderr, "%s: %s\n", c.pos[0], err); return 2; }
         cli_rewind(&c);
         z80_stat = (Z80Stat){ 0 };      /* todas las corridas dan lo mismo: se queda la última */
+        metrica_reiniciar(&g);          /* lo mismo con la métrica común (metrica.h) */
+        u64 cyc0 = g.cyc;
         golden_init(&gh);
         clock_t t0 = clock();
         for (long i = 0; i < c.frames; i++) {
@@ -58,10 +61,16 @@ int main(int argc, char **argv)
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
         if (k == 0 || s < best) best = s;
+        total_cyc = g.cyc - cyc0;
     }
     if (c.perfil) prof_stop();
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K)));
+#ifdef NEO_RECOMP
+    metrica_imprimir(&metrica, total_cyc);
+#else
+    (void)total_cyc;
+#endif
     z80_stat_print();
     if (c.perfil) prof_print();
     if (c.hash) golden_print(&gh);

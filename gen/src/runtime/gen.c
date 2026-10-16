@@ -104,9 +104,12 @@ static int native(Gen *g)
     if (gen_force_interp) return 0;
     RecompFn fn = recomp_lookup(g, g->cpu.pc);
     if (!fn) return 0;
-    u64 c0 = g->cyc;
+    u64 c0 = g->cyc, espera0 = metrica.espera;
     int r = fn(g);
-    if (r) { g->cyc_recomp += g->cyc - c0; g->recomp_calls++; }
+    if (r) {
+        g->cyc_recomp += g->cyc - c0; g->recomp_calls++;
+        METRICA(g, nat, g->cyc - c0 - (metrica.espera - espera0));     /* la métrica común (metrica.h) */
+    }
     return r;
 }
 

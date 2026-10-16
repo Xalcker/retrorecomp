@@ -17,7 +17,7 @@
             c->pc = (pc_);                                      \
             if (gb_check(g)) return;                            \
         }                                                       \
-        g->instr_recomp++;                                      \
+        metrica.ins_nat++;                                      \
     } while (0)
 
 /* Generado por gbrecomp (gen/dispatch.c y gen/recomp_info.c) */

@@ -172,6 +172,25 @@ def num(rx, texto, tipo=float):
     return tipo(m.group(1)) if m else None
 
 
+# La línea común de difftest y bench de los cinco (shared/metrica.h). La de antes, "N% de los ciclos" (re_metrica),
+# se sigue imprimiendo una versión más
+RE_METRICA = re.compile(
+    r"Métrica: ([\d.]+)% de las instrucciones nativas \((\d+) de (\d+)\); ciclos: ([\d.]+)% nativo, "
+    r"([\d.]+)% intérprete en ROM, ([\d.]+)% intérprete en RAM, ([\d.]+)% entrada a interrupciones, "
+    r"([\d.]+)% espera \(HALT/STOP\), ([\d.]+)% otros")
+
+
+def leer_metrica(texto):
+    """La línea "Métrica: ..." como dict (None si no está): el % de instrucciones nativas, cuántas, y el reparto
+    de los ciclos (nativo, rom, ram, irq, espera, otros)"""
+    m = RE_METRICA.search(texto)
+    if not m:
+        return None
+    g = m.groups()
+    return {"nativas_pct": float(g[0]), "nativas": int(g[1]), "instrucciones": int(g[2]),
+            "ciclos": dict(zip(("nativo", "rom", "ram", "irq", "espera", "otros"), map(float, g[3:])))}
+
+
 RE_RUTA = re.compile(r"(?<![\w])(?:[A-Za-z]:[\\/]|/(?:Users|home|private|tmp|var|mnt|media|Volumes)/)")
 
 
@@ -558,6 +577,11 @@ class Prueba:
                                     self.entradas_diff, "--seed", s, "--uncovered", unc], cwd=carpeta, timeout=2400)
                 d = {"semilla": s, "ok": rc == 0, "segundos": round(dt, 1)}      # 1 con diferencias, 2 con error
                 d["recompilado_pct"] = num(S.re_metrica, o)
+                met = leer_metrica(o)
+                if met:
+                    d["metrica"] = met
+                    if d["recompilado_pct"] is None:        # sin la línea de antes: los ciclos nativos
+                        d["recompilado_pct"] = met["ciclos"]["nativo"]
                 d["interpretadas"] = num(r"interpretadas: (\d+)", o, int) or 0
                 if not d["ok"]:
                     lin = [l.strip() for l in o.splitlines()

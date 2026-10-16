@@ -9,6 +9,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "metrica.h"     /* la métrica común: la cuentan nes_interrupt y el despachador (recomp.h) */
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

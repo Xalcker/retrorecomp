@@ -19,6 +19,7 @@ static inline u8 pull(NES *n) { n->cpu.sp++; return RD(0x100 | n->cpu.sp); }
 void nes_interrupt(NES *n, int brk)
 {
     Cpu *c = &n->cpu;
+    u64 c0 = n->cyc;
     if (brk) RD(c->pc++); else { RD(c->pc); RD(c->pc); }
     push(n, c->pc >> 8);
     push(n, c->pc & 0xFF);
@@ -28,6 +29,7 @@ void nes_interrupt(NES *n, int brk)
     if (n->prev_need_nmi) { n->need_nmi = 0; vec = 0xFFFA; }
     c->pc = RD(vec) | (RD(vec + 1) << 8);
     n->prev_need_nmi = 0; n->prev_run_irq = 0;
+    if (!brk) METRICA(n, irq, n->cyc - c0);     /* BRK es una instrucción: se queda donde corrió */
 }
 
 /* AHX, TAS, SHY, SHX: escriben un registro AND (byte alto de la base + 1). Se llama justo después de la lectura

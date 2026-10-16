@@ -150,11 +150,12 @@ static int step_b(void)
         if (fn) {
             jmp_buf jb;
             volatile int r = 0;
+            u64 c0 = B.cyc, espera0 = metrica.espera;
             B.jb = &jb;
             if (setjmp(jb) == 0) r = fn(&B);
             else { gen_after_step(&B); r = 1; }     /* un error de dirección terminó la instrucción */
             B.jb = NULL;
-            if (r) return 1;
+            if (r) { METRICA(&B, nat, B.cyc - c0 - (metrica.espera - espera0)); return 1; }    /* como native() */
         }
     }
     m68k_step(&B);
@@ -202,7 +203,8 @@ int main(int argc, char **argv)
     if (c.executed) gen_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0;
+    u64 recomp_cycles = 0, cyc0 = B.cyc;
+    metrica_reiniciar(&B);          /* la métrica común: la de B (metrica.h) */
     u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
     for (long f = 0; f < frames; f++) {
         A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
@@ -241,6 +243,7 @@ int main(int argc, char **argv)
     z80_stat_print();
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * (double)recomp_cycles / (double)B.cyc : 0.0);
+    metrica_imprimir(&metrica, B.cyc - cyc0);
     if (c.uncovered) {
         size_t cnt = gen_trace_count(&B);
         if (!gen_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }

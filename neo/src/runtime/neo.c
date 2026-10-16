@@ -195,7 +195,11 @@ void m68k_idle_skip(Neo *g, u32 head, u32 br, u64 at)
         if (!(a < 0x200000 || (a >= 0xC00000 && a < 0xD00000))) return;         /* solo el programa, la RAM y la BIOS */
     }
     u64 len = g->cyc - at, e = g->lspc.next_event;
-    if (len && e > g->cyc + len) g->cyc += (e - 1 - g->cyc) / len * len;
+    if (len && e > g->cyc + len) {
+        u64 salto = (e - 1 - g->cyc) / len * len;
+        g->cyc += salto;
+        METRICA(g, espera, salto);      /* un bucle de espera saltado: espera, como STOP (metrica.h) */
+    }
 }
 
 static int frame_after(Neo *g)
@@ -214,9 +218,12 @@ static int native(Neo *g)
     if (neo_force_interp) return 0;
     RecompFn fn = recomp_lookup(g, g->cpu.pc);
     if (!fn) return 0;
-    u64 c0 = g->cyc;
+    u64 c0 = g->cyc, espera0 = metrica.espera;
     int r = fn(g);
-    if (r) { g->cyc_recomp += g->cyc - c0; g->recomp_calls++; }
+    if (r) {
+        g->cyc_recomp += g->cyc - c0; g->recomp_calls++;
+        METRICA(g, nat, g->cyc - c0 - (metrica.espera - espera0));     /* la métrica común (metrica.h) */
+    }
     return r;
 }
 

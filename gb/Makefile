@@ -42,7 +42,7 @@ endif
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 # Lo del runtime que vive en shared/ (console.h)
-SHARED_RT := console.h golden_hash.h
+SHARED_RT := console.h golden_hash.h metrica.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 .PHONY: all clean test dist testroms
@@ -104,7 +104,7 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(BUILD)/libgbrt.a
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
 # (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
-                  recomp.h console.h save.c sgb.c compat.c gb_golden.h golden_hash.h
+                  recomp.h console.h save.c sgb.c compat.c gb_golden.h golden_hash.h metrica.h
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h player_touch.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
@@ -151,7 +151,7 @@ testroms:
 
 # Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.sh)
 $(BUILD)/sgb_controles$(EXE): tests/sgb_controles.c $(BUILD)/libgbrt.a
-	$(CC) $(CFLAGS) -o $@ tests/sgb_controles.c $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -I$(SHARED) -o $@ tests/sgb_controles.c $(BUILD)/libgbrt.a
 
 # (en Windows build/ ya existe por la carpeta temporal: build/gen va aparte)
 $(BUILD) $(BUILD)/gen:
@@ -164,11 +164,11 @@ $(BUILD)/gen_interp: src/tools/gen_interp.c src/emit/sm83_emit.c src/emit/sm83_e
 $(BUILD)/gen/interp_ops.inc: $(BUILD)/gen_interp | $(BUILD)/gen
 	$(BUILD)/gen_interp $@
 
-$(BUILD)/rt_interp.o: src/runtime/interp.c $(BUILD)/gen/interp_ops.inc src/runtime/cpu_ops.h src/runtime/gb.h
-	$(CC) $(CFLAGS) -I$(BUILD)/gen -c -o $@ $<
+$(BUILD)/rt_interp.o: src/runtime/interp.c $(BUILD)/gen/interp_ops.inc src/runtime/cpu_ops.h src/runtime/gb.h $(SHARED)/metrica.h
+	$(CC) $(CFLAGS) -I$(BUILD)/gen -I$(SHARED) -c -o $@ $<
 
-$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gb.h src/runtime/cpu_ops.h | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(BUILD)/rt_%.o: src/runtime/%.c src/runtime/gb.h src/runtime/cpu_ops.h $(SHARED)/metrica.h | $(BUILD)
+	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -c -o $@ $<

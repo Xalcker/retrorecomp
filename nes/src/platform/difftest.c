@@ -158,7 +158,8 @@ int main(int argc, char **argv)
     if (c.executed) nes_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0;
+    u64 recomp_cycles = 0, cyc0 = B.cyc;
+    metrica_reiniciar(&B);
     u64 interp_zone[4] = { 0 };     /* ciclos del intérprete por zona del PC: PRG, RAM, RAM del cartucho, otra */
     for (long f = 0; f < frames; f++) {
         A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
@@ -167,11 +168,10 @@ int main(int argc, char **argv)
         while (!B.ppu.frame_done) {
             u16 pc0 = B.cpu.pc; u64 c0 = B.cyc;
             RecompFn fn = recomp_lookup(&B, B.cpu.pc);
-            if (fn && !B.cpu.jammed) { fn(&B); recomp_calls++; recomp_cycles += B.cyc - c0; }
-            else {
-                cpu_step(&B);
-                interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
-            }
+            if (B.cpu.jammed) fn = NULL;
+            nes_paso(&B, fn);
+            if (fn) { recomp_calls++; recomp_cycles += B.cyc - c0; }
+            else interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
             calls++;
             while (A.cyc < B.cyc) cpu_step(&A);
             if (compare(0) || A.ppu.frame_done != B.ppu.frame_done) {
@@ -199,6 +199,7 @@ int main(int argc, char **argv)
                100.0 * interp_zone[2] / interp, 100.0 * interp_zone[3] / interp);
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * recomp_cycles / B.cyc : 0.0);
+    metrica_imprimir(&metrica, B.cyc - cyc0);
     if (uncovered) {
         size_t cnt = 0;
         for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;

@@ -121,6 +121,8 @@ if [ -x ./nesrecomp ]; then
         else echo "FALLA el ejecutable y el código de RAM"; fail=1; fi
     fi
 fi
+# difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
+sh tests/estricto.sh || fail=1
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x ./nes ]; then

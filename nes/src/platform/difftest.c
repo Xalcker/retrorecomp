@@ -3,7 +3,8 @@
  * se detiene en la primera diferencia (registros, RAM, PPU, APU, mapper...).
  *
  *   difftest rom.nes [--frames N] [--input archivo] [--seed S] [--uncovered archivo]
- *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]
+ *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto]
+ *                    [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: difftest rom.nes cuadros [boton:desde-hasta ...])
  * Las mismas opciones que difftest de GBRecomp.
  *
@@ -17,6 +18,9 @@
  *                las mismas entradas, sin comparar.
  * --executed f   escribe qué bytes de PRG se ejecutaron (los registra la máquina A): una letra
  *                por byte, C = ejecutado, 64 por línea; el formato de nesrecomp --codemap.
+ * --estricto     falla (código 1) en la primera instrucción de PRG que B corre con el intérprete porque no está
+ *                recompilada ("ESTRICTO: código que falta en $PC..."). El código en RAM, que se descubre al
+ *                correr, sí pasa. Al final, "Intérprete por motivo: ..." cuenta las entradas al intérprete.
  *
  * La máquina B corre función por función (recompilada, o el intérprete donde no
  * hay código). Tras cada función, la máquina A (solo intérprete) avanza hasta el
@@ -134,7 +138,7 @@ int main(int argc, char **argv)
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 300)) {
         fprintf(stderr, "uso: difftest rom.nes [--frames N] [--input archivo] [--seed S] [--uncovered archivo]\n"
-                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]\n");
+                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]\n");
         return 2;
     }
     const char *uncovered = c.uncovered;
@@ -169,7 +173,13 @@ int main(int argc, char **argv)
             u16 pc0 = B.cpu.pc; u64 c0 = B.cyc;
             RecompFn fn = recomp_lookup(&B, B.cpu.pc);
             if (B.cpu.jammed) fn = NULL;
+            unsigned long long falta0 = metrica.motivo[MOTIVO_FALTA];
             nes_paso(&B, fn);
+            if (c.estricto && metrica.motivo[MOTIVO_FALTA] != falta0) {
+                printf("ESTRICTO: código que falta en $%04X (PRG $%05lX), cuadro %ld: el intérprete ejecutó una "
+                       "instrucción de la ROM que no está recompilada\n", pc0, (unsigned long)mapper_prg_offset(&B.cart, pc0), f);
+                return 1;
+            }
             if (fn) { recomp_calls++; recomp_cycles += B.cyc - c0; }
             else interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
             calls++;
@@ -200,6 +210,7 @@ int main(int argc, char **argv)
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * recomp_cycles / B.cyc : 0.0);
     metrica_imprimir(&metrica, B.cyc - cyc0);
+    metrica_imprimir_motivos(&metrica);
     if (uncovered) {
         size_t cnt = 0;
         for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;

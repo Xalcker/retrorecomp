@@ -11,6 +11,8 @@
  *   --screens DIR    (difftest) guarda una captura PNG cada --every N cuadros (600 si no se dice)
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
  *   --executed F     (difftest) escribe qué bytes del programa se ejecutaron (formato de --codemap)
+ *   --estricto       (difftest, por ahora en NES) falla en la primera instrucción de la ROM que corre el intérprete
+ *                    porque no está recompilada (el motivo «código que falta» de metrica.h)
  *   --expect PNG     (*shot) pasa si la pantalla final es idéntica al PNG, como gbtest --expect
  *   --hash           (*shot) imprime un hash de todos los cuadros y de todo el audio, como gbtest --hash
  * También valen el número de cuadros como argumento suelto y los botones sostenidos
@@ -50,7 +52,7 @@ typedef struct {
     int use_seed; unsigned seed; RandomPad rp;
     int repeat, perfil;
     const char *uncovered;
-    const char *screens, *executed; long every; int bench;     /* solo difftest */
+    const char *screens, *executed; long every; int bench, estricto;     /* solo difftest */
     const char *expect; int hash;                               /* solo *shot */
     CliHold h[64]; int nh;
     const char *extra[64]; int nextra;  /* sueltos con forma de botón que no se reconocieron */
@@ -88,6 +90,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--every") && i + 1 < argc) c->every = atol(argv[++i]);
         else if (!strcmp(a, "--executed") && i + 1 < argc) c->executed = argv[++i];
         else if (!strcmp(a, "--bench")) c->bench = 1;
+        else if (!strcmp(a, "--estricto")) c->estricto = 1;
         else if (!strcmp(a, "--expect") && i + 1 < argc) c->expect = argv[++i];
         else if (!strcmp(a, "--hash")) c->hash = 1;
         else if (CLI_HOST_OPTION(c, a)) {}

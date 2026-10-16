@@ -69,8 +69,8 @@ static inline void nes_paso(NES *n, RecompFn fn)
     if (fn) { fn(n); n->cyc_recomp += n->cyc - c0; }
     else cpu_step(n);
     if (n != metrica_de) return;
-    if (!fn) metrica.motivo[nes_force_interp ? MOTIVO_FORZADO : parado ? MOTIVO_DETENIDO
-                            : pc0 >= 0x8000 ? MOTIVO_FALTA : MOTIVO_RAM]++;
+    if (!fn) metrica_motivo(n, nes_force_interp ? MOTIVO_FORZADO : parado ? MOTIVO_DETENIDO
+                               : pc0 >= 0x8000 ? MOTIVO_FALTA : MOTIVO_RAM, pc0);
     if (parado) return;
     u64 d = n->cyc - c0 - (metrica.irq - irq0);
     if (fn) metrica.nat += d;

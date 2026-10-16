@@ -804,6 +804,10 @@ void gb_run(GB *g, u64 until)
         } else if (g == metrica_de) {
             u64 c0 = g->cyc;
             u16 pc0 = c->pc;
+            /* Por qué el intérprete: a propósito (sin código recompilado, tras EI, bug de HALT, conflicto con la DMA de
+             * OAM) o porque no hay función para el PC: en ROM, código que falta; en RAM, código que se descubre al correr */
+            metrica_motivo(g, !g->recomp_lookup || after_ei || c->halt_bug ? MOTIVO_FORZADO
+                              : pc0 < 0x8000 ? (dma_conflict(g, pc0) ? MOTIVO_FORZADO : MOTIVO_FALTA) : MOTIVO_RAM, pc0);
             gb_interp_step(g);
             if (pc0 < 0x8000) metrica.rom += g->cyc - c0; else metrica.ram += g->cyc - c0;
             metrica.ins_int++;

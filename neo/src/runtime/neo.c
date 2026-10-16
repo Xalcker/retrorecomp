@@ -215,11 +215,13 @@ int neo_force_interp;
 /* Código recompilado donde lo hay; el intérprete en el resto (RAM, lo no descubierto) */
 static int native(Neo *g)
 {
-    if (neo_force_interp) return 0;
+    if (neo_force_interp) { neo_motivo(g, g->cpu.pc); return 0; }
     RecompFn fn = recomp_lookup(g, g->cpu.pc);
-    if (!fn) return 0;
+    if (!fn) { neo_motivo(g, g->cpu.pc); return 0; }
     u64 c0 = g->cyc, espera0 = metrica.espera;
+    u32 pc0 = g->cpu.pc;
     int r = fn(g);
+    if (!r) neo_motivo(g, pc0);         /* la función no tiene ese PC: lo corre el intérprete */
     if (r) {
         g->cyc_recomp += g->cyc - c0; g->recomp_calls++;
         METRICA(g, nat, g->cyc - c0 - (metrica.espera - espera0));     /* la métrica común (metrica.h) */

@@ -67,6 +67,13 @@ static inline void m68k_leave(Neo *g, u32 pc)
 
 /* Generado por neorecomp (gen/dispatch.c, gen/info.c, bios/bios.c) */
 RecompFn recomp_lookup(Neo *g, u32 pc);
+
+/* El despachador no tuvo código recompilado para el PC (o el intérprete va forzado): el motivo para la métrica
+ * (metrica.h). En la ROM es código que falta, lo que difftest --estricto no deja pasar */
+static inline void neo_motivo(Neo *g, u32 pc)
+{
+    metrica_motivo(g, neo_force_interp ? MOTIVO_FORZADO : neo_code_offset(g, pc) >= 0 ? MOTIVO_FALTA : MOTIVO_RAM, pc);
+}
 RecompFn recomp_bios_lookup(Neo *g, u32 off);      /* off: desplazamiento en la BIOS */
 /* neo.c: el bucle de espera de head a br, que llegó a head en el ciclo `at` de la vuelta anterior */
 void m68k_idle_skip(Neo *g, u32 head, u32 br, u64 at);

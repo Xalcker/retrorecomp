@@ -249,6 +249,10 @@ if [ -x "$(exe neo)" ] && [ -f roms/mslug.zip ] && [ -f roms/aes.zip ] && { [ -f
 fi
 tiempo "juegos de roms/"
 
+# difftest --estricto: lo que se trazó queda recompilado
+sh tests/estricto.sh || fallas=$((fallas + 1))
+tiempo "--estricto"
+
 echo "      (total: $(( $(date +%s) - T0 )) s)"
 [ $fallas -eq 0 ] && echo "Todo bien." || echo "$fallas fallas."
 [ $fallas -eq 0 ]

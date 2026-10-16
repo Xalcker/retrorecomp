@@ -3,7 +3,7 @@
  * diferencia (Z80, RAM, mapper, VDP, PSG, mandos, RAM del cartucho...).
  *
  *   difftest rom.sms [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--model sms|gg]
- *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]
+ *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: difftest rom.sms cuadros [boton:desde-hasta ...])
  * Las mismas opciones que el difftest de los otros recompiladores.
  *
@@ -16,6 +16,9 @@
  *                entradas, sin comparar.
  * --executed f   escribe qué bytes de la ROM se ejecutaron (los registra la máquina A): una letra por byte,
  *                C = ejecutado, 64 por línea.
+ * --estricto     falla (código 1) en la primera instrucción de la ROM que B corre con el intérprete porque no
+ *                está recompilada ("ESTRICTO: código que falta en $PC..."). El código en RAM sí pasa. Al final,
+ *                "Intérprete por motivo: ..." cuenta las entradas al intérprete (metrica.h).
  *
  * La máquina B corre función por función (recompilada, o una instrucción del intérprete donde no hay código). Tras
  * cada paso, la máquina A (solo intérprete: z80_interp_only) avanza hasta el mismo ciclo y se comparan. Las dos
@@ -202,6 +205,7 @@ int main(int argc, char **argv)
             int zone = bus_rom_offset(&B, pc0) >= 0 ? 0 : pc0 >= 0x8000 ? 1 : 2;
             u64 sk0 = z80_stat.skipped;
             int native = sms_recomp_step(&B);
+            if (c.estricto && metrica_estricto(f, 4, NULL)) return 1;
             if (native) { recomp_calls++; recomp_cycles += B.cyc - c0; }
             else if (z80_stat.skipped != sk0) halt_cycles += B.cyc - c0;
             else interp_zone[zone] += B.cyc - c0;
@@ -233,6 +237,7 @@ int main(int argc, char **argv)
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc > halt_cycles ? 100.0 * (double)recomp_cycles / (double)(B.cyc - halt_cycles) : 0.0);
     metrica_imprimir(&metrica, B.cyc - cyc0);
+    metrica_imprimir_motivos(&metrica);
     if (c.uncovered) {
         size_t cnt = sms_trace_count(&B);
         if (!sms_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }

@@ -3,7 +3,7 @@
  * primera diferencia (68000, RAM, VDP, Z80, YM2612, PSG, mandos, cartucho...).
  *
  *   difftest rom.bin [--frames N] [--input archivo] [--seed S] [--uncovered archivo]
- *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]
+ *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: difftest rom.bin cuadros [boton:desde-hasta ...])
  * Las mismas opciones que difftest de NESRecomp y GBRecomp.
  *
@@ -17,6 +17,9 @@
  *                mismas entradas, sin comparar.
  * --executed f   escribe qué bytes de ROM se ejecutaron (los registra la máquina A): una letra por
  *                byte, C = ejecutado, 64 por línea.
+ * --estricto     falla (código 1) en la primera instrucción de la ROM que B corre con el intérprete porque no
+ *                está recompilada ("ESTRICTO: código que falta en $PC..."). El código en RAM sí pasa. Al final,
+ *                "Intérprete por motivo: ..." cuenta las entradas al intérprete (metrica.h).
  *
  * La máquina B corre función por función (recompilada, o el intérprete donde no hay código). Tras
  * cada función, la máquina A (solo intérprete) avanza hasta el mismo ciclo y se comparan. Las dos
@@ -157,6 +160,7 @@ static int step_b(void)
             B.jb = NULL;
             if (r) { METRICA(&B, nat, B.cyc - c0 - (metrica.espera - espera0)); return 1; }    /* como native() */
         }
+        gen_motivo(&B, B.cpu.pc);       /* sin código recompilado para el PC: el motivo (metrica.h) */
     }
     m68k_step(&B);
     gen_after_step(&B);
@@ -178,7 +182,7 @@ int main(int argc, char **argv)
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 300)) {
         fprintf(stderr, "uso: difftest rom.bin [--frames N] [--input archivo] [--seed S] [--uncovered archivo]\n"
-                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]\n");
+                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]\n");
         return 2;
     }
     size_t len;
@@ -214,6 +218,7 @@ int main(int argc, char **argv)
             u32 pc0 = B.cpu.pc;
             u64 c0 = B.cyc;
             int native = step_b();
+            if (c.estricto && metrica_estricto(f, 6, NULL)) return 1;
             if (native) { recomp_calls++; recomp_cycles += B.cyc - c0; }
             else interp_zone[pc0 < 0x400000 ? 0 : pc0 >= 0xE00000 ? 1 : 2] += B.cyc - c0;
             calls++;
@@ -244,6 +249,7 @@ int main(int argc, char **argv)
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc ? 100.0 * (double)recomp_cycles / (double)B.cyc : 0.0);
     metrica_imprimir(&metrica, B.cyc - cyc0);
+    metrica_imprimir_motivos(&metrica);
     if (c.uncovered) {
         size_t cnt = gen_trace_count(&B);
         if (!gen_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }

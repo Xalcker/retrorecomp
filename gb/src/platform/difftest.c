@@ -7,7 +7,7 @@
  *
  * Uso: difftest rom.gb [--frames N] [--input archivo] [--seed S] [--save archivo.sav]
  *                     [--uncovered archivo]
- *                     [--screens carpeta [--every N]] [--bench] [--executed archivo]
+ *                     [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto]
  *   --input reproduce entradas grabadas (ver inputs.h). --seed suma el mando
  *   aleatorio de random_pad.h (el mismo que en NESRecomp y GENRecomp). Sin --input
  *   ni --seed no se pulsa nada, como en el difftest de los otros dos.
@@ -21,6 +21,10 @@
  *   WRAM o HRAM (para alimentar gbrecomp --trace; ver ramtrace.h).
  *   --executed escribe qué bytes de ROM se ejecutaron (los registra la máquina
  *   de referencia; formato de gbrecomp --codemap).
+ *   --estricto falla (código 1) al final del cuadro en que el intérprete ejecutó una instrucción de ROM
+ *   que no está recompilada ("ESTRICTO: código que falta en $PC..."; el primer PC). El código en RAM y
+ *   lo que el despachador interpreta a propósito (tras EI, bug de HALT) sí pasan. Al final,
+ *   "Intérprete por motivo: ..." cuenta las entradas al intérprete.
  * Salida y código de salida como en NESRecomp, GENRecomp y NEORecomp: sin diferencias,
  * "difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de los ciclos)"
  * y 0; con diferencias, líneas "DIFERENCIA ..." y 1; 2 si no pudo correr.
@@ -354,7 +358,7 @@ int main(int argc, char **argv)
     const char *save_out = NULL;
     int frames_given = 0;
     long frames = 3600, every = 600;
-    int bench = 0, model = GB_MODEL_AUTO;
+    int bench = 0, estricto = 0, model = GB_MODEL_AUTO;
     const char *palette = NULL;
     u32 seed = 1;
     int seed_given = 0;
@@ -370,6 +374,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--bench")) bench = 1;
+        else if (!strcmp(argv[i], "--estricto")) estricto = 1;
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
             model = model_from_name(argv[++i]);
             if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
@@ -378,7 +383,7 @@ int main(int argc, char **argv)
         else rom_path = argv[i];
     }
     if (!rom_path) {
-        fprintf(stderr, "uso: difftest rom.gb [--frames N] [--seed S] [--uncovered archivo]\n");
+        fprintf(stderr, "uso: difftest rom.gb [--frames N] [--seed S] [--uncovered archivo] [--estricto]\n");
         return 2;
     }
 
@@ -469,6 +474,7 @@ int main(int argc, char **argv)
             ok = 0;
             break;
         }
+        if (estricto && metrica_estricto(frame, 4, NULL)) return 1;
         if (screens && every > 0 && (frame + 1) % every == 0) {
             char path[1024];
             snprintf(path, sizeof path, "%s/cuadro_%06ld.png", screens, frame + 1);
@@ -484,6 +490,7 @@ int main(int argc, char **argv)
      * porcentaje de la línea de arriba cuenta también el tiempo en HALT; esta lo separa). Lo que el despachador
      * no atribuye (esperas de la DMA por HBlank) sale como «otros» */
     if (ok) metrica_imprimir(&metrica, rec.cyc);
+    metrica_imprimir_motivos(&metrica);
     if (metrica.ins_int)
         printf("Intérprete por zona: ROM %.1f%%, RAM de cartucho %.1f%%, WRAM %.1f%%, HRAM %.1f%%\n",
                100.0 * interp_zone[0] / metrica.ins_int, 100.0 * interp_zone[1] / metrica.ins_int,

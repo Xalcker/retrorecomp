@@ -18,8 +18,8 @@
  * --input2 a --input4: guiones de los controles 2-4 del Super Game Boy (para
  * los juegos de varios jugadores).
  * --hash: imprime un hash de todos los cuadros (pantalla del GB y, en el SGB,
- * la de la SNES con el borde) y de todo el audio. Lo usa tests/golden.sh para
- * comprobar que una optimización no cambia nada de lo que se ve o se oye.
+ * la de la SNES con el borde) y de todo el audio (gb_golden.h, como gbshot
+ * --hash, que es el que usa tests/golden.sh).
  * Código de salida: 0 pasó, 1 falló, 2 sin resultado.
  */
 #include <stdio.h>
@@ -28,6 +28,7 @@
 
 #include "console.h"
 #include "../runtime/gb.h"
+#include "../runtime/gb_golden.h"
 #include "png.h"
 #include "../platform/inputs.h"
 
@@ -97,13 +98,6 @@ static int serial_contains(GB *g, const char *text)
     return 0;
 }
 
-/* FNV-1a de 64 bits, acumulable */
-static void fnv(u64 *h, const void *data, size_t n)
-{
-    const unsigned char *p = data;
-    for (size_t i = 0; i < n; i++) *h = (*h ^ p[i]) * 0x100000001B3ull;
-}
-
 int main(int argc, char **argv)
 {
     console_utf8();
@@ -112,7 +106,8 @@ int main(int argc, char **argv)
     const char *palette = NULL;
     double seconds = 30;
     int show_serial = 0, no_block = 0, mooneye = 0, until_ldbb = 0, hash = 0;
-    u64 h_img = 0xCBF29CE484222325ull, h_aud = 0xCBF29CE484222325ull;
+    GoldenHash gh;
+    golden_init(&gh);
     const char *input_path = NULL;
     InputScript script;
     const char *extra_path[3] = { NULL, NULL, NULL };   /* controles 2-4 del SGB */
@@ -191,13 +186,7 @@ int main(int argc, char **argv)
         for (int k = 0; k < 3; k++)
             if (extra_path[k]) gb_set_pad_player(&g, k + 1, inputs_pad(&extra[k], f));
         gb_run_frame(&g);
-        if (hash) {
-            static float aud[4096 * 2];
-            int n;
-            fnv(&h_img, gb_framebuffer(&g), GB_SCREEN_W * GB_SCREEN_H * sizeof(u16));
-            if (gb_sgb_screen(&g)) fnv(&h_img, gb_sgb_screen(&g), SGB_SCREEN_W * SGB_SCREEN_H * sizeof(u16));
-            while ((n = gb_audio_pull(&g, aud, 4096)) > 0) fnv(&h_aud, aud, (size_t)n * 2 * sizeof(float));
-        }
+        if (hash) gb_golden_frame(&g, &gh);
         if (mooneye && g.ld_bb_hit) {
             Cpu *c = &g.cpu;
             int ok = c->b == 3 && c->c == 5 && c->d == 8 && c->e == 13 && c->h == 21 && c->l == 34;
@@ -253,7 +242,7 @@ int main(int argc, char **argv)
         putchar('\n');
     }
 
-    if (hash) printf("hash imagen %016llx audio %016llx\n", (unsigned long long)h_img, (unsigned long long)h_aud);
+    if (hash) golden_print(&gh);
     printf("%s %s (%s)\n", result == 0 ? "PASA " : result == 1 ? "FALLA" : "-----", rom_path, why);
     gb_free(&g);
     return result;

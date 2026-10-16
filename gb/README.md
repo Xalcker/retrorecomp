@@ -432,13 +432,16 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.
 
-**Línea base exacta** (`sh tests/golden.sh`): 24 casos (11 juegos de
-`roms/` con entradas fijas, más acid2, Mealybug, HDMA y `cgb_sound`) con el
-hash de todos los cuadros y de todo el audio (`gbtest --hash`). Una
+**Línea base exacta** (`sh tests/golden.sh`, el mismo código que los otros
+cuatro en `../shared/golden.sh`): los juegos de `roms/` con entradas fijas, más
+acid2, Mealybug, HDMA y `cgb_sound`, con el hash de todos los cuadros y de todo
+el audio (`gbshot --hash`). Cada caso se nombra por el SHA1 de la ROM (y el
+modelo, si una ROM corre en dos); las ROMs que faltan se saltan. Una
 optimización del runtime no debe cambiar ni un byte: `difftest` no lo
 detectaría, porque el código recompilado y el intérprete usan la misma PPU y
-el mismo APU. Tarda unos 30 s. Tras un cambio que sí debe cambiar la salida, se
-revisa a ojo y se regenera con `sh tests/golden.sh --update`. La velocidad se
+el mismo APU. Tarda unos segundos (un caso por procesador). Tras un cambio que
+sí debe cambiar la salida, se revisa a ojo y se regenera con
+`sh tests/golden.sh --update` (solo los casos que corrieron). La velocidad se
 mide con `gbbench rom.gb [--frames N] [--repeat N] [--input archivo]`
 (intérprete sin ventana, con audio; reporta la más rápida de N corridas), y la
 del código recompilado con el `bench` del proyecto generado, que es el mismo

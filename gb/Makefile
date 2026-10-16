@@ -50,7 +50,7 @@ vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/vgmcheck.c $(BUILD)/libgbrt.a -lm
 
 # Corredor de ROMs de prueba sin ventana
-gbtest$(EXE): src/tools/gbtest.c $(SHARED)/png.c $(SHARED)/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
+gbtest$(EXE): src/tools/gbtest.c src/runtime/gb_golden.h $(SHARED)/golden_hash.h $(SHARED)/png.c $(SHARED)/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbtest.c $(SHARED)/png.c $(BUILD)/libgbrt.a
 
 # Velocidad del runtime sin ventana (tests/golden.sh comprueba que no cambie nada)
@@ -66,7 +66,7 @@ gbtrace$(EXE): src/tools/gbtrace.c src/tools/cli.h $(SHARED)/random_pad.h src/pl
 gbramdump$(EXE): src/tools/gbramdump.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbramdump.c $(BUILD)/libgbrt.a
 
-gbshot$(EXE): src/tools/gbshot.c src/tools/cli.h $(SHARED)/random_pad.h $(SHARED)/png.c $(SHARED)/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
+gbshot$(EXE): src/tools/gbshot.c src/tools/cli.h src/runtime/gb_golden.h $(SHARED)/golden_hash.h $(SHARED)/random_pad.h $(SHARED)/png.c $(SHARED)/png.h src/platform/inputs.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/gbshot.c $(SHARED)/png.c $(BUILD)/libgbrt.a
 
 gbaudio$(EXE): src/tools/gbaudio.c src/tools/cli.h $(SHARED)/random_pad.h src/platform/inputs.h $(BUILD)/libgbrt.a

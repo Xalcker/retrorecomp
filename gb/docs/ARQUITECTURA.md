@@ -114,9 +114,10 @@ sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
 `tools/visor.html` lee el mismo registro en el navegador (mapa, línea de
 tiempo, desensamblado y la cadena de `--why`); su desensamblador y su
-explicación dan lo mismo que `gbrecomp --dis` y `--why`. `gbrecomp --html` lo
-escribe con el registro adentro (el visor va dentro de `gbrecomp`, como el
-runtime; no se copia al proyecto), así que la página abre ya cargada.
+explicación dan lo mismo que `gbrecomp --dis` y `--why`. `gbrecomp --html`
+escribe en cambio la página común de los cinco recompiladores (`visor_html.h`,
+en `../shared`): sin línea de tiempo, con lo que sale del mismo registro (por
+cada instrucción, cómo se llegó a ella y desde cuál) ya adentro.
 
 Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
 cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia

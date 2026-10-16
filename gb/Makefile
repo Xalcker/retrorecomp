@@ -107,18 +107,16 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(INPUT_DEPS) $(BU
 		$(call plat,$(GB_SRC)) $(BUILD)/libgbrt.a $(WINRES) $(SDL_LIBS) -lm
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
-# (tools/visor.html no va al proyecto: es para gbrecomp --html)
 EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
                   recomp.h console.h save.c sgb.c compat.c gb_golden.h golden_hash.h metrica.h
 EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h input_host.h cli.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h player_touch.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
-EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/ram_code.h $(BUILD)/gen/interp_ops.inc tools/visor.html $(SHARED)/sha1.c $(SHARED)/sha1.h
+EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/ram_code.h $(BUILD)/gen/interp_ops.inc $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \
               $(foreach f,$(EMBED_PLATFORM),platform/$(f)=$(call plat,$(f))) \
               platform/random_pad.h=$(SHARED)/random_pad.h platform/ram_code.h=$(SHARED)/ram_code.h \
-              runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc \
-              tools/visor.html=tools/visor.html
+              runtime/interp_ops.inc=$(BUILD)/gen/interp_ops.inc
 
 $(BUILD)/embed$(EXE): $(SHARED)/embed.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
@@ -128,7 +126,7 @@ $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/g
 
 # El recompilador: un solo ejecutable, con el runtime adentro
 gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz.c src/gbrecomp/viz.h \
-                src/emit/sm83_emit.c src/emit/sm83_emit.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
+                src/emit/sm83_emit.c src/emit/sm83_emit.h $(SHARED)/ram_code.h $(SHARED)/visor_html.h $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
 	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -I$(SHARED) -o $@ \
 		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
 

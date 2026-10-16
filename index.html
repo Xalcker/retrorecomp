@@ -449,12 +449,7 @@ $("#bMap").onclick=guard(loadMap);
 $("#cov").onchange=guard(loadMap);
 $("#bEvents").onclick=guard(async()=>{
   const j=await api("/api/job",{kind:"visor",rom:S.rom,traces:[...S.checked],coverage:$("#cov").value||undefined});
-  const html=S.state.systems[S.sys].caps.visor==="html";
-  watch(j.id,()=>{
-    if(!html) window.open("/files/events?"+qs({t:TOKEN,rom:S.rom}),"_blank");
-    window.open("/files/visor?"+qs({t:TOKEN,rom:S.rom}),"_blank");
-    if(!html) toast("Guarda el texto de eventos y arrástralo al visor",true);
-  });
+  watch(j.id,()=>window.open("/files/visor?"+qs({t:TOKEN,rom:S.rom}),"_blank"));
 });
 
 /* ---------- trazas ---------- */

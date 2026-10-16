@@ -76,10 +76,9 @@ static const char usage_text[] =
     "                     0 dibuja solo el resultado)\n"
     "  --color            con --viz, colorea aunque la salida no sea una terminal\n"
     "                     (lo usa la GUI; sin animación)\n"
-    "  --html archivo     el descubrimiento como una página HTML sola (el visor de\n"
-    "                     tools/visor.html con los eventos adentro; con --coverage,\n"
-    "                     también la cobertura). La ROM, para desensamblar, se\n"
-    "                     arrastra a la página\n"
+    "  --html archivo     el descubrimiento como una página HTML sola (la misma de\n"
+    "                     nesrecomp, genrecomp, neorecomp y smsrecomp; con --coverage,\n"
+    "                     también lo ejecutado que no se descubrió)\n"
     "  --coverage archivo direcciones que ejecutó el juego (formato de --uncovered);\n"
     "                     cuenta las que no se descubrieron y --viz las marca en rojo\n"
     "  --why BB:AAAA      explica por qué esa dirección se tomó como código: la\n"
@@ -2422,51 +2421,6 @@ static void write_embedded(const char *dir)
 }
 
 /* Texto dentro de un <script type="text/plain">: todo menos '<', que podría cerrarlo */
-static void put_script_text(FILE *f, const char *s, size_t n)
-{
-    for (size_t i = 0; i < n; i++) if (s[i] != '<') fputc(s[i], f);
-}
-
-/* --html: el visor (tools/visor.html, que gbrecomp lleva adentro) con los eventos
- * y, si se dio, la cobertura adentro; se cargan solos al abrir la página. Como el
- * de nesrecomp --html: una página sola, sin servidor. */
-static void write_html(const char *path, const char *title, const char *coverage)
-{
-    const EmbeddedFile *v = NULL;
-    for (const EmbeddedFile *e = embedded_files; e->name; e++)
-        if (!strcmp(e->name, "tools/visor.html")) v = e;
-    if (!v) die("gbrecomp se compiló sin tools/visor.html");
-    const char *html = (const char *)v->data;
-    const char *end = strstr(html, "</body>");
-    if (!end) die("tools/visor.html no tiene </body>");
-
-    FILE *f = fopen(path, "w");
-    if (!f) die("no se pudo crear %s", path);
-    fwrite(html, 1, (size_t)(end - html), f);
-    fputs("<script type=\"text/plain\" id=\"gbrecomp-eventos\">\n", f);
-    ev_write_file(f);
-    fputs("</script>\n", f);
-    if (coverage) {
-        FILE *c = fopen(coverage, "rb");
-        if (!c) die("no se pudo leer %s", coverage);
-        fputs("<script type=\"text/plain\" id=\"gbrecomp-cobertura\">\n", f);
-        char buf[4096];
-        size_t n;
-        while ((n = fread(buf, 1, sizeof buf, c)) > 0) put_script_text(f, buf, n);
-        fclose(c);
-        fputs("</script>\n", f);
-    }
-    fputs("<script>\n"
-          "cargarEventos(document.getElementById('gbrecomp-eventos').textContent, '", f);
-    for (const char *p = title; *p; p++) fputc(*p == '<' || *p == '\'' ? '?' : *p, f);
-    fputs("');\n", f);
-    if (coverage)
-        fputs("cargarCobertura(document.getElementById('gbrecomp-cobertura').textContent, 'cobertura');\n", f);
-    fputs("</script>\n", f);
-    fputs(end, f);
-    if (fclose(f)) die("no se pudo escribir %s", path);
-}
-
 /* Ícono del .exe en Windows: el Game Boy Color para los juegos de color, el
  * Game Boy para los demás (la ventana cambia de ícono según la consola) */
 static void emit_icon_rc(const char *dir)
@@ -2640,13 +2594,18 @@ static unsigned read_addr_list(const char *path, void (*fn)(u32 bank, u16 addr))
 
 static unsigned cov_missing;
 static char cov_list[10][16];    /* "BB:AAAA"; con 8 bytes se truncaba en ROMs de más de 4 MB (bancos desde $100) */
+static u32 *cov_off;             /* desplazamientos en la ROM de las que faltan (para --html) */
+
+/* Desplazamiento en la ROM de bank:addr (la vista de un banco en $0000 cae en el mismo byte) */
+static u32 rom_off(u32 bank, u16 addr) { return slot_bank(bank) * BANK_SIZE + (addr & (BANK_SIZE - 1)); }
 
 static void coverage_addr(u32 bank, u16 addr)
 {
     viz_want(bank, addr);
     if (*flag_at(bank, addr) & F_INSN) return;
     if (cov_missing < 10) snprintf(cov_list[cov_missing], sizeof cov_list[0], "%02X:%04X", slot_bank(bank), addr);
-    cov_missing++;
+    if (!(cov_missing & 255) && !(cov_off = realloc(cov_off, (cov_missing + 256) * sizeof *cov_off))) die("sin memoria");
+    cov_off[cov_missing++] = rom_off(bank, addr);
 }
 
 /* Instrucción en `bank:start`, desensamblada */
@@ -2720,6 +2679,95 @@ static void explain(u32 bank, u16 addr)
             limit = w;
         }
     }
+}
+
+static void json_str(FILE *f, const char *t)
+{
+    fputc('"', f);
+    for (; *t; t++) {
+        if (*t == '"' || *t == '\\') fputc('\\', f);
+        if (*t == '<') { fputs("\\u003c", f); continue; }
+        fputc(*t, f);
+    }
+    fputc('"', f);
+}
+
+#define VISOR_NAME "GBRecomp"     /* el título de la página (visor_html.h, común en ../shared) */
+#include "visor_html.h"
+
+/*
+ * --html: la página común de los cinco (visor_html.h) con el descubrimiento adentro: por cada
+ * instrucción, su desplazamiento en la ROM, su dirección, cómo se llegó a ella, desde qué
+ * instrucción (la cadena "por qué", como --why), el origen y el texto; con --coverage, también lo
+ * ejecutado que no se descubrió. Sale del registro de eventos: dentro de un recorrido cada
+ * instrucción sigue a la anterior; el recorrido viene de un salto, de una entrada de tabla (y la
+ * tabla, de la instrucción que la encontró) o de un punto de entrada.
+ */
+enum { HOW_VECTOR, HOW_TRACE, HOW_NEXT, HOW_JUMP, HOW_TABLE, HOW_COUNT };    /* HOW_NEXT es el 2: lo agrupa la página */
+static const char *const how_name[HOW_COUNT] = { "vector", "traza", "sigue", "salto", "tabla" };
+static const char *const org_name[ORG_COUNT] = { "flujo desde el arranque", "interrupciones", "tabla de saltos", "traza" };
+
+static void write_html(const char *path, const char *title)
+{
+    size_t n;
+    const Event *ev = ev_list(&n);
+    u8 *seen = calloc(rom_size, 1);
+    long *tparent = malloc(rom_size * sizeof *tparent);     /* entrada de tabla → instrucción que encontró la tabla */
+    if (!seen || !tparent) die("sin memoria");
+    for (u32 i = 0; i < rom_size; i++) tparent[i] = -1;
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    size_t cell = 256;
+    while (rom_size / cell > 4096) cell *= 2;
+    unsigned bytes = 0;
+    for (size_t i = 0; i < n; i++)
+        if (ev[i].type == EV_INSN && !seen[rom_off(ev[i].bank, ev[i].addr)]) {
+            seen[rom_off(ev[i].bank, ev[i].addr)] = 1;
+            bytes += ev[i].len;
+        }
+    memset(seen, 0, rom_size);
+    fputs(html_head, f);
+    fputs("{\"name\":", f);
+    json_str(f, title);
+    fprintf(f, ",\"rom\":%u,\"cell\":%zu,\"bytes\":%u,\"orgs\":[", rom_size, cell, bytes);
+    for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
+    fputs("],\"hows\":[", f);
+    for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    fputs("],\"missing\":[", f);
+    for (unsigned i = 0; i < cov_missing; i++) fprintf(f, i ? ",%u" : "%u", cov_off[i]);
+    fputs("],\"ins\":[\n", f);
+    const Event *walk = NULL;
+    long prev = -1, table_from = -1;
+    int first = 1;
+    for (size_t i = 0; i < n; i++) {
+        const Event *e = &ev[i];
+        if (e->type == EV_WALK) { walk = e; prev = -1; continue; }
+        if (e->type == EV_TABLE) { table_from = e->bank2 == EV_NONE ? -1 : (long)rom_off(e->bank2, e->addr2); continue; }
+        if (e->type == EV_TENTRY) { tparent[rom_off(e->bank, e->addr)] = table_from; continue; }
+        if (e->type != EV_INSN) continue;
+        u32 off = rom_off(e->bank, e->addr);
+        int how = HOW_NEXT, origin = walk ? walk->origin : ORG_BOOT;
+        long parent = prev;
+        if (prev < 0 && walk) {
+            if (walk->bank2 == EV_NONE) { how = walk->origin == ORG_TRACE ? HOW_TRACE : HOW_VECTOR; parent = -1; }
+            else if (walk->aux) { how = HOW_TABLE; parent = tparent[rom_off(walk->bank2, walk->addr2)]; }
+            else { how = HOW_JUMP; parent = (long)rom_off(walk->bank2, walk->addr2); }
+        }
+        prev = off;
+        if (seen[off]) continue;    /* la misma instrucción en un banco y en su vista en $0000 */
+        seen[off] = 1;
+        char text[48];
+        disasm_at(e->bank, e->addr, text, sizeof text);
+        fprintf(f, "%s[%u,%u,%d,%ld,%d,", first ? "" : ",\n", off, (unsigned)e->addr, how, parent, origin);
+        json_str(f, text);
+        fprintf(f, ",%u]", (unsigned)e->len);
+        first = 0;
+    }
+    fputs("\n]}", f);
+    fputs(html_tail, f);
+    if (fclose(f)) die("no se pudo escribir %s", path);
+    free(seen);
+    free(tparent);
 }
 
 static void sanitize(char *s)
@@ -2863,11 +2911,11 @@ int main(int argc, char **argv)
 
     if (codemap) write_codemap(codemap);
     if (events && !ev_write(events)) die("no se pudo escribir %s", events);
+    unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (html) {
-        write_html(html, title, coverage);
+        write_html(html, title);
         printf("visor escrito en %s\n", html);
     }
-    unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (viz) viz_play(nbanks, title, viz_time);
     if (coverage) {
         printf("cobertura: %u direcciones ejecutadas, %u sin descubrir", cov_total, cov_missing);

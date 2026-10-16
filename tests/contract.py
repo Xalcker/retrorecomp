@@ -36,16 +36,16 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
            *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("dis68k.c", "dis68k.h")),
            # Las preferencias, las opciones comunes de las herramientas, la mezcla de GEN y NEO y sus oráculos
            os.path.join("src", "platform", "settings.c"), os.path.join("src", "platform", "cli.h"),
-           os.path.join("src", "platform", "inputs.h"), os.path.join("src", "runtime", "audio.c"),
+           os.path.join("src", "platform", "inputs.h"), os.path.join("src", "tools", "cli.h"), os.path.join("src", "runtime", "audio.c"),
            os.path.join("tools", "oracles", "retro_run.c"), os.path.join("tools", "oracles", "libretro_min.h"),
            # El PSG (SN76489) de GENRecomp, común con SMSRecomp
            os.path.join("src", "runtime", "psg.c"),
-           # El visor de --html de GENRecomp y NEORecomp (y SMSRecomp)
-           *(os.path.join("src", r, "visor_html.h") for r in ("genrecomp", "neorecomp", "smsrecomp")))
+           # El visor de --html (y el código en RAM, del que GBRecomp tenía la primera versión)
+           *(os.path.join("src", r, "visor_html.h") for r in ("gbrecomp", "genrecomp", "neorecomp", "smsrecomp")),
+           os.path.join("src", "platform", "ram_code.h"), os.path.join("src", "runtime", "ram_code.h"))
 
-# Los movidos que algún repo conserva a propósito: GBRecomp tiene su inputs.h (un jugador, con el modelo en el
-# encabezado) y su src/tools/cli.h
-PROPIOS = {os.path.join("src", "platform", "inputs.h"): ("gb",)}
+# Los movidos que algún repo conserva a propósito (hoy ninguno: GBRecomp tenía sus inputs.h y cli.h)
+PROPIOS = {}
 
 # Archivos que solo tienen algunos (las consolas con 68000 o con Z80): idénticos entre los que los tienen
 SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo", "sms")}

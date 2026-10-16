@@ -268,7 +268,7 @@ Para ver qué encontró el descubrimiento y de dónde salió cada parte:
 gbrecomp juego.gb -o salida/ --viz                  # mapa animado de la ROM
 gbrecomp juego.gb -o salida/ --viz-time 0           # solo el mapa final
 gbrecomp juego.gb -o salida/ --events eventos.txt   # cada paso, en texto
-gbrecomp juego.gb --html visor.html                 # el visor del navegador, con todo adentro
+gbrecomp juego.gb --html visor.html                 # el mapa y el «por qué» en el navegador, con todo adentro
 gbrecomp juego.gb --codemap codigo.txt              # qué bytes son código (C), como difftest --executed
 ```
 
@@ -314,10 +314,12 @@ avanzar, retroceder o reproducir el descubrimiento; al hacer clic en una celda
 desensambla sus instrucciones y explica, como `--why`, por qué cada una es
 código. Los archivos se leen en la computadora; no se mandan a ningún lado.
 
-`gbrecomp juego.gb --html visor.html` escribe ese mismo visor con los eventos
-adentro (y la cobertura, con `--coverage`): una página sola que abre ya cargada,
-igual que `nesrecomp --html`. La ROM, si se quiere desensamblar, se arrastra a la
-página; no va adentro. Sin `-o`, `--viz`, `--events`, `--html`, `--codemap` y
+`gbrecomp juego.gb --html visor.html` escribe la página común de los cinco
+recompiladores (`visor_html.h`, la misma de `nesrecomp`, `genrecomp`, `neorecomp` y
+`smsrecomp --html`): una página sola, ya cargada, con el mapa de la ROM coloreado por
+origen, las instrucciones desensambladas de cada celda y, al elegir una, la cadena
+de `--why`; con `--coverage`, en rojo lo ejecutado que no se descubrió. No trae la
+línea de tiempo: para eso está `tools/visor.html` con el registro de `--events`. Sin `-o`, `--viz`, `--events`, `--html`, `--codemap` y
 `--coverage` no generan el proyecto. `--viz --color` colorea el mapa aunque la
 salida no sea una terminal (la GUI lo usa), sin animación.
 

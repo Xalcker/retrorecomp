@@ -1,0 +1,30 @@
+modelo cgb
+# Warlocked VS por cable (jugador B): igual que warlocked_vs_a.txt, pero entra
+# a VS en el cuadro 1500 (A ya está esperando).
+0 -
+900 START
+930 -
+1000 A
+1006 -
+1060 A
+1066 -
+1090 DOWN
+1096 -
+1110 DOWN
+1116 -
+1130 DOWN
+1136 -
+1150 DOWN
+1156 -
+1180 A
+1186 -
+1340 DOWN
+1346 -
+1370 DOWN
+1376 -
+1500 A
+1506 -
+2500 A
+2506 -
+2700 A
+2706 -

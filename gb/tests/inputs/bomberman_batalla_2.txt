@@ -1,0 +1,7 @@
+modelo sgb
+# Bomberman Collection (J), Super Game Boy, jugador 2 (control 2): se inscribe
+# con A y en la batalla camina hacia LEFT.
+0 -
+2650 A
+2690 -
+3700 LEFT

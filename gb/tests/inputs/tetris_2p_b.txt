@@ -1,0 +1,9 @@
+modelo dmg
+# Tetris 2P por cable (jugador B): elige 2PLAYER y espera a que A inicie;
+# confirma su altura y deja caer todo con DOWN hasta perder. Va con tetris_2p_a.txt.
+0 -
+640 RIGHT
+650 -
+950 START
+960 -
+1100 DOWN

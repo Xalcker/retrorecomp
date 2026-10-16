@@ -1,0 +1,7 @@
+# rtc3test: escrituras a mitad de segundo
+30 DOWN
+36 -
+42 DOWN
+48 -
+54 A
+60 -

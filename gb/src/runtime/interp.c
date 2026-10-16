@@ -19,7 +19,6 @@ void gb_interp_step(GB *g)
     } else {
         op = FETCH8();
     }
-    g->instr_interp++;
 
     switch (op) {
 #include "interp_ops.inc"

@@ -24,6 +24,7 @@
 #define Z80RC_AFTER(pc0_, t_) do {                                                      \
         g->cyc += (u64)(t_);                                                            \
         Z80_STAT(g, native, (u64)(t_));                                                 \
+        metrica.ins_nat++;                                                 \
         sms_after_step(g);                                                              \
         if (__builtin_expect(g->map.map_ver != sms_rc_map_ver, 0)) return r;            \
     } while (0)

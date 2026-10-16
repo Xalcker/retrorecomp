@@ -208,6 +208,18 @@ def main():
         T([d for d, _ in hall] == ["[0].zip", "[1].detalle", "[2].detalle", "[3].detalle"],
           f"rutas_locales encontró {hall}")
         print("ok    rutas locales: se quitan al guardar y se detectan al leer")
+    # La línea común de difftest y bench (shared/metrica.h), como la imprime metrica_imprimir
+    linea = ("difftest: 300 cuadros iguales (10 llamadas, 9 a código recompilado, 96.4% de los ciclos)\n"
+             "Métrica: 97.0% de las instrucciones nativas (970 de 1000); ciclos: 90.0% nativo, 3.6% intérprete en ROM, "
+             "0.4% intérprete en RAM, 1.0% entrada a interrupciones, 4.5% espera (HALT/STOP), 0.5% otros\n")
+    m = compat.leer_metrica(linea)
+    T(m == {"nativas_pct": 97.0, "nativas": 970, "instrucciones": 1000,
+            "ciclos": {"nativo": 90.0, "rom": 3.6, "ram": 0.4, "irq": 1.0, "espera": 4.5, "otros": 0.5}},
+      f"leer_metrica: {m}")
+    T(compat.num(compat.Sistema.re_metrica, linea) == 96.4, "la línea de antes ya no se lee")
+    T(compat.leer_metrica("difftest: 1 cuadros iguales (1 llamadas, 1 a código recompilado, 5.0% de los ciclos)") is None,
+      "leer_metrica sin la línea")
+    print("ok    métrica: la línea nueva y la de antes")
     print(f"compat: {'sin fallas' if not fallas else f'{fallas} fallas'}")
     return 1 if fallas else 0
 

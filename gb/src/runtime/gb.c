@@ -723,7 +723,7 @@ void gb_lockup(GB *g)
 /* Despachador                                                         */
 /* ------------------------------------------------------------------ */
 
-GbCycles gb_cycles;
+METRICA_DEFINIR
 
 void gb_run(GB *g, u64 until)
 {
@@ -758,15 +758,16 @@ void gb_run(GB *g, u64 until)
                         t = t > 2 ? (t - 2 + 3) & ~(u64)3 : 0;
                         g->cyc = t > g->cyc ? t : g->cyc + 4;
                     }
-                    if (g->recomp_lookup) gb_cycles.halt += g->cyc - c0;
+                    METRICA(g, espera, g->cyc - c0);
                     g->next_event = 0;
                     continue;
                 }
                 if (c->stopped && g->pad) {
                     c->stopped = 0;
                 } else {
-                    u64 t = (g->stop_at + 3) & ~(u64)3;
+                    u64 t = (g->stop_at + 3) & ~(u64)3, c0 = g->cyc;
                     g->cyc = t > g->cyc ? t : g->cyc + 4;
+                    if (c->stopped) METRICA(g, espera, g->cyc - c0);
                     g->next_event = 0;
                     continue;
                 }
@@ -774,7 +775,7 @@ void gb_run(GB *g, u64 until)
             if (c->ime && pend) {
                 u64 c0 = g->cyc;
                 service_irq(g);
-                if (g->recomp_lookup) gb_cycles.irq += g->cyc - c0;
+                METRICA(g, irq, g->cyc - c0);
                 g->next_event = 0;
                 continue;
             }
@@ -796,11 +797,16 @@ void gb_run(GB *g, u64 until)
         RecompFn fn = NULL;
         if (g->recomp_lookup && !after_ei && !c->halt_bug && !dma_conflict(g, c->pc))
             fn = g->recomp_lookup(g, c->pc);
-        if (fn) fn(g);
-        else if (g->recomp_lookup) {
+        if (fn) {
             u64 c0 = g->cyc;
+            fn(g);
+            METRICA(g, nat, g->cyc - c0);
+        } else if (g == metrica_de) {
+            u64 c0 = g->cyc;
+            u16 pc0 = c->pc;
             gb_interp_step(g);
-            gb_cycles.interp += g->cyc - c0;
+            if (pc0 < 0x8000) metrica.rom += g->cyc - c0; else metrica.ram += g->cyc - c0;
+            metrica.ins_int++;
         } else gb_interp_step(g);
     }
     /* Al terminar la corrida el APU queda al día (estado comparable y audio listo) */

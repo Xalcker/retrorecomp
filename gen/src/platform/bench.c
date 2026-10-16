@@ -37,6 +37,7 @@ int main(int argc, char **argv)
     fclose(f);
     int scripted = c.input || c.nh || c.use_seed;
     double best = 0;
+    u64 total_cyc = 0;
     GoldenHash gh;
     static int16_t snd[AUDIO_BINS * 2];
     if (c.hash) c.repeat = 1;
@@ -49,6 +50,8 @@ int main(int argc, char **argv)
         if (gen_load(&g, rom, (size_t)sz, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
         cli_rewind(&c);
         z80_stat = (Z80Stat){ 0 };      /* todas las corridas dan lo mismo: se queda la última */
+        metrica_reiniciar(&g);          /* lo mismo con la métrica común (metrica.h) */
+        u64 cyc0 = g.cyc;
         golden_init(&gh);
         clock_t t0 = clock();
         for (long i = 0; i < c.frames; i++) {
@@ -64,10 +67,16 @@ int main(int argc, char **argv)
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
         if (k == 0 || s < best) best = s;
+        total_cyc = g.cyc - cyc0;
     }
     if (c.perfil) prof_stop();
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / 59.92);
+#ifdef GEN_RECOMP
+    metrica_imprimir(&metrica, total_cyc);
+#else
+    (void)total_cyc;
+#endif
     z80_stat_print();
     if (gen_z80_window_ext)
         printf("Z80: %llu accesos por la ventana de $8000 a la RAM, el VDP, la E/S o la SRAM del 68000 (con el Z80 atrasado, "

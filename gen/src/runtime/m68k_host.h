@@ -8,6 +8,9 @@
 #define M68K_HOST        Gen
 #define M68K_HOST_HEADER "gen.h"
 
+/* Para la métrica (metrica.h): el intérprete corre ROM con el PC en $000000-$3FFFFF; RAM en lo demás */
+#define M68K_PC_EN_ROM(g, pc) ((pc) < 0x400000)
+
 /* Con la traza activa: en ROM ($000000-$3FFFFF) se marca el desplazamiento de la instrucción (con las
  * ventanas de SSF2); en la RAM ($FF0000-$FFFFFF) la anota quien puso m68k_ram_trace (gen_ram_note) */
 #define M68K_TRACE(g, pc) do {                                                                       \

@@ -97,6 +97,7 @@ int main(int argc, char **argv)
     static float aud[4096 * 2];
     double best = 0;
     GoldenHash gh;
+    u64 total_cyc = 0;
     if (hash) repeat = 1;
     for (int k = 0; k < repeat; k++) {
         const char *err = gb_init_model(&g, rom, (u32)size, model);
@@ -104,7 +105,9 @@ int main(int argc, char **argv)
         g.apu.enabled = 1;          /* como en la ventana: el APU mezcla y genera muestras */
 #ifdef GB_RECOMP
         g.recomp_lookup = recomp_lookup;
+        metrica_reiniciar(&g);      /* todas las corridas dan lo mismo: se queda la última */
 #endif
+        u64 cyc0 = g.cyc;
         if (input_path) script.pos = 0;
         RandomPad rp;
         random_pad_init(&rp, seed);
@@ -122,12 +125,18 @@ int main(int argc, char **argv)
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
         if (k == 0 || s < best) best = s;
+        total_cyc = g.cyc - cyc0;
         gb_free(&g);
     }
     /* Un cuadro dura GB_CYCLES_FRAME ciclos a GB_CPU_HZ (59.73 por segundo) */
     double real = frames * ((double)GB_CYCLES_FRAME / GB_CPU_HZ);
     printf("%ld cuadros en %.3f s (mejor de %d): %.0f cuadros/s, %.1fx tiempo real\n",
            frames, best, repeat, best > 0 ? frames / best : 0.0, best > 0 ? real / best : 0.0);
+#ifdef GB_RECOMP
+    metrica_imprimir(&metrica, total_cyc);
+#else
+    (void)total_cyc;
+#endif
     if (hash) golden_print(&gh);
     free(rom);
     return 0;

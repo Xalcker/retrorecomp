@@ -377,7 +377,7 @@ function renderSteps(){
   st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,"build/out/"+(pj.name||"")]);
   st_.push(["Compilado",pj.built?"sí":"no",pj.built?"ok":"todo",0,""]);
   const d=pr.difftest;
-  st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_recomp??"?"}% recompilado`:""]);
+  st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_nativas!=null?`${d.pct_nativas}% de las instrucciones nativas · `:""}${d.pct_recomp??"?"}% de los ciclos recompilado`:""]);
   const b=pr.bench;
   st_.push(["Velocidad",b?.speed?`${b.speed}x`:"—",b?.speed?"ok":"todo",0,"tiempo real (último bench)"]);
   $("#steps").innerHTML=st_.map(([t,v,c,pct,sub])=>`<div class="step ${c}"><b>${t}</b><span class="v">${esc(v)}</span>${pct?`<div class="bar"><i style="width:${Math.min(100,pct)}%"></i></div>`:""}<div class="mut" style="font-size:11px">${esc(sub)}</div></div>`).join("");

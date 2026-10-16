@@ -988,10 +988,19 @@ class Job:
             return
         text = "".join(self.log)
         rec = {"when": int(time.time()), "status": self.status}
+        # La línea común de difftest y bench (shared/metrica.h); la de antes ("N% de los ciclos") sigue una versión más
+        met = re.search(r"Métrica: ([\d.]+)% de las instrucciones nativas .*?; ciclos: ([\d.]+)% nativo, ([\d.]+)% "
+                        r"intérprete en ROM, ([\d.]+)% intérprete en RAM, ([\d.]+)% entrada a interrupciones, "
+                        r"([\d.]+)% espera \(HALT/STOP\), ([\d.]+)% otros", text)
+        if met:
+            rec["pct_nativas"] = float(met.group(1))
+            rec["ciclos"] = dict(zip(("nativo", "rom", "ram", "irq", "espera", "otros"), map(float, met.groups()[1:])))
         if self.kind == "difftest":
             m = re.search(r"([\d.]+)% de los ciclos", text)
             if m:
                 rec["pct_recomp"] = float(m.group(1))
+            elif met:
+                rec["pct_recomp"] = rec["ciclos"]["nativo"]
             m = re.search(r"(\d+) cuadros", text)
             if m:
                 rec["frames"] = int(m.group(1))

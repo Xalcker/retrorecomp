@@ -31,6 +31,7 @@ static inline u8 pull(NES *n) { n->cpu.sp++; return RD(0x100 | n->cpu.sp); }
 /* ¿Terminó el cuadro? Se revisa al empezar cada instrucción. */
 #define FRAME(pc_) do {                                         \
         if (UNLIKELY(n->ppu.frame_done)) { c->pc = (pc_); return; } \
+        metrica.ins_nat++;                                      \
     } while (0)
 
 /* Fin de una instrucción que sigue en 'pc_': ¿hay interrupción lista? */
@@ -54,6 +55,26 @@ static inline u8 pull(NES *n) { n->cpu.sp++; return RD(0x100 | n->cpu.sp); }
 
 /* Generado por nesrecomp (gen/dispatch.c y gen/info.c) */
 RecompFn recomp_lookup(NES *n, u16 pc);
+
+/* Un paso del despachador: la función recompilada `fn` o, si es NULL, una instrucción del intérprete, con la
+ * métrica (metrica.h). La entrada a una interrupción (nes_interrupt, dentro del paso) va aparte; el intérprete es
+ * de ROM con el PC en $8000-$FFFF y de RAM en el resto (RAM, RAM del cartucho). Con el CPU detenido (KIL) no
+ * cuenta: sus ciclos salen como «otros» */
+static inline void nes_paso(NES *n, RecompFn fn)
+{
+    u64 c0 = n->cyc, irq0 = metrica.irq;
+    u16 pc0 = n->cpu.pc;
+    int parado = n->cpu.jammed;
+    if (fn) { fn(n); n->cyc_recomp += n->cyc - c0; }
+    else cpu_step(n);
+    if (n != metrica_de || parado) return;
+    u64 d = n->cyc - c0 - (metrica.irq - irq0);
+    if (fn) metrica.nat += d;
+    else {
+        metrica.ins_int++;
+        if (pc0 >= 0x8000) metrica.rom += d; else metrica.ram += d;
+    }
+}
 extern const char recomp_rom_sha1[41];
 extern const char recomp_name[];
 extern const unsigned recomp_instructions;

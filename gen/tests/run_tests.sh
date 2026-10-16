@@ -87,7 +87,7 @@ recompila() {   # nombre rom cuadros [traza]
     x=; [ -x ./genrecomp.exe ] && x=.exe
     if ! make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1; then echo "FALLA el proyecto de $n no compila"; fallas=$((fallas + 1)); return; fi
     dt="$d/difftest$x"
-    res=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | tail -1)
+    res=$("$dt" "$rom" "$nf" --seed 2 start:120-125 start:300-305 2>&1 | grep "^difftest\|DIFERENCIA" | tail -1)
     case "$res" in *"cuadros iguales"*) echo "ok    recompilado $n: $res";; *) echo "FALLA recompilado $n: $res"; fallas=$((fallas + 1));; esac
 }
 recompila minima "$R" 60

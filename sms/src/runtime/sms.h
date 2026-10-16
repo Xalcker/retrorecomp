@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include "z80.h"
+#include "metrica.h"     /* la métrica común (sms.c y z80_recomp_host.h) */
 #include "psg.h"
 #include "audio.h"
 

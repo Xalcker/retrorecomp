@@ -188,7 +188,8 @@ int main(int argc, char **argv)
     if (c.executed) sms_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0, halt_cycles = 0;
+    u64 recomp_cycles = 0, halt_cycles = 0, cyc0 = B.cyc;
+    metrica_reiniciar(&B);          /* la métrica común: la de B (metrica.h) */
     u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
     for (long f = 0; f < frames; f++) {
         A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
@@ -231,6 +232,7 @@ int main(int argc, char **argv)
     z80_stat_print();
     printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
            frames, calls, recomp_calls, B.cyc > halt_cycles ? 100.0 * (double)recomp_cycles / (double)(B.cyc - halt_cycles) : 0.0);
+    metrica_imprimir(&metrica, B.cyc - cyc0);
     if (c.uncovered) {
         size_t cnt = sms_trace_count(&B);
         if (!sms_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }

@@ -49,7 +49,7 @@ RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libsmsrt.a
 # Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp; z80_ops.h es su
 # semántica, la misma para el intérprete y el código generado) y console.h
-SHARED_RT := z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h
+SHARED_RT := z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h metrica.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # La ventana: el intérprete con menús (sms)
@@ -128,7 +128,7 @@ z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(SHARED)/z80_ops.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # Archivos que smsrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := sms.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80_host.h z80_recomp_host.h recomp.h \
+EMBED_RUNTIME  := sms.h metrica.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80_host.h z80_recomp_host.h recomp.h \
                   psg_host.h audio_host.h z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h \

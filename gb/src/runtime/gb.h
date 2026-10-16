@@ -321,9 +321,9 @@ struct GB {
     /* Código recompilado (NULL = solo intérprete) */
     RecompFn (*recomp_lookup)(GB *g, u16 pc);
 
-    /* Métricas */
-    u64 instr_interp;   /* instrucciones ejecutadas por el intérprete */
-    u64 instr_recomp;   /* instrucciones ejecutadas por código recompilado */
+    /* Sin uso: las métricas viven fuera de GB (metrica.h); los dos campos se quedan para que los estados
+     * guardados no cambien de formato */
+    u64 sin_uso_metricas[2];
 
     /* Depuración: se ejecutó LD B,B (fin de las pruebas de Mooneye) */
     int ld_bb_hit;
@@ -340,16 +340,10 @@ struct GB {
     void *link_user;
 };
 
-/* Ciclos de la máquina recompilada (la que tiene recomp_lookup) que el despachador pasa fuera del
- * código recompilado, para el reparto que imprime difftest. Van fuera de GB para que los estados
- * guardados (copian GB entero y comprueban su tamaño) y la comparación de difftest no cambien.
- * Con dos máquinas recompiladas en el mismo proceso (linktest) se suman las dos. */
-typedef struct {
-    u64 halt;       /* dormido en HALT, más los 4 ciclos del despertar */
-    u64 irq;        /* despachando interrupciones (5 M-ciclos cada una) */
-    u64 interp;     /* instrucciones del intérprete */
-} GbCycles;
-extern GbCycles gb_cycles;
+/* La métrica común (metrica.h): la cuenta gb_run para la máquina metrica_de (la recompilada) y el CHECK de
+ * cada instrucción recompilada. HALT y STOP (más los 4 ciclos del despertar) son espera; service_irq (5
+ * M-ciclos), entrada a interrupciones; el intérprete, ROM si el PC está debajo de $8000 y RAM si no */
+#include "metrica.h"
 
 /* --- Ciclo de vida --- */
 

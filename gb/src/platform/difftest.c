@@ -415,6 +415,7 @@ int main(int argc, char **argv)
         return 2;
     }
     rec.recomp_lookup = bench ? recomp_lookup : counting_lookup;
+    metrica_reiniciar(&rec);
     rec.trace = count_interp;
     if (executed_path) ref.trace = mark_executed;
     if (save_path) {
@@ -477,30 +478,16 @@ int main(int argc, char **argv)
 
     if (ok)
         printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
-               frames, recomp_calls + (unsigned long)rec.instr_interp, recomp_calls,
+               frames, recomp_calls + (unsigned long)metrica.ins_int, recomp_calls,
                rec.cyc ? 100.0 * (double)recomp_cycles / (double)rec.cyc : 0.0);
-    /* El reparto de esos ciclos: el porcentaje de arriba (el de los cuatro recompiladores) cuenta
-     * también el tiempo en HALT, así que un juego que duerme mucho sale bajo aunque no interprete
-     * nada. Lo que queda fuera de los cuatro (STOP, esperas de la DMA por HBlank en el
-     * despachador) sale como «otros» si se nota */
-    if (ok && rec.cyc) {
-        double t = (double)rec.cyc;
-        u64 known = recomp_cycles + gb_cycles.halt + gb_cycles.irq + gb_cycles.interp;
-        printf("Ciclos: %.1f %% recompilado, %.1f %% en HALT, %.1f %% en interrupciones, %.1f %% en el intérprete",
-               100.0 * recomp_cycles / t, 100.0 * gb_cycles.halt / t, 100.0 * gb_cycles.irq / t,
-               100.0 * gb_cycles.interp / t);
-        if (known < rec.cyc && 100.0 * (rec.cyc - known) / t >= 0.05)
-            printf(", %.1f %% otros", 100.0 * (rec.cyc - known) / t);
-        printf("\n");
-    }
-    u64 total = rec.instr_recomp + rec.instr_interp;
-    printf("Instrucciones: %llu recompiladas, %llu en el intérprete (%.3f%% de las instrucciones)\n",
-           (unsigned long long)rec.instr_recomp, (unsigned long long)rec.instr_interp,
-           total ? 100.0 * rec.instr_recomp / total : 0.0);
-    if (rec.instr_interp)
+    /* La línea común de los cinco (metrica.h): las instrucciones nativas y el reparto de los ciclos (el
+     * porcentaje de la línea de arriba cuenta también el tiempo en HALT; esta lo separa). Lo que el despachador
+     * no atribuye (esperas de la DMA por HBlank) sale como «otros» */
+    if (ok) metrica_imprimir(&metrica, rec.cyc);
+    if (metrica.ins_int)
         printf("Intérprete por zona: ROM %.1f%%, RAM de cartucho %.1f%%, WRAM %.1f%%, HRAM %.1f%%\n",
-               100.0 * interp_zone[0] / rec.instr_interp, 100.0 * interp_zone[1] / rec.instr_interp,
-               100.0 * interp_zone[2] / rec.instr_interp, 100.0 * interp_zone[3] / rec.instr_interp);
+               100.0 * interp_zone[0] / metrica.ins_int, 100.0 * interp_zone[1] / metrica.ins_int,
+               100.0 * interp_zone[2] / metrica.ins_int, 100.0 * interp_zone[3] / metrica.ins_int);
 
     /* El archivo de --uncovered va en orden de dirección (gbrecomp --trace no depende
      * del orden); el log muestra las TOP_HITS direcciones más ejecutadas */

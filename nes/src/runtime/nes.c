@@ -7,6 +7,8 @@
 #include "ram_code.h"
 #include "trace_line.h"
 
+METRICA_DEFINIR
+
 int nes_load(NES *n, const u8 *d, size_t len, const char **err)
 {
     Cart *c = &n->cart;
@@ -338,8 +340,7 @@ void nes_run_frame(NES *n)
     n->ppu.frame_done = 0;
     while (!n->ppu.frame_done) {
         RecompFn fn = nes_force_interp ? NULL : recomp_lookup(n, n->cpu.pc);
-        if (fn && !n->cpu.jammed) { u64 c0 = n->cyc; fn(n); n->cyc_recomp += n->cyc - c0; }
-        else cpu_step(n);
+        nes_paso(n, n->cpu.jammed ? NULL : fn);
     }
     ppu_flush(n);
 }

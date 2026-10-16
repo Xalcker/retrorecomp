@@ -25,7 +25,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
-| `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana; `--hash` para golden), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
+| `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
@@ -1054,9 +1054,10 @@ comparten la PPU, el APU y el timer: un error en una optimización de esas
 piezas sale igual en ambas máquinas y pasa sin diferencias. Para eso está
 `tests/golden.sh`, que guarda en `tests/golden.txt` un hash FNV-1a de cada
 cuadro (pantalla del GB y, en el SGB, la de la SNES con el borde) y de cada
-muestra de audio de 24 casos: juegos de DMG, SGB y GBC con entradas fijas
-(`tests/inputs/golden.txt`) y pruebas de
-la PPU y del APU. El hash se acumula cuadro a cuadro, así que también detecta
+muestra de audio de cada caso (`gbshot --hash`): los juegos de `roms/` con
+entradas fijas (`tests/inputs/golden.txt`) y pruebas de la PPU y del APU,
+nombrados por el SHA1 de la ROM. El código es el de los cinco sistemas
+(`shared/golden.sh`). El hash se acumula cuadro a cuadro, así que también detecta
 diferencias que no llegan a la imagen final; se comprobó cambiando un solo
 píxel de un solo cuadro y un factor del mezclador de audio.
 

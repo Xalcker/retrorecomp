@@ -6,6 +6,8 @@
  *   --seed S       suma al guion un mando al azar reproducible con esa semilla (random_pad.h,
  *                  el mismo que en NESRecomp)
  *   --model M      dmg | cgb | sgb (por omisión, el del archivo de entradas o el de la ROM)
+ *   --hash         (gbshot) imprime un hash de todos los cuadros y de todo el audio (golden_hash.h), como
+ *                  nesshot --hash: lo usa tests/golden.sh
  */
 #ifndef CLI_H
 #define CLI_H
@@ -22,7 +24,7 @@ typedef struct {
     const char *rom, *out;
     long frames;
     const char *input;
-    int model, use_seed;
+    int model, use_seed, hash;
     unsigned seed;
     InputScript script;
     RandomPad rp;
@@ -57,6 +59,7 @@ static int cli_parse_n(Cli *c, int argc, char **argv, const char *usage, int nre
             c->model = model_from_name(argv[++i]);
             if (c->model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
         }
+        else if (!strcmp(argv[i], "--hash")) c->hash = 1;
         else if (npos < nreq) pos[npos++] = argv[i];
         else { fprintf(stderr, "argumento de más: %s\n", argv[i]); return 2; }
     }

@@ -574,7 +574,8 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   "NTSC VDP 320x224p".
 - **`tests/golden.sh`:** hash de todos los cuadros y de todo el audio (`genshot --hash`, 1800 cuadros
   con un mando aleatorio) de cada ROM de `roms/` y de las pruebas libres, identificadas por su SHA1;
-  `--update` reescribe `tests/golden.txt`. Una optimización no debe cambiar ni un bit. No va en
+  `--update` reescribe en `tests/golden.txt` los casos que corrieron. El código es el de los cinco sistemas
+  (`shared/golden.sh`). Una optimización no debe cambiar ni un bit. No va en
   `make test` (tarda ~80 s y depende de tus ROMs).
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,

@@ -69,16 +69,21 @@ static void test_inputs(void)
     inputs_format(out, sizeof out, (1 << 7) | (1 << 11));
     CHECK(!strcmp(out, "START+MODE"));
 
-    write_file(path, "# guion\n0 -\n300 START\n310 - B\n400 RIGHT+A\n");
-    char *argv[] = { "t", "rom", "sal", "500", "--input", (char *)path, "--propia", "a:5-6", "zapper:1,2,3-4", "q:1-2" };
+    write_file(path, "# guion\nnivel 3\n0 -\n300 START\n310 - B\n400 RIGHT+A\n");
+    char *argv[] = { "t", "rom", "sal", "500", "--input", (char *)path, "--propia", "a:5-6", "zapper:1,2,3-4", "q:1-2",
+                     "--valor", "x" };
     Cli c;
-    CHECK(cli_parse(&c, 10, argv, 2, 60) == 0);
+    CHECK(cli_parse(&c, 12, argv, 2, 60) == 0);
     CHECK(c.frames == 500 && c.npos == 2 && c.propia == 1);
+    CHECK(c.valor && !strcmp(c.valor, "x") && c.nivel == 3);     /* CLI_HOST_VALUE, INPUT_HOST_LINE y CLI_HOST_DONE */
+    CHECK(inputs_last_frame(&c.script) == 400);
     CHECK(c.nh == 1 && c.nextra == 2);          /* zapper: (CLI_HOST_EXTRA) y q:1-2 (no es un botón) */
     CHECK(cli_pad(&c, 5, 0) == (1 << 6));
     CHECK(cli_pad(&c, 300, 0) == (1 << 7));
     CHECK(cli_pad(&c, 310, 1) == (1 << 4));
     CHECK(cli_pad(&c, 450, 0) == ((1 << 3) | (1 << 6)) && cli_pad(&c, 450, 1) == 0);
+    write_file(path, "nivel x\n0 -\n");
+    CHECK(cli_parse(&c, 12, argv, 2, 60) == 2);  /* la línea propia está mal */
 
     /* Grabar y volver a leer da lo mismo */
     FILE *f = fopen(path, "w");

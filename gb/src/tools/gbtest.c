@@ -30,7 +30,7 @@
 #include "../runtime/gb.h"
 #include "../runtime/gb_golden.h"
 #include "png.h"
-#include "../platform/inputs.h"
+#include "inputs.h"
 
 static unsigned char *read_file(const char *path, long *size)
 {
@@ -182,9 +182,9 @@ int main(int argc, char **argv)
     const char *why = "sin resultado";
 
     for (long f = 0; f < frames; f++) {
-        if (input_path) gb_set_pad(&g, inputs_pad(&script, f));
+        if (input_path) gb_set_pad(&g, inputs_pad(&script, f, 0));
         for (int k = 0; k < 3; k++)
-            if (extra_path[k]) gb_set_pad_player(&g, k + 1, inputs_pad(&extra[k], f));
+            if (extra_path[k]) gb_set_pad_player(&g, k + 1, inputs_pad(&extra[k], f, 0));
         gb_run_frame(&g);
         if (hash) gb_golden_frame(&g, &gh);
         if (mooneye && g.ld_bb_hit) {

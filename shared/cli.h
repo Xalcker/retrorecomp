@@ -1,7 +1,6 @@
 /*
  * Opciones comunes de las herramientas sin ventana (nestrace, gentrace, neotrace... *shot, *audio,
- * *bench, *ramdump, difftest y bench del proyecto generado), las mismas en NESRecomp, GENRecomp, NEORecomp y
- * SMSRecomp (y, con su propio cli.h, en GBRecomp):
+ * *bench, *ramdump, difftest y bench del proyecto generado), las mismas en los cinco recompiladores:
  *   --frames N       cuadros a correr
  *   --input ARCHIVO  entradas grabadas (inputs.h); las de --record de la ventana sirven
  *   --seed S         suma un mando aleatorio reproducible con esa semilla
@@ -20,7 +19,9 @@
  *
  * Común (retrorecomp/shared); lo propio de cada consola viene de su input_host.h (ver inputs.h). Si la
  * consola tiene opciones de más, las agrega con CLI_HOST_FIELDS (campos de Cli), CLI_HOST_OPTION(c, a)
- * (1 si reconoció la opción a) y CLI_HOST_EXTRA(a) (1 si el suelto a va a extra, como zapper: en NES).
+ * (1 si reconoció la opción a), CLI_HOST_VALUE(c, a, v) (1 si reconoció la opción a con el valor v, el
+ * argumento que la sigue, como --model en GB), CLI_HOST_EXTRA(a) (1 si el suelto a va a extra, como zapper:
+ * en NES) y CLI_HOST_DONE(c) (después de leer --input; 0, o 2 si hay un error ya impreso).
  */
 #ifndef CLI_H
 #define CLI_H
@@ -39,8 +40,14 @@
 #ifndef CLI_HOST_OPTION
 #define CLI_HOST_OPTION(c, a) 0
 #endif
+#ifndef CLI_HOST_VALUE
+#define CLI_HOST_VALUE(c, a, v) 0
+#endif
 #ifndef CLI_HOST_EXTRA
 #define CLI_HOST_EXTRA(a) 0
+#endif
+#ifndef CLI_HOST_DONE
+#define CLI_HOST_DONE(c) 0
 #endif
 
 typedef struct { int btn, from, to; } CliHold;
@@ -94,6 +101,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--expect") && i + 1 < argc) c->expect = argv[++i];
         else if (!strcmp(a, "--hash")) c->hash = 1;
         else if (CLI_HOST_OPTION(c, a)) {}
+        else if (i + 1 < argc && CLI_HOST_VALUE(c, a, argv[i + 1])) i++;
         else if (a[0] == '-' && a[1] == '-') { fprintf(stderr, "opción desconocida: %s\n", a); return 2; }
         else if (sscanf(a, "%15[a-z]:%d-%d", name, &f0, &f1) == 3) {
             InputPad b = inputs_button(name);
@@ -116,6 +124,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         const char *err = inputs_load(&c->script, c->input);
         if (err) { fprintf(stderr, "%s\n", err); return 2; }
     }
+    if (CLI_HOST_DONE(c)) return 2;
     random_pad_init(&c->rp, c->seed);
     return 0;
 }

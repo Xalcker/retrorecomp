@@ -20,7 +20,7 @@
 #include "console.h"
 #include "../runtime/gb.h"
 #include "png.h"
-#include "../platform/inputs.h"
+#include "inputs.h"
 
 #ifdef _WIN32
 #include <direct.h>
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 
     for (long f = 0; f < frames; f++) {
         for (int k = 0; k < 2; k++)
-            if (input_path[k]) gb_set_pad(&gbs[k], inputs_pad(&script[k], f));
+            if (input_path[k]) gb_set_pad(&gbs[k], inputs_pad(&script[k], f, 0));
         gb_link_run_frame(&link);
         if (screens && every > 0 && (f + 1) % every == 0) {
             char path[1024];

@@ -5,8 +5,8 @@
  * Uso: gbbench rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]
  *   --frames  cuadros por corrida (por omisión 3600, un minuto de juego).
  *   --repeat  corridas; se reporta la más rápida, que es la menos afectada por
- *             otros programas en la máquina (por omisión 3).
- *   --input   entradas grabadas (src/platform/inputs.h).
+ *             otros programas en la máquina (por omisión 1, como en las otras consolas).
+ *   --input   entradas grabadas (inputs.h, en ../shared).
  *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp).
  *   --hash    corre una vez e imprime el hash de todos los cuadros y de todo el
  *             audio, el mismo que gbshot --hash (gb_golden.h): así
@@ -26,7 +26,7 @@
 
 #include "console.h"
 #include "gb.h"
-#include "inputs.h"
+#include "cli.h"
 #include "gb_golden.h"
 #ifdef GB_RECOMP
 #include "recomp.h"
@@ -55,26 +55,14 @@ static unsigned char *read_file(const char *path, long *size)
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *rom_path = NULL, *input_path = NULL;
-    long frames = 3600;
-    int repeat = 3, model = GB_MODEL_AUTO, seed_given = 0, hash = 0;
-    unsigned seed = 1;
-    for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
-        else if (!strcmp(argv[i], "--repeat") && i + 1 < argc) repeat = atoi(argv[++i]);
-        else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
-        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) { seed = (unsigned)strtoul(argv[++i], NULL, 0); seed_given = 1; }
-        else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            model = model_from_name(argv[++i]);
-            if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
-        }
-        else if (!strcmp(argv[i], "--hash")) hash = 1;
-        else rom_path = argv[i];
-    }
-    if (!rom_path || frames <= 0 || repeat <= 0) {
+    static Cli c;
+    if (cli_parse(&c, argc, argv, 1, 3600)) {
         fprintf(stderr, "uso: " BENCH_NAME " rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]\n");
         return 2;
     }
+    const char *rom_path = c.pos[0];
+    long frames = c.frames;
+    int repeat = c.repeat, model = c.model, hash = c.hash;
     long size;
     unsigned char *rom = read_file(rom_path, &size);
     if (!rom) { fprintf(stderr, "no se pudo leer %s\n", rom_path); return 2; }
@@ -86,13 +74,6 @@ int main(int argc, char **argv)
         return 2;
     }
 #endif
-    InputScript script;
-    if (input_path) {
-        const char *ierr = inputs_load(&script, input_path);
-        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
-        if (model == GB_MODEL_AUTO) model = script.model;
-    }
-
     static GB g;
     static float aud[4096 * 2];
     double best = 0;
@@ -108,15 +89,12 @@ int main(int argc, char **argv)
         metrica_reiniciar(&g);      /* todas las corridas dan lo mismo: se queda la última */
 #endif
         u64 cyc0 = g.cyc;
-        if (input_path) script.pos = 0;
-        RandomPad rp;
-        random_pad_init(&rp, seed);
-        int scripted = input_path || seed_given;
+        cli_rewind(&c);
+        int scripted = c.input || c.nh || c.use_seed;
         golden_init(&gh);
         clock_t t0 = clock();
         for (long f = 0; f < frames; f++) {
-            u8 pad = input_path ? inputs_pad(&script, f) : 0;
-            if (seed_given) pad |= inputs_random_pad(&rp, f);
+            u8 pad = cli_pad(&c, f, 0);
             if (!scripted) pad = (f > 120 && f < 125) ? PAD_START : (f > 400 ? PAD_RIGHT : 0);
             gb_set_pad(&g, pad);
             gb_run_frame(&g);

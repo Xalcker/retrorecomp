@@ -1,30 +1,15 @@
 /*
  * Código que el intérprete ejecuta desde WRAM o HRAM, para el ciclo de trazas
- * (--uncovered → gbrecomp --trace). Lo comparten difftest y el ejecutable del juego
- * (main_sdl.c), para que las dos herramientas escriban exactamente las mismas líneas.
+ * (--uncovered → gbrecomp --trace). Lo comparten difftest, gbtrace y el ejecutable del juego
+ * (main_sdl.c), para que las tres herramientas escriban exactamente las mismas líneas.
  *
- * Por qué existe: el código que un juego copia a RAM (manejadores de interrupción,
- * trampolines de cambio de banco, rutinas que se parchan a sí mismas) no está en la ROM en
- * la dirección donde corre. El descubrimiento estático sigue saltos desde la ROM y no puede
- * llegar ahí, y deducir qué bytes habrá en RAM exigiría emular la copia. Quien sí lo ve es el
- * intérprete: lee de RAM los bytes que ejecuta. Se apuntan y gbrecomp los compila con una
- * guarda que comprueba que la RAM siga teniendo esos bytes (emit_ram en gbrecomp.c, y «Código
- * que el juego copia a WRAM o HRAM» en docs/ARQUITECTURA.md).
+ * Las líneas "ram DIRECCION B0 [B1 B2]" y cómo se anotan son las de ram_code.h (común en ../shared,
+ * el mismo de las otras consolas; ahí está el porqué). Aquí va lo del Game Boy: qué RAM se anota
+ * (WRAM $C000-$DFFF y HRAM $FF80-$FFFE), cuánto mide cada instrucción y qué bytes la identifican.
  *
  * Por qué también en el ejecutable: las entradas aleatorias de difftest no llegan a todo el
  * juego, y jugar con --uncovered es como se completa la cobertura. Si el ejecutable solo
  * anotara ROM, justo lo que no se puede deducir se perdería al jugar.
- *
- * Formato, una línea por versión de cada instrucción: "ram DIRECCION B0 [B1 B2]" en
- * hexadecimal, con ?? en los bytes de operando que cambiaron entre ejecuciones. No empieza con
- * un dígito hexadecimal: los lectores de trazas "BB:AAAA" la ignoran (incluidos los de las
- * otras consolas, que comparten ese formato).
- *
- * Qué identifica una instrucción: su opcode (ram_key_len); en los saltos relativos y los CB, el
- * segundo byte también, porque cambia lo que hace. Los demás bytes son operandos que pueden
- * cambiar sin cambiar el código (el destino de un jp, un valor inmediato que el juego parcha).
- * De una dirección se guardan hasta RAM_GROUPS versiones; con más, es código que el juego
- * genera con estructuras distintas cada vez y no se aprende.
  */
 #ifndef RAMTRACE_H
 #define RAMTRACE_H
@@ -33,21 +18,7 @@
 #include <string.h>
 
 #include "gb.h"
-
-#define RAM_BYTES 8      /* bytes de la primera vez que muestra difftest para reconocer una rutina */
-#define RAM_GROUPS 4     /* versiones de opcode por dirección que se guardan */
-
-typedef struct { u32 n; u8 bytes[3]; u8 vol; } RamGroup;      /* vol: bit i = el byte i es variable */
-typedef struct {
-    u32 n;                   /* ejecuciones */
-    u8 ngroups;
-    u8 overflow;             /* más versiones de opcode que RAM_GROUPS: no se aprende */
-    u8 first[RAM_BYTES];     /* los bytes la primera vez */
-    RamGroup g[RAM_GROUPS];
-} RamHit;
-
-/* Una entrada por dirección de $8000 a $FFFF */
-static RamHit ram_hits[0x8000];
+#include "ram_code.h"
 
 static inline int insn_length(u8 op)
 {
@@ -67,9 +38,9 @@ static inline int insn_length(u8 op)
     }
 }
 
-/* Cuántos bytes de una instrucción identifican su código. El resto son operandos que pueden
- * cambiar sin cambiar lo que la instrucción hace: el destino de un jp, un valor inmediato. En jr
- * el desplazamiento y en CB el segundo byte sí cambian el código */
+/* Cuántos bytes de una instrucción identifican su código (la clave de ram_code.h). El resto son
+ * operandos que pueden cambiar sin cambiar lo que la instrucción hace: el destino de un jp, un valor
+ * inmediato. En jr el desplazamiento y en CB el segundo byte sí cambian el código */
 static inline int ram_key_len(u8 op)
 {
     switch (op) {
@@ -78,69 +49,35 @@ static inline int ram_key_len(u8 op)
     }
 }
 
-/* Apunta la instrucción que el intérprete va a ejecutar en pc ($8000 o más): cuántas veces, sus
- * bytes y cuáles de sus operandos cambian de una ejecución a otra */
-static inline void ramtrace_observe(GB *g, u16 pc)
+/* WRAM y HRAM: las dos zonas de las que gbrecomp compila código (ram_ptr en gen/ram.c) */
+static RcTable ram_wram, ram_hram;
+
+/* ¿Se anota lo que corre en pc? */
+static inline int ramtrace_here(u16 pc)
 {
-    RamHit *h = &ram_hits[pc - 0x8000];
-    u8 cur[3];
-    for (int i = 0; i < 3; i++) cur[i] = gb_peek(g, (u16)(pc + i));
-    if (!h->n)
-        for (unsigned i = 0; i < RAM_BYTES; i++) h->first[i] = gb_peek(g, (u16)(pc + i));
-    int len = insn_length(cur[0]), key = ram_key_len(cur[0]);
-    unsigned v;
-    for (v = 0; v < h->ngroups; v++)
-        if (memcmp(h->g[v].bytes, cur, (size_t)key) == 0) break;
-    if (v == h->ngroups) {
-        if (v < RAM_GROUPS) {
-            memcpy(h->g[v].bytes, cur, sizeof cur);
-            h->ngroups++;
-        } else {
-            h->overflow = 1;
-        }
-    }
-    if (v < h->ngroups) {
-        RamGroup *gr = &h->g[v];
-        for (int i = key; i < len; i++)
-            if (cur[i] != gr->bytes[i]) gr->vol |= (u8)(1u << i);
-        gr->n++;
-    }
-    h->n++;
+    return (pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF);
 }
 
-/* Cuántas direcciones de WRAM y HRAM hay de cada clase (para el resumen de difftest) */
-typedef struct { unsigned fixed, vol, multi, lost; } RamSummary;
-
-/* Escribe en f (si no es NULL) una línea "ram DIRECCION BYTES" por versión de cada instrucción
- * de WRAM ($C000-$DFFF) o HRAM ($FF80-$FFFE) que se apuntó, en orden de dirección */
-static inline RamSummary ramtrace_write(FILE *f)
+/* Anota la instrucción que el intérprete va a ejecutar en pc (WRAM o HRAM; lo demás no se aprende) */
+static inline void ramtrace_observe(GB *g, u16 pc)
 {
-    RamSummary s = { 0, 0, 0, 0 };
-    for (u32 a = 0xC000; a < 0x10000; a++) {
-        if (a >= 0xE000 && a < 0xFF80) continue;
-        if (a == 0xFFFF) continue;
-        const RamHit *h = &ram_hits[a - 0x8000];
-        if (!h->n) continue;
-        if (h->overflow) {
-            s.lost++;
-            continue;
-        }
-        if (h->ngroups > 1) s.multi++;
-        else if (h->g[0].vol) s.vol++;
-        else s.fixed++;
-        if (!f) continue;
-        for (unsigned v = 0; v < h->ngroups; v++) {
-            const RamGroup *gr = &h->g[v];
-            int len = insn_length(gr->bytes[0]);
-            fprintf(f, "ram %04X", (unsigned)a);
-            for (int i = 0; i < len; i++) {
-                if (gr->vol & (1u << i)) fprintf(f, " ??");
-                else fprintf(f, " %02X", gr->bytes[i]);
-            }
-            fprintf(f, "\n");
-        }
-    }
-    return s;
+    if (!ramtrace_here(pc)) return;
+    RcTable *t = pc < 0xE000 ? &ram_wram : &ram_hram;
+    if (!t->slot && !(pc < 0xE000 ? rc_init(t, 0xC000, 0x2000) : rc_init(t, 0xFF80, 0x7F))) return;
+    u8 b[3];
+    int len = insn_length(gb_peek(g, pc));
+    for (int i = 0; i < len; i++) b[i] = gb_peek(g, (u16)(pc + i));
+    rc_observe(t, pc, b, (unsigned)len, (unsigned)ram_key_len(b[0]));
+}
+
+/* Escribe en f (si no es NULL) las líneas "ram" de lo anotado, en orden de dirección, y devuelve el
+ * resumen para difftest y gbtrace */
+static inline RcSummary ramtrace_write(FILE *f)
+{
+    if (f) { rc_write(&ram_wram, f, 4); rc_write(&ram_hram, f, 4); }
+    RcSummary a = rc_summary(&ram_wram), b = rc_summary(&ram_hram);
+    a.fixed += b.fixed; a.vol += b.vol; a.multi += b.multi; a.lost += b.lost;
+    return a;
 }
 
 #endif

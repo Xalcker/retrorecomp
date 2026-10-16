@@ -1,8 +1,8 @@
 /*
  * Código que el juego copia a RAM y ejecuta desde ahí, para el ciclo de trazas (--uncovered →
- * recompilador --trace). Común a los recompiladores; GBRecomp lo hizo primero (su ramtrace.h y
- * «Código que el juego copia a WRAM o HRAM» en su docs/ARQUITECTURA.md, con la lista de lo que
- * hay que replicar en otra consola).
+ * recompilador --trace). Común a los cinco recompiladores; salió del de GBRecomp («Código que el
+ * juego copia a WRAM o HRAM» en gb/docs/ARQUITECTURA.md, con la lista de lo que hay que replicar en
+ * otra consola), que hoy pone lo suyo en gb/src/platform/ramtrace.h.
  *
  * Por qué de la traza: lo que corre desde RAM no está en la ROM en esa dirección, así que el
  * descubrimiento estático no llega, y deducir qué bytes habrá exigiría emular la copia. El

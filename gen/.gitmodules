@@ -1,0 +1,3 @@
+[submodule "tools/retrorecomp"]
+	path = tools/retrorecomp
+	url = https://github.com/Xalcker/retrorecomp

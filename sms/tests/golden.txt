@@ -1,0 +1,21 @@
+8cecf8ed0f765163b2657be1b0a3ce2a9cb767f4 hash imagen d4cd25e2462df4ca audio 43635da2ef3b7545  # Alex Kidd in Miracle World (USA, Europe).sms
+cbce4c5d819be524f874ec9b60ca9442047a6681 hash imagen e2d5513db3c00886 audio 6569fd5d0dbfcda5  # Ghost House (USA, Europe, Brazil) (En).sms
+4f9b61b24f0d9fee0448cdbbe8fc05411dbb1102 hash imagen 2ccce47df26a27b5 audio 82e7e040395799cd  # OutRun (World).sms
+257ca76ebcd54c75a414ca7ce968fa59ea42f150 hash imagen 9c0495437c296f32 audio eb6af41cb5b4d531  # Phantasy Star (USA, Europe).sms
+6b9677e4a9abb37765d6db4658f4324251807e07 hash imagen cc7b1b7e189e2816 audio 7d20d0327a356a9d  # Sonic The Hedgehog (USA, Europe, Brazil) (En).sms
+51ba2185a2b93957c1c51b0a2e2b80394463bed8 hash imagen c0b32bd4163aaf69 audio 8804edb4c62c2071  # Space Harrier (Japan, USA) (En).sms
+6ae39718703dbf7126f71387ce24ad956710a315 hash imagen 1eb69e87cf336ab5 audio 5caed5dd64433701  # Teddy Boy (USA, Europe, Brazil) (En).sms
+73273e6d44ad7aea828b642d22f6f1c138be9d2b hash imagen 42e6b7ecf0f8333d audio 7116cd609afbd9b9  # TransBot (USA, Europe, Brazil) (En).sms
+99e73de2ffe5ea5d40998faec16504c226f4c1ba hash imagen c605137f55de7b14 audio a6fbdc91fc8b9d59  # Wonder Boy III - The Dragon's Trap (USA, Europe).sms
+05b73f39a90fd59e01262cbd3f4e7a21575d468a hash imagen 984adc6275358789 audio 566b3fbbd52f7af5  # Columns (USA, Europe, Brazil) (En).gg
+7b2d39b68622e18eac6c27fd961133b1d002342b hash imagen c7c052ff2036dfd3 audio 856499f4bef853fd  # Micro Machines (USA, Europe).gg
+789734c4a837dffd2ad3e2c8de22cbd83836580d hash imagen 442e607b4c392b47 audio 409aa24076407731  # Shining Force - The Sword of Hajya (USA).gg
+2e7303f82d885cb84fa557e211954808c8ebe779 hash imagen e21d157474448276 audio 67ec87ac50494a35  # Shinobi (World) (Rev A).gg
+5b5b7d9cd8adf0f8e1ee15fd4557828f91dfdca1 hash imagen 92ddeff1b8087e89 audio d06c2e5540ad6155  # Sonic Chaos (USA, Europe, Brazil) (En).gg
+8923295c96b2e05da0a83a827fd709b033fc7332 hash imagen 0264d00fc7af1c2a audio d671ae31ade92e4d  # Sonic The Hedgehog (Japan, USA) (En).gg
+d1c1da577dd14178366245bc55de7d39da839086 hash imagen 97dec240e790aca0 audio a0f625333a7f05f5  # dragon_blaster.sms
+388873a87a38c9a6e4e5fd52b5cac453a3d393b4 hash imagen 21b8636cafe78156 audio 56615fec28f4eb15  # food_fighter.sms
+8e1142d1f8c730787f1c7ff1cec7d556335c566e hash imagen ad55b050a3ecc222 audio 878e7bc8b4bc4f01  # river_strike.sms
+dfb74cda30ade0c35c409f9d72f6af2b5f30a029 hash imagen 0ec61b4c0bfb1c88 audio aa57f116653c5ee1  # waternet.sms
+fd56a237586a20cf3ceea9e3fac20d0a9eae77cf hash imagen f5541235bed5fb34 audio afabb5f4b4458a75  # waternet.gg
+58345fb3d6235507f3e21813cdf20388fbceec78 hash imagen fb1b78381d529aa5 audio 1fe10f3b7e930915  # contrato.sms

@@ -68,10 +68,10 @@ if [ -f "$C" ]; then
     if "$R" "$C" -o "$P" --name contrato --trace "$D/contrato_ciclo.trace" >/dev/null && make -s -C "$P" -j8 >/dev/null 2>&1; then
         x=; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) x=.exe;; esac
         o=$("$P/difftest$x" "$C" --frames 300 start:30-35 down:60-69 a:60-69 pause:100-101 --uncovered "$D/contrato.unc" 2>&1)
-        pct=$(echo "$o" | sed -n 's/.*, \([0-9.]*\)% de los ciclos).*/\1/p')
+        pct=$(echo "$o" | sed -n 's/^Métrica: \([0-9.]*\)% de las instrucciones nativas.*/\1/p')
         if echo "$o" | grep -q "^difftest: 300 cuadros iguales" && awk -v p="${pct:-0}" 'BEGIN { exit !(p >= 95) }' \
                 && grep -q "^ram C100 3E ??$" "$D/contrato.unc"; then
-            echo "ok    el contrato recompilado: 300 cuadros iguales al intérprete, $pct% de los ciclos en código nativo"
+            echo "ok    el contrato recompilado: 300 cuadros iguales al intérprete, $pct% de las instrucciones nativas"
         else echo "FALLA el contrato recompilado"; echo "$o" | tail -5; fallas=$((fallas + 1)); fi
     else echo "FALLA smsrecomp -o o make del proyecto del contrato"; fallas=$((fallas + 1)); fi
 fi

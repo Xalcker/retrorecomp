@@ -122,18 +122,18 @@ GENRecomp y NEORecomp (con diferencias, en cambio, imprime líneas `DIFERENCIA .
 y sale con 1):
 
 ```
-difftest: 6000 cuadros iguales (20993550 llamadas, 713352 a código recompilado, 76.0% de los ciclos)
-Instrucciones: 61658128 recompiladas, 20280198 en el intérprete (75.249% de las instrucciones)
+difftest: 6000 cuadros iguales (20993550 llamadas, 713352 a código recompilado)
+Métrica: 75.2% de las instrucciones nativas (61658128 de 81938326); ciclos: 76.0% nativo, ...
 Instrucciones de ROM interpretadas: 10299
 ```
 
 `build/out/sfa2/bench roms/sfa2.gbc` mide la velocidad del código recompilado sin
 ventana, con las mismas opciones que `gbbench` (el intérprete).
 
-Si el porcentaje de los ciclos pasa de ~98 % y no hay diferencias, ya está:
-salta al paso 6. Si queda bajo (aquí, 76 %), mira la línea `Ciclos:` que va
-después: si lo que falta se va en HALT (el juego esperando el siguiente cuadro),
-no hay nada que compilar. Si se va en el intérprete, es que hay
+Si las instrucciones nativas pasan de ~98 % y no hay diferencias, ya está:
+salta al paso 6. Si quedan bajas (aquí, 75 %), mira el reparto de los ciclos de la
+línea `Métrica:`: si lo que no es nativo se va en espera (HALT: el juego esperando el
+siguiente cuadro), no hay nada que compilar. Si se va en el intérprete, es que hay
 código al que el análisis estático no llega (saltos por punteros, tablas que
 no reconoce...). Lo que falta lo ejecuta el intérprete, así que el juego
 funciona igual, solo más lento. La traza lo resuelve.
@@ -153,16 +153,16 @@ sfa2: primera ronda
 código en WRAM/HRAM aprendido de la traza: 6 instrucciones (0 con operandos variables) en 1 bloques
 código: 31756 instrucciones (54256 bytes, 5.17% de la ROM) en 113 funciones
 destinos de punteros a código guardados en RAM: 5
-  semilla 1    99.6% de los ciclos Instrucciones de ROM interpretadas: 1363
-  semilla 2    99.9% de los ciclos Instrucciones de ROM interpretadas: 1287
-  semilla 3    99.9% de los ciclos Instrucciones de ROM interpretadas: 482
+  semilla 1    99.6% de las instrucciones nativas Instrucciones de ROM interpretadas: 1363
+  semilla 2    99.9% de las instrucciones nativas Instrucciones de ROM interpretadas: 1287
+  semilla 3    99.9% de las instrucciones nativas Instrucciones de ROM interpretadas: 482
 sfa2: con la traza (   20302 direcciones)
 código en WRAM/HRAM aprendido de la traza: 6 instrucciones (0 con operandos variables) en 1 bloques
 código: 37393 instrucciones (64859 bytes, 6.19% de la ROM) en 129 funciones
 destinos de punteros a código guardados en RAM: 5
-  semilla 1    100.0% de los ciclos Instrucciones de ROM interpretadas: 1
-  semilla 2    100.0% de los ciclos
-  semilla 3    100.0% de los ciclos
+  semilla 1    100.0% de las instrucciones nativas Instrucciones de ROM interpretadas: 1
+  semilla 2    100.0% de las instrucciones nativas
+  semilla 3    100.0% de las instrucciones nativas
 Sin diferencias.
 ```
 

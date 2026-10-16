@@ -106,7 +106,7 @@ if [ -x ./nesrecomp ]; then
         if ./nesrecomp "$RR" -o "$d" --name ram --trace build/ram.unc 2>&1 | grep -q "aprendido de la traza: 10 instrucciones (1 con operandos variables) en 2 bloques" \
                 && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
                 && "$d/difftest" "$RR" --frames 60 --seed 1 --uncovered build/ram2.unc > build/ram2.out 2>&1 \
-                && grep -q "cuadros iguales.*100.0% de los ciclos" build/ram2.out && ! grep -q "^ram" build/ram2.unc; then ok=1; fi
+                && grep -q "^Métrica: 100.0% de las instrucciones nativas" build/ram2.out && ! grep -q "^ram" build/ram2.unc; then ok=1; fi
     fi
     if [ $ok = 1 ]; then echo "ok   código en RAM (interna y del cartucho): la segunda ronda lo compila (10 instrucciones, 1 parchada) y no queda nada en el intérprete"
     else cat build/ram1.out build/ram2.out 2>/dev/null; echo "FALLA código en RAM"; fail=1; fi

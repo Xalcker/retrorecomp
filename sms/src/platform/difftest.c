@@ -24,8 +24,8 @@
  * cada paso, la máquina A (solo intérprete: z80_interp_only) avanza hasta el mismo ciclo y se comparan. Las dos
  * cuentan los ciclos igual, así que coinciden en cada límite de instrucción.
  *
- * El porcentaje de la línea final es de los ciclos que ejecutan instrucciones: los de un HALT que se saltan de una
- * vez (sms.c) no cuentan ni como recompilados ni como interpretados; la línea "Z80: ..." los muestra aparte.
+ * Sin diferencias termina con "difftest: N cuadros iguales (L llamadas, R a código recompilado)" y la línea común
+ * "Métrica: ..." (metrica.h), que separa el HALT saltado (espera) de lo nativo y lo interpretado.
  */
 #include <stddef.h>
 #include <stdio.h>
@@ -191,7 +191,7 @@ int main(int argc, char **argv)
     if (c.executed) sms_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0, halt_cycles = 0, cyc0 = B.cyc;
+    u64 cyc0 = B.cyc;
     metrica_reiniciar(&B);          /* la métrica común: la de B (metrica.h) */
     u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
     for (long f = 0; f < frames; f++) {
@@ -206,8 +206,8 @@ int main(int argc, char **argv)
             u64 sk0 = z80_stat.skipped;
             int native = sms_recomp_step(&B);
             if (c.estricto && metrica_estricto(f, 4, NULL)) return 1;
-            if (native) { recomp_calls++; recomp_cycles += B.cyc - c0; }
-            else if (z80_stat.skipped != sk0) halt_cycles += B.cyc - c0;
+            if (native) recomp_calls++;
+            else if (z80_stat.skipped != sk0) {}     /* HALT saltado: va en la métrica (espera) */
             else interp_zone[zone] += B.cyc - c0;
             calls++;
             while (A.cyc < B.cyc && !A.vdp.frame_done) sms_step(&A);
@@ -234,8 +234,8 @@ int main(int argc, char **argv)
         printf("Intérprete por zona: ROM %.1f%%, RAM %.1f%%, otra %.1f%%\n", 100.0 * (double)interp_zone[0] / (double)interp,
                100.0 * (double)interp_zone[1] / (double)interp, 100.0 * (double)interp_zone[2] / (double)interp);
     z80_stat_print();
-    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
-           frames, calls, recomp_calls, B.cyc > halt_cycles ? 100.0 * (double)recomp_cycles / (double)(B.cyc - halt_cycles) : 0.0);
+    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
+           frames, calls, recomp_calls);
     metrica_imprimir(&metrica, B.cyc - cyc0);
     metrica_imprimir_motivos(&metrica);
     if (c.uncovered) {

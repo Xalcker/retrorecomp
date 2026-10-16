@@ -960,14 +960,13 @@ Otras opciones: `--uncovered archivo` escribe las direcciones de ROM que ejecut�
 el intérprete y los bytes del código de WRAM y HRAM que ejecutó (para `gbrecomp --trace`),
 `--screens carpeta --every N` guarda capturas y `--bench` mide la velocidad de cada máquina.
 
-El porcentaje «de los ciclos» de la primera línea (el resumen común de los cuatro recompiladores)
-cuenta todo el tiempo de la máquina, incluido el que el CPU pasa en HALT esperando una
-interrupción, así que un juego sin nada interpretado puede quedar lejos del 100 %. La línea
-siguiente reparte esos ciclos:
+La línea común de los cinco recompiladores (`Métrica:`, `shared/metrica.h`) da las instrucciones
+nativas y reparte los ciclos de toda la corrida, incluido el tiempo que el CPU pasa en HALT
+esperando una interrupción: un juego sin nada interpretado puede tener pocos ciclos nativos:
 
 ```
-difftest: 3000 cuadros iguales (379355 llamadas, 379345 a código recompilado, 56.5% de los ciclos)
-Ciclos: 56.5 % recompilado, 43.5 % en HALT, 0.1 % en interrupciones, 0.0 % en el intérprete
+difftest: 3000 cuadros iguales (379355 llamadas, 379345 a código recompilado)
+Métrica: 100.0% de las instrucciones nativas (...); ciclos: 56.5% nativo, 0.0% intérprete en ROM, 0.0% intérprete en RAM, 0.1% entrada a interrupciones, 43.5% espera (HALT/STOP), 0.0% otros
 ```
 
 Es International Superstar Soccer; Rayman marca 20.8 % recompilado y 79.0 % en HALT. Los dos

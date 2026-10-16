@@ -103,7 +103,8 @@ CPU, RAM, PPU, APU, mapper, y por cuadro la imagen y el audio:
 ./difftest "../../roms/Super Mario Bros. (Japan, USA).nes" 600 start:120-125 right:300-600
 ```
 ```
-difftest: 600 cuadros iguales (106686 llamadas, 106686 a código recompilado, 100.0% de los ciclos)
+difftest: 600 cuadros iguales (106686 llamadas, 106686 a código recompilado)
+Métrica: 100.0% de las instrucciones nativas (...); ciclos: 100.0% nativo, 0.0% intérprete en ROM, ...
 ```
 
 Los argumentos `boton:desde-hasta` son los cuadros en que se mantiene cada botón (`a b select start up down left right`).

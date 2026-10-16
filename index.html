@@ -377,7 +377,7 @@ function renderSteps(){
   st_.push(["Proyecto generado",pj.generated?"sí":"no",pj.generated?"ok":"todo",0,"build/out/"+(pj.name||"")]);
   st_.push(["Compilado",pj.built?"sí":"no",pj.built?"ok":"todo",0,""]);
   const d=pr.difftest;
-  st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_nativas!=null?`${d.pct_nativas}% de las instrucciones nativas · `:""}${d.pct_recomp??"?"}% de los ciclos recompilado`:""]);
+  st_.push(["difftest",d?(d.ok?"iguales":"DIFERENCIA"):"sin correr",d?(d.ok?"ok":"bad"):"todo",d?.pct_recomp||0,d?`${d.frames||"?"} cuadros · ${d.pct_nativas!=null?`${d.pct_nativas}% de las instrucciones nativas · `:""}${d.pct_recomp??"?"}% de los ciclos nativo`:""]);
   const b=pr.bench;
   st_.push(["Velocidad",b?.speed?`${b.speed}x`:"—",b?.speed?"ok":"todo",0,"tiempo real (último bench)"]);
   $("#steps").innerHTML=st_.map(([t,v,c,pct,sub])=>`<div class="step ${c}"><b>${t}</b><span class="v">${esc(v)}</span>${pct?`<div class="bar"><i style="width:${Math.min(100,pct)}%"></i></div>`:""}<div class="mut" style="font-size:11px">${esc(sub)}</div></div>`).join("");
@@ -585,7 +585,7 @@ function parseCycle(text){
     if(/: primera ronda$/.test(l)){cur={title:"Primera ronda: recompilar con lo que halla el análisis",seeds:[]};rounds.push(cur);continue}
     if(m=l.match(/: con la traza \((\d+) (instrucciones|direcciones)\)/)){cur={title:"Segunda ronda: recompilar con la traza ("+m[1]+" "+m[2]+")",seeds:[]};rounds.push(cur);continue}
     if(cur&&(m=l.match(/^\s+semilla (\S+)\s*(.*)$/))){
-      const r=m[2], p=r.match(/([\d.]+)% de los ciclos/), i=r.match(/interpretad\w+: (\d+)/), bad=/DIFERENCIA/.test(r);
+      const r=m[2], p=r.match(/([\d.]+)% de las instrucciones nativas/), i=r.match(/interpretad\w+: (\d+)/), bad=/DIFERENCIA/.test(r);
       cur.seeds.push({s:m[1],bad,pct:p?p[1]:null,interp:i?i[1]:null,done:bad||!!p||!!i});continue}
     if(/^Sin diferencias\.$/.test(l)) res="ok"; else if(/^HAY DIFERENCIAS\.$/.test(l)) res="bad";
   }

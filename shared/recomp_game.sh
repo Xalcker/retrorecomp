@@ -60,7 +60,7 @@ ronda() {
             falla=1
             return
         fi
-        grep -oE '[0-9.]+% de (los ciclos|las instrucciones nativas)' "$OUT/difftest.log" | tr '\n' ' '
+        grep -oE '[0-9.]+% de las instrucciones nativas' "$OUT/difftest.log" | tr '\n' ' '
         grep -oE 'Instrucciones de (PRG|ROM) interpretadas: [0-9]+' "$OUT/difftest.log" || echo
         cat "$OUT/unc_$s.txt" >> "$TRACE"
     done

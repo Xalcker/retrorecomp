@@ -181,8 +181,8 @@ La máquina B corre el código recompilado y la A solo el intérprete (`z80_inte
 función, o una instrucción del intérprete), A avanza hasta el mismo ciclo y se comparan el Z80, los ciclos, la RAM,
 el mapper, el VDP, la E/S, el PSG, la mezcla, la RAM del cartucho y las interrupciones atendidas, y al final de cada
 cuadro también la imagen y el audio. La salida es la común: `difftest: N cuadros iguales (L llamadas, R a código
-recompilado, P% de los ciclos)`, con «Intérprete por zona» y la línea `Z80: ...` antes. El porcentaje es de los
-ciclos que ejecutan instrucciones: los de un `HALT` saltado no cuentan ni para un lado ni para el otro.
+recompilado)` y la línea `Métrica: ...` (`shared/metrica.h`), con «Intérprete por zona» y la línea `Z80: ...` antes. Los
+ciclos de un `HALT` saltado van en la espera de la métrica, ni nativos ni interpretados.
 `--uncovered` escribe la traza de lo que B tuvo que interpretar (con las líneas `ram`).
 
 ### Rendimiento

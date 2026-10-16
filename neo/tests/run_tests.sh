@@ -111,7 +111,7 @@ if [ -f build/neobios.bin ]; then
         if NEO_BIOS=build/neobios.bin "$(exe neorecomp)" "$RR" -o "$d" --name ram --trace "$D/ram.unc" 2>&1 | grep -q "aprendido de la traza: 6 instrucciones (1 con operandos variables) en 1 bloques" \
                 && make -C "$d" -j8 -s "difftest$x" >/dev/null 2>&1 \
                 && NEO_BIOS=build/neobios.bin "$d/difftest$x" "$RR" --frames 600 --seed 1 --uncovered "$D/ram2.unc" > "$D/ram2.out" 2>&1 \
-                && grep -q "cuadros iguales.*100.0% de los ciclos" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
+                && grep -q "^Métrica: 100.0% de las instrucciones nativas" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
     fi
     if [ $ok -eq 1 ]; then echo "ok    código en RAM: la segunda ronda lo compila (6 instrucciones, 1 parchada) y no queda nada en el intérprete"
     else echo "FALLA código en RAM"; cat "$D/ram1.out" "$D/ram2.out" 2>/dev/null; fallas=$((fallas + 1)); fi

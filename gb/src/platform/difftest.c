@@ -26,8 +26,8 @@
  *   lo que el despachador interpreta a propósito (tras EI, bug de HALT) sí pasan. Al final,
  *   "Intérprete por motivo: ..." cuenta las entradas al intérprete.
  * Salida y código de salida como en NESRecomp, GENRecomp y NEORecomp: sin diferencias,
- * "difftest: N cuadros iguales (L llamadas, R a código recompilado, P% de los ciclos)"
- * y 0; con diferencias, líneas "DIFERENCIA ..." y 1; 2 si no pudo correr.
+ * "difftest: N cuadros iguales (L llamadas, R a código recompilado)" y la línea común
+ * "Métrica: ..." (metrica.h), y 0; con diferencias, líneas "DIFERENCIA ..." y 1; 2 si no pudo correr.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,21 +77,18 @@ static void top_insert(Hit *top, unsigned *ntop, Hit h)
  * había en esa dirección la primera vez (para reconocer la rutina) y las versiones del código
  * que corrieron allí. Lo lleva ramtrace.h, que comparte con el ejecutable del juego */
 
-/* --- Llamadas y ciclos del código recompilado (el resumen de los cuatro recompiladores) ---
+/* --- Llamadas al código recompilado (el resumen de los cinco recompiladores) ---
  * El despachador del runtime llama a la función que le da recomp_lookup; esta versión la
- * envuelve para contar sus ciclos. Las llamadas son las funciones recompiladas más las
+ * envuelve para contarlas. Las llamadas son las funciones recompiladas más las
  * instrucciones del intérprete, como en NESRecomp. */
 
 static RecompFn counted_fn;
 static unsigned long recomp_calls;
-static u64 recomp_cycles;
 
 static void counted(GB *g)
 {
-    u64 c0 = g->cyc;
     counted_fn(g);
     recomp_calls++;
-    recomp_cycles += g->cyc - c0;
 }
 
 static RecompFn counting_lookup(GB *g, u16 pc)
@@ -483,12 +480,10 @@ int main(int argc, char **argv)
     }
 
     if (ok)
-        printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
-               frames, recomp_calls + (unsigned long)metrica.ins_int, recomp_calls,
-               rec.cyc ? 100.0 * (double)recomp_cycles / (double)rec.cyc : 0.0);
-    /* La línea común de los cinco (metrica.h): las instrucciones nativas y el reparto de los ciclos (el
-     * porcentaje de la línea de arriba cuenta también el tiempo en HALT; esta lo separa). Lo que el despachador
-     * no atribuye (esperas de la DMA por HBlank) sale como «otros» */
+        printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
+               frames, recomp_calls + (unsigned long)metrica.ins_int, recomp_calls);
+    /* La línea común de los cinco (metrica.h): las instrucciones nativas y el reparto de los ciclos. Lo que el
+     * despachador no atribuye (esperas de la DMA por HBlank) sale como «otros» */
     if (ok) metrica_imprimir(&metrica, rec.cyc);
     metrica_imprimir_motivos(&metrica);
     if (metrica.ins_int)

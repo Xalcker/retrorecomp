@@ -207,7 +207,7 @@ int main(int argc, char **argv)
     if (c.executed) gen_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0, cyc0 = B.cyc;
+    u64 cyc0 = B.cyc;
     metrica_reiniciar(&B);          /* la métrica común: la de B (metrica.h) */
     u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
     for (long f = 0; f < frames; f++) {
@@ -219,7 +219,7 @@ int main(int argc, char **argv)
             u64 c0 = B.cyc;
             int native = step_b();
             if (c.estricto && metrica_estricto(f, 6, NULL)) return 1;
-            if (native) { recomp_calls++; recomp_cycles += B.cyc - c0; }
+            if (native) recomp_calls++;
             else interp_zone[pc0 < 0x400000 ? 0 : pc0 >= 0xE00000 ? 1 : 2] += B.cyc - c0;
             calls++;
             while (A.cyc < B.cyc && !A.vdp.frame_done) { m68k_step(&A); gen_after_step(&A); }
@@ -246,8 +246,8 @@ int main(int argc, char **argv)
         printf("Intérprete por zona: ROM %.1f%%, RAM %.1f%%, otra %.1f%%\n", 100.0 * (double)interp_zone[0] / (double)interp,
                100.0 * (double)interp_zone[1] / (double)interp, 100.0 * (double)interp_zone[2] / (double)interp);
     z80_stat_print();
-    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
-           frames, calls, recomp_calls, B.cyc ? 100.0 * (double)recomp_cycles / (double)B.cyc : 0.0);
+    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
+           frames, calls, recomp_calls);
     metrica_imprimir(&metrica, B.cyc - cyc0);
     metrica_imprimir_motivos(&metrica);
     if (c.uncovered) {

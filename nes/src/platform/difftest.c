@@ -162,7 +162,7 @@ int main(int argc, char **argv)
     if (c.executed) nes_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 
     unsigned long calls = 0, recomp_calls = 0;
-    u64 recomp_cycles = 0, cyc0 = B.cyc;
+    u64 cyc0 = B.cyc;
     metrica_reiniciar(&B);
     u64 interp_zone[4] = { 0 };     /* ciclos del intérprete por zona del PC: PRG, RAM, RAM del cartucho, otra */
     for (long f = 0; f < frames; f++) {
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
                 metrica_estricto(f, 4, prg);
                 return 1;
             }
-            if (fn) { recomp_calls++; recomp_cycles += B.cyc - c0; }
+            if (fn) recomp_calls++;
             else interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
             calls++;
             while (A.cyc < B.cyc) cpu_step(&A);
@@ -207,8 +207,8 @@ int main(int argc, char **argv)
         printf("Intérprete por zona: PRG %.1f%%, RAM %.1f%%, RAM del cartucho %.1f%%, otra %.1f%%\n",
                100.0 * interp_zone[0] / interp, 100.0 * interp_zone[1] / interp,
                100.0 * interp_zone[2] / interp, 100.0 * interp_zone[3] / interp);
-    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado, %.1f%% de los ciclos)\n",
-           frames, calls, recomp_calls, B.cyc ? 100.0 * recomp_cycles / B.cyc : 0.0);
+    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
+           frames, calls, recomp_calls);
     metrica_imprimir(&metrica, B.cyc - cyc0);
     metrica_imprimir_motivos(&metrica);
     if (uncovered) {

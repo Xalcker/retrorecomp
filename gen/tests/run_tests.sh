@@ -117,7 +117,7 @@ if "$(exe genrecomp)" "$RR" -o "$d" --name ram >/dev/null 2>&1 && make -C "$d" -
     if "$(exe genrecomp)" "$RR" -o "$d" --name ram --trace "$D/ram.unc" 2>&1 | grep -q "aprendido de la traza: 12 instrucciones (1 con operandos variables) en 2 bloques" \
             && make -C "$d" -j4 -s "difftest$x" >/dev/null 2>&1 \
             && "$d/difftest$x" "$RR" --frames 60 --seed 1 --uncovered "$D/ram2.unc" > "$D/ram2.out" 2>&1 \
-            && grep -q "cuadros iguales.*100.0% de los ciclos" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
+            && grep -q "^Métrica: 100.0% de las instrucciones nativas" "$D/ram2.out" && ! grep -q "^ram" "$D/ram2.unc"; then ok=1; fi
 fi
 if [ $ok -eq 1 ]; then echo "ok    código en RAM: la segunda ronda lo compila (12 instrucciones, 1 parchada) y no queda nada en el intérprete"
 else echo "FALLA código en RAM"; cat "$D/ram1.out" "$D/ram2.out" 2>/dev/null; fallas=$((fallas + 1)); fi

@@ -66,7 +66,7 @@ while IFS= read -r src; do
     "$proj/difftest$EXE" "$rom" --frames "$FRAMES" --seed "$SEED" --every 1200 \
         --screens "$DIR/capturas/$slug" > "$DIR/proyectos/$slug.diff.log" 2>&1
     rc=$?
-    pct=$(grep -oE '[0-9.]+% de los ciclos' "$DIR/proyectos/$slug.diff.log" | cut -d' ' -f1)
+    pct=$(grep -oE '[0-9.]+% de las instrucciones nativas' "$DIR/proyectos/$slug.diff.log" | cut -d' ' -f1)
     secs=$(( $(date +%s) - start ))
     if [ $rc -eq 0 ] && grep -q '^difftest: .* cuadros iguales' "$DIR/proyectos/$slug.diff.log"; then
         r=OK; detail=""

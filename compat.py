@@ -45,7 +45,7 @@ class Sistema:
     exts = ()                        # extensiones de ROM (dentro de los zips o sueltas)
     categoria_nombre = "Categoría"   # "Mapper", "MBC"...
     botones = ("A", "B")             # los dos botones de acción del guion
-    re_metrica = r"([\d.]+)% de los ciclos"     # la línea común de difftest (retrorecomp#10)
+    re_metrica = r"ciclos: ([\d.]+)% nativo"     # los ciclos nativos de la línea "Métrica:" (shared/metrica.h)
     compara = ""                     # qué compara difftest, para el informe
     escala_mini = 2                  # la miniatura es la captura dividida entre esto
     cupo = {}                        # categoría -> cuántas ROMs entran a la etapa 2 por omisión
@@ -172,8 +172,7 @@ def num(rx, texto, tipo=float):
     return tipo(m.group(1)) if m else None
 
 
-# La línea común de difftest y bench de los cinco (shared/metrica.h). La de antes, "N% de los ciclos" (re_metrica),
-# se sigue imprimiendo una versión más
+# La línea común de difftest y bench de los cinco (shared/metrica.h)
 RE_METRICA = re.compile(
     r"Métrica: ([\d.]+)% de las instrucciones nativas \((\d+) de (\d+)\); ciclos: ([\d.]+)% nativo, "
     r"([\d.]+)% intérprete en ROM, ([\d.]+)% intérprete en RAM, ([\d.]+)% entrada a interrupciones, "
@@ -580,8 +579,6 @@ class Prueba:
                 met = leer_metrica(o)
                 if met:
                     d["metrica"] = met
-                    if d["recompilado_pct"] is None:        # sin la línea de antes: los ciclos nativos
-                        d["recompilado_pct"] = met["ciclos"]["nativo"]
                 d["interpretadas"] = num(r"interpretadas: (\d+)", o, int) or 0
                 if not d["ok"]:
                     lin = [l.strip() for l in o.splitlines()

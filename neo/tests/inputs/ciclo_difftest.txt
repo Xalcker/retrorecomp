@@ -1,0 +1,21 @@
+# Ciclo completo (Neo Geo): entradas de cada difftest, desplazadas 1200 cuadros por la BIOS del AES
+# Generado a partir de pulsaciones sostenidas (boton desde-hasta); solo usa A, B, START, LEFT y RIGHT.
+0 -
+1350 START
+1356 -
+1550 START
+1556 -
+1650 A
+1656 -
+1850 START
+1856 -
+1900 RIGHT
+1960 A+RIGHT
+2001 RIGHT
+2100 B+RIGHT
+2200 A+B+RIGHT
+2201 A+RIGHT
+2241 RIGHT
+2400 A+RIGHT
+2421 RIGHT
+2701 -

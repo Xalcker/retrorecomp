@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compatibilidad NEORecomp</title>
+<style>
+:root{--bg:#fff;--fg:#1c1e21;--mut:#666;--line:#ddd;--card:#f6f7f9;--ok:#1a7f37;--mid:#9a6700;--bad:#cf222e;--none:#6e7781}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161a;--fg:#e6e8eb;--mut:#9aa1ab;--line:#2d3139;--card:#1c2026;--ok:#3fb950;--mid:#d29922;--bad:#f85149;--none:#8b949e}}
+:root[data-theme="dark"]{--bg:#14161a;--fg:#e6e8eb;--mut:#9aa1ab;--line:#2d3139;--card:#1c2026;--ok:#3fb950;--mid:#d29922;--bad:#f85149;--none:#8b949e}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1280px;margin:auto} h1{margin:0 0 4px} h2{margin-top:36px} code{font-size:13px}
+.mut{color:var(--mut)} .sm{font-size:12px} .n{text-align:right;font-variant-numeric:tabular-nums}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;min-width:150px}
+.card b{display:block;font-size:26px}
+table{border-collapse:collapse;width:100%} th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{position:sticky;top:0;background:var(--bg);font-size:13px;z-index:1} td.det{font-size:12px;color:var(--mut);max-width:280px;overflow-wrap:anywhere}
+.wrap{overflow-x:auto} img{image-rendering:pixelated;border-radius:3px;display:block;height:64px;width:auto}
+tr.ok .pct{color:var(--ok);font-weight:600} tr.mid .pct{color:var(--mid);font-weight:600} tr.bad .pct{color:var(--bad);font-weight:600} tr.none td{color:var(--none)}
+.b{padding:2px 8px;border-radius:10px;font-size:12px;border:1px solid currentColor;white-space:nowrap}
+.recompilado{color:var(--ok)} .intérprete{color:var(--mid)} .sin-soporte,.sin-probar{color:var(--none)}
+.diferencia,.falla,.no-carga,.pantalla-en-blanco,.se-cuelga{color:var(--bad)}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:14px;padding:4px 10px;margin:0 6px 6px 0;cursor:pointer;font:inherit}
+.chip.on{outline:2px solid var(--fg)} .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+input,select{padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);font:inherit}
+input{width:260px;max-width:100%}
+</style></head><body><main>
+<h1>Compatibilidad de NEORecomp</h1>
+<div class="mut">8 ROMs de roms · versión 3e80cb3 · 2026-10-12</div>
+<div class="cards">
+<div class="card"><b>8</b>ROMs probadas</div>
+<div class="card"><b>8</b>con programa soportado</div>
+<div class="card"><b>8</b>corren en el intérprete</div>
+<div class="card"><b>8 / 8</b>recompiladas sin diferencias</div>
+<div class="card"><b>99.8%</b>ciclos recompilados (media)</div>
+<div class="card"><b>59×</b>velocidad mediana recompilado</div>
+</div>
+<h2>Cómo se probó</h2>
+<p><b>Etapa 1, todas las ROMs:</b> cada ROM corre en el intérprete (<code>neoshot</code>) con entradas guionadas (Start, botones,
+flechas) y se toman capturas en los cuadros 1200, 2400, 3600; la miniatura es la más colorida. «Corre» significa que cargó,
+el CPU no se detuvo y la captura no es de un solo color; no garantiza que el juego se vea bien: las miniaturas hay que revisarlas a ojo.</p>
+<p><b>Etapa 2, una selección por programa:</b> <code>neorecomp</code> sin traza (solo análisis estático),
+compilar el proyecto generado y correr <code>difftest</code> con las semillas 1 y 2 (1800 cuadros,
+entradas fijas más un mando aleatorio), que compara 68000, ciclos, RAM, VRAM, LSPC, paleta, latch y banco de P2, tarjeta, Z80 y su RAM, YM2610, mezcla y bus abierto tras cada función 68000; imagen y audio al final de cada cuadro contra el intérprete. Si algo cayó al intérprete en ROM, se recompila
+con esas direcciones (<code>--uncovered</code> → <code>--trace</code>) y se repite. «Recompilado» = sin diferencias en todas las rondas.
+«Ciclos recompilados» es el peor caso de las semillas de la última ronda (lo que falta suele ser código en RAM). La velocidad es la de
+<code>difftest --bench</code> (1800 cuadros, recompilado / intérprete, sin ventana ni audio).</p>
+<p class="mut">Para repetirlo: <code>python3 tools/compat/run.py CARPETA</code> y <code>python3 tools/compat/report.py</code>
+(el motor es común a los tres recompiladores: <code>tools/retrorecomp/compat.py</code>).</p>
+<h2>Por programa</h2><div class="wrap"><table><thead><tr><th>Programa</th><th class="n">ROMs</th><th>Soportado</th><th class="n">Corren (etapa 1)</th><th class="n">En blanco</th><th class="n">Se cuelgan</th><th class="n">No cargan</th><th class="n">Recompiladas ok (etapa 2)</th></tr></thead><tbody><tr class="ok"><td>2 MB</td><td class="n">3</td><td>sí</td><td class="n pct">3 <span class="mut">(100%)</span></td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n">3 / 3</td></tr><tr class="ok"><td>P2 con bancos</td><td class="n">5</td><td>sí</td><td class="n pct">5 <span class="mut">(100%)</span></td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n">5 / 5</td></tr></tbody></table></div>
+<h2>Por juego</h2>
+<div class="ctl"><button class="chip" data-f="recompilado"><span class="b recompilado">recompilado</span> <b>8</b></button></div>
+<div class="ctl"><input id="q" placeholder="Buscar juego…" aria-label="Buscar juego">
+<select id="m" aria-label="Programa"><option value="">Programa: todos</option><option value="2 MB">2 MB</option><option value="P2 con bancos">P2 con bancos</option></select>
+<span class="mut" id="cnt"></span></div>
+<div class="wrap"><table id="t"><thead><tr><th></th><th>Juego</th><th>Programa</th><th class="n">P (KB)</th>
+<th>Características</th><th>Estado</th><th class="n">Código descubierto</th><th class="n">Ciclos recompilados</th><th class="n">Velocidad</th><th class="n">Genesis Plus GX<br><span class="mut">RAM / imagen %</span></th><th class="n">BlastEm<br><span class="mut">RAM / imagen %</span></th><th>Detalle</th></tr></thead>
+<tbody><tr data-estado="recompilado" data-cat="P2 con bancos"><td><img loading="lazy" src="thumbs/gkof970c7216.png" alt=""></td><td>kof97</td><td>P2 con bancos</td><td class="n">5120</td><td class="sm">NGH 0232, 4 bancos de P2</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">10.1% · 366 fn</td><td class="n">100.0%</td><td class="n">78× <span class="mut">/ 34×</span></td><td class="n">99.8 / 100</td><td class="n">88.3 / 100</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="P2 con bancos"><td><img loading="lazy" src="thumbs/gkof985ce5c7.png" alt=""></td><td>kof98</td><td>P2 con bancos</td><td class="n">5120</td><td class="sm">NGH 0242, 4 bancos de P2</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">11.1% · 413 fn</td><td class="n">99.1%</td><td class="n">59× <span class="mut">/ 35×</span></td><td class="n">99.6 / 100</td><td class="n">91.5 / 100</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="P2 con bancos"><td><img loading="lazy" src="thumbs/glastbladbca64a.png" alt=""></td><td>lastblad</td><td>P2 con bancos</td><td class="n">5120</td><td class="sm">NGH 0234, 4 bancos de P2</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">8.1% · 339 fn</td><td class="n">100.0%</td><td class="n">56× <span class="mut">/ 32×</span></td><td class="n">95.6 / 17</td><td class="n">86.0 / 89</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="2 MB"><td><img loading="lazy" src="thumbs/gmslugfb756a.png" alt=""></td><td>mslug</td><td>2 MB</td><td class="n">2048</td><td class="sm">NGH 0201</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">20.9% · 366 fn</td><td class="n">100.0%</td><td class="n">51× <span class="mut">/ 29×</span></td><td class="n">99.9 / 100</td><td class="n">79.0 / 100</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="P2 con bancos"><td><img loading="lazy" src="thumbs/gmslug2adbbc5.png" alt=""></td><td>mslug2</td><td>P2 con bancos</td><td class="n">3072</td><td class="sm">NGH 0241, 2 bancos de P2</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">16.0% · 437 fn</td><td class="n">99.8%</td><td class="n">45× <span class="mut">/ 28×</span></td><td class="n">99.8 / 99</td><td class="n">79.7 / 99</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="2 MB"><td><img loading="lazy" src="thumbs/gsamsho2ca9b6e.png" alt=""></td><td>samsho2</td><td>2 MB</td><td class="n">2048</td><td class="sm">NGH 0063</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">12.6% · 381 fn</td><td class="n">100.0%</td><td class="n">62× <span class="mut">/ 31×</span></td><td class="n">99.8 / 78</td><td class="n">92.4 / 100</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="P2 con bancos"><td><img loading="lazy" src="thumbs/gshocktroa22c3a.png" alt=""></td><td>shocktro</td><td>P2 con bancos</td><td class="n">5120</td><td class="sm">NGH 0238, 4 bancos de P2, solo MVS</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">1.5% · 210 fn</td><td class="n">100.0%</td><td class="n">69× <span class="mut">/ 32×</span></td><td class="n">99.9 / 99</td><td class="n">88.6 / 100</td><td class="det"></td></tr><tr data-estado="recompilado" data-cat="2 MB"><td><img loading="lazy" src="thumbs/gturfmast7accb6.png" alt=""></td><td>turfmast</td><td>2 MB</td><td class="n">2048</td><td class="sm">NGH 0200</td><td><span class="b recompilado">recompilado</span></td><td class="n sm">7.0% · 172 fn</td><td class="n">99.7%</td><td class="n">42× <span class="mut">/ 27×</span></td><td class="n">99.9 / 100</td><td class="n">78.5 / 100</td><td class="det"></td></tr></tbody></table></div>
+<script>
+let f=null;const rows=[...document.querySelectorAll('#t tbody tr')],q=document.getElementById('q'),m=document.getElementById('m'),cnt=document.getElementById('cnt');
+function ap(){const s=q.value.toLowerCase();let n=0;rows.forEach(r=>{r.hidden=(f&&r.dataset.estado!==f)||(m.value&&r.dataset.cat!==m.value)||(s&&!r.textContent.toLowerCase().includes(s));n+=!r.hidden});cnt.textContent=n+' de '+rows.length}
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{f=f===c.dataset.f?null:c.dataset.f;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.dataset.f===f));ap()});
+q.oninput=ap;m.onchange=ap;ap();
+</script></main></body></html>

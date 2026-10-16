@@ -45,7 +45,7 @@ jobs:
       - id: p
         shell: bash
         run: |
-          todos="gb nes gen neo sms"
+          todos=$(jq -r 'keys_unsorted | join(" ")' shared/sistemas.json)   # el registro de sistemas
           completo=1
           if [ "${{ github.event_name }}" = pull_request ] && \
              ! ${{ contains(github.event.pull_request.labels.*.name, 'ci-completo') }}; then completo=; fi
@@ -99,7 +99,7 @@ jobs:
       # Archivos gemelos, MOVIDOS, compat gemelo y opciones (compila y corre las herramientas de los cinco)
       - name: Contrato entre sistemas
         run: |
-          for s in gb nes gen neo sms; do make -C $s -j4 >/dev/null; done
+          for s in $(jq -r 'keys_unsorted[]' shared/sistemas.json); do make -C $s -j4 >/dev/null; done
           python3 tests/contract.py
 
   linux:

@@ -325,8 +325,8 @@ function renderRoms(){
   if(sel.dataset.h!==html){sel.innerHTML=html;sel.dataset.h=html}
   sel.value=S.romsys;
   const item=r=>{
-    const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"";
-    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${({nes:"NES",gb:"GB",gen:"GEN",neo:"NEO",sms:"SMS"})[r.system]||r.system}</span>${esc(r.name.replace(/\.(nes|gb|gbc|sgb|md|gen|bin|smd|zip|neo|sms|gg)$/i,""))}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
+    const d=p[r.id]?.difftest, b=d?(d.ok?"✓":"✗"):"", x=sys[r.system];
+    return `<li data-r="${esc(r.id)}" class="${r.id===S.rom?"sel":""}" title="${esc(r.name)}"><span class="n"><span class="sys">${esc(x?.short||r.system)}</span>${esc(x&&x.exts.some(e=>r.name.toLowerCase().endsWith(e))?r.name.slice(0,r.name.lastIndexOf(".")):r.name)}</span><span class="${d?.ok?"st-ok":"st-error"}">${b}</span></li>`};
   const roms=S.state.roms.filter(r=>r.name.toLowerCase().includes(q)&&(!S.romsys||r.system===S.romsys));
   // Primero las que ya tienen su proyecto compilado (build/out/NOMBRE), luego las demás
   const built=roms.filter(r=>r.built), rest=roms.filter(r=>!r.built);

@@ -15,18 +15,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import compat  # noqa: E402
 import retrorecomp_gui as rr  # noqa: E402
 
-COMMON = {  # herramienta -> opciones que debe mencionar su ayuda
-    "nes": {"nestrace": ("--frames", "--input", "--seed"), "nesshot": ("--frames", "--input", "--seed"),
-            "nesaudio": ("--frames", "--input", "--seed"), "nesbench": ("--frames", "--input", "--repeat", "--seed")},
-    "gb": {"gbtrace": ("--frames", "--input", "--seed"), "gbshot": ("--frames", "--input", "--seed"),
-           "gbaudio": ("--frames", "--input", "--seed"), "gbbench": ("--frames", "--input", "--repeat", "--seed")},
-    "gen": {"gentrace": ("--frames", "--input", "--seed"), "genshot": ("--frames", "--input", "--seed"),
-            "genaudio": ("--frames", "--input", "--seed"), "genbench": ("--frames", "--input", "--repeat", "--seed")},
-    "neo": {"neotrace": ("--frames", "--input", "--seed"), "neoshot": ("--frames", "--input", "--seed"),
-            "neoaudio": ("--frames", "--input", "--seed"), "neobench": ("--frames", "--input", "--repeat", "--seed")},
-    "sms": {"smstrace": ("--frames", "--input", "--seed"), "smsshot": ("--frames", "--input", "--seed"),
-            "smsaudio": ("--frames", "--input", "--seed"), "smsbench": ("--frames", "--input", "--repeat", "--seed")},
-}
+# Herramienta -> opciones que debe mencionar su ayuda: las mismas para cada sistema del registro
+COMMON = {sid: {sid + "trace": ("--frames", "--input", "--seed"), sid + "shot": ("--frames", "--input", "--seed"),
+                sid + "audio": ("--frames", "--input", "--seed"), sid + "bench": ("--frames", "--input", "--repeat", "--seed")}
+          for sid in rr.REGISTRO}
 
 # Archivos que todos tienen tal cual: los envoltorios de las pruebas comunes (el código vive en shared/) y las
 # entradas guionadas del ciclo
@@ -118,20 +110,47 @@ def compat_gemelo(roots):
     return checked, fails, pendientes
 
 
+def registro(roots):
+    """(revisados, fallas): cada entrada del registro (shared/sistemas.json) tiene los campos de todas, el formato
+    que lee shared/recomp_game.sh, una clase en la GUI, y sus botones son los que acepta el guion de entradas de su recompilador (INPUT_NAMES)"""
+    checked = fails = 0
+    campos = set(next(iter(rr.REGISTRO.values())))
+    texto_reg = open(os.path.join(rr.HERE, "shared", "sistemas.json"), encoding="utf-8").read()
+    for sid, r in rr.REGISTRO.items():
+        checked += 1
+        error = None
+        # shared/recomp_game.sh lee los cuadros con awk: el bloque del sistema empieza en «  "id": {» y cada clave
+        # numérica va en su propia línea
+        bloque = re.search(r'^  "' + sid + r'": \{\n(.*?)^  \}', texto_reg, re.M | re.S)
+        if set(r) != campos:
+            error = "campos distintos: " + ", ".join(sorted(set(r) ^ campos))
+        elif not bloque or any(not re.search(rf'^    "{k}": {r[k]},$', bloque.group(1), re.M) for k in ("cuadros", "cuadros_traza")):
+            error = "cuadros y cuadros_traza deben ir en una línea propia dentro de «  \"" + sid + "\": {» (los lee recomp_game.sh)"
+        elif sid not in rr.CLASES:
+            error = "la GUI no tiene una clase para este sistema"
+        elif roots.get(sid):
+            fuentes = [os.path.join(roots[sid], "src", "platform", "input_host.h"), os.path.join(roots[sid], "src", "platform", "inputs.h")]
+            texto = next((open(f, encoding="utf-8").read() for f in fuentes if os.path.isfile(f)), "")
+            m = re.search(r"INPUT_NAMES\s+(\"[^\n]*)", texto) or re.search(r"\{\s*(\"A\",[^}]*)\}", texto)
+            nombres = set(re.findall(r'"([A-Z]+)"', m.group(1))) if m else set()
+            if nombres != set(r["botones"]):
+                error = f"botones {sorted(r['botones'])}, el recompilador acepta {sorted(nombres)}"
+        if error:
+            print(f"FALLA registro/{sid}: {error}")
+            fails += 1
+        else:
+            print(f"ok    registro/{sid}")
+    return checked, fails
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--nes")
-    ap.add_argument("--gb")
-    ap.add_argument("--gen")
-    ap.add_argument("--neo")
-    ap.add_argument("--sms")
+    for sid in rr.REGISTRO:
+        ap.add_argument("--" + sid)
     a = ap.parse_args()
-    roots = {"nes": rr.find_repo("NESRecomp", "NESRECOMP_DIR", a.nes, os.path.join("src", "nesrecomp", "nesrecomp.c")),
-             "gb": rr.find_repo("GBRecomp", "GBRECOMP_DIR", a.gb, os.path.join("src", "gbrecomp", "gbrecomp.c")),
-             "gen": rr.find_repo("GENRecomp", "GENRECOMP_DIR", a.gen, os.path.join("src", "genrecomp", "genrecomp.c")),
-             "neo": rr.find_repo("NEORecomp", "NEORECOMP_DIR", a.neo, os.path.join("src", "neorecomp", "neorecomp.c")),
-             "sms": rr.find_repo("SMSRecomp", "SMSRECOMP_DIR", a.sms, os.path.join("src", "smsrecomp", "smsrecomp.c"))}
-    fails = checked = 0
+    roots = {sid: rr.find_repo(r["repo"], r["repo"].upper() + "_DIR", getattr(a, sid), os.path.join("src", sid + "recomp", sid + "recomp.c"))
+             for sid, r in rr.REGISTRO.items()}
+    checked, fails = registro(roots)
     for sid, tools in COMMON.items():
         root = roots[sid]
         if not root:

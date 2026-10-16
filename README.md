@@ -106,6 +106,17 @@ El interruptor de la barra superior elige entre dos modos (se recuerda en el nav
 Escucha solo en `127.0.0.1` con un token en la URL, valida que las ROMs estén en las carpetas configuradas y arma
 cada comando como una lista de argumentos (sin shell).
 
+**El registro de sistemas (`shared/sistemas.json`).** Una entrada por consola con lo que antes se repetía en varios
+lugares: nombre, sigla, carpeta del recompilador, extensiones, botones del guion de entradas, jugadores, modelos
+(`--model`), si usa BIOS, cuadros por omisión del ciclo completo (`cuadros`, `cuadros_traza`), herramientas, la
+leyenda y la nota del mapa, la nota de entradas y las plantillas de guiones. Lo leen la GUI (y su página, por
+`/api/state`), `tests/contract.py`, `tests/compat_test.py` y `shared/recomp_game.sh`. El id de la entrada es la
+carpeta (`gb/`, `nes/`...) y el prefijo de las herramientas (`gbrecomp`, `nesshot`...). `tests/contract.py` comprueba
+que cada entrada tenga los mismos campos, que sus botones sean los que acepta el guion de entradas de su recompilador
+(`INPUT_NAMES`) y que cada clave numérica vaya en su propia línea, porque `recomp_game.sh` la lee con awk. Un sistema
+nuevo es una entrada más, más su clase en `retrorecomp_gui.py` con lo que solo él sabe hacer: leer la cabecera de la
+ROM, el mapa y cómo graba trazas.
+
 ## El contrato
 
 La interfaz no conoce el interior de los recompiladores, solo esta línea de comandos común:

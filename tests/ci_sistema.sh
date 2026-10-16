@@ -4,6 +4,8 @@
 #   RAPIDAS=1 sh tests/ci_sistema.sh gen  sin lo más caro (Overdrive en GEN; ZEX y Dragon Blaster en SMS)
 #   SKIP_SST=1 ...                        sin las SingleStepTests (no las baja ni las corre)
 #   DIST=1 ...                            además arma el paquete (make dist)
+# Sin RAPIDAS también corre la línea base exacta (tests/golden.sh --libres) en las ROMs libres de testroms/, con
+# el intérprete y con el código recompilado: los hashes son los mismos en Linux, macOS y Windows.
 s=$1
 [ -n "$s" ] && [ -f "$s/Makefile" ] || { echo "uso: sh tests/ci_sistema.sh gb|nes|gen|neo|sms" >&2; exit 2; }
 cd "$s" || exit 2
@@ -21,4 +23,10 @@ echo "::endgroup::"
 echo "::group::$s: pruebas"
 make test
 echo "::endgroup::"
+if [ -z "$RAPIDAS" ]; then
+    echo "::group::$s: golden (ROMs libres)"
+    sh tests/golden.sh --libres
+    sh tests/golden.sh --libres --recompilado
+    echo "::endgroup::"
+fi
 if [ -n "$DIST" ]; then make dist; fi

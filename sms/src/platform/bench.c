@@ -3,6 +3,9 @@
  * que genere smsrecomp, bench con el código recompilado).
  *   smsbench rom.sms [--frames N] [--repeat N] [--input archivo] [--seed S] [--model sms|gg] [boton:desde-hasta ...]
  * Sin entradas, Start a los 2 s y luego la derecha. Con --repeat se reporta la corrida más rápida.
+ * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
+ * --hash del intérprete (golden_hash.h): así tests/golden.sh --recompilado compara el código recompilado con
+ * la misma línea base.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +13,7 @@
 #include <time.h>
 
 #include "cli.h"
+#include "golden_hash.h"
 #include "console.h"
 
 /* Va también en los proyectos que genere smsrecomp, sin src/tools: --model se lee aquí (cli.h no lo conoce) */
@@ -32,7 +36,7 @@ int main(int argc, char **argv)
     static Cli c;
     int model = take_model(&argc, argv);
     if (model < MODEL_AUTO || cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: smsbench rom.sms [--frames N] [--repeat N] [--input archivo] [--seed S] [--model sms|gg]\n"
+        fprintf(stderr, "uso: smsbench rom.sms [--frames N] [--repeat N] [--input archivo] [--seed S] [--model sms|gg] [--hash]\n"
                         "                [boton:desde-hasta ...]\n");
         return 2;
     }
@@ -44,6 +48,9 @@ int main(int argc, char **argv)
     fclose(f);
     int scripted = c.input || c.nh || c.use_seed;
     double best = 0;
+    GoldenHash gh;
+    static int16_t snd[AUDIO_BINS * 2];
+    if (c.hash) c.repeat = 1;
     static Sms sms;
     Sms *g = &sms;
     z80_stat_of = g;                    /* la línea "Z80: ...": cuánto corre nativo, interpretado o saltado */
@@ -53,11 +60,17 @@ int main(int argc, char **argv)
         if (k) sms_free(g);
         if (sms_load(g, rom, (size_t)sz, c.pos[0], model, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
         cli_rewind(&c);
+        golden_init(&gh);
         clock_t t0 = clock();
         for (long i = 0; i < c.frames; i++) {
             if (scripted) { g->pad[0] = cli_pad(&c, i, 0); g->pad[1] = cli_pad(&c, i, 1); }
             else g->pad[0] = (i > 120 && i < 125) ? SMS_START : (i > 400 ? SMS_RIGHT : 0);
             sms_run_frame(g);
+            if (c.hash) {                /* lo mismo que smsshot --hash */
+                int n = sms_audio_take(g, snd, AUDIO_BINS);
+                golden_fnv(&gh.img, g->vdp.fb, sizeof g->vdp.fb);
+                golden_fnv(&gh.aud, snd, (size_t)n * 4);
+            }
             g->audio.n = 0;
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
@@ -66,5 +79,6 @@ int main(int argc, char **argv)
     z80_stat_print();
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / 59.92);
+    if (c.hash) golden_print(&gh);
     return 0;
 }

@@ -13,7 +13,8 @@
  *   --expect esperado.png  la pantalla final (con la paleta predeterminada) debe ser idéntica al PNG.
  *                          Corre todos los cuadros (no se detiene con el resultado de Blargg).
  *   --hash                 imprime un hash de todos los cuadros y de todo el audio
- *                          ("hash imagen X audio Y"), para comprobar que un cambio no altera nada.
+ *                          ("hash imagen X audio Y", golden_hash.h), para comprobar que un cambio no altera
+ *                          nada (tests/golden.sh). Corre todos los cuadros, como el bench con --hash.
  *   --entradas-241         los botones del cuadro N cambian en la línea 241 del cuadro N (al empezar el vblank) y no
  *                          al empezar el cuadro: así lo hace Mesen2, y con eso tools/compat/vsmesen.py ve las mismas
  *                          entradas en los dos emuladores lea el juego el control donde lo lea.
@@ -23,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cli.h"
+#include "golden_hash.h"
 #include "png.h"
 
 typedef struct { int x, y, from, to; } Zap;
@@ -36,13 +38,6 @@ static u8 *slurp(const char *path, size_t *len)
     if (fread(b, 1, sz, f) != (size_t)sz) { fclose(f); free(b); return NULL; }
     fclose(f); *len = sz;
     return b;
-}
-
-/* FNV-1a de 64 bits, acumulado */
-static void fnv(unsigned long long *h, const void *data, size_t n)
-{
-    const unsigned char *p = data;
-    for (size_t i = 0; i < n; i++) { *h ^= p[i]; *h *= 0x100000001B3ULL; }
 }
 
 /* Pixeles distintos entre la captura y el PNG esperado; -1 si no se pudo leer o el tamaño no coincide */
@@ -79,7 +74,8 @@ int main(int argc, char **argv)
             z[nz++] = (Zap){ zx, zy, za, zb };
         }
     }
-    unsigned long long h_img = 0xCBF29CE484222325ULL, h_aud = 0xCBF29CE484222325ULL;
+    GoldenHash gh;
+    golden_init(&gh);
     int parado = 0;             /* la línea común de las herramientas *shot cuando el CPU se detiene */
     for (long f = 0; f < frames; f++) {
         if (c.entradas_241) {
@@ -96,11 +92,12 @@ int main(int argc, char **argv)
         if (!c.entradas_241 || !n.ppu.frame_done) nes_run_frame(&n);
         if (n.cpu.jammed && !parado) { printf("CPU detenido en el cuadro %ld (opcode KIL)\n", f); parado = 1; }
         if (c.hash) {
-            fnv(&h_img, n.ppu.fb, sizeof n.ppu.fb);
-            fnv(&h_aud, n.apu.buf, (size_t)n.apu.nbuf * sizeof n.apu.buf[0]);
+            golden_fnv(&gh.img, n.ppu.fb, sizeof n.ppu.fb);
+            golden_fnv(&gh.aud, n.apu.buf, (size_t)n.apu.nbuf * sizeof n.apu.buf[0]);
             n.apu.nbuf = 0;
         }
-        if (!c.expect) {   /* ROM de Blargg: terminar en cuanto escribe su resultado final */
+        if (!c.expect && !c.hash) {   /* ROM de Blargg: terminar en cuanto escribe su resultado final (con --hash
+                                         * no: corre todos los cuadros, como el bench del proyecto generado) */
             u8 *r = n.cart.prg_ram;
             if (f > 10 && r[1] == 0xDE && r[2] == 0xB0 && r[3] == 0x61 && r[0] < 0x80) { frames = f + 1; break; }
         }
@@ -117,7 +114,7 @@ int main(int argc, char **argv)
     if (s[1] == 0xDE && s[2] == 0xB0 && s[3] == 0x61)
         printf("Blargg: estado $%02X\n%s\n", s[0], (char *)s + 4);
     printf("%s: %ld cuadros, mapper %d\n", c.pos[1], frames, n.cart.mapper);
-    if (c.hash) printf("hash imagen %016llx audio %016llx\n", h_img, h_aud);
+    if (c.hash) golden_print(&gh);
     if (c.expect) {
         long diffs = compare_png(rgb, c.expect);
         if (diffs < 0) { fprintf(stderr, "no pude leer %s (o no mide 256x240)\n", c.expect); return 2; }

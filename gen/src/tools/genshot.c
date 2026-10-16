@@ -13,16 +13,10 @@
 #include <string.h>
 
 #include "cli.h"
+#include "golden_hash.h"
 #include "console.h"
 #include "png.h"
 #include "romload.h"
-
-/* FNV-1a de 64 bits, acumulado */
-static void fnv(unsigned long long *h, const void *data, size_t n)
-{
-    const unsigned char *p = data;
-    for (size_t i = 0; i < n; i++) { *h ^= p[i]; *h *= 0x100000001B3ULL; }
-}
 
 int main(int argc, char **argv)
 {
@@ -35,7 +29,8 @@ int main(int argc, char **argv)
     }
     Gen *g = load_gen(c.pos[0]);
     if (!g) return 2;
-    unsigned long long h_img = 0xCBF29CE484222325ULL, h_aud = 0xCBF29CE484222325ULL;
+    GoldenHash gh;
+    golden_init(&gh);
     static int16_t snd[AUDIO_BINS * 2];
     int parado = 0;             /* la línea común de las herramientas *shot cuando el CPU se detiene */
     for (long f = 0; f < c.frames; f++) {
@@ -45,8 +40,8 @@ int main(int argc, char **argv)
         if (g->cpu.halted && !parado) { printf("CPU detenido en el cuadro %ld (doble falta)\n", f); parado = 1; }
         int n = gen_audio_take(g, snd, AUDIO_BINS);
         if (c.hash) {
-            fnv(&h_img, g->vdp.fb, sizeof g->vdp.fb);
-            fnv(&h_aud, snd, (size_t)n * 4);
+            golden_fnv(&gh.img, g->vdp.fb, sizeof g->vdp.fb);
+            golden_fnv(&gh.aud, snd, (size_t)n * 4);
         }
     }
     int w = g->vdp.width, h = g->vdp.height;
@@ -59,7 +54,7 @@ int main(int argc, char **argv)
         }
     if (!png_write_rgb(c.pos[1], rgb, w, h)) { fprintf(stderr, "no se pudo escribir el PNG\n"); return 2; }
     printf("%s: %ld cuadros, %dx%d\n", c.pos[1], c.frames, w, h);
-    if (c.hash) printf("hash imagen %016llx audio %016llx\n", h_img, h_aud);
+    if (c.hash) golden_print(&gh);
     if (c.expect) {
         int ew, eh;
         unsigned char *exp = png_read_rgb(c.expect, &ew, &eh);

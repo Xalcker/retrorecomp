@@ -5,6 +5,9 @@
  * Sin entradas, Start a los 2 s y luego la derecha. Con --repeat se reporta la corrida más rápida.
  * También dice cuánto del Z80 corrió nativo, interpretado o saltado; con --perfil, en qué se fue el
  * tiempo (prof.h).
+ * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
+ * --hash del intérprete (golden_hash.h): así tests/golden.sh --recompilado compara el código recompilado con
+ * la misma línea base.
  */
 #define PROF_SAMPLER        /* antes de cualquier include: neo.h incluye prof.h */
 #ifndef _WIN32
@@ -15,6 +18,7 @@
 #include <time.h>
 
 #include "cli.h"
+#include "golden_hash.h"
 #include "console.h"
 
 int main(int argc, char **argv)
@@ -22,11 +26,14 @@ int main(int argc, char **argv)
     console_utf8();
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--perfil] [boton:desde-hasta ...]\n");
+        fprintf(stderr, "uso: neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--perfil] [--hash] [boton:desde-hasta ...]\n");
         return 2;
     }
     int scripted = c.input || c.nh || c.use_seed;
     double best = 0;
+    GoldenHash gh;
+    static int16_t snd[AUDIO_BINS * 2];
+    if (c.hash) c.repeat = 1;
     static Neo g;
     z80_stat_of = &g;
     if (c.perfil && !prof_start()) { fprintf(stderr, "no se pudo arrancar el hilo de --perfil\n"); return 2; }
@@ -36,11 +43,17 @@ int main(int argc, char **argv)
         if (neo_load(&g, c.pos[0], NULL, &err)) { fprintf(stderr, "%s: %s\n", c.pos[0], err); return 2; }
         cli_rewind(&c);
         z80_stat = (Z80Stat){ 0 };      /* todas las corridas dan lo mismo: se queda la última */
+        golden_init(&gh);
         clock_t t0 = clock();
         for (long i = 0; i < c.frames; i++) {
             if (scripted) { g.pad[0] = cli_pad(&c, i, 0); g.pad[1] = cli_pad(&c, i, 1); }
             else g.pad[0] = (i > 120 && i < 125) ? NEO_START : (i > 400 ? NEO_RIGHT : 0);
             neo_run_frame(&g);
+            if (c.hash) {                /* lo mismo que neoshot --hash */
+                int n = neo_audio_take(&g, snd, AUDIO_BINS);
+                golden_fnv(&gh.img, g.fb, sizeof g.fb);
+                golden_fnv(&gh.aud, snd, (size_t)n * 4);
+            }
             g.audio.n = 0;
         }
         double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
@@ -51,5 +64,6 @@ int main(int argc, char **argv)
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K)));
     z80_stat_print();
     if (c.perfil) prof_print();
+    if (c.hash) golden_print(&gh);
     return 0;
 }

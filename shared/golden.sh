@@ -4,8 +4,11 @@
 #   sh tests/golden.sh                 compara con tests/golden.txt
 #   sh tests/golden.sh --update        escribe en tests/golden.txt los casos que corrieron; los que no se
 #                                      pudieron correr aquí (falta la ROM) se quedan como estaban
+#   sh tests/golden.sh --recompilado   lo mismo con el código recompilado: recompila cada ROM (sin traza, en
+#                                      build/golden_rec/SHA1), compila el bench del proyecto y compara su --hash
+#                                      con la misma línea base (si hace lo mismo que el intérprete, da lo mismo)
 #   sh tests/golden.sh ROM...          solo los casos de esas ROMs
-#   GOLDEN_SHOT=ruta                   otro *shot (o el bench de un proyecto generado: ver --recompilado)
+#   GOLDEN_SHOT=ruta                   otro *shot
 #   GOLDEN_JOBS=N                      casos a la vez (por omisión, uno por procesador)
 #
 # Los casos se nombran por el SHA1 de la ROM, con /VARIANTE si una ROM corre de más de una forma (otro
@@ -32,10 +35,12 @@ sha1_file() {   # macOS: shasum; Linux y MSYS2: sha1sum
 command -v golden_sha1 >/dev/null 2>&1 || golden_sha1() { sha1_file < "$1"; }
 
 UPDATE=
+REC=
 ONLY=
 for a in "$@"; do
     case $a in
         --update) UPDATE=1 ;;
+        --recompilado) REC=1 ;;
         -*) echo "opción desconocida: $a" >&2; exit 2 ;;
         *) ONLY="$ONLY
 $a" ;;
@@ -43,7 +48,12 @@ $a" ;;
 done
 
 SHOT=${GOLDEN_SHOT:-$(exe "${SIS}shot")}
+RECOMP=$(exe "${SIS}recomp")
 [ -x "$SHOT" ] || { echo "falta $SHOT: corre make" >&2; exit 2; }
+[ -z "$REC" ] || [ -x "$RECOMP" ] || { echo "falta $RECOMP: corre make" >&2; exit 2; }
+[ -n "$REC" ] && [ -n "$UPDATE" ] && { echo "--update es con el intérprete: la línea base no sale del código recompilado" >&2; exit 2; }
+EXE=
+case $SHOT in *.exe) EXE=.exe ;; esac
 if command -v golden_skip >/dev/null 2>&1; then
     why=$(golden_skip)
     [ -n "$why" ] && { echo "golden: nada que comparar ($why)"; exit 0; }
@@ -52,6 +62,15 @@ JOBS=${GOLDEN_JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 OUT=build/golden
 rm -rf "$OUT"
 mkdir -p "$OUT"
+
+# Con --recompilado, el proyecto generado de la ROM (uno por SHA1, aunque la ROM tenga varias variantes). Sin
+# traza: lo que el análisis estático no encuentra lo corre el intérprete, y el hash debe salir igual
+proyecto() {
+    dir=build/golden_rec/$1
+    [ -x "$dir/bench$EXE" ] && return 0
+    rm -rf "$dir"
+    "$RECOMP" "$2" -o "$dir" >"$dir.log" 2>&1 && make -s -C "$dir" ${CC:+CC="$CC"} -j"$JOBS" "bench$EXE" >>"$dir.log" 2>&1
+}
 
 # Cada caso corre en segundo plano y deja su línea en build/golden/NNNN (en el orden de golden_casos)
 n_case=0
@@ -67,11 +86,19 @@ caso() {
     fi
     n_case=$((n_case + 1))
     f=$OUT/$(printf '%04d' $n_case)
+    sha=$(golden_sha1 "$rom")
+    [ -n "$sha" ] || sha=sin-sha1
+    if [ -n "$REC" ]; then
+        mkdir -p build/golden_rec
+        proyecto "$sha" "$rom" || echo "  no se pudo recompilar o compilar $rom (build/golden_rec/$sha.log)" >&2
+    fi
     (
-        sha=$(golden_sha1 "$rom")
-        [ -n "$sha" ] || sha=sin-sha1
         key=$sha${var:+/$var}
-        h=$("$SHOT" "$rom" ${GOLDEN_SHOT_OUT-/dev/null} $GOLDEN_OPTS "$@" --hash 2>/dev/null | grep '^hash imagen')
+        if [ -n "$REC" ]; then
+            h=$("build/golden_rec/$sha/bench$EXE" "$rom" $GOLDEN_OPTS "$@" --hash 2>/dev/null | grep '^hash imagen')
+        else
+            h=$("$SHOT" "$rom" /dev/null $GOLDEN_OPTS "$@" --hash 2>/dev/null | grep '^hash imagen')
+        fi
         printf '%s %s  # %s\n' "$key" "${h:-hash error}" "$(basename "$rom")" > "$f"
     ) &
     running=$((running + 1))
@@ -118,6 +145,7 @@ sin=$(awk 'NR == FNR { corrio[$1] = 1; next } NF && !($1 in corrio) { n++ } END 
 extra=
 [ $nocorre -gt 0 ] && extra=", $nocorre que no corren"
 resumen="$igual iguales, $malo diferentes, $nuevo nuevos$extra; $sin de los $total de tests/golden.txt sin correr"
-if [ $malo -gt 0 ]; then echo "golden: DIFERENTE ($resumen)"; exit 1; fi
-if [ $igual -eq 0 ]; then echo "golden: no se comparó nada ($resumen)"; exit 1; fi
-echo "golden: igual ($resumen)"
+QUE=golden${REC:+ (recompilado)}
+if [ $malo -gt 0 ]; then echo "$QUE: DIFERENTE ($resumen)"; exit 1; fi
+if [ $igual -eq 0 ]; then echo "$QUE: no se comparó nada ($resumen)"; exit 1; fi
+echo "$QUE: igual ($resumen)"

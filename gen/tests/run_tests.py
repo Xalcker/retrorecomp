@@ -233,6 +233,18 @@ def main():
         p.ok("genrecomp --why, --viz, --codemap, --events, --html, --dis y la traza vieja")
     else:
         p.fallas += 1
+    # El Z80 en esas herramientas (--z80): el driver de Overdrive, con un sondeo corto
+    od = "testroms/demos/overdrive.bin"
+    if os.path.isfile(od):
+        o = rr.correr([G, od, "--z80", "--z80-frames", "600", "--events", f"{D}/od.events", "--html", f"{D}/od.html", "--dis", "z80:0:0:3"], stderr=NULO)[1]
+        ev = [l.split() for l in lineas(f"{D}/od.events") if "del Z80" in l] if os.path.exists(f"{D}/od.events") else []
+        html = texto(f"{D}/od.html") if os.path.exists(f"{D}/od.html") else ""
+        why = rr.correr([G, od, "--z80-frames", "600", "--why", f"z80:0:{ev[0][1]}"], stderr=NULO)[1] if ev else ""
+        if (re.search(r"^[0-9A-F]{6}  [$]0000  ", o, re.M) and ev and '"regiones":[[' in html and '"mapa":' in html
+                and "se tomó como código así" in why and "punto de entrada" in why):
+            p.ok("genrecomp --z80: --dis, --events, --html y --why con el driver del Z80 de Overdrive")
+        else:
+            p.falla("genrecomp --z80 con Overdrive")
     p.tiempo("herramientas de análisis")
 
     # Las ROMs de roms/ (tuyas, no se versionan): genrecomp --info no debe fallar con ninguna

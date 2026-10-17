@@ -191,6 +191,16 @@ def main():
             p.ok("neorecomp --why, --viz, --codemap, --events, --html, --dis")
         else:
             p.fallas += 1
+        # El Z80 (la M1) en esas herramientas (--z80), a continuación de P en el mapa
+        o = g("--z80", "--events", "build/tests/contrato_z80.events", "--html", "build/tests/contrato_z80.html", "--dis", "z80:0:0:3")[1]
+        ev = texto("build/tests/contrato_z80.events") if os.path.exists("build/tests/contrato_z80.events") else ""
+        html = texto("build/tests/contrato_z80.html") if os.path.exists("build/tests/contrato_z80.html") else ""
+        why = g("--why", "z80:0:0")[1]
+        if (re.search(r"^[0-9A-F]{6}  [$]0000  F3 .*di$", o, re.M) and "del Z80" in ev and '"regiones":[[' in html
+                and "se tomó como código así" in why and "punto de entrada" in why):
+            p.ok("neorecomp --z80: --dis, --events, --html y --why con la M1")
+        else:
+            p.falla("neorecomp --z80 con la M1")
     p.tiempo("herramientas de análisis")
 
     # Cobertura sin traza (fase 7): de lo que ejecuta Metal Slug en 3000 cuadros (de la demo a la partida), el análisis

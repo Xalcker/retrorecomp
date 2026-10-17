@@ -10,6 +10,8 @@ Recompiladores estáticos de consolas clásicas, en un solo repositorio, con una
 | [`neo/`](neo/README.md) | NEORecomp: Neo Geo AES |
 | [`sms/`](sms/README.md) | SMSRecomp: Master System y Game Gear |
 
+El plan para ordenar los cinco (monorepo, golden y métrica, herramientas gemelas, menos intérprete) y su estado está en [`docs/PLAN-ORDEN.md`](docs/PLAN-ORDEN.md).
+
 El código común (núcleos del 68000 y del Z80, la ventana, menús, archivos, sonido, pruebas) está en
 [`shared/`](shared/), y cada sistema lo toma por la ruta `../shared`. Hasta octubre de 2026 cada sistema era su
 propio repositorio (Xalcker/GBRecomp, …, que quedan archivados) y `shared/` les llegaba como submódulo; la historia de los

@@ -125,6 +125,8 @@ def main():
             p.falla(f"recompilado {n}: {res}")
 
     recompila("minima", R, 60)
+    codigo, salida = rr.correr([f"build/tests/proy_minima/difftest{x}", R, "--frames", "5", "--save", f"{D}/minima.sav"])
+    p.comprobar(codigo == 2 and "no guarda partida" in salida, "difftest --save rechaza un juego sin partida")
     p.tiempo("proyecto generado: minima")
 
     # Código que el juego copia a RAM (retrorecomp shared/ram_code.h): una ROM hecha aquí copia una rutina a $00FF0000 y a

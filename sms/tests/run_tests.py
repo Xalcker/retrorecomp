@@ -100,6 +100,12 @@ def main():
             else:
                 p.falla("el contrato recompilado")
                 print("\n".join(o.rstrip("\n").split("\n")[-5:]))
+            # --save-out y --save: la RAM del cartucho de una corrida es el punto de partida de la siguiente
+            sav = f"{D}/contrato.sav"
+            borrar(sav)
+            c1, _ = rr.correr([f"{P}/difftest{x}", C, "--frames", "60", "--seed", "1", "--save-out", sav])
+            c2, o2 = rr.correr([f"{P}/difftest{x}", C, "--frames", "60", "--seed", "1", "--save", sav])
+            p.comprobar(c1 == 0 and os.path.isfile(sav) and c2 == 0 and "cuadros iguales" in o2, "difftest --save-out y --save con el contrato")
         else:
             p.falla("smsrecomp -o o make del proyecto del contrato")
     # El ciclo completo (../shared/recomp_game.py: traza guionada, recompilar, difftest con dos semillas, recompilar con lo

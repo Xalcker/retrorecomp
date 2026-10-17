@@ -1,31 +1,12 @@
 /*
- * Prueba diferencial: corre el código recompilado y el intérprete lado a lado y se detiene en la primera
- * diferencia (Z80, RAM, mapper, VDP, PSG, mandos, RAM del cartucho...).
+ * Prueba diferencial de Master System y Game Gear: corre el código recompilado y el intérprete lado a lado y se detiene en la
+ * primera diferencia (Z80, RAM, VDP, PSG, mandos, cartucho...). Las opciones, la carga, el bench y el final son los de
+ * difftest_comun.h (en ../shared); aquí va lo propio de la consola.
  *
- *   difftest rom.sms [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--model sms|gg]
- *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]
- * (también vale la sintaxis de antes: difftest rom.sms cuadros [boton:desde-hasta ...])
- * Las mismas opciones que el difftest de los otros recompiladores.
- *
- * --seed S       suma a las entradas dadas un mando aleatorio (reproducible con la semilla).
- * --uncovered f  escribe, en el formato de la traza (smstrace: "BANCO:DIRECCION" y las líneas "ram"), lo que la
- *                máquina B tuvo que interpretar: sirve como --trace para recompilar y cubrirlo.
- * --screens d    guarda una captura PNG (cuadro_NNNNNN.png) cada --every N cuadros (600), para ver hasta dónde
- *                llegaron las entradas.
- * --bench        mide la velocidad del código recompilado y la del intérprete por separado, con las mismas
- *                entradas, sin comparar.
- * --executed f   escribe qué bytes de la ROM se ejecutaron (los registra la máquina A): una letra por byte,
- *                C = ejecutado, 64 por línea.
- * --estricto     falla (código 1) en la primera instrucción de la ROM que B corre con el intérprete porque no
- *                está recompilada ("ESTRICTO: código que falta en $PC..."). El código en RAM sí pasa. Al final,
- *                "Intérprete por motivo: ..." cuenta las entradas al intérprete (metrica.h).
- *
- * La máquina B corre función por función (recompilada, o una instrucción del intérprete donde no hay código). Tras
- * cada paso, la máquina A (solo intérprete: z80_interp_only) avanza hasta el mismo ciclo y se comparan. Las dos
- * cuentan los ciclos igual, así que coinciden en cada límite de instrucción.
- *
- * Sin diferencias termina con "difftest: N cuadros iguales (L llamadas, R a código recompilado)" y la línea común
- * "Métrica: ..." (metrica.h), que separa el HALT saltado (espera) de lo nativo y lo interpretado.
+ * La máquina B corre función por función (recompilada, o una instrucción del intérprete donde no hay código). Tras cada paso, la
+ * máquina A (solo intérprete: z80_interp_only) avanza hasta el mismo ciclo y se comparan. Las dos cuentan los ciclos igual, así que
+ * coinciden en cada límite de instrucción. La línea común «Métrica: ...» (metrica.h) separa el HALT saltado (espera) de lo nativo
+ * y lo interpretado.
  */
 #include <stddef.h>
 #include <stdio.h>
@@ -34,8 +15,7 @@
 #include <time.h>
 
 #include "recomp.h"
-#include "cli.h"
-#include "console.h"
+#include "difftest_comun.h"
 #include "png.h"
 #include "z80_ops.h"
 
@@ -80,50 +60,17 @@ static int write_executed(const Sms *g, const char *path)
     return fclose(f) == 0;
 }
 
-/* --bench: el recompilado (B) y el intérprete (A) por separado, con las mismas entradas */
-static void bench(Cli *c)
-{
-    Sms *m[2] = { &B, &A };
-    const char *name[2] = { "recompilado", "intérprete" };
-    for (int k = 0; k < 2; k++) {
-        cli_rewind(c);
-        clock_t t0 = clock();
-        for (long f = 0; f < c->frames; f++) {
-            m[k]->pad[0] = cli_pad(c, f, 0);
-            m[k]->pad[1] = cli_pad(c, f, 1);
-            sms_run_frame(m[k]);
-            m[k]->audio.n = 0;
-        }
-        double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
-        printf("  %-12s %.2f s  (%.1fx tiempo real)\n", name[k], s, s > 0 ? c->frames / 59.92 / s : 0.0);
-    }
-}
-
-static u8 *slurp(const char *path, size_t *len)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    u8 *b = malloc(sz > 0 ? (size_t)sz : 1);
-    if (!b || fread(b, 1, (size_t)sz, f) != (size_t)sz) { fclose(f); free(b); return NULL; }
-    fclose(f);
-    *len = (size_t)sz;
-    return b;
-}
-
-#define CMP(field, what) do { if (memcmp(&A.field, &B.field, sizeof A.field)) { puts("  difiere: " what); bad = 1; } } while (0)
-
 /* Compara todo menos los búferes de salida (full = también la imagen y el audio listo) */
 static int compare(int full)
 {
     int bad = 0;
-    CMP(z80, "registros del Z80");
+    DT_CMP(z80, "registros del Z80");
     if (A.cyc != B.cyc) { puts("  difiere: ciclos"); bad = 1; }
-    CMP(ram, "RAM");
-    CMP(map, "mapper");
+    DT_CMP(ram, "RAM");
+    DT_CMP(map, "mapper");
     if (memcmp(&A.vdp, &B.vdp, offsetof(Vdp, fb))) { puts("  difiere: VDP (registros, VRAM, CRAM, contadores o líneas)"); bad = 1; }
-    CMP(io, "E/S (control, mandos, puertos del Game Gear)");
-    CMP(psg, "PSG");
+    DT_CMP(io, "E/S (control, mandos, puertos del Game Gear)");
+    DT_CMP(psg, "PSG");
     if (memcmp(&A.audio, &B.audio, offsetof(Audio, buf))) { puts("  difiere: mezcla de audio"); bad = 1; }
     if (memcmp(A.cart.ram, B.cart.ram, CART_RAM_SIZE) || A.cart.ram_used != B.cart.ram_used) { puts("  difiere: RAM del cartucho"); bad = 1; }
     if (A.nmi_count != B.nmi_count || A.irq_count != B.irq_count) { puts("  difiere: interrupciones atendidas"); bad = 1; }
@@ -142,102 +89,101 @@ static void print_cpu(const char *who, const Z80 *z)
            z->pc, z->sp, z->a, z->f, z->b, z->c, z->d, z->e, z->h, z->l, z->ix, z->iy, z->iff1);
 }
 
-int main(int argc, char **argv)
+/* Un cuadro: B avanza paso a paso y A lo alcanza tras cada uno; se comparan en cada límite de instrucción */
+static int cuadro(DiffCtx *x, long f)
 {
-    console_utf8();
-    static Cli c;
-    if (cli_parse(&c, argc, argv, 1, 300)) {
-        fprintf(stderr, "uso: difftest rom.sms [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--model sms|gg]\n"
-                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]\n");
-        return 2;
+    Cli *c = x->c;
+    A.pad[0] = B.pad[0] = cli_pad(c, f, 0);
+    A.pad[1] = B.pad[1] = cli_pad(c, f, 1);
+    sms_frame_begin(&A);
+    sms_frame_begin(&B);
+    while (!B.vdp.frame_done) {
+        u16 pc0 = B.z80.pc;
+        u64 c0 = B.cyc;
+        int zone = bus_rom_offset(&B, pc0) >= 0 ? 0 : pc0 >= 0x8000 ? 1 : 2;
+        u64 sk0 = z80_stat.skipped;
+        int native = sms_recomp_step(&B);
+        if (c->estricto && metrica_estricto(f, 4, NULL)) return DT_ESTRICTO;
+        if (native) x->recompiladas++;
+        else if (z80_stat.skipped != sk0) {}     /* HALT saltado: va en la métrica (espera) */
+        else {
+            x->zona[zone] += B.cyc - c0;
+            if (zone == 0) dt_golpe(x, (u32)bus_rom_offset(&B, pc0));
+        }
+        x->llamadas++;
+        while (A.cyc < B.cyc && !A.vdp.frame_done) sms_step(&A);
+        if (compare(0) || A.vdp.frame_done != B.vdp.frame_done) {
+            printf("DIFERENCIA en el cuadro %ld, tras ejecutar desde $%04X (ciclo %llu, %s)\n",
+                   f, pc0, (unsigned long long)B.cyc, native ? "recompilado" : "intérprete");
+            print_cpu("A (intérprete) ", &A.z80);
+            print_cpu("B (recompilado)", &B.z80);
+            return DT_DIFERENCIA;
+        }
     }
-    size_t len;
-    u8 *rom = slurp(c.pos[0], &len);
-    if (!rom) { fprintf(stderr, "no pude leer %s\n", c.pos[0]); return 2; }
+    audio_end_frame(&A);
+    audio_end_frame(&B);
+    if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); return DT_DIFERENCIA; }
+    A.audio.n = B.audio.n = 0;
+    return DT_IGUAL;
+}
+
+static const char *cargar(const u8 *rom, size_t len, const Cli *c)
+{
+    static char msg[200];
     const char *err = NULL;
-    if (sms_load(&A, rom, len, c.pos[0], c.model, &err) || sms_load(&B, rom, len, c.pos[0], c.model, &err)) {
-        fprintf(stderr, "ROM: %s\n", err);
-        return 2;
-    }
-    if (strcmp(B.cart.sha1, recomp_rom_sha1)) {
-        fprintf(stderr, "esta ROM no es la que se recompiló (SHA1 %s, esperaba %s)\n", B.cart.sha1, recomp_rom_sha1);
-        return 2;
-    }
-    long frames = c.frames;
+    if (!sms_load(&A, rom, len, c->pos[0], c->model, &err) && !sms_load(&B, rom, len, c->pos[0], c->model, &err)) return NULL;
+    snprintf(msg, sizeof msg, "ROM: %s", err);
+    return msg;
+}
+
+static const char *sha1(const u8 *rom, size_t len) { (void)rom; (void)len; return B.cart.sha1; }
+
+static const char *preparar(const Cli *c)
+{
+    (void)c;
     z80_stat_of = &B;                       /* cuánto del Z80 de B corre nativo */
     z80_interp_only = &A;                   /* A es la referencia: solo con el intérprete */
-    if (c.bench) {
-        printf("%s: %ld cuadros\n", recomp_name, frames);
-        bench(&c);
-        z80_stat_print();
-        return 0;
-    }
-    if (c.uncovered) sms_trace_start(&B);   /* solo en B: lo que A (intérprete) ejecuta no cuenta */
-    if (c.executed) sms_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
+    return NULL;
+}
 
-    unsigned long calls = 0, recomp_calls = 0;
-    u64 cyc0 = B.cyc;
-    metrica_reiniciar(&B);          /* la métrica común: la de B (metrica.h) */
-    u64 interp_zone[3] = { 0 };     /* ciclos del intérprete por zona del PC: ROM, RAM, otra */
-    for (long f = 0; f < frames; f++) {
-        A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
-        A.pad[1] = B.pad[1] = cli_pad(&c, f, 1);
-        sms_frame_begin(&A);
-        sms_frame_begin(&B);
-        while (!B.vdp.frame_done) {
-            u16 pc0 = B.z80.pc;
-            u64 c0 = B.cyc;
-            int zone = bus_rom_offset(&B, pc0) >= 0 ? 0 : pc0 >= 0x8000 ? 1 : 2;
-            u64 sk0 = z80_stat.skipped;
-            int native = sms_recomp_step(&B);
-            if (c.estricto && metrica_estricto(f, 4, NULL)) { metrica_resumen_falla(f, 1); return 1; }
-            if (native) recomp_calls++;
-            else if (z80_stat.skipped != sk0) {}     /* HALT saltado: va en la métrica (espera) */
-            else interp_zone[zone] += B.cyc - c0;
-            calls++;
-            while (A.cyc < B.cyc && !A.vdp.frame_done) sms_step(&A);
-            if (compare(0) || A.vdp.frame_done != B.vdp.frame_done) {
-                printf("DIFERENCIA en el cuadro %ld, tras ejecutar desde $%04X (ciclo %llu, %s)\n",
-                       f, pc0, (unsigned long long)B.cyc, native ? "recompilado" : "intérprete");
-                print_cpu("A (intérprete) ", &A.z80);
-                print_cpu("B (recompilado)", &B.z80);
-                metrica_resumen_falla(f, 0);
-                return 1;
-            }
-        }
-        audio_end_frame(&A);
-        audio_end_frame(&B);
-        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); metrica_resumen_falla(f, 0); return 1; }
-        A.audio.n = B.audio.n = 0;
-        if (c.screens && c.every > 0 && (f + 1) % c.every == 0) {
-            char path[1024];
-            snprintf(path, sizeof path, "%s/cuadro_%06ld.png", c.screens, f + 1);
-            if (!save_screen(&B, path)) fprintf(stderr, "no pude escribir %s\n", path);
-        }
-    }
-    u64 interp = interp_zone[0] + interp_zone[1] + interp_zone[2];
-    if (interp)
-        printf("Intérprete por zona: ROM %.1f%%, RAM %.1f%%, otra %.1f%%\n", 100.0 * (double)interp_zone[0] / (double)interp,
-               100.0 * (double)interp_zone[1] / (double)interp, 100.0 * (double)interp_zone[2] / (double)interp);
-    z80_stat_print();
-    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
-           frames, calls, recomp_calls);
-    metrica_imprimir(&metrica, B.cyc - cyc0);
-    char res[160];
-    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu", frames, calls, recomp_calls);
-    metrica_imprimir_motivos(&metrica);
-    if (c.uncovered) {
-        size_t cnt = sms_trace_count(&B);
-        if (!sms_trace_write(&B, c.uncovered)) { fprintf(stderr, "no pude escribir %s\n", c.uncovered); return 2; }
-        printf("Instrucciones de ROM interpretadas: %zu\n", cnt);
-        snprintf(res + nres, sizeof res - (size_t)nres, ",\"interpretadas\":%zu", cnt);
-        unsigned fixed, vol, multi, lost;
-        sms_ram_summary(&B, &fixed, &vol, &multi, &lost);
-        if (fixed || vol || lost)
-            printf("Código en RAM: %u instrucciones fijas, %u con operandos variables, %u direcciones con varias versiones, "
-                   "%u que cambian demasiado\n", fixed, vol, multi, lost);
-    }
-    if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
-    metrica_resumen("difftest", 1, res, &metrica, B.cyc - cyc0);
-    return 0;
+static void trazas(const Cli *c)
+{
+    if (c->uncovered) sms_trace_start(&B);  /* solo en B: lo que A (intérprete) ejecuta no cuenta */
+    if (c->executed) sms_trace_start(&A);   /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
+}
+
+static int captura(const char *path) { return save_screen(&B, path); }
+static int executed(const char *path) { return write_executed(&A, path); }
+static void reiniciar(void) { metrica_reiniciar(&B); }          /* la métrica común: la de B (metrica.h) */
+static void *maquina(int k) { return k ? (void *)&A : (void *)&B; }
+static void poner_pad(void *g, unsigned p1, unsigned p2) { ((Sms *)g)->pad[0] = (u8)p1; ((Sms *)g)->pad[1] = (u8)p2; }
+static void cuadro_solo(void *g) { sms_run_frame(g); }
+static void vaciar(void *g) { ((Sms *)g)->audio.n = 0; }
+static u64 ciclos(void) { return B.cyc; }
+static void extra(void) { z80_stat_print(); }
+static void golpe(char *out, size_t size, u32 clave) { snprintf(out, size, "ROM $%05X", clave); }
+
+static size_t uncovered(const char *path, int *ok)
+{
+    size_t cnt = sms_trace_count(&B);
+    *ok = sms_trace_write(&B, path);
+    return cnt;
+}
+
+static void ram(unsigned *fijas, unsigned *variables, unsigned *varias, unsigned *perdidas) { sms_ram_summary(&B, fijas, variables, varias, perdidas); }
+/* La partida del Master System y del Game Gear es la RAM del cartucho */
+static int cargar_partida(const char *path) { return sms_sram_load(&A, path) && sms_sram_load(&B, path); }
+static int guardar_partida(const char *path) { return sms_sram_save(&B, path); }
+
+int main(int argc, char **argv)
+{
+    DiffOps o = {
+        .titulo = recomp_name, .uso_rom = "rom.sms", .uso_extra = " [--model sms|gg]", .cuadros = 300, .fps = 59.92, .unidad = "ROM",
+        .zonas = { "ROM", "RAM", "otra" },
+        .cargar = cargar, .sha1 = sha1, .preparar = preparar, .cargar_partida = cargar_partida, .guardar_partida = guardar_partida,
+        .trazas = trazas, .reiniciar = reiniciar, .maquina = maquina, .pad = poner_pad, .cuadro_solo = cuadro_solo,
+        .vaciar = vaciar, .cuadro = cuadro, .ciclos = ciclos, .captura = captura, .extra = extra, .golpe = golpe, .uncovered = uncovered, .ram = ram,
+        .executed = executed,
+    };
+    return difftest_main(argc, argv, &o);
 }

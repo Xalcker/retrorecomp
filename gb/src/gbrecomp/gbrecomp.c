@@ -2549,7 +2549,7 @@ static void emit_makefile(const char *dir, const char *name)
         "\tldd $< | awk '/=> \\/(ucrt64|mingw64|mingw32|clang64|clangarm64)\\//{print $$3}' | xargs -r -I{} cp {} dist/\n"
         "endif\n\n"
         "# Prueba diferencial: código recompilado contra el intérprete\n"
-        "difftest$(EXE): platform/difftest.c $(RT_OBJ) $(GEN_OBJ)\n"
+        "difftest$(EXE): platform/difftest.c platform/png.c $(RT_OBJ) $(GEN_OBJ)\n"
         "\t$(CC) $(CFLAGS) $(INC) -o $@ $^\n\n"
         "# Velocidad del código recompilado, sin ventana (como el bench de NESRecomp y GENRecomp)\n"
         "bench$(EXE): platform/bench.c $(RT_OBJ) $(GEN_OBJ)\n"

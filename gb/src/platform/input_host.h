@@ -6,8 +6,7 @@
  *     grabó; un mismo juego tarda distinto en cada uno) y "paleta up+a" (la combinación del modo de
  *     compatibilidad del GBC);
  *   - las opciones propias: --model dmg|cgb|sgb (por omisión, el de las entradas o el de la ROM),
- *     --palette, y --save / --save-out (difftest: la partida con que empiezan las dos máquinas y dónde
- *     guardar la del recompilado).
+ *     --palette.
  */
 #ifndef GB_INPUT_HOST_H
 #define GB_INPUT_HOST_H
@@ -70,13 +69,10 @@ static inline void inputs_record_header(FILE *f, const GB *g, const char *palett
     if (palette && *palette) fprintf(f, "paleta %s\n", palette);
 }
 
-/* cli.h: --model, --palette, --save y --save-out; el modelo y la paleta, si no se dan, de --input */
+/* cli.h: --model y --palette; el modelo y la paleta, si no se dan, de --input */
 #define CLI_HAS_MODEL
-#define CLI_HOST_FIELDS const char *palette, *save, *save_out; int model;
-#define CLI_HOST_VALUE(c, a, v) \
-    (!strcmp((a), "--palette") ? ((c)->palette = (v), 1) : \
-     !strcmp((a), "--save") ? ((c)->save = (v), 1) : \
-     !strcmp((a), "--save-out") ? ((c)->save_out = (v), 1) : 0)
+#define CLI_HOST_FIELDS const char *palette; int model;
+#define CLI_HOST_VALUE(c, a, v) (!strcmp((a), "--palette") ? ((c)->palette = (v), 1) : 0)
 #define CLI_HOST_DONE(c) \
     gb_cli_done(&(c)->model, (c)->model_arg, (c)->input ? (c)->script.model : GB_MODEL_AUTO, \
                 &(c)->palette, (c)->input ? (c)->script.palette : "")

@@ -196,7 +196,7 @@ $(BUILD):
 	mkdir -p $@
 
 test: all
-	sh tests/run_tests.sh
+	python3 tests/run_tests.py
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del
 # 68000 y las demos Overdrive de Titan (ver tests/testroms.sh)

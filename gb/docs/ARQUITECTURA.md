@@ -26,7 +26,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
-| `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.py` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
+| `tests/` | `run_tests.py` (la batería de `make test`), `run_mealybug.sh`, `golden.py` y `golden.txt` (línea base exacta), `recomp_game.py` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.py` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
@@ -579,7 +579,7 @@ despachador la usa cuando `g->mbc.bank0` es B.
   `$0000` siga siendo el suyo; si no, regresa al despachador. Antes el código
   compilado del banco 0 seguía con sus propios bytes después de que el menú
   ponía el banco del juego, y `difftest` lo delata con la ROM mínima de
-  `tests/run_tests.sh` (Bomberman Collection no lo mostraba porque salta al
+  `tests/run_tests.py` (Bomberman Collection no lo mostraba porque salta al
   juego desde un trampolín en WRAM).
 - Las rutinas especiales del banco 0 (argumentos en línea, trampolines,
   despachadores con tabla) se reconocen solo en el banco 0: desde una vista no
@@ -1008,7 +1008,7 @@ cambian demasiado.
 
 ## Estado de la validación
 
-`sh tests/run_tests.sh`: **146 de 146** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
+`python3 tests/run_tests.py`: **146 de 146** (DMG, más las de CGB, compatibilidad y SGB que ya pasan,
 `sgb_controles`, que lee los controles 2 a 4 del SGB como un juego, el proyecto generado de `cpu_instrs`
 comparado contra el intérprete con `difftest`, los de `firstwhite` y `strikethrough`, que copian la
 rutina de DMA de OAM a HRAM y no deben pasar por el intérprete, `ei_di`, una ROM mínima que

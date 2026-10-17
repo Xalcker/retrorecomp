@@ -1,5 +1,5 @@
 /*
- * Lo que el núcleo común del 68000 (../shared: m68k.h, m68k_ops.h, cpu68k.c, el mismo de
+ * Lo que el núcleo común del 68000 (../shared: m68k.h, m68k_ops.h, m68k.c, el mismo de
  * GENRecomp) toma del Neo Geo: el tipo de la consola, su cabecera y cómo se anota la traza del intérprete.
  */
 #ifndef NEO_M68K_HOST_H

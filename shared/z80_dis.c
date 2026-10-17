@@ -1,6 +1,6 @@
 /*
  * Desensamblador del Z80 (sintaxis de Zilog en minúsculas, números en hexadecimal con $). Común
- * (retrorecomp/shared), como dis68k para el 68000: lo usan smsrecomp (--dis, --why, --events y --html) y los
+ * (retrorecomp/shared), como m68k_dis para el 68000: lo usan smsrecomp (--dis, --why, --events y --html) y los
  * comentarios del código generado. Decodifica como "Decoding Z80 opcodes" de Cristian Dinu (x, y, z, p, q), con
  * las instrucciones sin documentar (ixh, ixl, sll, los DD CB d op con registro, out (c),0) y el mismo largo que
  * z80_decode: un prefijo DD o FD seguido de DD, FD o ED es un NOP de un byte.
@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "disz80.h"
+#include "z80_dis.h"
 
 static const char *const cc[8] = { "nz", "z", "nc", "c", "po", "pe", "p", "m" };
 static const char *const alu[8] = { "add a,", "adc a,", "sub ", "sbc a,", "and ", "xor ", "or ", "cp " };
@@ -197,7 +197,7 @@ static void dis_main(Dis *s, uint8_t op)
     }
 }
 
-int disz80(const uint8_t b[4], uint16_t pc, char *out, size_t size)
+int z80_dis(const uint8_t b[4], uint16_t pc, char *out, size_t size)
 {
     Dis s = { b, pc, NULL, 0, 0, out, size };
     uint8_t op = next_byte(&s);

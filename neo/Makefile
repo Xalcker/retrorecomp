@@ -45,11 +45,11 @@ endif
 # Crece con cada fase de docs/PLAN.md: cartucho, BIOS y zip (fase 0), 68000 y Z80 (fase 1), la
 # consola, el bus, el LSPC sin imagen, el mapa del Z80 y los temporizadores del YM2610 (fase 2), el
 # dibujo del LSPC (fase 3), el YM2610 y la mezcla (fase 4)
-RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c cpu68k.c z80.c z80bus.c ym2610.c audio.c sha1.c
+RUNTIME := cart.c bios.c zip.c neodb.c neo.c bus.c lspc.c lspc_render.c m68k.c z80.c z80bus.c ym2610.c audio.c sha1.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libneort.a
 # Lo del runtime que vive en shared/: los núcleos del 68000 y del Z80 (comunes con GENRecomp) y console.h
-SHARED_RT := m68k.h m68k_ops.h cpu68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h prof.h metrica.h
+SHARED_RT := m68k.h m68k_ops.h m68k.c z80.h z80_ops.h z80.c console.h audio.c audio.h prof.h metrica.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # Partes de la plataforma que no dependen de SDL (las usarán también neoshot y neoaudio)
@@ -151,8 +151,8 @@ neobios: $(BUILD)/neobios.bin
 $(BUILD)/neobios.bin: tools/neobios/neobios.s tools/neobios/asm68k.py | $(BUILD)
 	python3 tools/neobios/asm68k.py tools/neobios/neobios.s $@ --swap --list $(BUILD)/neobios.lst
 
-$(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(RT) | $(BUILD)
-	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/dis68k.c $(RT) -lm
+$(BUILD)/dis68kbin$(EXE): tools/neobios/dis68kbin.c $(SHARED)/m68k_dis.c $(SHARED)/m68k_dis.h $(RT) | $(BUILD)
+	$(CC) $(CFLAGS) -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ tools/neobios/dis68kbin.c $(SHARED)/m68k_dis.c $(RT) -lm
 
 # Archivos que neorecomp lleva adentro y escribe en cada proyecto generado
 EMBED_RUNTIME  := neo.h metrica.h neodb.h recomp.h m68k.h m68k_ops.h m68k_host.h z80_host.h z80.h z80_ops.h z80_recomp_host.h console.h audio.h audio_host.h prof.h $(filter-out sha1.c,$(RUNTIME))
@@ -173,10 +173,10 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(SHARED)/dis68k.h $(SHARED)/z80_recomp.h $(SHARED)/visor_html.h \
+neorecomp$(EXE): src/neorecomp/neorecomp.c $(SHARED)/m68k_dis.c $(SHARED)/m68k_dis.h $(SHARED)/z80_recomp.h $(SHARED)/visor_html.h \
                  src/neorecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNEORECOMP_VERSION='"$(VERSION)"' -Isrc/neorecomp -Isrc/runtime -I$(SHARED) -o $@ \
-		src/neorecomp/neorecomp.c $(SHARED)/dis68k.c $(BUILD)/gen/embedded.c $(RT) -lm
+		src/neorecomp/neorecomp.c $(SHARED)/m68k_dis.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Paquete para distribuir: neorecomp, la documentación y la licencia
 DIST := dist/neorecomp-$(VERSION)-$(PLATFORM)
@@ -192,7 +192,7 @@ $(BUILD)/rt_%.o: src/runtime/%.c src/runtime/neo.h src/runtime/neodb.h src/runti
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 # Los núcleos del 68000 y del Z80 (shared/)
-$(BUILD)/rt_cpu68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/z80_ops.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
+$(BUILD)/rt_m68k.o $(BUILD)/rt_z80.o $(BUILD)/rt_audio.o: $(BUILD)/rt_%.o: $(SHARED)/%.c src/runtime/neo.h src/runtime/neodb.h src/runtime/m68k_host.h src/runtime/z80_host.h $(SHARED)/m68k.h $(SHARED)/m68k_ops.h $(SHARED)/z80.h $(SHARED)/z80_ops.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h src/runtime/audio_host.h $(SHARED)/audio.h | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -c -o $@ $<
 
 $(BUILD)/rt_sha1.o: $(SHARED)/sha1.c $(SHARED)/sha1.h | $(BUILD)

@@ -148,12 +148,12 @@ guarde copias.
 | `z80_ops.h` (y `z80.c` sobre él), `z80_decode`, `z80test --recomp` | 1 | GEN, NEO, SMS | `sizeof(Z80)` igual; SingleStepTests, `statetest` y `golden.sh` de GEN y NEO. |
 | `psg.c` y `psg.h` con un `psg_host.h` por consola, y el estéreo del GG | 3 | GEN, SMS | El estéreo va en el byte de relleno de `Psg` (desplazamiento 27): `sizeof(Gen)` no cambia. En GEN queda en `$FF` y debe dar los mismos hashes de audio (`audiotest`, `golden.sh`). |
 | `retro_run.c`: `ORACLE_RAM_SIZE` en `oracle_host.h` (hoy exige 64 KB; Gearsystem y Genesis Plus GX dan 8 KB de RAM en el SMS) | 4 | GEN, NEO, SMS | Por omisión, 64 KB: GEN y NEO no cambian. |
-| `contract.sh` (rama `src/smsrecomp/smsrecomp.c`, su ROM de contrato), `recomp_game.sh` (`sms`, sus cuadros por omisión), `tests/contract.py` (`COMMON`, raíces, `SOLO` de `sstz80.sh`, `MOVIDOS`), `tests/compat_test.py`, la GUI (clase `SMS`, `--sms`, `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA` en `$7FF0`, `PRESETS`, selector de modelo por consola), `index.html` | 4 | todos | El README de retrorecomp: «los cuatro» → «los cinco», las tablas del contrato y de «Diferencias que la interfaz esconde» con una columna SMS/GG. |
-| `z80_recomp.h` (el recompilador del Z80: lo hizo el trabajo de GEN y NEO, retrorecomp#63), con el «por qué» (`from[]`) y la guarda sin booleanos; `disz80.c/h` (el desensamblador del Z80, como `dis68k`); `visor_html.h` (antes copiado en GEN y NEO) | 5 | GEN, NEO, SMS | La guarda cambia el código generado de GEN (el mismo efecto): su `make test` y `golden.sh`. `visor_html.h`: PR en GEN y en NEO que quitan su copia. |
+| `contract.sh` (rama `src/smsrecomp/smsrecomp.c`, su ROM de contrato), `recomp_game.sh` (`sms`, sus cuadros por omisión), `tests/contract.py` (`COMMON`, raíces, `SOLO` de `sst.sh z80`, `MOVIDOS`), `tests/compat_test.py`, la GUI (clase `SMS`, `--sms`, `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA` en `$7FF0`, `PRESETS`, selector de modelo por consola), `index.html` | 4 | todos | El README de retrorecomp: «los cuatro» → «los cinco», las tablas del contrato y de «Diferencias que la interfaz esconde» con una columna SMS/GG. |
+| `z80_recomp.h` (el recompilador del Z80: lo hizo el trabajo de GEN y NEO, retrorecomp#63), con el «por qué» (`from[]`) y la guarda sin booleanos; `z80_dis.c/h` (el desensamblador del Z80, como `m68k_dis`); `visor_html.h` (antes copiado en GEN y NEO) | 5 | GEN, NEO, SMS | La guarda cambia el código generado de GEN (el mismo efecto): su `make test` y `golden.sh`. `visor_html.h`: PR en GEN y en NEO que quitan su copia. |
 | `oracle.py`, si sale igual al de GEN (si no, se copia y queda un issue) | 7 | GEN, NEO, SMS | |
 
 Lo que ya está en `shared/` y se usa tal cual: el Z80 (fase 0, el intérprete actual), `sha1`, `console.h`,
-`embed.c`, `json.h`, `z80test.c`, `sstz80.sh`, `random_pad.h`, `trace_line.h`, `ram_code.h`, `inputs.h`, `cli.h`,
+`embed.c`, `json.h`, `z80test.c`, `sst.sh z80`, `random_pad.h`, `trace_line.h`, `ram_code.h`, `inputs.h`, `cli.h`,
 `settings.c`, `audio.c`, la ventana (`ui_menu`, `ui_font`, `png`, `files`, `export`, `wav.h`, `player_*.h`, con la
 tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.sh`, `recomp_game.sh`,
 `ui_golden.sh`, `retro_run.c` y `libretro_min.h`.
@@ -171,7 +171,7 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   `Z80X` que lleva el PC y, para el código generado, los bytes de la instrucción), `z80.c` sobre él (las
   interrupciones, la NMI y el HALT), `z80_decode` y `Z80_IO_AT` (9 ciclos en `IN`/`OUT (n)`, 13 con prefijo; 10
   en `(C)`; 11 en `INI` y los suyos; 14 en `OUTI` y los suyos). Las 1 604 000 SingleStepTests pasan por los dos
-  caminos (`z80test --recomp`, `SST_OPTS=--recomp sh tests/sstz80.sh`), y en los dos también el decodificador
+  caminos (`z80test --recomp`, `SST_OPTS=--recomp sh tests/sst.sh z80`), y en los dos también el decodificador
   (largo, destino y ciclos con y sin salto) y, por el camino del código generado, el ciclo de cada acceso a un
   puerto. Con los bytes constantes el compilador pliega la instrucción: `JR NZ` queda en ~19 instrucciones de
   máquina con los dos destinos y sus ciclos como constantes. En GENRecomp y NEORecomp nada cambia: `sizeof(Z80)`
@@ -220,7 +220,7 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   código en RAM, interrupciones de cuadro y de línea, Pausa, VDP y PSG, todo dependiente de las entradas; y
   `--minima` para `webtest`/`apktest`); `golden.sh` (21 casos); el contrato común en verde y en el CI. En retrorecomp
   (un PR): la rama de SMSRecomp en `contract.sh` y `recomp_game.sh`, `ORACLE_RAM_SIZE` en `retro_run.c`,
-  `contract.py` (`COMMON`, raíces, `SOLO` de `sstz80.sh`), `compat_test.py`, la GUI (clase `SMS`, `--sms`,
+  `contract.py` (`COMMON`, raíces, `SOLO` de `sst.sh z80`), `compat_test.py`, la GUI (clase `SMS`, `--sms`,
   `SMSRECOMP_DIR`, `detect_system` con `TMR SEGA`, las subcarpetas de `roms/`, `PRESETS`, el selector de modelo de
   cada consola), `index.html` y el README («los cinco»). `tools/compat/run.py` y `report.py` (la etapa 1 corre); los
   oráculos (`tools/oracles/oracle.py`, Genesis Plus GX y Gearsystem, con `make build/retro_run`).
@@ -233,7 +233,7 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   proyecto generado (`embed`, `Makefile`, `LEEME.txt`, la ventana con `-DSMS_RECOMP`: SHA1, la copia de la ROM,
   `--interp`, `--force`, `--uncovered`); `difftest` y `bench` con la salida común; `tests/recomp_game.sh`,
   `--viz`/`--events`/`--why`/`--coverage`/`--html`/`--codemap`/`--dis` y `tests/coverage.sh`. En retrorecomp (un
-  PR, con uno en GENRecomp y otro en NEORecomp que mueven el submódulo): `disz80.c/h` (el desensamblador del Z80,
+  PR, con uno en GENRecomp y otro en NEORecomp que mueven el submódulo): `z80_dis.c/h` (el desensamblador del Z80,
   probado contra `z80_decode` en las 66 048 instrucciones), `visor_html.h` común (antes copiado en GEN y NEO), el «por
   qué» en `z80_recomp.h` (`from[]`) y la guarda sin booleanos (XOR). **Meta:** el contrato, Dragon Blaster y los 15
   juegos de `roms/` sin diferencias contra el intérprete, con el 99-100 % de los ciclos (los que ejecutan

@@ -89,7 +89,7 @@ tiempo "recompilador"
 # los bytes de la instrucción; también el ciclo del acceso a cada puerto); en los dos, el decodificador
 if [ -f testroms/z80/v1/00.json.gz ]; then
     for modo in "" --recomp; do
-        r=$(SST_OPTS=$modo sh tests/sstz80.sh | tail -1)
+        r=$(SST_OPTS=$modo sh tests/sst.sh z80 | tail -1)
         case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
     done
 else

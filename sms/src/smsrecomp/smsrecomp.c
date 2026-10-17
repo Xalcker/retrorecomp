@@ -49,7 +49,7 @@
 #include "trace_line.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
-#include "disz80.h"
+#include "z80_dis.h"
 #include "embedded.h"
 
 #ifndef SMSRECOMP_VERSION
@@ -529,7 +529,7 @@ static void coverage_report(const char *path)
             u8 b[4];
             char d[64];
             for (int i = 0; i < 4; i++) b[i] = off + (size_t)i < rom_size ? rom[off + (size_t)i] : 0;
-            disz80(b, (u16)addr, d, sizeof d);
+            z80_dis(b, (u16)addr, d, sizeof d);
             printf("  falta: ROM $%06lX = $%04lX  %s\n", off, addr, d);
             shown++;
         }
@@ -548,7 +548,7 @@ static void dis_off(u32 off, char *d, size_t size)
 {
     u8 b[4];
     for (int i = 0; i < 4; i++) b[i] = off + (u32)i < rom_size ? rom[off + (u32)i] : 0;
-    disz80(b, ins_addr[off], d, size);
+    z80_dis(b, ins_addr[off], d, size);
 }
 
 /* BB:DIRECCION (como en la traza) o un desplazamiento hexadecimal */
@@ -726,7 +726,7 @@ static void dis_range(const char *arg)
         u8 b[4];
         char d[64];
         for (int i = 0; i < 4; i++) b[i] = off + (unsigned long)i < rom_size ? rom[off + (unsigned long)i] : 0;
-        int len = disz80(b, (u16)addr, d, sizeof d);
+        int len = z80_dis(b, (u16)addr, d, sizeof d);
         printf("%06lX  $%04lX  ", off, addr & 0xFFFF);
         for (int i = 0; i < 4; i++) {
             if (i < len) printf("%02X ", b[i]);

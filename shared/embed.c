@@ -3,7 +3,7 @@
  * (nesrecomp, gbrecomp...) lleve consigo el runtime y la plataforma y funcione desde cualquier carpeta.
  *
  * Uso: embed salida.c destino=origen [destino=origen ...]
- *   "destino" es la ruta dentro del proyecto generado (p. ej. runtime/cpu68k.c).
+ *   "destino" es la ruta dentro del proyecto generado (p. ej. runtime/m68k.c).
  *
  * Genera:
  *   const EmbeddedFile embedded_files[];   (termina con name = NULL)

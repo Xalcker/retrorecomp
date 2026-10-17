@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "dis68k.h"
+#include "m68k_dis.h"
 #include "m68k_ops.h"
 
 typedef struct {
@@ -104,7 +104,7 @@ static int move_sz(u16 op)
     return s == 1 ? 0 : s == 3 ? 1 : 2;
 }
 
-int dis68k(const uint16_t *w, uint32_t pc, char *out, size_t size)
+int m68k_dis(const uint16_t *w, uint32_t pc, char *out, size_t size)
 {
     D dd = { w, 1, pc, out, size, 0 }, *d = &dd;
     out[0] = 0;

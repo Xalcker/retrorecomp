@@ -1,4 +1,4 @@
-; Prueba de asm68k: cada instrucción se desensambla con dis68k y tiene que dar el mismo texto
+; Prueba de asm68k: cada instrucción se desensambla con m68k_dis y tiene que dar el mismo texto
         org     $C00000
 inicio:
         move.b  d0,($300001).l

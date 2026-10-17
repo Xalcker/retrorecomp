@@ -12,17 +12,17 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h`, `z80_recomp_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80, el código generado del Z80 y la mezcla toman de esta consola). De `../shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
-| `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `dis68k.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/runtime/` | La consola: `neo.h` (estado e interfaz), `neo.c` (carga, encendido, cuadro, tarjeta), `cart.c` (formatos, imagen normalizada, cabecera, vectores, identidad del código), `bios.c` (BIOS del AES y tabla L0), `bus.c` (mapa de memoria del 68000), `lspc.c` (registros del LSPC, VRAM, líneas, temporizador e interrupciones), `lspc_render.c` (el dibujo), `z80bus.c` (mapa y puertos del Z80, cuándo corre), `ym2610.c` (el YM2610: FM, SSG, ADPCM-A y ADPCM-B, temporizadores), `zip.c` (zip, inflate y CRC32), `neodb.c`/`neodb.h` (base de datos de juegos), `recomp.h` (la interfaz con el código generado), `m68k_host.h`, `z80_host.h`, `z80_recomp_host.h` y `audio_host.h` (lo que los núcleos comunes del 68000 y del Z80, el código generado del Z80 y la mezcla toman de esta consola). De `../shared`: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `m68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `sha1`, `console.h`, `trace_line.h`. |
+| `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `m68k_dis.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`); diagnóstico: `neorun`. |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego), `sst68k.sh` y `sstz80.sh` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
 
 El 68000 y el Z80 son los mismos de GENRecomp: viven en `../shared` (`m68k.h`, `m68k_ops.h`,
-`cpu68k.c`, `dis68k.c`, `z80.h`, `z80.c`, con `m68ktest.c` y `z80test.c`). Lo único propio de esta consola está en
+`m68k.c`, `m68k_dis.c`, `z80.h`, `z80.c`, con `m68ktest.c` y `z80test.c`). Lo único propio de esta consola está en
 `src/runtime/m68k_host.h` (el tipo `Neo`, su cabecera y la traza con `neo_trace_mark`, ver Recompilador) y
 `src/runtime/z80_host.h`. La NMI del Z80 y la vuelta de un `HALT` (abajo) son las mismas en los dos.
 
@@ -30,7 +30,7 @@ El 68000 y el Z80 son los mismos de GENRecomp: viven en `../shared` (`m68k.h`, `
 `k_NOMBRE(g, op, ext, pc)` que ejecuta la instrucción `op` que está en `pc` y devuelve la dirección
 de la siguiente (la que sigue, el destino de un salto o el manejador de una excepción):
 
-- El **intérprete** (`cpu68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
+- El **intérprete** (`m68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
   cola de prefetch (`ir`, `irc`) y cada una que se consume pide la siguiente al bus, como el 68000.
 - El **código generado** las llamará con `op`, `pc` y `ext` constantes (las palabras de extensión,
   leídas de la ROM al recompilar). Las lecturas de programa se vuelven ciclos sin acceso al bus y
@@ -71,7 +71,7 @@ La escritura de TAS (`cpu.tas`) la decide el bus: el Genesis la ignora en la RAM
 **El Z80** (`z80.c`): completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades
 de IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
 bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80 (`z80test`,
-`tests/sstz80.sh`). Dos cosas nuevas respecto a GENRecomp, que las SingleStepTests no cubren (no tienen
+`tests/sst.sh z80`). Dos cosas nuevas respecto a GENRecomp, que las SingleStepTests no cubren (no tienen
 interrupciones) y prueba `z80test --nmi`:
 
 - **NMI** (`z80.nmi`, por flanco): el Neo Geo la usa para avisar de cada comando del 68000. Se atiende
@@ -216,7 +216,7 @@ en el intérprete.
 
 Las mismas que en GENRecomp, con los mismos formatos, sobre el espacio del juego: `--coverage traza`,
 `--why BB:DIRECCION` (o el desplazamiento en P), `--viz [--color]`, `--html archivo`, `--events archivo`,
-`--codemap archivo` y `--dis OFFSET:DIR:N` (`dis68k.c`, que también pone el desensamblado en los
+`--codemap archivo` y `--dis OFFSET:DIR:N` (`m68k_dis.c`, que también pone el desensamblado en los
 comentarios del código generado).
 
 ### Funciones y emisión

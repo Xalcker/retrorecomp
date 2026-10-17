@@ -1,5 +1,5 @@
 /*
- * Lo que el núcleo común del 68000 (../shared: m68k.h, m68k_ops.h, cpu68k.c, el mismo de
+ * Lo que el núcleo común del 68000 (../shared: m68k.h, m68k_ops.h, m68k.c, el mismo de
  * NEORecomp) toma del Genesis: el tipo de la consola, su cabecera y cómo se anota la traza del intérprete.
  */
 #ifndef GEN_M68K_HOST_H

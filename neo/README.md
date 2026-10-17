@@ -122,12 +122,12 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `ym2610.c` (el sonido), `z80bus.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo propio de esta consola para los núcleos y la mezcla comunes); de `../shared`, comunes con GENRecomp: `m68k_ops.h`/`cpu68k.c` (el 68000), `z80.c` (el Z80) y `audio.c` (la mezcla); `sha1`, `console.h`, `trace_line.h`. |
+| `src/runtime/` | La consola: `neo.h`, `neo.c`, `bus.c` (mapa de memoria), `lspc.c` y `lspc_render.c` (el video), `ym2610.c` (el sonido), `z80bus.c`, `cart.c` (formatos e imagen normalizada), `bios.c` (BIOS y tabla L0), `zip.c` (zip e inflate), `neodb.c` (base de datos de juegos), `m68k_host.h`, `z80_host.h` y `audio_host.h` (lo propio de esta consola para los núcleos y la mezcla comunes); de `../shared`, comunes con GENRecomp: `m68k_ops.h`/`m68k.c` (el 68000), `z80.c` (el Z80) y `audio.c` (la mezcla); `sha1`, `console.h`, `trace_line.h`. |
 | `src/neorecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `input_host.h` y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `neocard`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
-| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh`, `sstz80.sh`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |
+| `tests/` | `run_tests.sh` (`make test`), `sst.sh m68k`, `sst.sh z80`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe). |
 

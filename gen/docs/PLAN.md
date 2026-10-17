@@ -23,7 +23,7 @@ mismo contrato de línea de comandos.
   `embed`, `sha1`. Cartucho: `.bin`/`.md`/`.gen`/`.smd` (normalizado; el SHA1 es de la imagen
   normalizada), cabecera, suma, SRAM declarada y vectores. `genrecomp --info` y `carttest`.
 - [x] **1. CPU 68000.** `m68k_ops.h` como única fuente de verdad (intérprete y código generado),
-  `cpu68k.c` (decodificador con validación de modos, excepciones, error de dirección, interrupciones
+  `m68k.c` (decodificador con validación de modos, excepciones, error de dirección, interrupciones
   por nivel, traza). Ciclos por acceso al bus más los internos. Las 1 000 058 SingleStepTests pasan por
   el intérprete y por el camino del código generado (`m68ktest`, `--recomp`; en `make test`). Pendiente
   para la fase 3: el orden exacto de los accesos dentro de una instrucción (78 % con `--bus`).
@@ -74,7 +74,7 @@ mismo contrato de línea de comandos.
   tbl(pc,d1.w)`), de instrucciones (`bra.w`/`jmp`), de punteros de 32 bits y bases constantes;
   especulativas: punteros inmediatos (`move.l/pea/lea rutina`), tablas sueltas y lo que sigue a un
   final de rutina; plausibilidad (opcodes válidos, direcciones razonables, final de rutina).
-  Desensamblador (`dis68k.c`); `--coverage`, `--why`, `--viz`, `--html`, `--events`, `--codemap`,
+  Desensamblador (`m68k_dis.c`); `--coverage`, `--why`, `--viz`, `--html`, `--events`, `--codemap`,
   `--dis`, `--no-tables`, `--no-spec`; `tests/coverage.sh`. Sin traza, 93-100 % de lo que ejecutan
   los 23 juegos de `roms/` (Sonic 1: de 25 a 100 %). Pendiente: compilar menos código de más (Sonic &
   Knuckles descubre 130 000 instrucciones y tarda ~1 minuto con 8 núcleos).

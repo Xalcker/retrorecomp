@@ -1,13 +1,13 @@
 /*
- * Prueba de shared/disz80.c: para cada instrucción posible (los dos primeros bytes, y los DD CB d op y FD CB d op)
+ * Prueba de shared/z80_dis.c: para cada instrucción posible (los dos primeros bytes, y los DD CB d op y FD CB d op)
  * el largo es el mismo de z80_decode, y una muestra de textos con las formas sin documentar.
- *   cc -std=c99 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o disz80_test tests/disz80_test.c \
- *      shared/disz80.c shared/z80.c && ./disz80_test
+ *   cc -std=c99 -Wall -Wextra -Werror -pedantic -Ishared -Itests/stub -o z80_dis_test tests/z80_dis_test.c \
+ *      shared/z80_dis.c shared/z80.c && ./z80_dis_test
  */
 #include <stdio.h>
 #include <string.h>
 
-#include "disz80.h"
+#include "z80_dis.h"
 #include "z80.h"
 #include "z80_ops.h"
 
@@ -22,7 +22,7 @@ static int fallas;
 static void texto(const uint8_t *b, uint16_t pc, const char *want)
 {
     char out[64];
-    disz80(b, pc, out, sizeof out);
+    z80_dis(b, pc, out, sizeof out);
     if (strcmp(out, want)) { printf("FALLA %02X %02X %02X %02X: \"%s\", esperado \"%s\"\n", b[0], b[1], b[2], b[3], out, want); fallas++; }
 }
 
@@ -35,7 +35,7 @@ int main(void)
             uint8_t b[4] = { (uint8_t)b0, (uint8_t)b1, 0x12, 0x34 };
             Z80Insn in;
             z80_decode(b, 0x8000, &in);
-            int len = disz80(b, 0x8000, out, sizeof out);
+            int len = z80_dis(b, 0x8000, out, sizeof out);
             n++;
             if (len != in.len) { if (fallas < 20) printf("FALLA largo %02X %02X: %d, z80_decode %d (%s)\n", b0, b1, len, in.len, out); fallas++; }
             if (!out[0]) { printf("FALLA %02X %02X: sin texto\n", b0, b1); fallas++; }
@@ -45,7 +45,7 @@ int main(void)
             uint8_t b[4] = { px ? 0xFD : 0xDD, 0xCB, 0xFE, (uint8_t)op };
             Z80Insn in;
             z80_decode(b, 0, &in);
-            int len = disz80(b, 0, out, sizeof out);
+            int len = z80_dis(b, 0, out, sizeof out);
             n++;
             if (len != in.len || len != 4) { printf("FALLA largo %02X CB FE %02X: %d, z80_decode %d\n", b[0], op, len, in.len); fallas++; }
         }
@@ -100,7 +100,7 @@ int main(void)
         { { 0xDD, 0xFD, 0, 0 }, 0, "nop ($DD)" },
     };
     for (size_t i = 0; i < sizeof m / sizeof m[0]; i++) texto(m[i].b, m[i].pc, m[i].t);
-    if (fallas) { printf("disz80: %d fallas\n", fallas); return 1; }
-    printf("disz80: %u instrucciones con el largo de z80_decode y %zu textos bien\n", n, sizeof m / sizeof m[0]);
+    if (fallas) { printf("z80_dis: %d fallas\n", fallas); return 1; }
+    printf("z80_dis: %u instrucciones con el largo de z80_decode y %zu textos bien\n", n, sizeof m / sizeof m[0]);
     return 0;
 }

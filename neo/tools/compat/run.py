@@ -56,7 +56,7 @@ class NEO(compat.Sistema):
 
     def guiones(self):
         """Start y A pasan de la demo y de los menús a la partida; después golpes y movimiento (las entradas de
-        tests/coverage.sh). En difftest se suma el mando aleatorio de cada semilla."""
+        tests/coverage.py). En difftest se suma el mando aleatorio de cada semilla."""
         t = [("START", 1200, 1206), ("START", 1500, 1506)]
         t += [("A", k, k + 11) for k in range(1700, 2201, 100)]
         t += [("START", 2300, 2306)] + [("A", k, k + 11) for k in range(2400, 2701, 100)]

@@ -150,14 +150,10 @@ $(BUILD):
 test: all
 	python3 tests/run_tests.py
 
-# ROMs de prueba libres en testroms/ (no se versionan): christopherpow/nes-test-roms
-# en un commit fijo (el repositorio no tiene releases)
-TESTROMS_URL := https://github.com/christopherpow/nes-test-roms/archive/95d8f621ae55cee0d09b91519a8989ae0e64753b.tar.gz
+# ROMs de prueba libres en testroms/ (no se versionan): christopherpow/nes-test-roms en un commit fijo (el repositorio
+# no tiene releases; ver tests/testroms.py)
 testroms:
-	@if [ -d testroms/nes-test-roms/other ]; then echo "testroms/ ya tiene las ROMs de prueba"; else \
-		mkdir -p testroms/nes-test-roms $(BUILD) && curl -fsSL -o $(BUILD)/testroms.tar.gz $(TESTROMS_URL) && \
-		tar -xzf $(BUILD)/testroms.tar.gz -C testroms/nes-test-roms --strip-components=1 && rm -f $(BUILD)/testroms.tar.gz && \
-		echo "ROMs de prueba en testroms/"; fi
+	python3 tests/testroms.py
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

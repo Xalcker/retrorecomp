@@ -425,7 +425,7 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 - `gbrecomp` con dos `--trace` (una de código de RAM y otra de ROM): se leen las dos.
 - `gbrecomp --html`, `--viz --color` y `--codemap`, `gbramdump` y la ventana de `gb` (cada menú, con `--ui-shot`).
 
-Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
+Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.py`) y Blargg
 `dmg_sound` 9 de 12.
 
 **Línea base exacta** (`python3 tests/golden.py`, el mismo código que los otros
@@ -462,7 +462,7 @@ instrucciones que corrió como código recompilado:
 | Wario Land II | SGB | 94.7 % |
 | Pokémon Oro, Plata y Amarillo | GBC | sin diferencias |
 
-Además, `tests/batch_roms.sh` recompila una lista de juegos y corre `difftest`
+Además, `tests/batch_roms.py` recompila una lista de juegos y corre `difftest`
 60 s con entradas aleatorias en cada uno. Con 33 juegos sin diferencias:
 - **Efectos de pantalla:** Link's Awakening, Super Mario Land 2 y Prehistorik
   Man.

@@ -16,7 +16,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `input_host.h` (los botones para `inputs.h` y `cli.h` comunes). De `../shared`: `files`, `export`, `png`, `random_pad.h`, `inputs.h`, `cli.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. |
-| `tests/` | `run_tests.py` (`make test`), `sst.sh m68k` (las SingleStepTests por familia), `contract.sh` (contrato común). |
+| `tests/` | `run_tests.py` (`make test`), `sst.py m68k` (las SingleStepTests por familia), `contrato.py` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -155,7 +155,7 @@ Descubrir de más no rompe nada: lo que se recompila es lo que hay en esa direcc
 nunca llega ahí, nunca se ejecuta. Solo cuesta tiempo de compilación. Las instrucciones de las trazas
 (`--trace`) se agregan como semillas para lo que las heurísticas no encuentran.
 
-**Cobertura sin traza** (`sh tests/coverage.sh`: de lo que el juego ejecuta en 1800 cuadros con un
+**Cobertura sin traza** (`python3 tests/coverage.py`: de lo que el juego ejecuta en 1800 cuadros con un
 mando aleatorio, cuánto encuentra el análisis solo): 97,6 % en total con los 23 juegos de `roms/`;
 100 % en Sonic 1 y 2, Comix Zone, Contra Hard Corps, Phantasy Star IV, MK1, Road Rash II, SF2CE y
 SSF2; entre 93 y 99,7 % en el resto (lo más bajo: Wonder Boy in Monster World, 92,8 %, y Wily Wars,
@@ -423,7 +423,7 @@ con el primer y el último byte) no están confirmadas con hardware.
 `z80.c`: el Z80 completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades de
 IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
 bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80
-(`z80test`, `tests/sst.sh z80`, en `make test`).
+(`z80test`, `tests/sst.py z80`, en `make test`).
 
 **El driver en código nativo.** `genrecomp` compila también el driver que el 68000 sube a la RAM del Z80,
 con el recompilador del Z80 común con NEORecomp y SMSRecomp (`z80_recomp.h`, en `../shared`;
@@ -565,7 +565,7 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   la misma entrada da la misma traza, captura y sonido, y `--input` da el mismo `genshot --hash` que la
   sintaxis `boton:desde-hasta`. Los botones del guion común (`START`, `DOWN+A`) existen en las tres
   consolas; `--seed` usa el mismo mando aleatorio (`random_pad.h`) traducido al Genesis.
-- **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
+- **`make testroms`** (`tests/testroms.py`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del 68000 y del Z80 (comprimidas) y las demos Overdrive (Evoke 2013, la versión para hardware)
   y Overdrive 2 (Revision 2017: 8 MB con SSF2, solo PAL) de Titan, de scene.org, con su SHA-256. Las
   demos son la meta más exigente (Overdrive 1 corre pero avisa que necesita PAL; Overdrive 2 queda en

@@ -26,7 +26,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
-| `tests/` | `run_tests.py` (la batería de `make test`), `run_mealybug.sh`, `golden.py` y `golden.txt` (línea base exacta), `recomp_game.py` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
+| `tests/` | `run_tests.py` (la batería de `make test`), `run_mealybug.py`, `golden.py` y `golden.txt` (línea base exacta), `recomp_game.py` y `batch_roms.py` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.py` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
@@ -202,7 +202,7 @@ todos los MBC lo dejan así al encender. Sin eso, un `jp $5C45` en `$0101` (como
 en Project S-11) quedaba sin resolver y el juego entero corría en el
 intérprete. Con eso, Project S-11 pasó de 0.6 % a 92.5 % recompilado sin traza.
 
-**Patrones que todavía no se reconocen**, encontrados con `tests/batch_roms.sh`.
+**Patrones que todavía no se reconocen**, encontrados con `tests/batch_roms.py`.
 Todos corren bien (en el intérprete) y la traza los resuelve:
 
 | Patrón | Ejemplo | Sin traza → con traza |
@@ -281,7 +281,7 @@ principio, `modelo dmg|cgb|sgb` y `paleta up+a`. El ejecutable graba con
 pseudoaleatorias reproducibles para completar guiones escritos a mano. En
 `tests/inputs/tetris_b.txt` hay un guion que entra al modo B y juega.
 
-`sh tests/difftest_tetris.sh tetris.gb` regenera Tetris y corre la prueba
+`python3 tests/difftest_tetris.py tetris.gb` regenera Tetris y corre la prueba
 diferencial con todas las partidas de `tests/inputs/` y tres semillas.
 
 ### Cobertura de las pruebas
@@ -296,7 +296,7 @@ Lo que las pruebas ejecutan del código real (`difftest --executed`):
 Casi todo lo que falta es el multijugador (pantallas de victoria y derrota,
 cursores de Luigi, `Handshake`), que necesita un segundo Game Boy por cable.
 Ya se puede correr con `linktest` (ver "Cable link"):
-`tests/link_tetris.sh` juega una partida de dos jugadores hasta la pantalla
+`tests/link.py tetris` juega una partida de dos jugadores hasta la pantalla
 de victoria. El código no ejecutado se generó con el mismo emisor que
 el intérprete, así que sus instrucciones son confiables; lo que no se ha
 probado es su flujo de control (etiquetas, cortes de función).
@@ -740,7 +740,7 @@ En modo CGB el runtime tiene:
   siguiente control; los controles 2-4 devuelven `g->pad_sgb`
   (`gb_set_pad_player`). `tests/sgb_controles.c` lo comprueba leyendo P1 como
   un juego.
-  `tests/sgb_bomberman.sh` juega una batalla de 4 en Bomberman GB (Bomberman
+  `tests/sgb_bomberman.py` juega una batalla de 4 en Bomberman GB (Bomberman
   Collection), cada jugador con su control (`gbtest --input2..4`).
 - **Paquetes del SGB:** escribir en P1 el mismo valor que ya tenía no es un
   pulso. Bomberman Collection escribe `$00` dos veces al empezar un paquete, y
@@ -1031,7 +1031,7 @@ duerme en HALT y despierta en cada HBlank, que comprueba el reparto de los ciclo
 - `mbc3-tester` (incluye MBC30) y las tres partes de `rtc3test`.
 - dmg-acid2 (pantalla idéntica).
 
-`sh tests/run_mealybug.sh`: **18 de 24** pruebas de Mealybug con referencia DMG
+`python3 tests/run_mealybug.py`: **18 de 24** pruebas de Mealybug con referencia DMG
 (cambios de registros a mitad de línea). Las que faltan son fallas muy
 específicas del DMG al cambiar LCDC o la ventana a mitad del dibujo:
 

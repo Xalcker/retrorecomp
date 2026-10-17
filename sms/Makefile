@@ -111,7 +111,7 @@ smsramdump$(EXE): src/tools/smsramdump.c $(TOOL_DEPS)
 inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
 
-# El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/sms/contrato.sms) y la ROM mínima
+# El juego de prueba del contrato (tests/testroms.py lo escribe en testroms/sms/contrato.sms) y la ROM mínima
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c | $(BUILD)
 	$(CC) $(CFLAGS) -I$(SHARED) -o $@ src/tools/mkcontrato.c
 
@@ -194,9 +194,9 @@ test: all
 	python3 tests/run_tests.py
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del Z80, ZEXALL y
-# homebrew con licencia MIT (ver tests/testroms.sh; con EXTRA=1, también las pruebas sin licencia)
+# homebrew con licencia MIT (ver tests/testroms.py; con EXTRA=1, también las pruebas sin licencia)
 testroms:
-	sh tests/testroms.sh
+	python3 tests/testroms.py
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

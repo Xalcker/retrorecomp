@@ -6,7 +6,7 @@
 #   Completo (push a main, etiquetas, cada noche, Run workflow o la etiqueta «ci-completo» en el PR): los cinco
 #     sistemas, todo, en los tres sistemas operativos, más make dist.
 # La regla de protección de main exige solo el job «ci», que junta a todos: así un sistema que el PR no toca
-# (job saltado) no deja checks pendientes. Para probar una herramienta a mano: sh tests/ci_sistema.sh <sistema>.
+# (job saltado) no deja checks pendientes. Para probar una herramienta a mano: python3 tests/ci_sistema.py <sistema>.
 
 name: ci
 
@@ -127,9 +127,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ matrix.sistema }}/testroms
-          key: testroms-${{ matrix.sistema }}-Linux-${{ env.SKIP_SST && 'sinsst' || 'sst' }}-${{ hashFiles(format('{0}/tests/testroms.sh', matrix.sistema), format('{0}/Makefile', matrix.sistema)) }}
+          key: testroms-${{ matrix.sistema }}-Linux-${{ env.SKIP_SST && 'sinsst' || 'sst' }}-${{ hashFiles(format('{0}/tests/testroms.py', matrix.sistema), format('{0}/Makefile', matrix.sistema)) }}
       - name: Compilar y probar
-        run: sh tests/ci_sistema.sh ${{ matrix.sistema }}
+        run: python3 tests/ci_sistema.py ${{ matrix.sistema }}
       - name: Guardar las ROMs de prueba
         if: github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -157,7 +157,7 @@ jobs:
       - name: Dependencias
         run: brew install sdl2 pkg-config
       - name: Compilar y probar ${{ needs.plan.outputs.lista }}
-        run: for s in ${{ needs.plan.outputs.lista }}; do sh tests/ci_sistema.sh $s || exit 1; done
+        run: for s in ${{ needs.plan.outputs.lista }}; do python3 tests/ci_sistema.py $s || exit 1; done
       - uses: actions/upload-artifact@v4
         if: env.DIST == '1'
         with:
@@ -194,7 +194,7 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-python
       - name: Compilar y probar ${{ needs.plan.outputs.lista }}
-        run: for s in ${{ needs.plan.outputs.lista }}; do sh tests/ci_sistema.sh $s || exit 1; done
+        run: for s in ${{ needs.plan.outputs.lista }}; do python3 tests/ci_sistema.py $s || exit 1; done
       - uses: actions/upload-artifact@v4
         if: env.DIST == '1'
         with:

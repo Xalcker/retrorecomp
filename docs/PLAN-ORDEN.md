@@ -17,7 +17,7 @@
 | F3.7. Línea `RESUMEN {json}` | Hecho | #141 |
 | Scripts a Python, fase 1: los de `shared/` (`golden`, `estricto`, `sst`, `recomp_game`, `contrato`, `ui_golden`) y los `tests/golden.py` y `tests/estricto.py` de cada sistema | Hecho | #148 |
 | Scripts a Python, fase 2: los `tests/run_tests.sh` de cada sistema pasan a `run_tests.py`, con el marco común `shared/pruebas.py` | Hecho | #149–#153 |
-| Scripts a Python, fase 3: los scripts sueltos (`testroms.sh`, `batch_roms.sh`, `coverage.sh`...) | **Pendiente** | — |
+| Scripts a Python, fase 3: los scripts sueltos (`testroms`, `coverage`, `batch_roms`, `link`, `ci_sistema`...). Ya no queda ningún `.sh` en el repo | Hecho | #154 |
 | F4. Menos intérprete | **Pendiente** | — |
 | F5. Juegos sin intérprete | **Pendiente** | — |
 

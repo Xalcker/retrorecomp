@@ -133,7 +133,7 @@ m68ktest$(EXE): $(SHARED)/m68ktest.c $(SHARED)/json.h $(RT)
 z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
-# El juego de prueba del contrato (tests/testroms.sh lo escribe en testroms/neo/contrato.neo)
+# El juego de prueba del contrato (tests/testroms.py lo escribe en testroms/neo/contrato.neo)
 $(BUILD)/mkcontrato$(EXE): src/tools/mkcontrato.c $(RT) | $(BUILD)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/mkcontrato.c $(RT) -lm
 
@@ -220,7 +220,7 @@ test: all
 	python3 tests/run_tests.py
 
 testroms:
-	sh tests/testroms.sh
+	python3 tests/testroms.py
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

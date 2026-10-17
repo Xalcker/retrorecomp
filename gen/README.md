@@ -113,7 +113,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
 | `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
-| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `python3 tests/coverage.py` lo mide con todas las ROMs de `roms/`. |
+| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N] [--z80]` | Qué se descubrió, cómo y qué falta (con `--z80`, también el driver del Z80: `--why z80:VERSIÓN:DIR`, `--dis z80:VERSIÓN:DIR:N`, y sus versiones en el mapa de `--html` y en `--events`); `python3 tests/coverage.py` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp, GBRecomp y NEORecomp). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |

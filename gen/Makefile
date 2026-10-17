@@ -144,10 +144,11 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(SHARED)/m68k_dis.h $(SHARED)/z80_recomp.h $(SHARED)/visor_html.h \
+genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(SHARED)/m68k_dis.h $(SHARED)/z80_dis.c $(SHARED)/z80_dis.h \
+                 $(SHARED)/z80_recomp.h $(SHARED)/z80_vista.h $(SHARED)/visor_html.h \
                  src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -I$(SHARED) -o $@ \
-		src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(BUILD)/gen/embedded.c $(RT) -lm
+		src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(SHARED)/z80_dis.c $(BUILD)/gen/embedded.c $(RT) -lm
 
 # Oráculos: retro_run corre un núcleo libretro (Genesis Plus GX, BlastEm) sin ventana; los núcleos los
 # baja tools/oracles/oracle.py a build/oracles/ (no van en el repo)

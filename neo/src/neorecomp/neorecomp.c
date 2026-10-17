@@ -57,6 +57,8 @@
 #include "trace_line.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
+#include "z80_dis.h"
+#include "z80_vista.h"
 #include "embedded.h"
 #include "m68k_dis.h"
 
@@ -92,6 +94,8 @@ static const char usage_text[] =
     "                     cómo se llegó, de dónde, origen, desensamblado)\n"
     "  --codemap archivo  qué bytes del programa se tomaron como código: una letra por byte (C = código),\n"
     "                     64 por línea; el mismo formato que difftest --executed\n"
+    "  --z80              incluye el Z80 (la M1) en --events, --html, --why y --dis: va a continuación de P en el mapa;\n"
+    "                     también valen --why z80:0:DIRECCIÓN y --dis z80:0:DIRECCIÓN:N (la dirección en hexadecimal)\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
     "  --no-spec          sin los punteros sueltos: inmediatos y tablas que ningún código delata\n"
     "  --dis OFF:DIR:N    desensambla N instrucciones desde ese desplazamiento de P, con esa dirección\n"
@@ -1138,6 +1142,10 @@ static void explain(u32 off)
     }
 }
 
+/* El Z80 en --events, --html, --why y --dis (--z80): la M1 como una vista a continuación del programa */
+static Z80Vistas z80_vistas;
+static int z80_on;
+
 static void write_events(const char *path)
 {
     FILE *f = fopen(path, "w");
@@ -1153,6 +1161,7 @@ static void write_events(const char *path)
             fprintf(f, "%06zX %06X %s %06X %s %s\n", i, ins_addr[i >> 1], how_name[how_at[i >> 1]], parent[i >> 1],
                     org_name[origin[i >> 1]], d);
     }
+    if (z80_on) z80v_events(f, &z80_vistas, org_name);
     fclose(f);
 }
 
@@ -1247,10 +1256,17 @@ static void write_html(const char *path, const char *rom_name)
     fputs(html_head, f);
     fputs("{\"name\":", f);
     json_str(f, rom_name);
-    fprintf(f, ",\"rom\":%zu,\"cell\":%zu,\"bytes\":%u,\"orgs\":[", rom_size, viz_cell(), stat_bytes);
+    fprintf(f, ",\"rom\":%zu,\"cell\":%zu,\"bytes\":%u,", rom_size, viz_cell(), stat_bytes);
+    if (z80_on && z80_vistas.n) {
+        fprintf(f, "\"mapa\":%zu,\"regiones\":", z80v_total(&z80_vistas, rom_size));
+        z80v_regiones(f, &z80_vistas, json_str);
+        fputc(',', f);
+    }
+    fputs("\"orgs\":[", f);
     for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
     fputs("],\"hows\":[", f);
     for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    if (z80_on) for (int c = Z80RC_SEED; c <= Z80RC_TRACE; c++) { fputc(',', f); json_str(f, z80v_como(c)); }
     fputs("],\"missing\":[", f);
     int first = 1;
     if (missing_mark)
@@ -1268,6 +1284,7 @@ static void write_html(const char *path, const char *rom_name)
         fprintf(f, ",%d]", ins_len(i));
         first = 0;
     }
+    if (z80_on) z80v_html(f, &z80_vistas, HOW_COUNT, &first, json_str);
     fputs("\n]}", f);
     fputs(html_tail, f);
     fclose(f);
@@ -1775,21 +1792,39 @@ static void emit_info(const char *dir, const char *sha1, const char *name, unsig
 /* El Z80: los primeros 32 KB de la M1 ($0000-$7FFF, fijos) con el recompilador común (z80_recomp.h, en
  * retrorecomp), desde el reset, los RST ($38 es la INT en modo 1) y la NMI ($0066). Las ventanas con bancos
  * y la RAM quedan en el intérprete. gen/zm1.h, gen/zm1_NNN.c y gen/zm1_dispatch.c (zm1_lookup) */
-static void emit_z80(const char *gdir, const Cart *cart)
+static Z80Rc zm1;
+static int zm1_descubierta;
+
+static void z80_descubrir(const Cart *cart)
 {
-    static Z80Rc zr;
+    if (zm1_descubierta) return;
+    zm1_descubierta = 1;
     static const u8 none[1] = { 0xFF };
     size_t n = cart->len[REG_M];
-    if (n) z80rc_init(&zr, "zm1_", 0, n >= 0x8000 ? 0x7FFF : (u16)(n - 1), cart->data + cart->off[REG_M]);
-    else z80rc_init(&zr, "zm1_", 0, 0, none);
+    if (n) z80rc_init(&zm1, "zm1_", 0, n >= 0x8000 ? 0x7FFF : (u16)(n - 1), cart->data + cart->off[REG_M]);
+    else z80rc_init(&zm1, "zm1_", 0, 0, none);
     if (n) {
-        for (unsigned a = 0; a <= 0x38; a += 8) z80rc_seed(&zr, (u16)a, Z80RC_SEED);
-        z80rc_seed(&zr, 0x66, Z80RC_SEED);
+        for (unsigned a = 0; a <= 0x38; a += 8) z80rc_seed(&zm1, (u16)a, Z80RC_SEED);
+        z80rc_seed(&zm1, 0x66, Z80RC_SEED);
     }
-    z80rc_discover(&zr);
-    if (!z80rc_emit(&zr, gdir, "zm1", "neorecomp")) die("no se pudo escribir el código del Z80 en %s", gdir);
-    printf("Z80: %u instrucciones de la M1 en %u funciones\n", zr.ninsns, zr.nfuncs);
-    z80rc_free(&zr);
+    z80rc_discover(&zm1);
+}
+
+/* Para el análisis (--z80): lo descubierto de la M1 como una vista del mapa (después de P, a la celda) */
+static void z80_preparar(const Cart *cart)
+{
+    z80_descubrir(cart);
+    size_t cell = viz_cell();
+    z80v_init(&z80_vistas, (rom_size + cell - 1) / cell * cell);
+    z80v_add(&z80_vistas, "Z80, M1", &zm1);
+}
+
+static void emit_z80(const char *gdir, const Cart *cart)
+{
+    z80_descubrir(cart);
+    if (!z80rc_emit(&zm1, gdir, "zm1", "neorecomp")) die("no se pudo escribir el código del Z80 en %s", gdir);
+    printf("Z80: %u instrucciones de la M1 en %u funciones\n", zm1.ninsns, zm1.nfuncs);
+    z80rc_free(&zm1);
 }
 
 static void write_embedded(const char *dir)
@@ -2102,6 +2137,9 @@ int main(int argc, char **argv)
     const char *traces[64], *bios_paths[8];
     u32 why_list[32];
     int ntraces = 0, nbios = 0, nwhy = 0, info = 0, viz = 0, force_color = 0;
+    struct { int v; u16 a; } z80_why[32];
+    int nz80_why = 0;
+    const char *z80_dis_arg = NULL;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (!strcmp(a, "--version")) { printf("neorecomp %s\n", NEORECOMP_VERSION); return 0; }
@@ -2110,13 +2148,18 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--verbose")) { verbose = 1; continue; }
         if (!strcmp(a, "--viz")) { viz = 1; continue; }
         if (!strcmp(a, "--color")) { force_color = 1; continue; }
+        if (!strcmp(a, "--z80")) { z80_on = 1; continue; }
         if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
         if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
             if (!strcmp(a, "--coverage")) { coverage = argv[++i]; continue; }
-            if (!strcmp(a, "--dis")) { dis_arg = argv[++i]; continue; }
+            if (!strcmp(a, "--dis")) {
+                if (!strncmp(argv[i + 1], "z80:", 4)) z80_dis_arg = argv[++i] + 4, z80_on = 1;
+                else dis_arg = argv[++i];
+                continue;
+            }
             if (!strcmp(a, "--events")) { events_path = argv[++i]; continue; }
             if (!strcmp(a, "--html")) { html_path = argv[++i]; continue; }
             if (!strcmp(a, "--codemap")) { codemap_path = argv[++i]; continue; }
@@ -2124,6 +2167,16 @@ int main(int argc, char **argv)
             if (!strcmp(a, "--bios")) {
                 if (nbios == 8) die("demasiadas --bios");
                 bios_paths[nbios++] = argv[++i];
+                continue;
+            }
+            if (!strcmp(a, "--why") && !strncmp(argv[i + 1], "z80:", 4)) {
+                unsigned v, ad;
+                if (nz80_why == 32) die("demasiados --why");
+                if (sscanf(argv[i + 1] + 4, "%u:%x", &v, &ad) != 2) die("--why z80: espera z80:VISTA:DIRECCIÓN (decimal y hexadecimal; la vista de la M1 es la 0)");
+                z80_why[nz80_why].v = (int)v;
+                z80_why[nz80_why++].a = (u16)ad;
+                z80_on = 1;
+                i++;
                 continue;
             }
             if (!strcmp(a, "--why")) {
@@ -2142,7 +2195,7 @@ int main(int argc, char **argv)
         rom_path = a;
     }
     if (!rom_path) { fputs(usage_text, stderr); return 2; }
-    int analysis = coverage || dis_arg || nwhy || viz || events_path || html_path || codemap_path;
+    int analysis = coverage || dis_arg || z80_dis_arg || nwhy || nz80_why || viz || events_path || html_path || codemap_path;
 
     neo = calloc(1, sizeof *neo);
     if (!neo) die("sin memoria");
@@ -2195,6 +2248,7 @@ int main(int argc, char **argv)
                "punteros inmediatos: %u, tras un final: %u\n", stat_ind, stat_unresolved, stat_tables, stat_table_entries, stat_runs,
                stat_run_entries, stat_imm, stat_after);
 
+    if (z80_on) z80_preparar(cart);
     if (events_path) write_events(events_path);
     if (codemap_path) write_codemap(codemap_path);
     if (html_path) {
@@ -2205,7 +2259,14 @@ int main(int argc, char **argv)
     }
     if (viz) viz_map(force_color || isatty(1));
     for (int i = 0; i < nwhy; i++) explain(why_list[i]);
+    for (int i = 0; i < nz80_why; i++) z80v_why(&z80_vistas, z80_why[i].v, z80_why[i].a);
     if (dis_arg) dis_range(dis_arg);
+    if (z80_dis_arg) {
+        unsigned v, ad;
+        unsigned long n;
+        if (sscanf(z80_dis_arg, "%u:%x:%lu", &v, &ad, &n) != 3) die("--dis z80: espera z80:VISTA:DIRECCIÓN:N (decimal, hexadecimal, decimal)");
+        z80v_dis(&z80_vistas, (int)v, (u16)ad, n);
+    }
     if (!out) return 0;
 
     char name[128];

@@ -130,7 +130,7 @@ primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo 
 | `src/tools/` | `smsrun` y las pruebas (`carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`). |
 | `tools/` | `make_icon.py` (el icono). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md` y `COMPATIBILIDAD.md`. |
-| `tests/` | `run_tests.sh` (`make test`), `golden.sh` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sst.sh z80`, y `contract.sh` y `recomp_game.py` (los mismos archivos en los cinco repos). |
+| `tests/` | `run_tests.py` (`make test`), `golden.py` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sst.sh z80`, y `contract.sh` y `recomp_game.py` (los mismos archivos en los cinco repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del Z80, ZEXALL y ZEXDOC, el homebrew MIT y, con `EXTRA=1`, `extra/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

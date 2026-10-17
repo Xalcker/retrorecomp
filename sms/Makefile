@@ -191,7 +191,7 @@ $(BUILD):
 	mkdir -p $@
 
 test: all
-	sh tests/run_tests.sh
+	python3 tests/run_tests.py
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del Z80, ZEXALL y
 # homebrew con licencia MIT (ver tests/testroms.sh; con EXTRA=1, también las pruebas sin licencia)

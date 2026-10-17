@@ -144,6 +144,7 @@ python3 -m http.server -d juegos/smb/web      # y abrir http://localhost:8000/sm
 **8. Entender qué encontró el recompilador**
 
 ```
+./nesrecomp juego.nes --info                         # la cabecera iNES: mapper, espejo, PRG, CHR, batería y SHA1
 ./nesrecomp juego.nes --viz                          # mapa del PRG en la terminal, coloreado por origen
 ./nesrecomp juego.nes --why 00:8175                  # por qué esa instrucción (banco:dirección, o el offset hex en PRG) es código
 ./nesrecomp juego.nes --html visor.html              # lo mismo, interactivo: una página sola, sin servidor

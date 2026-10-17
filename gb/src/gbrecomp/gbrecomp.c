@@ -85,6 +85,8 @@ static const char usage_text[] =
     "                     cadena de saltos y tablas desde un punto de entrada\n"
     "                     (se puede repetir; sin -o no genera el proyecto)\n"
     "  --verbose          detalles del descubrimiento\n"
+    "  --info             la cabecera de la ROM (título, modo, tipo de cartucho, tamaños,\n"
+    "                     sumas y SHA1); sin -o no genera el proyecto\n"
     "  --version, --help\n"
     "\n"
     "Luego: cd salida && make. Las instrucciones están en salida/LEEME.txt.\n"
@@ -2779,6 +2781,64 @@ static void sanitize(char *s)
     }
 }
 
+/* Nombre del tipo de cartucho ($147) */
+static const char *cart_type_name(u8 t)
+{
+    switch (t) {
+    case 0x00: return "ROM sola";
+    case 0x01: return "MBC1";
+    case 0x02: return "MBC1 + RAM";
+    case 0x03: return "MBC1 + RAM + batería";
+    case 0x05: return "MBC2";
+    case 0x06: return "MBC2 + batería";
+    case 0x08: return "ROM + RAM";
+    case 0x09: return "ROM + RAM + batería";
+    case 0x0F: return "MBC3 + reloj + batería";
+    case 0x10: return "MBC3 + reloj + RAM + batería";
+    case 0x11: return "MBC3";
+    case 0x12: return "MBC3 + RAM";
+    case 0x13: return "MBC3 + RAM + batería";
+    case 0x19: return "MBC5";
+    case 0x1A: return "MBC5 + RAM";
+    case 0x1B: return "MBC5 + RAM + batería";
+    case 0x1C: return "MBC5 + vibración";
+    case 0x1D: return "MBC5 + vibración + RAM";
+    case 0x1E: return "MBC5 + vibración + RAM + batería";
+    default: return "desconocido (se trata como MBC5)";
+    }
+}
+
+/* --info: la cabecera de la ROM, sin recompilar (como smsrecomp, genrecomp y neorecomp) */
+static void print_info(const char *path, const u8 *raw, long size, const char *sha1)
+{
+    static const u32 ram_kb[6] = { 0, 2, 8, 32, 128, 64 };
+    char title[17] = { 0 };
+    for (int i = 0; i < 16; i++) {
+        u8 ch = raw[0x134 + i];
+        if (ch == 0) break;
+        title[i] = (ch >= 0x20 && ch < 0x7F) ? (char)ch : '?';
+    }
+    u8 cgb = raw[0x143], sgb = raw[0x146], type = raw[0x147], rs = raw[0x149];
+    u8 hsum = 0;
+    for (int i = 0x134; i <= 0x14C; i++) hsum = (u8)(hsum - raw[i] - 1);
+    u32 gsum = 0;
+    for (long i = 0; i < size; i++) if (i != 0x14E && i != 0x14F) gsum += raw[i];
+    gsum &= 0xFFFF;
+    u32 gdecl = (u32)raw[0x14E] << 8 | raw[0x14F];
+    printf("%s: %ld KB, binario\n", path, (size + 1023) / 1024);
+    printf("SHA1:        %s\n", sha1);
+    printf("título:      %s\n", title);
+    printf("modo:        %s\n", cgb == 0xC0 ? "solo Game Boy Color" : cgb == 0x80 ? "Game Boy Color, también DMG" : "Game Boy (DMG)");
+    printf("Super GB:    %s\n", sgb == 0x03 ? "sí (comandos SGB)" : "no");
+    printf("cartucho:    $%02X, %s\n", type, cart_type_name(type));
+    printf("ROM:         $%02X (%ld KB, %ld bancos de 16 KB)\n", raw[0x148], size / 1024, (size + 0x3FFF) / 0x4000);
+    printf("RAM:         $%02X (%u KB)\n", rs, rs < 6 ? ram_kb[rs] : 0);
+    printf("destino:     %s\n", raw[0x14A] == 0 ? "Japón" : "fuera de Japón");
+    printf("versión:     %u\n", raw[0x14C]);
+    printf("suma cab.:   $%02X (calculada $%02X, %s)\n", raw[0x14D], hsum, raw[0x14D] == hsum ? "coincide" : "no coincide");
+    printf("suma total:  $%04X (calculada $%04X, %s)\n", gdecl, gsum, gdecl == gsum ? "coincide" : "no coincide");
+}
+
 int main(int argc, char **argv)
 {
     console_utf8();
@@ -2789,7 +2849,7 @@ int main(int argc, char **argv)
     const char *events = NULL, *coverage = NULL, *html = NULL;
     const char *why[16];
     int nwhy = 0;
-    int viz = 0;
+    int viz = 0, info = 0;
     double viz_time = 5;
 
     for (int i = 1; i < argc; i++) {
@@ -2811,6 +2871,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
+        else if (!strcmp(argv[i], "--info")) info = 1;
         else if (!strcmp(argv[i], "--events") && i + 1 < argc) events = argv[++i];
         else if (!strcmp(argv[i], "--viz")) viz = 1;
         else if (!strcmp(argv[i], "--color")) viz_force_color = 1;
@@ -2826,7 +2887,7 @@ int main(int argc, char **argv)
         else rom_path = argv[i];
     }
     /* Sin -o basta con pedir algo que no sea el proyecto (como en nesrecomp) */
-    if (!rom_path || (!out && !dis && !nwhy && !viz && !events && !html && !codemap && !coverage)) {
+    if (!rom_path || (!out && !info && !dis && !nwhy && !viz && !events && !html && !codemap && !coverage)) {
         fprintf(stderr, "%s", usage_text);
         return 2;
     }
@@ -2844,6 +2905,10 @@ int main(int argc, char **argv)
 
     char sha1[41];
     sha1_hex(raw, (size_t)size, sha1);
+    if (info) {
+        print_info(rom_path, raw, size, sha1);
+        if (!out && !dis && !nwhy && !viz && !events && !html && !codemap && !coverage) return 0;
+    }
 
     nbanks = 2;
     while (nbanks * BANK_SIZE < (u32)size) nbanks *= 2;

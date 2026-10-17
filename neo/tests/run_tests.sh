@@ -32,14 +32,16 @@ falla "neorecomp rechaza lo que no es un juego" "$(exe neorecomp)" build/tests/b
 falla "neorecomp sin argumentos pide la ROM" "$(exe neorecomp)"
 tiempo "pruebas unitarias"
 
-# Z80: SingleStepTests (make testroms)
+# Z80: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/z80/v1/00.json.gz ]; then
-    r=$(sh tests/sst.sh z80 | tail -1)
-    case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    for modo in "" --recomp; do
+        r=$(SST_OPTS=$modo sh tests/sst.sh z80 | tail -1)
+        case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
+    done
 else
     echo "(sin testroms/z80 se omiten las SingleStepTests del Z80: make testroms)"
 fi
-tiempo "SingleStepTests del Z80"
+tiempo "SingleStepTests del Z80 (intérprete y --recomp)"
 
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then

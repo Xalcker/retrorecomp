@@ -82,6 +82,8 @@ static const char usage_text[] =
     "  --no-spec          sin el descubrimiento especulativo en todos los bancos (para comparar)\n"
     "  --dis OFFSET:DIR:N desensambla N instrucciones desde ese byte de PRG\n"
     "  --verbose          detalles del descubrimiento\n"
+    "  --info             la cabecera de la ROM (iNES: mapper, espejo, PRG, CHR, batería, SHA1);\n"
+    "                     sin -o no genera el proyecto\n"
     "  --version, --help\n";
 
 /* ------------------------------------------------------------------ */
@@ -1529,13 +1531,32 @@ static u8 *slurp(const char *path, size_t *len)
     return b;
 }
 
+/* --info: la cabecera iNES, sin recompilar (como smsrecomp, genrecomp y neorecomp). Usa rom_file y cart */
+static void print_info(const char *path)
+{
+    char sha1[41];
+    sha1_hex(rom_file, rom_file_size, sha1);
+    const u8 *h = rom_file;
+    int nes2 = rom_file_size >= 16 && (h[7] & 0x0C) == 0x08;
+    static const char *const espejo[] = { "horizontal", "vertical" };
+    printf("%s: %zu KB, iNES%s\n", path, (rom_file_size + 1023) / 1024, nes2 ? " 2.0" : "");
+    printf("SHA1:        %s\n", sha1);
+    printf("mapper:      %d\n", cart->mapper);
+    printf("PRG:         %zu KB (%zu bancos de 16 KB)\n", cart->prg_size / 1024, cart->prg_size / 0x4000);
+    if (cart->chr_is_ram) printf("CHR:         RAM de %zu KB\n", cart->chr_size / 1024);
+    else printf("CHR:         %zu KB (ROM)\n", cart->chr_size / 1024);
+    printf("espejo:      %s\n", (h[6] & 8) ? "4 pantallas" : espejo[h[6] & 1]);
+    printf("batería:     %s\n", cart->battery ? "sí" : "no");
+    printf("trainer:     %s\n", (h[6] & 4) ? "sí (512 bytes)" : "no");
+}
+
 int main(int argc, char **argv)
 {
     console_utf8();
     const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
     const char *traces[32]; int ntraces = 0;
     const char *coverage = NULL, *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
-    size_t why_list[32]; int nwhy = 0, viz = 0, force_color = 0;
+    size_t why_list[32]; int nwhy = 0, viz = 0, force_color = 0, info = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
@@ -1543,6 +1564,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis_arg = argv[++i];
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
         else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = why_arg(argv[++i]);
+        else if (!strcmp(argv[i], "--info")) info = 1;
         else if (!strcmp(argv[i], "--viz")) viz = 1;
         else if (!strcmp(argv[i], "--color")) force_color = 1;
         else if (!strcmp(argv[i], "--html") && i + 1 < argc) html_path = argv[++i];
@@ -1557,7 +1579,7 @@ int main(int argc, char **argv)
         else die("argumento desconocido: %s (ver --help)", argv[i]);
     }
     if (!in_path) { fputs(usage_text, stderr); return 2; }
-    if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path && !codemap_path) die("falta -o carpeta");
+    if (!out_dir && !info && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path && !codemap_path) die("falta -o carpeta");
 
     rom_file = slurp(in_path, &rom_file_size);
     if (!rom_file) die("no se pudo leer %s", in_path);
@@ -1565,6 +1587,10 @@ int main(int argc, char **argv)
     if (nes_load(&nes, rom_file, rom_file_size, &err)) die("%s: %s", in_path, err);
     cart = &nes.cart;
     prg_size = cart->prg_size;
+    if (info) {
+        print_info(in_path);
+        if (!out_dir && !dis_arg && !coverage && !nwhy && !viz && !events_path && !html_path && !codemap_path) return 0;
+    }
     site = calloc(prg_size, sizeof *site);
     parent = malloc(prg_size * sizeof *parent);
     for (size_t i = 0; i < prg_size; i++) parent[i] = NO_PARENT;

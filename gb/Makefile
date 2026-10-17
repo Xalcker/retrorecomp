@@ -46,7 +46,7 @@ SHARED_RT := console.h golden_hash.h metrica.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 .PHONY: all clean test dist testroms
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) $(BUILD)/sgb_controles$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) statetest$(EXE) inputtest$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -69,6 +69,14 @@ gbbench$(EXE): src/platform/bench.c $(INPUT_DEPS) $(BUILD)/libgbrt.a
 # Herramientas sin ventana con las mismas opciones que las de las otras consolas (cli.h; más --model)
 gbtrace$(EXE): src/tools/gbtrace.c $(CLI_DEPS) src/platform/ramtrace.h $(SHARED)/ram_code.h src/platform/romtrace.h $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/gbtrace.c $(BUILD)/libgbrt.a
+
+# Estados guardados: guardar, cargar en otra máquina y comprobar que da exactamente lo mismo
+statetest$(EXE): src/tools/statetest.c src/tools/romload.h src/runtime/gb_golden.h $(SHARED)/golden_hash.h $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/tools -o $@ src/tools/statetest.c $(BUILD)/libgbrt.a
+
+# Entradas grabadas y opciones comunes de botones (inputs.h, cli.h)
+inputtest$(EXE): src/tools/inputtest.c $(CLI_DEPS) $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/inputtest.c $(BUILD)/libgbrt.a
 
 # RAM de trabajo tras correr la ROM (el equivalente de ramdump de NESRecomp)
 gbramdump$(EXE): src/tools/gbramdump.c $(CLI_DEPS) $(BUILD)/libgbrt.a
@@ -180,4 +188,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+	rm -rf $(BUILD) dist statetest$(EXE) inputtest$(EXE) gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

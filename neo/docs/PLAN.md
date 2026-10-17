@@ -116,7 +116,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     macOS, MSYS2 UCRT64, con la caché de `testroms`; pendiente), la licencia MIT, el submódulo `tools/retrorecomp`,
     `png`, `files`, `export`, `random_pad.h` (idéntico, sin tocar), `trace_line.h` (idéntico salvo el
     comentario, que agrega Neo Geo: hay que copiarlo a los otros tres repos), `sha1`, `console.h`, `embed`.
-  - `tests/contract.sh` con la rama `neo` (nota en el archivo: copiarlo a NESRecomp, GBRecomp y GENRecomp;
+  - `shared/contrato.py` con la rama `neo` (nota en el archivo: copiarlo a NESRecomp, GBRecomp y GENRecomp;
     los clones locales de NESRecomp y GBRecomp están atrasados respecto a GitHub, se parte del de GENRecomp).
   - Nuevo: lectura de `.neo`, zip (un lector propio de zip con inflate, o `unzip -p` si no) y carpeta;
     `neodb.c`; imagen normalizada y sus SHA1; validación de la BIOS; generador de la tabla L0; `--info`;
@@ -198,7 +198,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   en sus espacios de identidad (el mismo análisis en los dos; los saltos entre espacios salen al
   despachador), los bancos de P2 (todos los bancos desde P1, `MAPCHK`), la BIOS una vez por versión en una
   caché del usuario que crece con las trazas de cada juego, el proyecto generado (ventana en modo
-  recompilado, `difftest`, `bench`, `LEEME.txt`), `tests/recomp_game.sh`. **Meta cumplida:** Metal Slug,
+  recompilado, `difftest`, `bench`, `LEEME.txt`), `../shared/recomp_game.py`. **Meta cumplida:** Metal Slug,
   Samurai Shodown II y Neo Turf Masters dan 1800 cuadros idénticos al intérprete; con la segunda ronda no
   queda ninguna instrucción de ROM en el intérprete (99,7-100 % de los ciclos recompilados) y corren a 23-31
   veces el tiempo real. Se copiaron también las heurísticas de GENRecomp (están en el mismo código): la fase 7
@@ -246,7 +246,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - Arreglos: la RAM de respaldo del MVS (`$D00000`) es una dirección razonable (la mira la BIOS), y el
     código especulativo ya no corta una tabla. La caché de la BIOS sube a formato 2.
   - Detalle en `docs/ARQUITECTURA.md` (Descubrimiento).
-- [x] **8. Rendimiento.** Hecho. `tests/golden.sh` (hash de cuadros y audio de 3600 cuadros por juego,
+- [x] **8. Rendimiento.** Hecho. `tests/golden.py` (hash de cuadros y audio de 3600 cuadros por juego,
   `tests/golden.txt`): nada cambió un bit. Perfilado con `sample` sobre `bench`. **Recompilado: de 22-24 a
   43-55 veces el tiempo real** (Metal Slug 43×, Samurai Shodown II 55×, KOF '98 52×); el intérprete, de 15-18
   a 24-32×. El 68000 ya era lo de menos (como en GENRecomp):
@@ -269,7 +269,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   - `make dist`, el README y `ARQUITECTURA.md` completos.
   - La GUI de retrorecomp (con permiso): el Neo Geo como cuarto sistema (clase `NEO`), en `contract.py` y en
     `compat.py`; fusionado en retrorecomp (Xalcker/retrorecomp#21), al que apunta el submódulo. `contract.py`
-    marca `trace_line.h` y `tests/contract.sh`
+    marca `trace_line.h` y `shared/contrato.py`
     distintos en NEORecomp hasta que los otros tres copien la versión para cuatro repos (los issues de antes).
   - [x] **Niveles de la mezcla del YM2610** (pedido al probar la fase 8: en Metal Slug las voces y los
     gritos, ADPCM-A, sonaban bajos). `oracle.py mix` ajusta la energía de cada oráculo como suma de la

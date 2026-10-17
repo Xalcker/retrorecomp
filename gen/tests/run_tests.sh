@@ -25,13 +25,13 @@ if [ -f testroms/demos/overdrive.bin ]; then corre "statetest con Overdrive (VDP
 for r in roms/Sonic*The*Hedgehog*\(USA,*Europe\).md; do [ -f "$r" ] && corre "statetest con Sonic 1" "$(exe statetest)" "$r" 700 300; done
 tiempo "estados guardados"
 # Contrato común con NESRecomp y GBRecomp (opciones y comportamiento de las herramientas sin ventana)
-r=$(sh tests/contract.sh | tail -1)
+r=$(python3 ../shared/contrato.py | tail -1)
 case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
 tiempo "contrato"
 # Z80: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/z80/v1/00.json.gz ]; then
     for modo in "" --recomp; do
-        r=$(SST_OPTS=$modo sh tests/sst.sh z80 | tail -1)
+        r=$(SST_OPTS=$modo python3 ../shared/sst.py z80 | tail -1)
         case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
     done
 else
@@ -42,7 +42,7 @@ tiempo "SingleStepTests del Z80 (intérprete y --recomp)"
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
     for modo in "" --recomp; do
-        r=$(SST_OPTS=$modo sh tests/sst.sh m68k | tail -1)
+        r=$(SST_OPTS=$modo python3 ../shared/sst.py m68k | tail -1)
         case "$r" in *"(0 familias con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
     done
 else
@@ -61,7 +61,7 @@ if [ -x "$(exe gen)" ]; then
     # Cargar estado (5), Controles (37), Acerca de (39) y la barra oculta con F9 (40), los números de A_LOAD_STATE,
     # A_HELP_CONTROLS... en main_sdl.c (Este juego, 38, no: muestra la carpeta de datos), y sin barra con
     # --no-menu (aunque se pida un menú) y con --fullscreen
-    if sh ../shared/ui_golden.sh "$(exe gen)" "$R" tests/ui_golden.txt "0 1 2 3 4 5 6" "5 37 39 40" \
+    if python3 ../shared/ui_golden.py "$(exe gen)" "$R" tests/ui_golden.txt "0 1 2 3 4 5 6" "5 37 39 40" \
             "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
         echo "ok    gen: los 7 menús, 3 diálogos, la barra oculta, --no-menu y --fullscreen coinciden con la referencia"
     else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
@@ -194,7 +194,7 @@ done
 
 tiempo "ROMs de roms/"
 # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
-sh tests/estricto.sh || fallas=$((fallas + 1))
+python3 tests/estricto.py || fallas=$((fallas + 1))
 tiempo "--estricto"
 
 echo "      (total: $(($(date +%s) - T0)) s)"

@@ -31,7 +31,7 @@ events_cache = {}
 systems = {}          # id del registro -> System
 
 # El registro de sistemas: nombre, extensiones, botones, modelos, BIOS, cuadros, herramientas y guiones de cada
-# consola. Lo leen también tests/contract.py, tests/compat_test.py y shared/recomp_game.sh.
+# consola. Lo leen también tests/contract.py, tests/compat_test.py y shared/recomp_game.py.
 with open(os.path.join(HERE, "shared", "sistemas.json"), encoding="utf-8") as _f:
     REGISTRO = json.load(_f)
 
@@ -101,7 +101,7 @@ def short_name(rom, sid=""):
 
 
 def resumenes(text, herramienta=None):
-    """Las líneas "RESUMEN {json}" de una salida (difftest, bench, --viz, recomp_game.sh), como dicts y en orden;
+    """Las líneas "RESUMEN {json}" de una salida (difftest, bench, --viz, recomp_game.py), como dicts y en orden;
     con `herramienta`, solo las suyas. Así la GUI no lee el texto en español."""
     out = []
     for ln in text.splitlines():
@@ -199,9 +199,9 @@ class System:
     def roms_dir(self):
         return os.path.join(self.root, "roms")
 
-    # Iguales en los dos recompiladores (mismos argumentos de recomp_game.sh y mismo make test)
+    # Iguales en los dos recompiladores (mismos argumentos de recomp_game.py y mismo make test)
     def game_argv(self, rp, name, frames):
-        return ["sh", "tests/recomp_game.sh", rp, name, str(frames)]
+        return [sys.executable, os.path.join(HERE, "shared", "recomp_game.py"), rp, name, str(frames)]
 
     def test_argv(self):
         return ["make", "test"]
@@ -377,7 +377,7 @@ class NES(System):
 
 class GEN(NES):
     """GENRecomp copia los formatos de NESRecomp (mapa de --viz --color, --events, --why, --html,
-    trazas BANCO:DIRECCION, recomp_game.sh y bench en el proyecto): solo cambian los nombres,
+    trazas BANCO:DIRECCION, recomp_game.py y bench en el proyecto): solo cambian los nombres,
     la cabecera de la ROM y cómo graba trazas la ventana."""
     id = "gen"
     mem = "ROM"
@@ -455,7 +455,7 @@ class NEO(GEN):
 
 class SMS(GEN):
     """SMSRecomp copia los formatos de GENRecomp (mapa de --viz --color, --events, --why, --html, trazas
-    BANCO:DIRECCION con bancos de 16 KB, recomp_game.sh y bench en el proyecto; lo del recompilador llega en su
+    BANCO:DIRECCION con bancos de 16 KB, recomp_game.py y bench en el proyecto; lo del recompilador llega en su
     fase 5): cambian los nombres, la cabecera TMR SEGA, que hay dos consolas (--model sms|gg, como el modelo del
     Game Boy) y que la ventana graba trazas con --trace."""
     id = "sms"

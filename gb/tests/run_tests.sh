@@ -128,7 +128,7 @@ if [ -x "$GB" ] && { [ -z "$FILTRO" ] || case "interprete" in *"$FILTRO"*) true 
     # Cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (si cambia a propósito:
     # UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh interprete, y revisa build/shots/): Controles (47), Acerca de (49),
     # la barra oculta con F9 (54), y sin barra con --no-menu (aunque se pida un menú) y con --fullscreen
-    if sh ../shared/ui_golden.sh "$GB" "$T/dmg-acid2/dmg-acid2.gb" tests/ui_golden.txt "0 1 2 3 4 5 6" "47 49 54" \
+    if python3 ../shared/ui_golden.py "$GB" "$T/dmg-acid2/dmg-acid2.gb" tests/ui_golden.txt "0 1 2 3 4 5 6" "47 49 54" \
             "--no-menu --no-menu,--ui-menu,1 --fullscreen" > /tmp/gbtest.out 2>&1; then
         pasa=$((pasa + 1))
     else
@@ -254,7 +254,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
 fi
 
 # --- Recompilador: código que el juego copia a WRAM, aprendido de la traza. Dos rondas, como
-#     tests/recomp_game.sh: sin traza, difftest interpreta ese código y apunta sus bytes
+#     ../shared/recomp_game.py: sin traza, difftest interpreta ese código y apunta sus bytes
 #     (--uncovered); con esa traza, gbrecomp lo compila y difftest ya no lo interpreta. La primera
 #     ronda debe interpretar código de RAM y la segunda no (si no, la prueba no probaría nada).
 #     El sleep 1 es por el make 3.81 de macOS, que compara fechas con precisión de un segundo: una
@@ -306,7 +306,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
   código en WRAM anotado por el ejecutable (--uncovered): $(grep '^ram ' build/wram_gb.trace 2>/dev/null | head -3)"
         fi
     fi
-    # Y gbtrace, la traza guionada con la que empieza tests/recomp_game.sh: las mismas líneas también
+    # Y gbtrace, la traza guionada con la que empieza ../shared/recomp_game.py: las mismas líneas también
     if [ -x ./gbtrace$EXE ]; then
         if ./gbtrace$EXE "$rom" build/wram_gbtrace.txt --frames 120 > /tmp/gbtest.out 2>&1 \
             && [ -n "$(grep '^ram ' build/wram_gbtrace.txt)" ] \
@@ -392,7 +392,7 @@ if [ -x ./gbrecomp$EXE ] && { [ -z "$FILTRO" ] || case "recomp" in *"$FILTRO"*) 
 fi
 
 # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
-if sh tests/estricto.sh > /tmp/gbestricto.out 2>&1; then
+if python3 tests/estricto.py > /tmp/gbestricto.out 2>&1; then
     pasa=$((pasa + 1))
 else
     falla=$((falla + 1))

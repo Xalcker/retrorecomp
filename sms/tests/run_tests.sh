@@ -29,7 +29,7 @@ done
 tiempo "estados guardados"
 
 # Contrato común con los otros cuatro (opciones y comportamiento de las herramientas sin ventana)
-r=$(sh tests/contract.sh | tail -1)
+r=$(python3 ../shared/contrato.py | tail -1)
 case "$r" in *"sin fallas"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
 # El juego del contrato (make testroms) por las herramientas: la traza tiene la rutina de la página 3 en la
 # ranura 2 (03:8000) y la de la página 2 no (el mapper), la RAM tiene lo que dejan la RAM del cartucho, la
@@ -75,10 +75,10 @@ if [ -f "$C" ]; then
         else echo "FALLA el contrato recompilado"; echo "$o" | tail -5; fallas=$((fallas + 1)); fi
     else echo "FALLA smsrecomp -o o make del proyecto del contrato"; fallas=$((fallas + 1)); fi
 fi
-# El ciclo completo (tests/recomp_game.sh: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
+# El ciclo completo (../shared/recomp_game.py: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
 # que cayó al intérprete) con Dragon Blaster (make testroms). RAPIDAS=1 (el CI de cada PR) lo salta
 if [ -z "$RAPIDAS" ] && [ -f testroms/homebrew/dragon_blaster.sms ]; then
-    if sh tests/recomp_game.sh testroms/homebrew/dragon_blaster.sms prueba_dragon 900 1 2 > build/tests/ciclo_dragon.out 2>&1 \
+    if python3 ../shared/recomp_game.py testroms/homebrew/dragon_blaster.sms prueba_dragon 900 1 2 > build/tests/ciclo_dragon.out 2>&1 \
             && grep -q "^Sin diferencias.$" build/tests/ciclo_dragon.out; then
         echo "ok    ciclo completo con Dragon Blaster: $(grep "semilla 2" build/tests/ciclo_dragon.out | tail -1 | sed 's/^ *//')"
     else echo "FALLA ciclo completo con Dragon Blaster"; tail -8 build/tests/ciclo_dragon.out; fallas=$((fallas + 1)); fi
@@ -89,7 +89,7 @@ tiempo "recompilador"
 # los bytes de la instrucción; también el ciclo del acceso a cada puerto); en los dos, el decodificador
 if [ -f testroms/z80/v1/00.json.gz ]; then
     for modo in "" --recomp; do
-        r=$(SST_OPTS=$modo sh tests/sst.sh z80 | tail -1)
+        r=$(SST_OPTS=$modo python3 ../shared/sst.py z80 | tail -1)
         case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
     done
 else
@@ -133,13 +133,13 @@ if [ -x "$(exe sms)" ]; then
     # Cargar estado (5), Controles (34), Acerca de (36) y la barra oculta con F9 (37), los números de A_LOAD_STATE,
     # A_HELP_CONTROLS... en main_sdl.c (Este juego, 35, no: muestra la carpeta de datos), y sin barra con --no-menu
     # (aunque se pida un menú) y con --fullscreen
-    if sh ../shared/ui_golden.sh "$(exe sms)" build/tests/minima.sms tests/ui_golden.txt "0 1 2 3 4 5 6" "5 34 36 37" \
+    if python3 ../shared/ui_golden.py "$(exe sms)" build/tests/minima.sms tests/ui_golden.txt "0 1 2 3 4 5 6" "5 34 36 37" \
             "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
         echo "ok    sms: los 7 menús, 3 diálogos, la barra oculta, --no-menu y --fullscreen coinciden con la referencia"
     else cat build/ui_golden.out; fallas=$((fallas + 1)); fi
     # El Game Gear (la ventana de 160×144, más angosta): el menú Entrada y los Controles; y un juego de SMS en el
     # Game Gear, que se ve entero (256×192)
-    if sh ../shared/ui_golden.sh "$(exe sms)" build/tests/minima.gg tests/ui_golden_gg.txt "3" "34" \
+    if python3 ../shared/ui_golden.py "$(exe sms)" build/tests/minima.gg tests/ui_golden_gg.txt "3" "34" \
             "--model,sms" > build/ui_golden_gg.out 2>&1; then
         echo "ok    sms con el Game Gear: el menú Entrada, los Controles y --model sms coinciden con la referencia"
     else cat build/ui_golden_gg.out; fallas=$((fallas + 1)); fi
@@ -191,7 +191,7 @@ done
 tiempo "ROMs de roms/"
 
 # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
-sh tests/estricto.sh || fallas=$((fallas + 1))
+python3 tests/estricto.py || fallas=$((fallas + 1))
 tiempo "--estricto"
 
 echo "      (total: $(($(date +%s) - T0)) s)"

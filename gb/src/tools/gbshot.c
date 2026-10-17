@@ -4,7 +4,7 @@
  * Uso: gbshot rom.gb salida.png [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb] [--expect esperado.png] [--hash]
  * --expect: pasa si la pantalla final es idéntica al PNG (como nesshot y smsshot); sale con 1 si no.
  * --hash: imprime un hash de todos los cuadros (la pantalla del GB y, en el SGB, la de la SNES con el borde) y de
- * todo el audio, como nesshot --hash y el bench del proyecto generado; lo usa tests/golden.sh.
+ * todo el audio, como nesshot --hash y el bench del proyecto generado; lo usa tests/golden.py.
  */
 #include "cli.h"
 #include "console.h"

@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Sintaxis de Python
-        run: python3 -m py_compile retrorecomp_gui.py compat.py tests/contract.py tests/compat_test.py gb/tools/gen_inputs.py gb/tools/truth/*.py
+        run: python3 -m py_compile retrorecomp_gui.py compat.py tests/contract.py tests/compat_test.py gb/tools/gen_inputs.py gb/tools/truth/*.py shared/*.py gb/tests/*.py nes/tests/*.py gen/tests/*.py neo/tests/*.py sms/tests/*.py
       - name: Informe de compatibilidad gemelo en los cinco sistemas (results.json sintéticos)
         run: python3 tests/compat_test.py
       - name: La página no usa nada fuera de la biblioteca estándar ni recursos externos

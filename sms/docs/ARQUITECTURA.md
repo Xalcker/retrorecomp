@@ -18,7 +18,7 @@ ventana, las herramientas sin ventana con el contrato común y el recompilador.
 | `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `z80_dis` y el visor de `--html` es `visor_html.h`, de `../shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `../shared`. |
 | `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `../shared`, `z80test` (SingleStepTests, con `json.h`). |
-| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sst.sh z80` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
+| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sst.sh z80` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.py` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
@@ -44,7 +44,7 @@ interrupciones del VDP (fase 2).
 
 **Validación:** las 1 604 000 [SingleStepTests del Z80](https://github.com/SingleStepTests/z80) (registros, con
 WZ, Q y P; RAM; puertos; ciclos) **por los dos caminos**: el intérprete (`z80test`) y el del código generado
-(`z80test --recomp`; `SST_OPTS=--recomp sh tests/sst.sh z80`), en `make test`. En los dos se comprueba además el
+(`z80test --recomp`; `SST_OPTS=--recomp python3 ../shared/sst.py z80`), en `make test`. En los dos se comprueba además el
 decodificador contra cada prueba (el PC final con o sin salto y los ciclos) y, por el camino del código generado,
 el ciclo del acceso al puerto contra el que marcan las pruebas. Más las pruebas propias de interrupciones
 (`z80test --int`: la INT desde un `HALT` en los modos 1 y 2; `--nmi`: la NMI, que aquí es la Pausa).
@@ -134,7 +134,7 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
 Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`sh tests/coverage.sh`, 3000
 cuadros con las mismas entradas: el 53,2 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
 heurísticas; del 7,9 % de Micro Machines al 99,7 % de Dragon Blaster); el resto lo dan la traza guionada y lo que
-`difftest --uncovered` ve caer al intérprete (`tests/recomp_game.sh`).
+`difftest --uncovered` ve caer al intérprete (`../shared/recomp_game.py`).
 
 ### Herramientas de análisis
 
@@ -369,7 +369,7 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 - **`make dist`:** deja `dist/smsrecomp-<versión>-<sistema>.tar.gz` con `smsrecomp`, el README, la licencia y este
   documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en los otros cuatro), en Linux, macOS y
-  Windows: `make`, `make testroms`, el contrato común (`sh tests/contract.sh`), `make test` y `make dist`.
+  Windows: `make`, `make testroms`, el contrato común (`python3 ../shared/contrato.py`), `make test` y `make dist`.
 - **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del Z80 (el mismo commit que GENRecomp y NEORecomp; `SKIP_SST=1` las salta, como
   el CI de macOS y Windows), ZEXALL y ZEXDOC para el SMS (GPL-2.0, v0.21) y juegos homebrew con licencia MIT (Dragon
@@ -426,7 +426,7 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 
 - **Recompilador:** en `make test`, el juego del contrato recompilado (300 cuadros iguales al intérprete, el 98,5 % de
   los ciclos en código nativo; el resto es la rutina de `$C100`, que cambia su inmediato) y el ciclo completo con
-  Dragon Blaster (100 %). Con los 15 juegos de `roms/`, `tests/recomp_game.sh` (1500 cuadros por difftest, semillas
+  Dragon Blaster (100 %). Con los 15 juegos de `roms/`, `../shared/recomp_game.py` (1500 cuadros por difftest, semillas
   1 y 2, dos rondas): **los 15 sin diferencias** y, en la segunda ronda, ninguna instrucción de la ROM en el
   intérprete; los ciclos en código nativo, el 100 % salvo OutRun (98,8 %), Columns (99,8 %) y Shining Force (99,9 %),
   donde lo que queda es código de la RAM con operandos que cambian. Cada juego tarda entre medio minuto y dos
@@ -437,7 +437,7 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
 
 ### Línea base para optimizar el runtime
 
-`sh tests/golden.sh` corre `smsshot --hash` (un hash de todos los cuadros y de todo el audio, 1800 cuadros con
+`python3 tests/golden.py` corre `smsshot --hash` (un hash de todos los cuadros y de todo el audio, 1800 cuadros con
 `--seed 1` y Start) con cada ROM de `roms/` y sus subcarpetas, el homebrew y el juego del contrato, y lo compara con
 `tests/golden.txt` (por el SHA1 de la ROM; `--update` lo reescribe). Una optimización no debe cambiar ni un bit. Hoy
 son 21 casos (15 juegos de EE. UU., 5 homebrew y el contrato), ~20 s. No va en `make test` ni en el CI, porque los
@@ -463,7 +463,7 @@ los argumentos antes de `cli_parse` (`romload.h`; `bench.c` lo lee solo porque i
 
 ## El contrato común
 
-`sh tests/contract.sh` (el de `retrorecomp/shared`, con la rama de SMSRecomp) comprueba que la ayuda de `smstrace`,
+`python3 ../shared/contrato.py` (el de `retrorecomp/shared`, con la rama de SMSRecomp) comprueba que la ayuda de `smstrace`,
 `smsshot`, `smsaudio` y `smsbench` mencione las opciones comunes y que la traza, la captura y el audio salgan iguales
 con la misma entrada, y que `--input` dé lo mismo que `boton:desde-hasta`. Corre con `testroms/sms/contrato.sms`, un
 juego propio (MIT) que arma `src/tools/mkcontrato.c` poniendo los bytes del Z80, sin ensamblador. Depende de las

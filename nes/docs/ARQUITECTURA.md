@@ -15,7 +15,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 | `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h`, `input_host.h` (los botones y las opciones de `nesshot` para `inputs.h` y `cli.h`)), `difftest.c`, `bench.c`; de `../shared`: `files`, `export`, `png`, `settings.c`, `inputs.h`, `cli.h`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `nesramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
-| `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.sh` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
+| `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.py` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
 | `tools/` | `retrorecomp/` (la GUI común con GBRecomp, GENRecomp y NEORecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `nesramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `run.py` y `report.py`, con el motor común de retrorecomp). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 | `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
 
@@ -53,7 +53,7 @@ en el ciclo siguiente no latchea el control.
 ### Rendimiento: ejecución perezosa
 
 La PPU y el APU no avanzan en cada ciclo de CPU sino cuando hace falta; el resultado es idéntico bit a bit
-(`tests/golden.sh` compara el hash de todos los cuadros y de todo el audio de cada juego de `roms/` y de
+(`tests/golden.py` compara el hash de todos los cuadros y de todo el audio de cada juego de `roms/` y de
 varias ROMs de prueba con una línea base).
 
 - **PPU** (`ppu_sync`): avanza cuando el CPU toca sus registros, un registro del mapper o el DMA de OAM, y
@@ -222,7 +222,7 @@ común de retrorecomp, `shared/ram_code.h`, que salió de lo que hizo GBRecomp:
 `tests/run_tests.sh` lo prueba con una ROM NROM hecha ahí mismo que copia una rutina a `$0300` y a `$6100`, llama a
 las dos en un bucle y parcha el inmediato del `lda` de la primera: la segunda ronda compila 10 instrucciones en 2
 bloques (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `nestrace` y el ejecutable
-anotan las mismas líneas que `difftest`. Con el ciclo de `tests/recomp_game.sh` (1500 cuadros, semilla 1), Gradius
+anotan las mismas líneas que `difftest`. Con el ciclo de `../shared/recomp_game.py` (1500 cuadros, semilla 1), Gradius
 2 pasa del 98.3 % de los ciclos recompilados al 100 %, Batman del 99.3 % y Zelda del 99.7 %, sin diferencias.
 
 ### Proyecto generado
@@ -359,7 +359,7 @@ reproducen los botones (`inputs.h`, el mismo formato que `--input` de las herram
   el proyecto deja el ejecutable en `dist/`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en GBRecomp), en Linux,
   macOS y Windows:
-  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
+  - `make` (compila todo) y `python3 ../shared/contrato.py` (contrato común).
   - `make testroms` (christopherpow/nes-test-roms en un commit fijo) y `make test`, que también
     recompila tres ROMs de prueba y las compara con `difftest`.
   - `make dist` y publica el paquete como artefacto; con una etiqueta `vX.Y.Z`, además crea el
@@ -375,7 +375,7 @@ guarda capturas PNG, `--executed archivo` escribe el mapa de bytes de PRG ejecut
 traza de la máquina que solo usa el intérprete; cada instrucción marca su opcode y sus operandos) y
 `--bench` mide la velocidad del recompilado y del intérprete por separado.
 
-`tests/recomp_game.sh rom nombre [cuadros] [semillas...]` (los mismos argumentos que en GBRecomp) hace el
+`../shared/recomp_game.py rom nombre [cuadros] [semillas...]` (los mismos argumentos que en GBRecomp) hace el
 ciclo completo: traza guionada (`TRACE_FRAMES`), recompila, compila, corre
 `difftest` con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a
 probar.
@@ -409,7 +409,7 @@ abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferen
 
 ### Línea base para optimizar el runtime
 
-`tests/golden.sh` corre cada juego de `roms/` y varias ROMs de prueba 1800 cuadros con las mismas entradas
+`tests/golden.py` corre cada juego de `roms/` y varias ROMs de prueba 1800 cuadros con las mismas entradas
 (`--seed 1` y Start en tres momentos) y compara `nesshot --hash` (un hash de todos los cuadros y de todo el
 audio) con `tests/golden.txt`: una optimización no debe cambiar ni un bit (`--update` reescribe la línea
 base). Es lo que respalda la ejecución perezosa de la PPU y el APU (ver "Rendimiento: ejecución perezosa").

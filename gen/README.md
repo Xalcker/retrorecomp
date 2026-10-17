@@ -31,7 +31,7 @@ y recompilados sin traza, sin diferencias con el intérprete: ver [docs/COMPATIB
   el 93 y el 100 % de lo que ejecutan los juegos de `roms/` (Sonic 1: 100 %). `--why`, `--viz`,
   `--html` y `--coverage` muestran qué se encontró y por qué.
 - **Velocidad:** recompilado, de 24 a 46 veces el tiempo real, 30 de media (el intérprete, de 16 a 33);
-  lo que más pesa ahora es el dibujo del VDP, el Z80 y el YM2612. `sh tests/golden.sh` comprueba que una
+  lo que más pesa ahora es el dibujo del VDP, el Z80 y el YM2612. `python3 tests/golden.py` comprueba que una
   optimización no cambie ni un bit de la imagen ni del sonido.
 - **Oráculos:** `tools/oracles/` compara la RAM y la imagen contra Genesis Plus GX y BlastEm (núcleos
   libretro que se bajan a `build/oracles/`, no van en el repo); con ellos se ajustaron la FIFO del VDP y el
@@ -127,9 +127,9 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 GBRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
 `../shared/inputs.h`), `--seed S` (suma un mando aleatorio reproducible, el mismo de las otras dos
 consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros suelto y
-`boton:desde-hasta` (`a b c x y z start mode up down left right`). `sh tests/contract.sh` lo comprueba.
+`boton:desde-hasta` (`a b c x y z start mode up down left right`). `python3 ../shared/contrato.py` lo comprueba.
 
-**Ciclo completo.** `sh tests/recomp_game.sh ROM NOMBRE [CUADROS] [SEMILLAS...]` es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
+**Ciclo completo.** `python3 ../shared/recomp_game.py ROM NOMBRE [CUADROS] [SEMILLAS...]` es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
 ## Estructura
 
@@ -141,7 +141,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad) |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.py` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

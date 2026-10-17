@@ -296,7 +296,7 @@ Medido con `bench`/`genbench` (3600 cuadros, sin ventana) en un Mac con Apple Si
 ya es una parte chica del tiempo (~13 % en Sonic 1); el resto se va en los periféricos, que hacen
 trabajo real en cada línea o muestra: dibujar el VDP, el Z80 (que corre detrás del 68000 y se pone al
 día tras cada instrucción) y el YM2612. Lo que se hizo, sin cambiar un bit de la imagen ni del sonido
-(`tests/golden.sh`):
+(`tests/golden.py`):
 
 - VDP: los planos y la ventana de a un mosaico (la fila de 32 bits de una vez, las transparentes de
   un golpe); la paleta en color de 9 bits una vez por línea; la mezcla de capas sin sombra ni
@@ -456,7 +456,7 @@ toca con el resto:
   cambie la ventana de su INT y del audio al final del cuadro.
 
 `z80_due` es justo hasta donde habría llegado si corriera tras cada instrucción, así que todo pasa en el
-mismo orden. `tests/golden.sh` da los mismos hashes de imagen y audio que antes en las 23 ROMs.
+mismo orden. `tests/golden.py` da los mismos hashes de imagen y audio que antes en las 23 ROMs.
 
 Lo único que no puede quedar igual es que el Z80 toque la RAM, el VDP, la E/S o la SRAM del 68000 por la
 ventana de `$8000`: eso pasaría en otro momento. `gen_z80_window_ext` lo cuenta y `genbench` lo dice; en
@@ -559,8 +559,8 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
 - **`make dist`:** deja `dist/genrecomp-<versión>-<sistema>.tar.gz` con `genrecomp`, el README, la
   licencia y este documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en NESRecomp, GBRecomp y NEORecomp),
-  en Linux, macOS y Windows: `make`, `make testroms`, `sh tests/contract.sh`, `make test` y `make dist`.
-- **Contrato común** (`tests/contract.sh`, el mismo archivo en los tres repos): `gentrace`, `genshot`,
+  en Linux, macOS y Windows: `make`, `make testroms`, `python3 ../shared/contrato.py`, `make test` y `make dist`.
+- **Contrato común** (`shared/contrato.py`, el mismo archivo en los tres repos): `gentrace`, `genshot`,
   `genaudio` y `genbench` aceptan `--frames`, `--input`, `--seed` (y `--repeat`); con la demo Overdrive,
   la misma entrada da la misma traza, captura y sonido, y `--input` da el mismo `genshot --hash` que la
   sintaxis `boton:desde-hasta`. Los botones del guion común (`START`, `DOWN+A`) existen en las tres
@@ -572,10 +572,10 @@ la ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a
   negro). El 240p Test Suite (GPL) no se baja solo: su ROM compilada está en itch.io y compilarla pide
   SGDK; se pone a mano en `testroms/240p/`. La versión 1.21 corre: menú principal, submenús y detecta
   "NTSC VDP 320x224p".
-- **`tests/golden.sh`:** hash de todos los cuadros y de todo el audio (`genshot --hash`, 1800 cuadros
+- **`tests/golden.py`:** hash de todos los cuadros y de todo el audio (`genshot --hash`, 1800 cuadros
   con un mando aleatorio) de cada ROM de `roms/` y de las pruebas libres, identificadas por su SHA1;
   `--update` reescribe en `tests/golden.txt` los casos que corrieron. El código es el de los cinco sistemas
-  (`shared/golden.sh`). Una optimización no debe cambiar ni un bit. No va en
+  (`shared/golden.py`). Una optimización no debe cambiar ni un bit. No va en
   `make test` (tarda ~80 s y depende de tus ROMs).
 - **`make test`:** `carttest` (la misma ROM sintética como `.bin`, `.smd` con y sin marca y `.bin`
   con cabecera de copiador debe dar la misma imagen, SHA1 y cabecera), `bustest` (RAM y espejos,
@@ -665,7 +665,7 @@ juegos en `roms/`), en Linux, macOS y Windows en cada PR:
   su cobertura del 99 % o más) se compila y `difftest` lo compara contra el intérprete; `--why`,
   `--viz`, `--codemap`, `--events`, `--html` y `--dis`; `genrecomp` rechaza lo que no es una ROM.
 - **Interfaz:** cada menú y cada diálogo de `gen` se dibuja sin ventana (`--ui-shot`).
-- **Contrato común** con NESRecomp y GBRecomp (`tests/contract.sh`, el mismo archivo en los tres).
+- **Contrato común** con NESRecomp y GBRecomp (`shared/contrato.py`, el mismo archivo en los tres).
 - Con los juegos de `roms/`: `genrecomp --info` con cada uno, Sonic 1 llega al nivel con el intérprete
   y NBA Jam, NBA Jam TE y Mega Man: The Wily Wars guardan su EEPROM y la aceptan al volver a arrancar.
 
@@ -679,7 +679,7 @@ cada fase está en [PLAN.md](PLAN.md).
 
 ### Línea base para optimizar el runtime
 
-`tests/golden.sh` corre cada ROM de `roms/` y de las pruebas libres 1800 cuadros con entradas fijas y
+`tests/golden.py` corre cada ROM de `roms/` y de las pruebas libres 1800 cuadros con entradas fijas y
 una semilla, y compara el hash de **todos los cuadros y de todo el audio** (`genshot --hash`) con
 `tests/golden.txt`: una optimización no debe cambiar ni un bit (`--update` reescribe la línea base). Los
 casos se nombran por el SHA1 de la ROM. `GOLDEN_SHOT=ruta` usa otro `genshot`, por ejemplo el de un

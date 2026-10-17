@@ -8,7 +8,7 @@
  *
  * Uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]
  * Con varias corridas se pueden pasar todas las trazas a gbrecomp (--trace se puede repetir) o
- * juntarlas con cat y sort -u, como hace tests/recomp_game.sh.
+ * juntarlas con cat y sort -u, como hace ../shared/recomp_game.py.
  */
 #include "cli.h"
 #include "console.h"

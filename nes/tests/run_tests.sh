@@ -48,7 +48,7 @@ else echo "FALLA nesshot --expect/--hash, nesramdump"; fail=1; fi
 # Recompilador: recompila con traza y compara contra el intérprete (mapper 0 y MMC1)
 if [ -x ./nesrecomp ]; then
     for f in $T/other/nestest.nes $T/instr_test-v5/rom_singles/01-basics.nes $T/ppu_vbl_nmi/rom_singles/01-vbl_basics.nes; do
-        if TRACE_FRAMES=400 tests/recomp_game.sh "$f" rt_$(basename "$f" .nes | tr -c 'A-Za-z0-9\n' _) 400 | tee build/rt.log | grep -q "^Sin diferencias"; then
+        if TRACE_FRAMES=400 python3 ../shared/recomp_game.py "$f" rt_$(basename "$f" .nes | tr -c 'A-Za-z0-9\n' _) 400 | tee build/rt.log | grep -q "^Sin diferencias"; then
             echo "ok   recomp $(basename "$f")"
         else cat build/rt.log; echo "FALLA recomp $(basename "$f")"; fail=1; fi
     done
@@ -122,13 +122,13 @@ if [ -x ./nesrecomp ]; then
     fi
 fi
 # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
-sh tests/estricto.sh || fail=1
+python3 tests/estricto.py || fail=1
 # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
 # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 sh tests/run_tests.sh, y revisa build/shots/)
 if [ -x ./nes ]; then
     # Diálogos Controles (40) y Acerca de (42), la barra oculta con F9 (43), y sin barra con --no-menu (aunque se
     # pida un menú) y con --fullscreen
-    if sh ../shared/ui_golden.sh ./nes $T/other/nestest.nes tests/ui_golden.txt "0 1 2 3 4 5 6 7" "40 42 43" \
+    if python3 ../shared/ui_golden.py ./nes $T/other/nestest.nes tests/ui_golden.txt "0 1 2 3 4 5 6 7" "40 42 43" \
             "--no-menu --no-menu,--ui-menu,1 --fullscreen" > build/ui_golden.out 2>&1; then
         echo "ok   interfaz (8 menús, 2 diálogos, barra oculta, --no-menu y --fullscreen, contra la referencia; «Este juego» depende de la máquina y no entra)"
     else cat build/ui_golden.out; fail=1; fi

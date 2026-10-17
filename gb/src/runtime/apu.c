@@ -270,7 +270,7 @@ static void apu_step(GB *g, u32 dots)
  * Ejecución perezosa: apu_mcycles solo cuenta los M-ciclos y apu_flush los
  * procesa cuando alguien va a mirar o cambiar el APU (registros, paso del
  * secuenciador, audio, fin de la corrida). El resultado es idéntico bit a bit
- * al de procesar cada M-ciclo (tests/golden.sh):
+ * al de procesar cada M-ciclo (tests/golden.py):
  *   - Entre dos eventos (el temporizador de un canal audible que vence o una
  *     muestra de salida) la salida de cada canal no cambia: las sumas, que
  *     son enteros exactos en double, se hacen de una vez.

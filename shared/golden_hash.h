@@ -1,5 +1,5 @@
 /*
- * El hash de la línea base exacta (tests/golden.sh, en shared/golden.sh): FNV-1a de 64 bits de todos los cuadros
+ * El hash de la línea base exacta (tests/golden.py, en shared/golden.py): FNV-1a de 64 bits de todos los cuadros
  * y de todo el audio de una corrida, impreso como "hash imagen X audio Y". Lo usan las herramientas *shot con
  * --hash y el bench del proyecto generado con --hash: si el código recompilado hace lo mismo que el intérprete, el
  * hash es el mismo y la misma línea base vale para los dos.

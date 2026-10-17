@@ -220,7 +220,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <button id="bGStop" hidden>Detener</button>
      <label class="f cap-notrace" style="flex-direction:row;align-items:center;gap:4px;margin-top:14px"><input type="checkbox" id="gNoTrace"> sin traza guionada</label>
     </div>
-    <div class="mut" style="font-size:12px">Usa los «Cuadros de pruebas» de arriba y, si eliges unas «Entradas», las usa en lugar de las guionadas (útil si el juego no pasa del título). Es <code>tests/recomp_game.sh</code>: <span class="cap-notrace">graba una traza guionada, </span>recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
+    <div class="mut" style="font-size:12px">Usa los «Cuadros de pruebas» de arriba y, si eliges unas «Entradas», las usa en lugar de las guionadas (útil si el juego no pasa del título). Es <code>tests/recomp_game.py</code>: <span class="cap-notrace">graba una traza guionada, </span>recompila y compila, corre difftest con varias semillas, junta lo que cayó al intérprete, recompila con esa traza y vuelve a probar. Proyecto en <code id="rDir"></code>.</div>
    </div>
    <div class="card">
     <h3>Avance del ciclo</h3>
@@ -572,7 +572,7 @@ async function pollJob(){
 }
 
 /* ---------- ciclo completo ---------- */
-// Lee las líneas «RESUMEN {json}» de recomp_game.sh: una por ronda ({"evento":"ronda","ronda":N,"direcciones":D}), una
+// Lee las líneas «RESUMEN {json}» de recomp_game.py: una por ronda ({"evento":"ronda","ronda":N,"direcciones":D}), una
 // por semilla ({"evento":"semilla",...,"difftest":{el RESUMEN de difftest}}) y la del final ({"evento":"fin","ok":...})
 function parseCycle(text){
   const rounds=[]; let cur=null, res=null;

@@ -77,7 +77,7 @@ busca el juego o lo pide una vez y comprueba su SHA1; la BIOS, como el intérpre
 vez por versión en `~/.neorecomp/bios/` (o `$NEO_BIOS_CACHE`) y la comparten todos los juegos. `difftest`
 corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia;
 `--uncovered` guarda lo que el intérprete tuvo que ejecutar, para volver a recompilar con `--trace`.
-`sh tests/recomp_game.sh roms/juego.zip nombre` hace todo el ciclo. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla (en el Neo Geo van desplazadas 1200 cuadros, lo que tarda la BIOS del AES en dejar el juego, y los valores por omisión son 3000 cuadros por `difftest` y 3600 de traza); `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
+`python3 ../shared/recomp_game.py roms/juego.zip nombre` hace todo el ciclo. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla (en el Neo Geo van desplazadas 1200 cuadros, lo que tarda la BIOS del AES en dejar el juego, y los valores por omisión son 3000 cuadros por `difftest` y 3600 de traza); `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada.
 
 ## Herramientas
 
@@ -85,7 +85,7 @@ corre el código recompilado y el intérprete lado a lado y se detiene en la pri
 GENRecomp: `--frames N`, `--input archivo` (el guion de `--record`: `cuadro BOTONES [BOTONES]`, ver
 `../shared/inputs.h`), `--seed S` (suma el mando aleatorio común) y, en `neobench`, `--repeat N`. También
 valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a b c d start select`).
-`sh tests/contract.sh` lo comprueba.
+`python3 ../shared/contrato.py` lo comprueba.
 
 | Comando | Qué hace |
 |---|---|
@@ -102,7 +102,7 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 | `neocard juego --card archivo [--bios archivo] orden ...` | Usa la tarjeta de memoria por la interfaz de la BIOS (`CARD`, `CARD_ERROR`): formatear, buscar, cargar, guardar, borrar, el nombre, dañarla, protegerla. Sirve para comparar lo que hacen la BIOS original y la propia (`tools/neobios/tarjeta.py` muestra lo que importa de una tarjeta). |
 | `carttest`, `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, el sonido, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
 | `sh tests/coverage.sh` | Cuánto de lo que ejecutan los juegos de `roms/` encuentra el análisis sin traza (y de la BIOS). |
-| `sh tests/golden.sh [--update]` | Hash de todos los cuadros y del sonido de cada juego: una optimización no cambia ni un bit. |
+| `python3 tests/golden.py [--update]` | Hash de todos los cuadros y del sonido de cada juego: una optimización no cambia ni un bit. |
 | `python3 tools/oracles/oracle.py fetch/ramdump/shot/wav/compare/mix` | Oráculos: Geolith y FBNeo (núcleos libretro que se bajan a `build/oracles/`, solo como programas aparte). `compare` mide la RAM y la imagen contra ellos; `mix`, los niveles de cada parte del YM2610. |
 | `python3 tools/compat/run.py [--oraculos]`, `report.py` | Prueba de compatibilidad con los juegos de una carpeta (el motor común de `../compat.py`): `docs/compat/`. |
 
@@ -127,7 +127,7 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `input_host.h` y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `neocard`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
-| `tests/` | `run_tests.sh` (`make test`), `sst.sh m68k`, `sst.sh z80`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.sh`, `coverage.sh`, `golden.sh` y `golden.txt`. |
+| `tests/` | `run_tests.sh` (`make test`), `sst.sh m68k`, `sst.sh z80`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.py`, `coverage.sh`, `golden.sh` y `golden.txt`. |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe). |
 

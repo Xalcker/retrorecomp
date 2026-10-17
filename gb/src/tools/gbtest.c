@@ -19,7 +19,7 @@
  * los juegos de varios jugadores).
  * --hash: imprime un hash de todos los cuadros (pantalla del GB y, en el SGB,
  * la de la SNES con el borde) y de todo el audio (gb_golden.h, como gbshot
- * --hash, que es el que usa tests/golden.sh).
+ * --hash, que es el que usa tests/golden.py).
  * Código de salida: 0 pasó, 1 falló, 2 sin resultado.
  */
 #include <stdio.h>

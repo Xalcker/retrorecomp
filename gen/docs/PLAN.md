@@ -96,7 +96,7 @@ mismo contrato de línea de comandos.
   - Hecho: el driver de la RAM del Z80 en código nativo, aprendido con el sondeo de `genrecomp`
     (`--z80-frames`) y compilado con guarda (ver `ARQUITECTURA.md`, «Z80»), sin diferencias en `difftest`.
   - Hecho: el Z80 corre atrasado y se pone al día solo donde se toca con el resto, sin cambiar un bit de
-    `golden.sh`: de 22-33× a 29-44× tiempo real con el driver nativo.
+    `golden.py`: de 22-33× a 29-44× tiempo real con el driver nativo.
   - Falta: más de 4 versiones del driver (Mortal Kombat 3 modifica su código: agrupar por opcodes y leer los
     operandos de la RAM) y las líneas del Z80 en la traza, para lo que el sondeo no ve.
 

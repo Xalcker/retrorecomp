@@ -16,7 +16,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `input_host.h` (los botones para `inputs.h` y `cli.h` comunes). De `../shared`: `files`, `export`, `png`, `random_pad.h`, `inputs.h`, `cli.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. |
-| `tests/` | `run_tests.sh` (`make test`), `sst.sh m68k` (las SingleStepTests por familia), `contract.sh` (contrato común). |
+| `tests/` | `run_tests.py` (`make test`), `sst.sh m68k` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -250,7 +250,7 @@ bloques» y `difftest --uncovered`, «Código en RAM: ...» con lo que todavía 
 dice qué parte del tiempo del intérprete fue ROM o RAM («Intérprete por zona»). Sin líneas `ram`,
 `gen/ram.c` es un `ram_lookup` que devuelve 0.
 
-`tests/run_tests.sh` lo prueba con una ROM hecha ahí mismo que copia una rutina a `$00FF0000` y a
+`tests/run_tests.py` lo prueba con una ROM hecha ahí mismo que copia una rutina a `$00FF0000` y a
 `$FFFF8000`, la llama en un bucle y parcha un inmediato de la primera: la primera ronda la interpreta (con
 `??` en el byte parchado), la segunda compila 12 instrucciones en 2 bloques y corre el 100 % de los ciclos
 recompilado, sin diferencias; `gentrace` y el ejecutable anotan las mismas líneas que `difftest`.
@@ -460,7 +460,7 @@ mismo orden. `tests/golden.py` da los mismos hashes de imagen y audio que antes 
 
 Lo único que no puede quedar igual es que el Z80 toque la RAM, el VDP, la E/S o la SRAM del 68000 por la
 ventana de `$8000`: eso pasaría en otro momento. `gen_z80_window_ext` lo cuenta y `genbench` lo dice; en
-las 23 ROMs de `roms/`, con las entradas de `golden.sh`, no pasa nunca.
+las 23 ROMs de `roms/`, con las entradas de `golden.py`, no pasa nunca.
 
 Medido en Windows (`bench`, 1800 cuadros; el mismo proyecto con el Z80 interpretado, `--z80-frames 0`, y
 nativo; `difftest` con las semillas 1 y 2 sin diferencias):
@@ -651,7 +651,7 @@ juego está en `$FFF600`) y `--sram ARCHIVO` carga y guarda la SRAM o EEPROM.
 
 ## Estado de la validación
 
-`make test` (`tests/run_tests.sh`; con las ROMs de prueba de `make testroms`, y algunas más si están los
+`make test` (`tests/run_tests.py`; con las ROMs de prueba de `make testroms`, y algunas más si están los
 juegos en `roms/`), en Linux, macOS y Windows en cada PR:
 
 - **CPU:** las 1 000 058 SingleStepTests del 68000 por el intérprete y por el camino del código generado

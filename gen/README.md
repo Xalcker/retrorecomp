@@ -141,7 +141,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad) |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.py` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.py`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

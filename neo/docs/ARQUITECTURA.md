@@ -16,7 +16,7 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `m68k_dis.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`); diagnóstico: `neorun`. |
-| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego), `sst.py m68k` y `sst.py z80` (las SingleStepTests), `contrato.py` (contrato común, idéntico en los cuatro), `testroms.py` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -71,7 +71,7 @@ La escritura de TAS (`cpu.tas`) la decide el bus: el Genesis la ignora en la RAM
 **El Z80** (`z80.c`): completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades
 de IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
 bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80 (`z80test`,
-`tests/sst.sh z80`). Dos cosas nuevas respecto a GENRecomp, que las SingleStepTests no cubren (no tienen
+`tests/sst.py z80`). Dos cosas nuevas respecto a GENRecomp, que las SingleStepTests no cubren (no tienen
 interrupciones) y prueba `z80test --nmi`:
 
 - **NMI** (`z80.nmi`, por flanco): el Neo Geo la usa para avisar de cada comando del 68000. Se atiende
@@ -198,7 +198,7 @@ instrucciones decodificadas y accesos absolutos a la RAM, la E/S, la paleta o la
 160 instrucciones con algo de esa evidencia, o 160 instrucciones con mucha): así entran las rutinas largas
 de inicialización y de estados, que usan `a5`/`a6` y no tienen un `rts` cerca.
 
-**Cobertura** (`tests/coverage.sh`, con trazas de 6000 cuadros que llegan a jugar): sin traza el análisis
+**Cobertura** (`tests/coverage.py`, con trazas de 6000 cuadros que llegan a jugar): sin traza el análisis
 encuentra el 99,0 % de las instrucciones que ejecutan los 8 juegos (97,5-100 % cada uno) y el 100 % de las
 de la BIOS. Lo que falta se cubre con `--trace` o con la segunda ronda de `difftest --uncovered`.
 
@@ -484,7 +484,7 @@ la tarjeta la leen al empezar la partida: Shock Troopers no la usa, Metal Slug 2
 otros cargan. Ninguno guardó en las corridas guionadas: 30 000 cuadros cada uno, casi una hora de juego en total, quietos y
 sin llegar a perder del todo.
 
-**Prueba:** `tests/neobios/prueba_tarjeta.sh` (en `make test`) corre `tarjeta.guion` en el juego del contrato
+**Prueba:** `tests/neobios/prueba_tarjeta.py` (en `make test`) corre `tarjeta.guion` en el juego del contrato
 y lo compara con lo que dio la original:
 - 60 llamadas: formatear, guardar, reemplazar, sin lugar, protegida, sin tarjeta, FAT y cabeceras dañadas;
 - las respuestas, lo cargado y la estructura que queda.
@@ -684,7 +684,7 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   Z80, que toca un tono del SSG. La BIOS le da el control en el cuadro 8. Necesita la BIOS del AES (la de la
   fase 10 servirá para el CI). La wiki de NeoGeoDev tiene una errata en el código de seguridad (la palabra
   25 es `$6606`, no `$0606`): la delató la comparación de la BIOS contra Metal Slug.
-- **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
+- **`make testroms`** (`tests/testroms.py`): las SingleStepTests del 68000 y del Z80, en los mismos commits
   fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona), y el juego de prueba del
   contrato (`testroms/neo/contrato.neo`).
 - **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot/--screens] [boton:desde-hasta]`:**
@@ -768,7 +768,7 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
 ### Línea base para optimizar el runtime
 
 `tests/golden.py` corre cada juego de `roms/` y el juego de prueba del contrato 3600 cuadros (de la demo a la
-partida, con las entradas de `tests/coverage.sh`) y guarda el hash de todos los cuadros y de todo el audio
+partida, con las entradas de `tests/coverage.py`) y guarda el hash de todos los cuadros y de todo el audio
 (`neoshot --hash`) en `tests/golden.txt`, nombrados por el SHA1 de la imagen. Una optimización no debe
 cambiar ni un bit (`--update` reescribe la línea base). En la fase 8, con `sample` de macOS sobre `bench`:
 

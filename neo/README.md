@@ -101,7 +101,7 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 | `neorun juego [--frames N] [--bios archivo] [--card archivo [--cardlog]] [--watch DIR] [--fix] [--shot archivo.png] [--screens carpeta --every N] [--wav archivo.wav [--mute M]] [boton:desde-hasta]` | Corre sin ventana con el intérprete y resume lo que pasó: instrucciones, excepciones, el Z80, las variables de la BIOS, dónde se va el tiempo, (`--fix`) la capa fija como texto, (`--shot`) la imagen y (`--wav`) el sonido con su nivel por segundo y (`--cardlog`) las llamadas a la tarjeta de memoria. Botones: `up down left right a b c d start select`. |
 | `neocard juego --card archivo [--bios archivo] orden ...` | Usa la tarjeta de memoria por la interfaz de la BIOS (`CARD`, `CARD_ERROR`): formatear, buscar, cargar, guardar, borrar, el nombre, dañarla, protegerla. Sirve para comparar lo que hacen la BIOS original y la propia (`tools/neobios/tarjeta.py` muestra lo que importa de una tarjeta). |
 | `carttest`, `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest`, `z80test` | Pruebas (`make test`): la carga, el bus y la consola, el dibujo, el sonido, y las SingleStepTests del 68000 (por el intérprete y por el camino del código generado) y del Z80. |
-| `sh tests/coverage.sh` | Cuánto de lo que ejecutan los juegos de `roms/` encuentra el análisis sin traza (y de la BIOS). |
+| `python3 tests/coverage.py` | Cuánto de lo que ejecutan los juegos de `roms/` encuentra el análisis sin traza (y de la BIOS). |
 | `python3 tests/golden.py [--update]` | Hash de todos los cuadros y del sonido de cada juego: una optimización no cambia ni un bit. |
 | `python3 tools/oracles/oracle.py fetch/ramdump/shot/wav/compare/mix` | Oráculos: Geolith y FBNeo (núcleos libretro que se bajan a `build/oracles/`, solo como programas aparte). `compare` mide la RAM y la imagen contra ellos; `mix`, los niveles de cada parte del YM2610. |
 | `python3 tools/compat/run.py [--oraculos]`, `report.py` | Prueba de compatibilidad con los juegos de una carpeta (el motor común de `../compat.py`): `docs/compat/`. |
@@ -127,7 +127,7 @@ Ni los juegos ni la BIOS van en el repositorio: se ponen en `roms/` (no se versi
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `input_host.h` y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `neotrace`, `neoshot`, `neoaudio`, `neoramdump`, `neorun`, `neocard`, `mkcontrato`, las pruebas, `embed` (`neobench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (`retro_run`, `oracle.py`); `compat/` (`run.py`, `report.py`); `make_icon.py` (los iconos). |
-| `tests/` | `run_tests.py` (`make test`), `sst.sh m68k`, `sst.sh z80`, `testroms.sh` (`make testroms`), `contract.sh` (el mismo archivo en los cuatro repos), `recomp_game.py`, `coverage.sh`, `golden.py` y `golden.txt`. |
+| `tests/` | `run_tests.py` (`make test`), `sst.py m68k`, `sst.py z80`, `testroms.py` (`make testroms`), `contrato.py` (el mismo archivo en los cuatro repos), `recomp_game.py`, `coverage.py`, `golden.py` y `golden.txt`. |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y el juego de prueba del contrato (hecho aquí). No se versionan. |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe). |
 

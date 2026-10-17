@@ -113,7 +113,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
 | `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
-| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `sh tests/coverage.sh` lo mide con todas las ROMs de `roms/`. |
+| `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N]` | Qué se descubrió, cómo y qué falta; `python3 tests/coverage.py` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp, GBRecomp y NEORecomp). |
 | `genshot rom salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]` | Captura sin ventana; `--expect` pasa si la pantalla final es idéntica al PNG y `--hash` imprime un hash de todos los cuadros y de todo el sonido. |
@@ -141,7 +141,7 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad) |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
-| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.py`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.py m68k`, `golden.py`, `coverage.py`, `contrato.py` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

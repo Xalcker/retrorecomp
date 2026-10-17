@@ -18,7 +18,7 @@ ventana, las herramientas sin ventana con el contrato común y el recompilador.
 | `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `z80_dis` y el visor de `--html` es `visor_html.h`, de `../shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `../shared`. |
 | `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `../shared`, `z80test` (SingleStepTests, con `json.h`). |
-| `tests/` | `run_tests.py` (`make test`), `testroms.sh` (`make testroms`), `sst.sh z80` (las SingleStepTests del Z80), `golden.py` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.py` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
+| `tests/` | `run_tests.py` (`make test`), `testroms.py` (`make testroms`), `sst.py z80` (las SingleStepTests del Z80), `golden.py` y `golden.txt` (la línea base exacta), `coverage.py` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contrato.py` y `recomp_game.py` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
@@ -131,7 +131,7 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
   (lo que se compila son los bytes que hay ahí, y se entra por el PC exacto), pero cuesta tiempo de compilación: sin
   esa comprobación, una entrada que apuntaba a datos arrastraba miles de instrucciones de mentira.
 
-Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`sh tests/coverage.sh`, 3000
+Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`python3 tests/coverage.py`, 3000
 cuadros con las mismas entradas: el 53,2 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
 heurísticas; del 7,9 % de Micro Machines al 99,7 % de Dragon Blaster); el resto lo dan la traza guionada y lo que
 `difftest --uncovered` ve caer al intérprete (`../shared/recomp_game.py`).
@@ -370,7 +370,7 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
   documento. La versión sale de `git describe`.
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en los otros cuatro), en Linux, macOS y
   Windows: `make`, `make testroms`, el contrato común (`python3 ../shared/contrato.py`), `make test` y `make dist`.
-- **`make testroms`** (`tests/testroms.sh`): las pruebas libres en versiones fijas, en `testroms/` (no se
+- **`make testroms`** (`tests/testroms.py`): las pruebas libres en versiones fijas, en `testroms/` (no se
   versionan): las SingleStepTests del Z80 (el mismo commit que GENRecomp y NEORecomp; `SKIP_SST=1` las salta, como
   el CI de macOS y Windows), ZEXALL y ZEXDOC para el SMS (GPL-2.0, v0.21) y juegos homebrew con licencia MIT (Dragon
   Blaster, Food Fighter, River Strike y Waternet para SMS y Game Gear), cada uno con el SHA-256 de lo que se baja,

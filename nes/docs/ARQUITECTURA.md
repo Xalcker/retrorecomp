@@ -15,7 +15,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 | `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h`, `input_host.h` (los botones y las opciones de `nesshot` para `inputs.h` y `cli.h`)), `difftest.c`, `bench.c`; de `../shared`: `files`, `export`, `png`, `settings.c`, `inputs.h`, `cli.h`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `nesramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
-| `tests/` | `run_tests.py` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.py` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.py` y `golden.txt` (línea base exacta), `coverage.sh`, `contrato.py` (en shared/), `accuracycoin.py`. |
+| `tests/` | `run_tests.py` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.py` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.py` y `golden.txt` (línea base exacta), `coverage.py`, `contrato.py` (en shared/), `accuracycoin.py`. |
 | `tools/` | `retrorecomp/` (la GUI común con GBRecomp, GENRecomp y NEORecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `nesramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `run.py` y `report.py`, con el motor común de retrorecomp). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 | `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
 
@@ -137,7 +137,7 @@ siguiente cubre lo que el flujo constante no alcanza, sin necesitar una traza:
 - **Tablas sueltas**: cuatro o más palabras seguidas que apuntan, todas, a algo que parece rutina.
 
 `--coverage traza` mide cuántas de las instrucciones que ejecutó un juego encuentra esto sin ayuda
-(`tests/coverage.sh` lo hace para los juegos de `roms/`): 94-100 % en los ocho, frente a 3-100 % con
+(`tests/coverage.py` lo hace para los juegos de `roms/`): 94-100 % en los ocho, frente a 3-100 % con
 solo el flujo constante. `--no-tables` y `--no-spec` apagan las heurísticas para comparar.
 
 `--why`, `--viz`, `--html` (visor interactivo de una sola página) y `--events` explican el resultado: cada instrucción guarda de

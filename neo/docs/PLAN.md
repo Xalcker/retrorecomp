@@ -130,7 +130,7 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
   adelante). Corregido aquí; **falta corregirlo en GENRecomp** (Xalcker/GENRecomp#15). La identidad del código
   (`neo_code_offset`: P1, bancos de P2, la BIOS en el banco `FF`) con su prueba en `carttest`.
   - Copia: `m68k.h`, `m68k_ops.h`, `m68k.c`, `z80.h`, `z80.c`, `m68ktest`, `z80test`, `json.h`,
-    `sst.sh m68k`, `sst.sh z80`, y la parte de `tests/testroms.sh` que baja las SingleStepTests (los mismos
+    `sst.sh m68k`, `sst.sh z80`, y la parte de `tests/testroms.py` que baja las SingleStepTests (los mismos
     commits fijos). Sin cambios de semántica: las 1 000 058 del 68000 por los dos caminos (con las mismas
     excepciones de DIVU/DIVS) y las 1 604 000 del Z80.
   - Se adelanta el Z80 (en GENRecomp llegó en la fase 4) porque en el Neo Geo la BIOS y los juegos

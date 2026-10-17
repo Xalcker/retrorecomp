@@ -115,7 +115,7 @@ guarda una captura PNG cada `--every N` cuadros (600 si no se dice); `--executed
 (una letra por byte, `C` = ejecutado); y `--bench` mide la velocidad del código recompilado y la del intérprete, sin comparar.
 `--estricto` falla (código 1) en la primera instrucción de PRG que el intérprete ejecuta porque no está recompilada
 (`ESTRICTO: código que falta en $PC ...`); el código en RAM, que se descubre al correr, sí pasa. Sirve después de
-recompilar con una traza hecha con las mismas entradas: entonces no debe faltar nada (`tests/estricto.sh` lo prueba con
+recompilar con una traza hecha con las mismas entradas: entonces no debe faltar nada (`tests/estricto.py` lo prueba con
 las ROMs de prueba). Al final, además de la línea `Métrica: ...` común a los cinco recompiladores, `Intérprete por motivo:
 ...` cuenta las entradas al intérprete por motivo (código que falta, RAM, intérprete forzado, CPU detenido).
 
@@ -188,7 +188,7 @@ Más en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
   en código recompilado (Zelda 99.7 %) e **idénticos al intérprete** (CPU, RAM, PPU, APU, mapper,
   imagen y audio). **Sin traza**, solo con el análisis estático (vectores, bancos, tablas de saltos), los mismos juegos corren con 97-100 % de
   los ciclos recompilados e idénticos al intérprete; el análisis encuentra el 95-100 % de lo que cada juego ejecuta
-  (`tests/coverage.sh`). La traza queda como ayuda para lo que falte.
+  (`tests/coverage.py`). La traza queda como ayuda para lo que falte.
 
 ### Rendimiento
 
@@ -259,7 +259,7 @@ las herramientas de [GBRecomp](https://github.com/Xalcker/GBRecomp), [GENRecomp]
 dos repos) comprueba que las herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé
 la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` igual a `boton:desde-hasta`); el CI la corre en cada PR (`.github/workflows/ci.yml`, como en los otros tres). Si cambias una opción aquí, cámbiala también en GBRecomp, GENRecomp, NEORecomp y en la tabla de retrorecomp.
 
-`tests/golden.py` compara el hash de todos los cuadros y del audio de cada juego de `roms/` y de las ROMs de prueba con una línea base (`tests/golden.txt`, por SHA1 de la ROM); `tests/coverage.sh` mide la cobertura del análisis estático.
+`tests/golden.py` compara el hash de todos los cuadros y del audio de cada juego de `roms/` y de las ROMs de prueba con una línea base (`tests/golden.txt`, por SHA1 de la ROM); `tests/coverage.py` mide la cobertura del análisis estático.
 
 ## Estructura
 
@@ -271,7 +271,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `tools/` | `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
-| `tests/` | `run_tests.py` (`make test`), `recomp_game.py`, `golden.py`, `coverage.sh`, `contrato.py` (en shared/), `accuracycoin.py`. |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py`, `golden.py`, `coverage.py`, `contrato.py` (en shared/), `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

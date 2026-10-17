@@ -152,13 +152,9 @@ dist: gbrecomp$(EXE)
 test: all
 	python3 tests/run_tests.py
 
-# ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0
-TESTROMS_URL := https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip
+# ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0 (ver tests/testroms.py)
 testroms:
-	@if [ -d testroms/blargg ]; then echo "testroms/ ya tiene las ROMs de prueba"; else \
-		mkdir -p testroms $(BUILD) && curl -fsSL -o $(BUILD)/testroms.zip $(TESTROMS_URL) && \
-		unzip -q -o $(BUILD)/testroms.zip -d testroms && rm -f $(BUILD)/testroms.zip && \
-		echo "ROMs de prueba en testroms/"; fi
+	python3 tests/testroms.py
 
 # Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.py)
 $(BUILD)/sgb_controles$(EXE): tests/sgb_controles.c $(BUILD)/libgbrt.a

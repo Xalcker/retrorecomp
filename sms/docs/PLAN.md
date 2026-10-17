@@ -164,7 +164,7 @@ tabla de botones del SMS/GG en `player_touch.h`), `web/`, `android/`, `contract.
   `Makefile`, el CI (Linux, macOS y Windows; sin el contrato, `webtest` ni `apktest` hasta sus fases), la licencia
   MIT, `.editorconfig`, `.gitattributes`, `.gitignore`; el cartucho (`cart.c`: formatos, cabeceras TMR SEGA,
   Codemasters y SDSC, mapper, modelo; `smsdb.c` vacía); `smsrecomp --info`; `carttest`; el Z80 común tal cual
-  (`z80test` con las 1 604 000 SingleStepTests, `--int` y `--nmi`); `tests/testroms.sh` (SingleStepTests, ZEXALL y
+  (`z80test` con las 1 604 000 SingleStepTests, `--int` y `--nmi`); `tests/testroms.py` (SingleStepTests, ZEXALL y
   el homebrew MIT; con `EXTRA=1` las pruebas sin licencia); `make test`; `docs/ARQUITECTURA.md` con las secciones
   de los otros cuatro.
 - [x] **1. El Z80 de una sola fuente de verdad.** Hecho: `shared/z80_ops.h` (la semántica, con un contexto

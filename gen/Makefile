@@ -199,9 +199,9 @@ test: all
 	python3 tests/run_tests.py
 
 # Pruebas libres en testroms/ (no se versionan), en versiones fijas: las SingleStepTests del
-# 68000 y las demos Overdrive de Titan (ver tests/testroms.sh)
+# 68000 y las demos Overdrive de Titan (ver tests/testroms.py)
 testroms:
-	sh tests/testroms.sh
+	python3 tests/testroms.py
 
 clean:
 	rm -rf $(BUILD) dist $(PROGS:%=%$(EXE))

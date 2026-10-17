@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Línea base exacta de Neo Geo: hash de todos los cuadros y de todo el audio (neoshot --hash) de cada juego de
-roms/ y del juego de prueba del contrato, 3600 cuadros con las entradas de tests/coverage.sh (de la demo a la
+roms/ y del juego de prueba del contrato, 3600 cuadros con las entradas de tests/coverage.py (de la demo a la
 partida). El código común está en shared/golden.py (opciones, formato de tests/golden.txt y qué cuenta como falla).
     python3 tests/golden.py [--update] [ROM...]
 La BIOS cambia lo que se ve: con la de SNK (roms/aes.zip, o NEO_BIOS) los casos llevan solo el SHA1; con la

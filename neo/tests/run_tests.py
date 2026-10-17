@@ -211,8 +211,8 @@ def main():
     # La BIOS propia (fase 10): el ensamblador contra el desensamblador, la tarjeta de memoria contra lo que hace la original,
     # el contrato con ella (no necesita la de SNK) y, con Metal Slug, que arranque y que Start empiece la partida
     if rr.correr(["make", "-s", f"build/dis68kbin{x}", f"neocard{x}", "neobios"])[0] == 0:
-        for script in ("tests/asm68k/prueba.sh", "tests/neobios/prueba_tarjeta.sh"):
-            codigo, salida = rr.correr(["sh", script], env=dict(os.environ, PYTHON=sys.executable))
+        for script in ("tests/asm68k/prueba.py", "tests/neobios/prueba_tarjeta.py"):
+            codigo, salida = rr.correr([sys.executable, script])
             sys.stdout.write(salida)
             if codigo != 0:
                 p.fallas += 1

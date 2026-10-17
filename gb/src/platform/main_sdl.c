@@ -200,7 +200,7 @@ static void mark_uncovered(GB *g)
     /* El código de WRAM y HRAM no está en la ROM donde corre: se apuntan sus bytes para que
      * gbrecomp --trace lo compile (ramtrace.h). Es lo que difftest --uncovered ya hacía; sin
      * esto, jugar con --uncovered perdería justo lo que el análisis no puede deducir */
-    if ((pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF)) {
+    if (ramtrace_here(pc)) {
         ramtrace_observe(g, pc);
         return;
     }
@@ -398,7 +398,7 @@ typedef struct {
     InputScript script;
     int play;
     FILE *record;
-    int last_pad;
+    int last_pad[2];
     long frame;
     const char *uncovered_path;
 
@@ -1192,8 +1192,8 @@ static void step(App *app)
 {
     u8 pads[4];
     player_pads(app, pads);
-    if (app->play) pads[0] = inputs_pad(&app->script, app->frame);  /* solo el jugador 1 */
-    if (app->record) inputs_record(app->record, app->frame, pads[0], &app->last_pad);
+    if (app->play) pads[0] = inputs_pad(&app->script, app->frame, 0);  /* solo el jugador 1 */
+    if (app->record) inputs_record(app->record, app->frame, pads, app->last_pad);
     gb_set_pad(&app->gb, pads[0]);
     app->frame++;
     if (app->linked) {
@@ -1454,7 +1454,7 @@ int main(int argc, char *argv[])
     char msg[4096];
     app->forced_model = GB_MODEL_AUTO;
     the_app = app;
-    app->last_pad = -1;
+    app->last_pad[0] = app->last_pad[1] = -1;
     app->mouse_y = 1 << 20;     /* lejos de la barra hasta que se mueva el ratón: oculta, no aparece sola */
     touch_init(&app->touch, &touch_layout);
 

@@ -24,10 +24,10 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/emit/` | Decodificador, desensamblador y **emisor** de C del SM83: la única fuente de verdad de la semántica y la temporización por M-ciclo. |
 | `src/runtime/` | El hardware: `gb.c` (bus, sincronización, interrupciones, despachador, DMA, serial, joypad), `timer.c`, `ppu.c`, `apu.c`, `mbc.c`, `sgb.c` (Super Game Boy), `compat.c` (paletas del GBC para juegos de DMG), `interp.c`. |
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
-| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c` e `inputs.h` (entradas grabadas). |
+| `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
-| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `visor.html` (descubrimiento en el navegador), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
+| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
 
@@ -112,11 +112,10 @@ la instrucción o entrada de tabla que lo agregó, cada instrucción, las tablas
 y sus entradas, los saltos al área de bancos sin banco conocido y los `jp hl`
 sin tabla. `--events` escribe ese registro como texto y `--viz` lo reproduce
 como un mapa animado de la ROM. El registro no cambia el resultado.
-`tools/visor.html` lee el mismo registro en el navegador (mapa, línea de
-tiempo, desensamblado y la cadena de `--why`); su desensamblador y su
-explicación dan lo mismo que `gbrecomp --dis` y `--why`. `gbrecomp --html` lo
-escribe con el registro adentro (el visor va dentro de `gbrecomp`, como el
-runtime; no se copia al proyecto), así que la página abre ya cargada.
+`gbrecomp --html` escribe la página común de los cinco recompiladores
+(`visor_html.h`, en `../shared`) con lo que sale del mismo registro (por cada
+instrucción, cómo se llegó a ella y desde cuál) ya adentro: el mapa, el
+desensamblado de cada celda y la cadena de `--why`.
 
 Cada recorrido guarda qué lo agregó (una instrucción o una entrada de tabla) y
 cada tabla, qué instrucción la encontró. `--why BB:AAAA` usa eso para ir hacia
@@ -274,9 +273,11 @@ meterse en los punteros a canciones: la precisión bajó a 93.1 %. La regla de
 
 ### Entradas grabadas
 
-`src/platform/inputs.h` define un formato de texto (`cuadro botones`). El
-ejecutable graba con `--record` y reproduce con `--play`, y `difftest
---input` usa el mismo archivo. `tools/gen_inputs.pl` genera jugadas
+`inputs.h` (común en `../shared`, el mismo de las otras consolas) define un
+formato de texto (`cuadro botones`); `src/platform/input_host.h` pone los
+botones del Game Boy, un solo jugador al grabar y dos líneas opcionales al
+principio, `modelo dmg|cgb|sgb` y `paleta up+a`. El ejecutable graba con
+`--record` y reproduce con `--play`, y `difftest --input` usa el mismo archivo. `tools/gen_inputs.pl` genera jugadas
 pseudoaleatorias reproducibles para completar guiones escritos a mano. En
 `tests/inputs/tetris_b.txt` hay un guion que entra al modo B y juega.
 
@@ -381,7 +382,7 @@ que interpretaba). `gbrecomp` no puede deducir ese código, pero el intérprete 
 ciclo de trazas lo aprende:
 
 1. `difftest --uncovered archivo`, el ejecutable del juego con `--uncovered archivo` y `gbtrace` (los
-   tres con el mismo módulo, `src/platform/ramtrace.h`) anotan, por cada dirección de WRAM o HRAM que
+   tres con el mismo módulo, `src/platform/ramtrace.h`, sobre `ram_code.h` común) anotan, por cada dirección de WRAM o HRAM que
    ejecutó el intérprete, los bytes de la instrucción: hasta 4 versiones por dirección (las distingue
    el opcode; en `jr` y los `CB`, también el segundo byte) y qué bytes de operando cambiaron entre una
    ejecución y otra. Salen como líneas `ram DIRECCIÓN B0 [B1 B2]`, con `??` en los operandos

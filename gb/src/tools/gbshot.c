@@ -6,6 +6,8 @@
  * todo el audio, como nesshot --hash y el bench del proyecto generado; lo usa tests/golden.sh.
  */
 #include "cli.h"
+#include "console.h"
+#include "romload.h"
 #include "gb_golden.h"
 #include "png.h"
 
@@ -14,20 +16,19 @@ static const unsigned char shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
 int main(int argc, char **argv)
 {
     console_utf8();
-    Cli c;
-    if (cli_parse(&c, argc, argv, "uso: gbshot rom.gb salida.png [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb] [--hash]")) return 2;
-    long size;
-    unsigned char *rom = cli_read_file(c.rom, &size);
-    if (!rom) { fprintf(stderr, "no se pudo leer %s\n", c.rom); return 2; }
+    static Cli c;
+    if (cli_parse(&c, argc, argv, 2, 600)) {
+        fprintf(stderr, "uso: gbshot rom.gb salida.png [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb] [--hash]\n");
+        return 2;
+    }
     static GB g;
-    const char *err = gb_init_model(&g, rom, (u32)size, c.model);
-    if (err) { fprintf(stderr, "%s: %s\n", c.rom, err); return 2; }
+    if (load_gb(&g, c.pos[0], c.model)) return 2;
     GoldenHash gh;
     golden_init(&gh);
     if (c.hash) g.apu.enabled = 1;     /* el audio entra al hash */
     int parado = 0;             /* la línea común de las herramientas *shot cuando el CPU se detiene */
     for (long f = 0; f < c.frames; f++) {
-        gb_set_pad(&g, cli_pad(&c, f));
+        gb_set_pad(&g, cli_pad(&c, f, 0));
         gb_run_frame(&g);
         if (c.hash) gb_golden_frame(&g, &gh);
         if (g.cpu.locked && !parado) { printf("CPU detenido en el cuadro %ld (opcode ilegal)\n", f); parado = 1; }
@@ -41,10 +42,9 @@ int main(int argc, char **argv)
             else rgb[i * 3 + k] = shade[v & 3];
         }
     }
-    if (!png_write_rgb(c.out, rgb, GB_SCREEN_W, GB_SCREEN_H)) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
-    printf("%s: captura tras %ld cuadros\n", c.out, c.frames);
+    if (!png_write_rgb(c.pos[1], rgb, GB_SCREEN_W, GB_SCREEN_H)) { fprintf(stderr, "no se pudo escribir %s\n", c.pos[1]); return 2; }
+    printf("%s: captura tras %ld cuadros\n", c.pos[1], c.frames);
     if (c.hash) golden_print(&gh);
     gb_free(&g);
-    free(rom);
     return 0;
 }

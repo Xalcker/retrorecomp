@@ -11,6 +11,8 @@
  * juntarlas con cat y sort -u, como hace tests/recomp_game.sh.
  */
 #include "cli.h"
+#include "console.h"
+#include "romload.h"
 #include "../platform/ramtrace.h"
 #include "../platform/romtrace.h"
 #include "trace_line.h"
@@ -22,7 +24,7 @@ static void record(GB *g)
     u16 pc = g->cpu.pc;
     u32 slot;
     u16 off;
-    if ((pc >= 0xC000 && pc < 0xE000) || (pc >= 0xFF80 && pc < 0xFFFF)) {
+    if (ramtrace_here(pc)) {
         ramtrace_observe(g, pc);
         return;
     }
@@ -34,21 +36,20 @@ static void record(GB *g)
 int main(int argc, char **argv)
 {
     console_utf8();
-    Cli c;
-    if (cli_parse(&c, argc, argv, "uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]")) return 2;
-    long size;
-    unsigned char *rom = cli_read_file(c.rom, &size);
-    if (!rom) { fprintf(stderr, "no se pudo leer %s\n", c.rom); return 2; }
+    static Cli c;
+    if (cli_parse(&c, argc, argv, 2, 600)) {
+        fprintf(stderr, "uso: gbtrace rom.gb traza.txt [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]\n");
+        return 2;
+    }
     static GB g;
-    const char *err = gb_init_model(&g, rom, (u32)size, c.model);
-    if (err) { fprintf(stderr, "%s: %s\n", c.rom, err); return 2; }
+    if (load_gb(&g, c.pos[0], c.model)) return 2;
     g.trace = record;
     for (long f = 0; f < c.frames; f++) {
-        gb_set_pad(&g, cli_pad(&c, f));
+        gb_set_pad(&g, cli_pad(&c, f, 0));
         gb_run_frame(&g);
     }
-    FILE *o = fopen(c.out, "w");
-    if (!o) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
+    FILE *o = fopen(c.pos[1], "w");
+    if (!o) { fprintf(stderr, "no se pudo escribir %s\n", c.pos[1]); return 2; }
     size_t n = 0;
     for (u32 s = 0; s < ROM_SLOTS; s++) {
         if (!executed[s]) continue;
@@ -58,13 +59,12 @@ int main(int argc, char **argv)
             n++;
         }
     }
-    RamSummary rs = ramtrace_write(o);
+    RcSummary rs = ramtrace_write(o);
     fclose(o);
-    printf("%s: %zu instrucciones distintas en %ld cuadros\n", c.out, n, c.frames);
+    printf("%s: %zu instrucciones distintas en %ld cuadros\n", c.pos[1], n, c.frames);
     if (rs.fixed || rs.vol || rs.multi || rs.lost)
         printf("Código en WRAM/HRAM: %u instrucciones fijas, %u con operandos variables, %u con varias "
                "versiones, %u que cambian demasiado\n", rs.fixed, rs.vol, rs.multi, rs.lost);
     gb_free(&g);
-    free(rom);
     return 0;
 }

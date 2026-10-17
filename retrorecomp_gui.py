@@ -234,7 +234,7 @@ class System:
 
 class NES(System):
     id = "nes"
-    caps = {"notrace": True, "interp_play": False, "plays_interp": True, "visor": "html"}
+    caps = {"notrace": True, "interp_play": False, "plays_interp": True}
     ORG_COLOR = {46: 0, 51: 1, 226: 2, 201: 3}
     ANSI = re.compile(r"\x1b\[([0-9;]*)m(.)\x1b\[0m|(.)")
     # Lo que cambia en GENRecomp, que copia los formatos de NESRecomp (ver class GEN)
@@ -494,7 +494,7 @@ class SMS(GEN):
 
 class GB(System):
     id = "gb"
-    caps = {"notrace": True, "interp_play": True, "plays_interp": False, "visor": "events", "unresolved": True}
+    caps = {"notrace": True, "interp_play": True, "plays_interp": False, "unresolved": True}
     MBC = {0x00: "ROM", 0x01: "MBC1", 0x02: "MBC1+RAM", 0x03: "MBC1+RAM+BAT", 0x05: "MBC2", 0x06: "MBC2+BAT",
            0x0F: "MBC3+TIMER+BAT", 0x10: "MBC3+TIMER+RAM+BAT", 0x11: "MBC3", 0x12: "MBC3+RAM", 0x13: "MBC3+RAM+BAT",
            0x19: "MBC5", 0x1A: "MBC5+RAM", 0x1B: "MBC5+RAM+BAT", 0x1C: "MBC5+RUMBLE", 0x1E: "MBC5+RUMBLE+RAM+BAT",
@@ -627,10 +627,6 @@ class GB(System):
 
     def bench_argv(self, rp, pdir, frames, repeat, inp, model, recompiled):
         return super().bench_argv(rp, pdir, frames, repeat, inp, model, recompiled) + (["--model", model] if model else [])
-
-    def visor(self, rp, tflags, cov):
-        out = os.path.join(WORK, f"eventos_{self.id}_{stem(os.path.basename(rp))}.txt")
-        return [self.tool("gbrecomp"), rp, "--why", "00:0000", "--events", out, *tflags], out
 
     def play_argv(self, rp, proj, interp, model, env, record_trace_path, record_input_path, play_input):
         # Con el intérprete (o sin proyecto compilado): gb, como nes en NESRecomp. Si el GBRecomp
@@ -1203,12 +1199,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(os.path.join(WORK, f"audio_{key}.wav"), "audio/wav", "sin audio")
         if path == "/files/visor":
             s, rp = rom_of(rid)
-            if s.caps["visor"] == "html":
-                return self._file(os.path.join(WORK, f"visor_{s.id}_{stem(os.path.basename(rp))}.html"), "text/html; charset=utf-8", "genere primero el visor")
-            return self._file(os.path.join(s.root, "tools", "visor.html"), "text/html; charset=utf-8", "este recompilador no trae visor")
-        if path == "/files/events":
-            s, rp = rom_of(rid)
-            return self._file(os.path.join(WORK, f"eventos_{s.id}_{stem(os.path.basename(rp))}.txt"), "text/plain; charset=utf-8", "genere primero los eventos")
+            return self._file(os.path.join(WORK, f"visor_{s.id}_{stem(os.path.basename(rp))}.html"), "text/html; charset=utf-8", "genere primero el visor")
         return self._send(404, {"error": "no existe"})
 
     def do_POST(self):

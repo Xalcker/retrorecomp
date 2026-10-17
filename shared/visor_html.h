@@ -1,5 +1,5 @@
 /*
- * Visor de --html de genrecomp, neorecomp y smsrecomp: una página sola con los datos del descubrimiento (mapa de
+ * Visor de --html de gbrecomp, genrecomp, neorecomp y smsrecomp: una página sola con los datos del descubrimiento (mapa de
  * la ROM, instrucciones por celda y la cadena "por qué"). La misma página que nesrecomp --html; entre html_head y
  * html_tail va el objeto D (JSON) que escribe write_html de cada recompilador. Común (retrorecomp/shared): antes
  * de incluirlo, el recompilador define VISOR_NAME, el nombre del título ("GENRecomp").
@@ -88,7 +88,7 @@ static const char html_tail[] =     ";\n"
     "function pick(c){\n"
     " if(c<0||c>=ncell)return; sel=c; draw();\n"
     " const t=document.getElementById('ins');t.innerHTML='';\n"
-    " let n=0;for(let o=c*CELL;o<c*CELL+CELL;o+=2){const k=byOff.get(o);if(k===undefined)continue;n++;\n"
+    " let n=0;for(let o=c*CELL;o<c*CELL+CELL;o++){const k=byOff.get(o);if(k===undefined)continue;n++;\n"
     "  const x=I[k],tr=document.createElement('tr');tr.className='ins';tr.dataset.k=k;\n"
     "  tr.innerHTML=`<td class=\"mut\">$${hex(x[0],6)}</td><td>$${hex(x[1],6)}</td><td>${x[5]}</td><td><span class=\"tag\">${HOW[x[2]]}</span></td>`;\n"
     "  tr.onclick=()=>why(k);t.appendChild(tr)}\n"

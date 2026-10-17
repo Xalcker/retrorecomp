@@ -35,7 +35,7 @@
 #include <time.h>
 
 #include "console.h"
-#include "inputs.h"
+#include "cli.h"
 #include "ramtrace.h"
 #include "romtrace.h"
 #include "recomp.h"
@@ -73,9 +73,12 @@ static void top_insert(Hit *top, unsigned *ntop, Hit h)
     top[i] = h;
 }
 
-/* Instrucciones del intérprete fuera de la ROM ($8000-$FFFF): cuántas veces, los bytes que
- * había en esa dirección la primera vez (para reconocer la rutina) y las versiones del código
- * que corrieron allí. Lo lleva ramtrace.h, que comparte con el ejecutable del juego */
+/* Instrucciones del intérprete fuera de la ROM ($8000-$FFFF): cuántas veces y los bytes que había
+ * en esa dirección la primera vez, para reconocer la rutina en el log. Las versiones del código que
+ * corrieron en WRAM y HRAM, para --uncovered, las lleva ramtrace.h, que comparte con el ejecutable
+ * del juego */
+#define RAM_BYTES 8
+static struct { u32 n; u8 first[RAM_BYTES]; } ram_hits[0x8000];
 
 /* --- Llamadas al código recompilado (el resumen de los cinco recompiladores) ---
  * El despachador del runtime llama a la función que le da recomp_lookup; esta versión la
@@ -125,6 +128,8 @@ static void count_interp(GB *g)
     u16 off;
     interp_zone[pc < 0x8000 ? 0 : pc < 0xC000 ? 1 : pc < 0xFF80 ? 2 : 3]++;
     if (pc >= 0x8000) {
+        if (!ram_hits[pc - 0x8000].n++)
+            for (unsigned i = 0; i < RAM_BYTES; i++) ram_hits[pc - 0x8000].first[i] = gb_peek(g, (u16)(pc + i));
         ramtrace_observe(g, pc);
         return;
     }
@@ -290,25 +295,14 @@ static void save_screen(GB *g, const char *path)
     fclose(f);
 }
 
-/* --- Entradas: guion (--input) y mando aleatorio (random_pad.h, el mismo que en NESRecomp) --- */
+/* --- Entradas: --input, --seed y los botones sostenidos (cli.h, las opciones de los cinco recompiladores) --- */
 
-static InputScript script;   /* --input: entradas grabadas */
-static int use_script, use_random;
-static RandomPad rpad;
+static Cli c;
 
-static void reset_pad(u32 seed)
-{
-    random_pad_init(&rpad, seed);
-    script.pos = 0;
-}
+static void reset_pad(void) { cli_rewind(&c); }
 
-/* El guion, más el mando aleatorio si se pidió --seed o si no hay guion */
-static u8 pad_for(long frame)
-{
-    u8 pad = use_script ? inputs_pad(&script, frame) : 0;
-    if (use_random) pad |= inputs_random_pad(&rpad, frame);
-    return pad;
-}
+/* El guion, más el mando aleatorio si se pidió --seed (sin nada, no se pulsa ningún botón, como en los demás) */
+static u8 pad_for(long frame) { return cli_pad(&c, frame, 0); }
 
 /* --- Ubicar la primera diferencia --- */
 
@@ -350,39 +344,17 @@ static unsigned char *read_file(const char *path, long *size)
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *rom_path = NULL, *uncovered = NULL, *screens = NULL;
-    const char *executed_path = NULL, *input_path = NULL, *save_path = NULL;
-    const char *save_out = NULL;
-    int frames_given = 0;
-    long frames = 3600, every = 600;
-    int bench = 0, estricto = 0, model = GB_MODEL_AUTO;
-    const char *palette = NULL;
-    u32 seed = 1;
-    int seed_given = 0;
-
-    for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--frames") && i + 1 < argc) { frames = atol(argv[++i]); frames_given = 1; }
-        else if (!strcmp(argv[i], "--input") && i + 1 < argc) input_path = argv[++i];
-        else if (!strcmp(argv[i], "--save") && i + 1 < argc) save_path = argv[++i];
-        else if (!strcmp(argv[i], "--save-out") && i + 1 < argc) save_out = argv[++i];
-        else if (!strcmp(argv[i], "--seed") && i + 1 < argc) { seed = (u32)strtoul(argv[++i], NULL, 0); seed_given = 1; }
-        else if (!strcmp(argv[i], "--uncovered") && i + 1 < argc) uncovered = argv[++i];
-        else if (!strcmp(argv[i], "--executed") && i + 1 < argc) executed_path = argv[++i];
-        else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
-        else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
-        else if (!strcmp(argv[i], "--bench")) bench = 1;
-        else if (!strcmp(argv[i], "--estricto")) estricto = 1;
-        else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
-            model = model_from_name(argv[++i]);
-            if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
-        }
-        else if (!strcmp(argv[i], "--palette") && i + 1 < argc) palette = argv[++i];
-        else rom_path = argv[i];
-    }
-    if (!rom_path) {
+    if (cli_parse(&c, argc, argv, 1, 3600)) {
         fprintf(stderr, "uso: difftest rom.gb [--frames N] [--seed S] [--uncovered archivo] [--estricto]\n");
         return 2;
     }
+    const char *rom_path = c.pos[0], *uncovered = c.uncovered, *screens = c.screens;
+    const char *executed_path = c.executed, *save_path = c.save, *save_out = c.save_out;
+    const char *palette = c.palette;
+    long frames = c.frames, every = c.every;
+    int bench = c.bench, estricto = c.estricto, model = c.model;
+    /* Sin --frames y con --input: hasta 10 segundos después del último cambio */
+    if (c.input && !c.frames_given) frames = inputs_last_frame(&c.script) + 600;
 
     long size;
     unsigned char *rom = read_file(rom_path, &size);
@@ -392,17 +364,6 @@ int main(int argc, char **argv)
     if (strcmp(sha1, recomp_rom_sha1) != 0) {
         fprintf(stderr, "la ROM no coincide: SHA1 %s, se esperaba %s\n", sha1, recomp_rom_sha1);
         return 2;
-    }
-
-    /* La grabación puede decir con qué modelo y paleta se hizo */
-    if (input_path) {
-        const char *ierr = inputs_load(&script, input_path);
-        if (ierr) { fprintf(stderr, "%s\n", ierr); return 2; }
-        use_script = 1;
-        /* Sin --frames: hasta 10 segundos después del último cambio */
-        if (!frames_given) frames = inputs_last_frame(&script) + 600;
-        if (model == GB_MODEL_AUTO) model = script.model;
-        if (!palette && script.palette[0]) palette = script.palette;
     }
 
     const char *err;
@@ -427,16 +388,15 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    use_random = seed_given;      /* sin --seed no se pulsa nada (como en NESRecomp y GENRecomp) */
-    reset_pad(seed);
+    reset_pad();
 
-    printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, seed);
+    printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, c.seed);
     if (bench) {
         /* Velocidad: cada máquina por separado, con las mismas entradas */
         GB *m[2] = { &rec, &ref };
         const char *name[2] = { "recompilado", "intérprete" };
         for (int k = 0; k < 2; k++) {
-            reset_pad(seed);
+            reset_pad();
             clock_t t0 = clock();
             for (long frame = 0; frame < frames; frame++) {
                 gb_set_pad(m[k], pad_for(frame));
@@ -513,7 +473,7 @@ int main(int argc, char **argv)
     /* Código que corrió desde WRAM ($C000-$DFFF) o HRAM ($FF80-$FFFE): líneas "ram DIRECCION
      * BYTES" para gbrecomp --trace (ramtrace.h). Con más versiones de las que se guardan, una
      * dirección no se aprende */
-    RamSummary rs = ramtrace_write(uf);
+    RcSummary rs = ramtrace_write(uf);
     if (uf) fclose(uf);
     if (ntop) printf("Las más ejecutadas por el intérprete:\n");
     for (unsigned i = 0; i < ntop; i++)

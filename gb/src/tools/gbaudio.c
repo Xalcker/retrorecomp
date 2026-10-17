@@ -8,25 +8,26 @@
 #include <stdint.h>
 
 #include "cli.h"
+#include "console.h"
+#include "romload.h"
 #include "wav.h"
 
 int main(int argc, char **argv)
 {
     console_utf8();
-    Cli c;
-    if (cli_parse(&c, argc, argv, "uso: gbaudio rom.gb salida.wav [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]")) return 2;
-    long size;
-    unsigned char *rom = cli_read_file(c.rom, &size);
-    if (!rom) { fprintf(stderr, "no se pudo leer %s\n", c.rom); return 2; }
+    static Cli c;
+    if (cli_parse(&c, argc, argv, 2, 600)) {
+        fprintf(stderr, "uso: gbaudio rom.gb salida.wav [--frames N] [--input archivo] [--seed S] [--model dmg|cgb|sgb]\n");
+        return 2;
+    }
     static GB g;
-    const char *err = gb_init_model(&g, rom, (u32)size, c.model);
-    if (err) { fprintf(stderr, "%s: %s\n", c.rom, err); return 2; }
+    if (load_gb(&g, c.pos[0], c.model)) return 2;
     g.apu.enabled = 1;
     size_t cap = (size_t)c.frames * 1100 + 8192, tot = 0;      /* pares estéreo */
     int16_t *pcm = malloc(cap * 2 * sizeof *pcm);
     static float tmp[4096 * 2];
     for (long f = 0; f < c.frames; f++) {
-        gb_set_pad(&g, cli_pad(&c, f));
+        gb_set_pad(&g, cli_pad(&c, f, 0));
         gb_run_frame(&g);
         int n;
         while ((n = gb_audio_pull(&g, tmp, 4096)) > 0) {
@@ -39,8 +40,8 @@ int main(int argc, char **argv)
         }
     }
     u32 rate = GB_SAMPLE_RATE;
-    if (!wav_save(c.out, pcm, tot, rate, 2)) { fprintf(stderr, "no se pudo escribir %s\n", c.out); return 2; }
-    printf("%s: %zu muestras (%.1f s)\n", c.out, tot, tot / (double)rate);
+    if (!wav_save(c.pos[1], pcm, tot, rate, 2)) { fprintf(stderr, "no se pudo escribir %s\n", c.pos[1]); return 2; }
+    printf("%s: %zu muestras (%.1f s)\n", c.pos[1], tot, tot / (double)rate);
     for (size_t s = 0; s + rate <= tot || s == 0; s += rate) {
         size_t e = s + rate < tot ? s + rate : tot;
         double sum = 0; int peak = 0;
@@ -51,6 +52,5 @@ int main(int argc, char **argv)
     }
     gb_free(&g);
     free(pcm);
-    free(rom);
     return 0;
 }

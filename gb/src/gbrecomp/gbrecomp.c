@@ -44,6 +44,7 @@
 
 #include "../emit/sm83_emit.h"
 #include "console.h"
+#include "ram_code.h"
 #include "sha1.h"
 #include "embedded.h"
 #include "viz.h"
@@ -75,10 +76,9 @@ static const char usage_text[] =
     "                     0 dibuja solo el resultado)\n"
     "  --color            con --viz, colorea aunque la salida no sea una terminal\n"
     "                     (lo usa la GUI; sin animación)\n"
-    "  --html archivo     el descubrimiento como una página HTML sola (el visor de\n"
-    "                     tools/visor.html con los eventos adentro; con --coverage,\n"
-    "                     también la cobertura). La ROM, para desensamblar, se\n"
-    "                     arrastra a la página\n"
+    "  --html archivo     el descubrimiento como una página HTML sola (la misma de\n"
+    "                     nesrecomp, genrecomp, neorecomp y smsrecomp; con --coverage,\n"
+    "                     también lo ejecutado que no se descubrió)\n"
     "  --coverage archivo direcciones que ejecutó el juego (formato de --uncovered);\n"
     "                     cuenta las que no se descubrieron y --viz las marca en rojo\n"
     "  --why BB:AAAA      explica por qué esa dirección se tomó como código: la\n"
@@ -1466,13 +1466,12 @@ static void discover(void)
 
 /* Código que el juego ejecutó desde WRAM o HRAM, aprendido de la traza: una versión de una
  * instrucción por línea, "ram DIRECCION BYTES" en hexadecimal (difftest --uncovered), con ??
- * en los operandos que cambian entre ejecuciones. Se compila en emit_ram */
-typedef struct { u16 addr; u8 len; u8 bytes[3]; u8 vol; } RamObs;   /* vol: bit i = el byte i es variable */
-static RamObs *ram_obs;
-static size_t n_ram_obs, cap_ram_obs;
+ * en los operandos que cambian entre ejecuciones (ram_code.h, común en ../shared). Se compila en
+ * emit_ram */
+static RcList ram_list;
 
-/* Bytes de la instrucción que la identifican (el resto son operandos que pueden variar); ver
- * ram_key_len en difftest.c */
+/* Bytes de la instrucción que la identifican (el resto son operandos que pueden variar); los
+ * mismos que ram_key_len de platform/ramtrace.h, que escribe las líneas */
 static unsigned ram_key_len(u8 op)
 {
     switch (op) {
@@ -1481,47 +1480,22 @@ static unsigned ram_key_len(u8 op)
     }
 }
 
-static void ram_trace_line(const char *s)
+static void ram_trace_line(const char *line)
 {
-    unsigned addr;
-    int used = 0;
-    if (sscanf(s, "%x%n", &addr, &used) != 1) return;
-    s += used;
-    u8 raw[3] = { 0, 0, 0 };
-    u8 vol = 0;
-    unsigned len = 0;
-    while (len < 3) {
-        while (*s == ' ') s++;
-        if (s[0] == '?' && s[1] == '?') {
-            vol |= (u8)(1u << len);
-            raw[len++] = 0;
-            s += 2;
-            continue;
-        }
-        unsigned v;
-        if (sscanf(s, "%x%n", &v, &used) != 1) break;
-        raw[len++] = (u8)v;
-        s += used;
-    }
-    if (len < 1 || (vol & 1)) return;    /* el opcode no puede ser variable */
+    RcIns in;
+    if (!rc_parse(line, &in) || in.len > 3 || (in.vol & 1)) return;    /* el opcode no puede ser variable */
+    unsigned addr = in.addr, len = in.len;
     int wram = addr >= 0xC000 && addr + len <= 0xE000;
     int hram = addr >= 0xFF80 && addr + len <= 0xFFFF;
     if (!wram && !hram) return;
-    Insn in;
-    sm83_decode(raw, (uint16_t)addr, &in);
-    if (in.len != len) return;    /* los bytes no son una instrucción completa */
-    for (unsigned i = 0; i < ram_key_len(raw[0]) && i < len; i++)
-        if (vol & (1u << i)) return;    /* el desplazamiento de un jr o el segundo byte de CB no varían */
-    if (n_ram_obs == cap_ram_obs) {
-        cap_ram_obs = cap_ram_obs ? cap_ram_obs * 2 : 256;
-        ram_obs = realloc(ram_obs, cap_ram_obs * sizeof *ram_obs);
-        if (!ram_obs) die("sin memoria");
-    }
-    RamObs *o = &ram_obs[n_ram_obs++];
-    o->addr = (u16)addr;
-    o->len = (u8)len;
-    memcpy(o->bytes, raw, sizeof o->bytes);
-    o->vol = vol;
+    Insn ins;
+    sm83_decode(in.bytes, (uint16_t)addr, &ins);
+    if (ins.len != len) return;    /* los bytes no son una instrucción completa */
+    in.key = (u8)ram_key_len(in.bytes[0]);
+    if (in.key > len) in.key = (u8)len;
+    for (unsigned i = 0; i < in.key; i++)
+        if (in.vol & (1u << i)) return;    /* el desplazamiento de un jr o el segundo byte de CB no varían */
+    if (!rc_list_add(&ram_list, &in)) die("sin memoria");
 }
 
 /* Una traza: líneas "BB:AAAA" (banco y dirección en hexadecimal) y "ram AAAA BYTES" */
@@ -1533,7 +1507,7 @@ static void load_trace(const char *path)
     char line[64];
     while (fgets(line, sizeof line, f)) {
         if (strncmp(line, "ram ", 4) == 0) {
-            ram_trace_line(line + 4);
+            ram_trace_line(line);
             continue;
         }
         if (sscanf(line, "%x:%x", &bank, &addr) != 2) continue;
@@ -1557,7 +1531,7 @@ static void load_traces(const char *const *paths, int n)
     push_origin = ORG_TRACE;
     push_from_bank = EV_NONE;
     for (int i = 0; i < n; i++) load_trace(paths[i]);
-    if (n_ram_obs) printf("traza: %zu instrucciones en WRAM/HRAM\n", n_ram_obs);
+    if (ram_list.n) printf("traza: %zu instrucciones en WRAM/HRAM\n", ram_list.n);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2096,74 +2070,28 @@ static void emit_hram(const char *dir)
 
 /* Código que el juego copia a WRAM o HRAM y ejecuta desde ahí (manejadores de interrupción,
  * trampolines de cambio de banco, saltos por vectores en RAM). No está en la ROM donde corre,
- * así que se aprende de la traza (ram_obs). Cada versión de una instrucción es un nodo. Los
+ * así que se aprende de la traza (ram_list). Cada versión de una instrucción es un nodo. Los
  * nodos que van uno detrás de otro y no tienen ambigüedad forman un bloque, y cada bloque se
  * compila con sus direcciones, como el código de ROM. Donde una dirección tiene varias versiones
  * el bloque termina y el despachador elige la variante en ejecución. Un bloque se usa solo si
  * los bytes de RAM siguen siendo los suyos (ram_match); los operandos marcados como variables no
  * se comparan y se leen de RAM cuando la instrucción corre. Si el juego cambió el código, cae al
  * intérprete. */
-#define RAM_MAXCHAIN 1024    /* instrucciones por bloque */
-#define RAM_MAXVER 8         /* versiones de una dirección que se aceptan; más es código generado */
-
-typedef struct {
-    size_t *node;            /* índices en ram_obs, en orden de dirección */
-    size_t n;
-    unsigned start, len;     /* primera dirección y bytes que cubre */
-} RamBlock;
-
-/* Orden por dirección y por lo que identifica la instrucción (opcode; en jr y CB, el segundo byte) */
-static int ram_obs_cmp(const void *a, const void *b)
-{
-    const RamObs *x = a, *y = b;
-    if (x->addr != y->addr) return x->addr < y->addr ? -1 : 1;
-    if (x->bytes[0] != y->bytes[0]) return x->bytes[0] < y->bytes[0] ? -1 : 1;
-    if (ram_key_len(x->bytes[0]) == 2 && x->bytes[1] != y->bytes[1]) return x->bytes[1] < y->bytes[1] ? -1 : 1;
-    return 0;
-}
-
-/* La misma instrucción vista en corridas distintas: los operandos que difieren pasan a ser variables */
-static void ram_merge(RamObs *into, const RamObs *from)
-{
-    for (unsigned i = ram_key_len(into->bytes[0]); i < into->len; i++)
-        if (into->bytes[i] != from->bytes[i]) into->vol |= (u8)(1u << i);
-    into->vol |= from->vol;
-}
-
-/* Primer nodo con dirección >= addr */
-static size_t ram_lower(size_t n, unsigned addr)
-{
-    size_t lo = 0, hi = n;
-    while (lo < hi) {
-        size_t mid = (lo + hi) / 2;
-        if (ram_obs[mid].addr < addr) lo = mid + 1;
-        else hi = mid;
-    }
-    return lo;
-}
-
-static int ram_block_has(const RamBlock *b, unsigned addr)
-{
-    for (size_t i = 0; i < b->n; i++)
-        if (ram_obs[b->node[i]].addr == addr) return 1;
-    return 0;
-}
-
 /* Saltos dentro del bloque van a su etiqueta; los demás salen al despachador */
 static void ram_jump(Emit *e, const char *expr, int is_const, uint16_t target)
 {
-    const RamBlock *b = e->user;
-    if (is_const && ram_block_has(b, target)) emit_line(e, "goto L_%04X;", target);
+    const RcBlock *b = e->user;
+    if (is_const && rc_block_has(&ram_list, b, target)) emit_line(e, "goto L_%04X;", target);
     else emit_line(e, "c->pc = %s; return;", expr);
 }
 
-static void emit_ram_block(FILE *f, size_t bi, const RamBlock *b)
+static void emit_ram_block(FILE *f, size_t bi, const RcBlock *b)
 {
     /* Los bytes de la guarda y cuáles se comparan (los operandos variables no) */
     fprintf(f, "static const u8 ram_b%zu_bytes[%u] = {", bi, b->len);
     unsigned k = 0;
     for (size_t i = 0; i < b->n; i++) {
-        const RamObs *o = &ram_obs[b->node[i]];
+        const RcIns *o = &ram_list.ins[b->node[i]];
         for (unsigned x = 0; x < o->len; x++, k++)
             fprintf(f, "%s0x%02X", k % 16 ? ", " : k ? ",\n    " : " ", o->bytes[x]);
     }
@@ -2171,7 +2099,7 @@ static void emit_ram_block(FILE *f, size_t bi, const RamBlock *b)
     fprintf(f, "static const u8 ram_b%zu_mask[%u] = {", bi, b->len);
     k = 0;
     for (size_t i = 0; i < b->n; i++) {
-        const RamObs *o = &ram_obs[b->node[i]];
+        const RcIns *o = &ram_list.ins[b->node[i]];
         for (unsigned x = 0; x < o->len; x++, k++)
             fprintf(f, "%s%u", k % 32 ? ", " : k ? ",\n    " : " ", (o->vol >> x & 1) ? 0u : 1u);
     }
@@ -2184,18 +2112,18 @@ static void emit_ram_block(FILE *f, size_t bi, const RamBlock *b)
     e.user = (void *)b;
     fprintf(f, "static void ram_b%zu(GB *g)\n{\n    Cpu *c = &g->cpu;\n    switch (c->pc) {\n", bi);
     for (size_t i = 0; i < b->n; i++) {
-        unsigned a = ram_obs[b->node[i]].addr;
+        unsigned a = ram_list.ins[b->node[i]].addr;
         fprintf(f, "    case 0x%04X: goto L_%04X;\n", a, a);
     }
     fprintf(f, "    default: gb_interp_step(g); return;\n    }\n");
 
     for (size_t i = 0; i < b->n; i++) {
-        const RamObs *o = &ram_obs[b->node[i]];
+        const RcIns *o = &ram_list.ins[b->node[i]];
         Insn in;
         char text[48], operand[160], lo[48], hi[48];
         sm83_decode(o->bytes, o->addr, &in);
         sm83_disasm(o->bytes, o->addr, text, sizeof text);
-        memcpy(e.b, o->bytes, sizeof e.b);
+        memcpy(e.b, o->bytes, sizeof e.b < sizeof o->bytes ? sizeof e.b : sizeof o->bytes);
         e.addr = o->addr;
 
         /* Operandos variables: se leen de RAM cuando la instrucción corre */
@@ -2225,6 +2153,9 @@ static void emit_ram_block(FILE *f, size_t bi, const RamBlock *b)
     fprintf(f, "}\n\n");
 }
 
+/* Dos direcciones seguidas van en el mismo bloque si están del mismo lado de $D000 (rc_blocks) */
+static int ram_joins(uint32_t a, uint32_t b) { return (a < 0xD000) == (b < 0xD000); }
+
 /* gen/ram.c: los bloques aprendidos de la traza y el lookup que los elige. Sin trazas de RAM,
  * el lookup devuelve NULL y la RAM sigue en el intérprete. */
 static void emit_ram(const char *dir)
@@ -2232,80 +2163,24 @@ static void emit_ram(const char *dir)
     FILE *f = open_out(dir, "gen/ram.c");
     fprintf(f, "/* Generado por gbrecomp: no editar. */\n#include \"recomp.h\"\n#include <string.h>\n\n");
 
-    /* Una misma instrucción vista en varias corridas se fusiona (ram_merge). Las direcciones con
-     * demasiadas versiones son código que el juego genera con estructuras distintas y no se
-     * aprenden */
-    qsort(ram_obs, n_ram_obs, sizeof *ram_obs, ram_obs_cmp);
-    size_t kept = 0, generated = 0;
-    for (size_t i = 0; i < n_ram_obs;) {
-        size_t j = i + 1;
-        while (j < n_ram_obs && ram_obs_cmp(&ram_obs[i], &ram_obs[j]) == 0) ram_merge(&ram_obs[i], &ram_obs[j++]);
-        for (unsigned x = 1; x < ram_obs[i].len; x++)
-            if (ram_obs[i].vol >> x & 1) ram_obs[i].bytes[x] = 0;
-        ram_obs[kept++] = ram_obs[i];
-        i = j;
-    }
-    n_ram_obs = kept;
-    kept = 0;
-    for (size_t i = 0; i < n_ram_obs;) {
-        size_t j = i + 1;
-        while (j < n_ram_obs && ram_obs[j].addr == ram_obs[i].addr) j++;
-        if (j - i <= RAM_MAXVER) for (size_t x = i; x < j; x++) ram_obs[kept++] = ram_obs[x];
-        else generated += j - i;
-        i = j;
-    }
-    n_ram_obs = kept;
-    size_t n = n_ram_obs;
-
-    /* Bloques: cadenas de nodos que van uno detrás de otro sin ambigüedad, esto es, cada uno tiene
-     * un solo sucesor y ese sucesor un solo predecesor. No se cruza el límite entre los bancos de
-     * WRAM ($D000), que no son contiguos en memoria */
-    size_t *next = malloc((n ? n : 1) * sizeof *next);
-    size_t *succ = malloc((n ? n : 1) * sizeof *succ);
-    unsigned *succ_n = calloc(n ? n : 1, sizeof *succ_n);
-    unsigned *pred_n = calloc(n ? n : 1, sizeof *pred_n);
-    unsigned char *has_prev = calloc(n ? n : 1, 1), *seen = calloc(n ? n : 1, 1);
-    RamBlock *blocks = calloc(n ? n : 1, sizeof *blocks);
-    if (!next || !succ || !succ_n || !pred_n || !has_prev || !seen || !blocks) die("sin memoria");
-    for (size_t i = 0; i < n; i++) {
-        unsigned end = ram_obs[i].addr + ram_obs[i].len;
-        succ[i] = ram_lower(n, end);
-        while (succ[i] + succ_n[i] < n && ram_obs[succ[i] + succ_n[i]].addr == end) {
-            pred_n[succ[i] + succ_n[i]]++;
-            succ_n[i]++;
-        }
-    }
-    for (size_t i = 0; i < n; i++) {
-        next[i] = (size_t)-1;
-        if (succ_n[i] != 1 || pred_n[succ[i]] != 1) continue;
-        if ((ram_obs[i].addr < 0xD000) != (ram_obs[succ[i]].addr < 0xD000)) continue;
-        next[i] = succ[i];
-        has_prev[succ[i]] = 1;
-    }
-    size_t nblocks = 0;
-    for (int pass = 0; pass < 2; pass++)    /* la segunda recoge lo que quedó tras cortar una cadena larga */
-        for (size_t i = 0; i < n; i++) {
-            if (seen[i] || (pass == 0 && has_prev[i])) continue;
-            RamBlock *b = &blocks[nblocks++];
-            b->node = malloc(RAM_MAXCHAIN * sizeof *b->node);
-            if (!b->node) die("sin memoria");
-            for (size_t cur = i; cur != (size_t)-1 && !seen[cur] && b->n < RAM_MAXCHAIN; cur = next[cur]) {
-                b->node[b->n++] = cur;
-                seen[cur] = 1;
-            }
-            const RamObs *first = &ram_obs[b->node[0]], *last = &ram_obs[b->node[b->n - 1]];
-            b->start = first->addr;
-            b->len = last->addr + last->len - first->addr;
-        }
+    /* Una misma instrucción vista en varias corridas se fusiona. Las direcciones con demasiadas
+     * versiones (más de RC_MAXVER) son código que el juego genera con estructuras distintas y no se
+     * aprenden. Los bloques son cadenas de instrucciones que van una detrás de otra sin ambigüedad
+     * (rc_blocks); no cruzan el límite entre los bancos de WRAM ($D000), que no son contiguos en
+     * memoria */
+    size_t generated = rc_list_finish(&ram_list), n = ram_list.n;
+    RcBlock *blocks = NULL;
+    size_t nblocks = n ? rc_blocks(&ram_list, &blocks, ram_joins) : 0;
+    if (nblocks == (size_t)-1) die("sin memoria");
 
     if (!nblocks) {
         fprintf(f, "RecompFn ram_lookup(GB *g, u16 pc)\n{\n    (void)g;\n    (void)pc;\n    return NULL;\n}\n");
         fclose(f);
-        free(next); free(succ); free(succ_n); free(pred_n); free(has_prev); free(seen); free(blocks);
+        free(blocks);
         return;
     }
     size_t nvol = 0;
-    for (size_t i = 0; i < n; i++) nvol += ram_obs[i].vol != 0;
+    for (size_t i = 0; i < n; i++) nvol += ram_list.ins[i].vol != 0;
     printf("código en WRAM/HRAM aprendido de la traza: %zu instrucciones (%zu con operandos variables) en %zu bloques",
            n, nvol, nblocks);
     if (generated) printf(" (%zu descartadas por cambiar de estructura)", generated);
@@ -2349,7 +2224,7 @@ static void emit_ram(const char *dir)
     npairs = 0;
     for (size_t bi = 0; bi < nblocks; bi++)
         for (size_t i = 0; i < blocks[bi].n; i++) {
-            pairs[npairs].addr = ram_obs[blocks[bi].node[i]].addr;
+            pairs[npairs].addr = ram_list.ins[blocks[bi].node[i]].addr;
             pairs[npairs++].block = bi;
         }
     for (size_t i = 1; i < npairs; i++) {    /* inserción: por dirección y luego por bloque */
@@ -2382,7 +2257,7 @@ static void emit_ram(const char *dir)
         addr_list[naddr++] = l;
         i = j;
     }
-    fprintf(f, "static const short ram_cands[%zu][%d] = {\n", nlists, RAM_MAXVER + 1);
+    fprintf(f, "static const short ram_cands[%zu][%d] = {\n", nlists, RC_MAXVER + 1);
     for (size_t l = 0; l < nlists; l++) {
         fprintf(f, "    {");
         for (size_t x = 0; x < list_len[l]; x++) fprintf(f, " %zu,", pairs[list_start[l] + x].block);
@@ -2413,7 +2288,7 @@ static void emit_ram(const char *dir)
     fclose(f);
     free(pairs); free(list_start); free(list_len); free(addr_list);
     for (size_t bi = 0; bi < nblocks; bi++) free(blocks[bi].node);
-    free(next); free(succ); free(succ_n); free(pred_n); free(has_prev); free(seen); free(blocks);
+    free(blocks);
 }
 
 /* Tablas del despachador: banco → página de 256 bytes → función por dirección */
@@ -2546,51 +2421,6 @@ static void write_embedded(const char *dir)
 }
 
 /* Texto dentro de un <script type="text/plain">: todo menos '<', que podría cerrarlo */
-static void put_script_text(FILE *f, const char *s, size_t n)
-{
-    for (size_t i = 0; i < n; i++) if (s[i] != '<') fputc(s[i], f);
-}
-
-/* --html: el visor (tools/visor.html, que gbrecomp lleva adentro) con los eventos
- * y, si se dio, la cobertura adentro; se cargan solos al abrir la página. Como el
- * de nesrecomp --html: una página sola, sin servidor. */
-static void write_html(const char *path, const char *title, const char *coverage)
-{
-    const EmbeddedFile *v = NULL;
-    for (const EmbeddedFile *e = embedded_files; e->name; e++)
-        if (!strcmp(e->name, "tools/visor.html")) v = e;
-    if (!v) die("gbrecomp se compiló sin tools/visor.html");
-    const char *html = (const char *)v->data;
-    const char *end = strstr(html, "</body>");
-    if (!end) die("tools/visor.html no tiene </body>");
-
-    FILE *f = fopen(path, "w");
-    if (!f) die("no se pudo crear %s", path);
-    fwrite(html, 1, (size_t)(end - html), f);
-    fputs("<script type=\"text/plain\" id=\"gbrecomp-eventos\">\n", f);
-    ev_write_file(f);
-    fputs("</script>\n", f);
-    if (coverage) {
-        FILE *c = fopen(coverage, "rb");
-        if (!c) die("no se pudo leer %s", coverage);
-        fputs("<script type=\"text/plain\" id=\"gbrecomp-cobertura\">\n", f);
-        char buf[4096];
-        size_t n;
-        while ((n = fread(buf, 1, sizeof buf, c)) > 0) put_script_text(f, buf, n);
-        fclose(c);
-        fputs("</script>\n", f);
-    }
-    fputs("<script>\n"
-          "cargarEventos(document.getElementById('gbrecomp-eventos').textContent, '", f);
-    for (const char *p = title; *p; p++) fputc(*p == '<' || *p == '\'' ? '?' : *p, f);
-    fputs("');\n", f);
-    if (coverage)
-        fputs("cargarCobertura(document.getElementById('gbrecomp-cobertura').textContent, 'cobertura');\n", f);
-    fputs("</script>\n", f);
-    fputs(end, f);
-    if (fclose(f)) die("no se pudo escribir %s", path);
-}
-
 /* Ícono del .exe en Windows: el Game Boy Color para los juegos de color, el
  * Game Boy para los demás (la ventana cambia de ícono según la consola) */
 static void emit_icon_rc(const char *dir)
@@ -2764,13 +2594,18 @@ static unsigned read_addr_list(const char *path, void (*fn)(u32 bank, u16 addr))
 
 static unsigned cov_missing;
 static char cov_list[10][16];    /* "BB:AAAA"; con 8 bytes se truncaba en ROMs de más de 4 MB (bancos desde $100) */
+static u32 *cov_off;             /* desplazamientos en la ROM de las que faltan (para --html) */
+
+/* Desplazamiento en la ROM de bank:addr (la vista de un banco en $0000 cae en el mismo byte) */
+static u32 rom_off(u32 bank, u16 addr) { return slot_bank(bank) * BANK_SIZE + (addr & (BANK_SIZE - 1)); }
 
 static void coverage_addr(u32 bank, u16 addr)
 {
     viz_want(bank, addr);
     if (*flag_at(bank, addr) & F_INSN) return;
     if (cov_missing < 10) snprintf(cov_list[cov_missing], sizeof cov_list[0], "%02X:%04X", slot_bank(bank), addr);
-    cov_missing++;
+    if (!(cov_missing & 255) && !(cov_off = realloc(cov_off, (cov_missing + 256) * sizeof *cov_off))) die("sin memoria");
+    cov_off[cov_missing++] = rom_off(bank, addr);
 }
 
 /* Instrucción en `bank:start`, desensamblada */
@@ -2844,6 +2679,95 @@ static void explain(u32 bank, u16 addr)
             limit = w;
         }
     }
+}
+
+static void json_str(FILE *f, const char *t)
+{
+    fputc('"', f);
+    for (; *t; t++) {
+        if (*t == '"' || *t == '\\') fputc('\\', f);
+        if (*t == '<') { fputs("\\u003c", f); continue; }
+        fputc(*t, f);
+    }
+    fputc('"', f);
+}
+
+#define VISOR_NAME "GBRecomp"     /* el título de la página (visor_html.h, común en ../shared) */
+#include "visor_html.h"
+
+/*
+ * --html: la página común de los cinco (visor_html.h) con el descubrimiento adentro: por cada
+ * instrucción, su desplazamiento en la ROM, su dirección, cómo se llegó a ella, desde qué
+ * instrucción (la cadena "por qué", como --why), el origen y el texto; con --coverage, también lo
+ * ejecutado que no se descubrió. Sale del registro de eventos: dentro de un recorrido cada
+ * instrucción sigue a la anterior; el recorrido viene de un salto, de una entrada de tabla (y la
+ * tabla, de la instrucción que la encontró) o de un punto de entrada.
+ */
+enum { HOW_VECTOR, HOW_TRACE, HOW_NEXT, HOW_JUMP, HOW_TABLE, HOW_COUNT };    /* HOW_NEXT es el 2: lo agrupa la página */
+static const char *const how_name[HOW_COUNT] = { "vector", "traza", "sigue", "salto", "tabla" };
+static const char *const org_name[ORG_COUNT] = { "flujo desde el arranque", "interrupciones", "tabla de saltos", "traza" };
+
+static void write_html(const char *path, const char *title)
+{
+    size_t n;
+    const Event *ev = ev_list(&n);
+    u8 *seen = calloc(rom_size, 1);
+    long *tparent = malloc(rom_size * sizeof *tparent);     /* entrada de tabla → instrucción que encontró la tabla */
+    if (!seen || !tparent) die("sin memoria");
+    for (u32 i = 0; i < rom_size; i++) tparent[i] = -1;
+    FILE *f = fopen(path, "w");
+    if (!f) die("no se pudo crear %s", path);
+    size_t cell = 256;
+    while (rom_size / cell > 4096) cell *= 2;
+    unsigned bytes = 0;
+    for (size_t i = 0; i < n; i++)
+        if (ev[i].type == EV_INSN && !seen[rom_off(ev[i].bank, ev[i].addr)]) {
+            seen[rom_off(ev[i].bank, ev[i].addr)] = 1;
+            bytes += ev[i].len;
+        }
+    memset(seen, 0, rom_size);
+    fputs(html_head, f);
+    fputs("{\"name\":", f);
+    json_str(f, title);
+    fprintf(f, ",\"rom\":%u,\"cell\":%zu,\"bytes\":%u,\"orgs\":[", rom_size, cell, bytes);
+    for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
+    fputs("],\"hows\":[", f);
+    for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    fputs("],\"missing\":[", f);
+    for (unsigned i = 0; i < cov_missing; i++) fprintf(f, i ? ",%u" : "%u", cov_off[i]);
+    fputs("],\"ins\":[\n", f);
+    const Event *walk = NULL;
+    long prev = -1, table_from = -1;
+    int first = 1;
+    for (size_t i = 0; i < n; i++) {
+        const Event *e = &ev[i];
+        if (e->type == EV_WALK) { walk = e; prev = -1; continue; }
+        if (e->type == EV_TABLE) { table_from = e->bank2 == EV_NONE ? -1 : (long)rom_off(e->bank2, e->addr2); continue; }
+        if (e->type == EV_TENTRY) { tparent[rom_off(e->bank, e->addr)] = table_from; continue; }
+        if (e->type != EV_INSN) continue;
+        u32 off = rom_off(e->bank, e->addr);
+        int how = HOW_NEXT, origin = walk ? walk->origin : ORG_BOOT;
+        long parent = prev;
+        if (prev < 0 && walk) {
+            if (walk->bank2 == EV_NONE) { how = walk->origin == ORG_TRACE ? HOW_TRACE : HOW_VECTOR; parent = -1; }
+            else if (walk->aux) { how = HOW_TABLE; parent = tparent[rom_off(walk->bank2, walk->addr2)]; }
+            else { how = HOW_JUMP; parent = (long)rom_off(walk->bank2, walk->addr2); }
+        }
+        prev = off;
+        if (seen[off]) continue;    /* la misma instrucción en un banco y en su vista en $0000 */
+        seen[off] = 1;
+        char text[48];
+        disasm_at(e->bank, e->addr, text, sizeof text);
+        fprintf(f, "%s[%u,%u,%d,%ld,%d,", first ? "" : ",\n", off, (unsigned)e->addr, how, parent, origin);
+        json_str(f, text);
+        fprintf(f, ",%u]", (unsigned)e->len);
+        first = 0;
+    }
+    fputs("\n]}", f);
+    fputs(html_tail, f);
+    if (fclose(f)) die("no se pudo escribir %s", path);
+    free(seen);
+    free(tparent);
 }
 
 static void sanitize(char *s)
@@ -2987,11 +2911,11 @@ int main(int argc, char **argv)
 
     if (codemap) write_codemap(codemap);
     if (events && !ev_write(events)) die("no se pudo escribir %s", events);
+    unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (html) {
-        write_html(html, title, coverage);
+        write_html(html, title);
         printf("visor escrito en %s\n", html);
     }
-    unsigned cov_total = coverage ? read_addr_list(coverage, coverage_addr) : 0;
     if (viz) viz_play(nbanks, title, viz_time);
     if (coverage) {
         printf("cobertura: %u direcciones ejecutadas, %u sin descubrir", cov_total, cov_missing);

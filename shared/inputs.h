@@ -1,6 +1,6 @@
 /*
- * Entradas grabadas: archivo de texto con una línea por cambio de botones, el mismo formato en NESRecomp,
- * GENRecomp, NEORecomp y SMSRecomp (GBRecomp tiene el suyo, de un jugador y con el modelo en el encabezado).
+ * Entradas grabadas: archivo de texto con una línea por cambio de botones, el mismo formato en los cinco
+ * recompiladores.
  *
  *   # comentario
  *   0     -              (ningún botón desde el cuadro 0)
@@ -16,7 +16,12 @@
  *
  * Común (retrorecomp/shared). Cada consola pone su input_host.h, que incluye su cabecera y define
  * InputPad (el tipo de los botones), INPUT_BUTTONS, INPUT_NAMES (en el orden de sus bits) e
- * input_from_rp (el mando aleatorio de random_pad.h en sus botones).
+ * input_from_rp (el mando aleatorio de random_pad.h en sus botones). Opcionales:
+ *   INPUT_PLAYERS 1                  un solo jugador: al grabar no se escribe la segunda columna (GB)
+ *   INPUT_HOST_SCRIPT_FIELDS         campos de más en InputScript (el modelo y la paleta del GB)
+ *   INPUT_HOST_SCRIPT_INIT(s)        sus valores antes de leer el archivo
+ *   INPUT_HOST_LINE(s, line)         líneas propias del encabezado ("modelo cgb"): 1 si la tomó, -1 si
+ *                                    es suya y está mal, 0 si no es suya
  */
 #ifndef INPUTS_H
 #define INPUTS_H
@@ -28,10 +33,24 @@
 
 #include "input_host.h"
 
+#ifndef INPUT_PLAYERS
+#define INPUT_PLAYERS 2
+#endif
+#ifndef INPUT_HOST_SCRIPT_FIELDS
+#define INPUT_HOST_SCRIPT_FIELDS
+#endif
+#ifndef INPUT_HOST_SCRIPT_INIT
+#define INPUT_HOST_SCRIPT_INIT(s) ((void)(s))
+#endif
+#ifndef INPUT_HOST_LINE
+#define INPUT_HOST_LINE(s, line) 0
+#endif
+
 typedef struct {
     long *frame;
     InputPad *pad[2];
     size_t n, cap, pos;
+    INPUT_HOST_SCRIPT_FIELDS
 } InputScript;
 
 static const char *const input_names[INPUT_BUTTONS] = { INPUT_NAMES };
@@ -71,6 +90,7 @@ static inline const char *inputs_load(InputScript *s, const char *path)
     static char err[256];
     FILE *f = fopen(path, "r");
     memset(s, 0, sizeof *s);
+    INPUT_HOST_SCRIPT_INIT(s);
     if (!f) {
         snprintf(err, sizeof err, "no se pudo abrir %s", path);
         return err;
@@ -81,6 +101,13 @@ static inline const char *inputs_load(InputScript *s, const char *path)
         lineno++;
         char *hash = strchr(line, '#');
         if (hash) *hash = 0;
+        int host = INPUT_HOST_LINE(s, line);
+        if (host) {
+            if (host > 0) continue;
+            snprintf(err, sizeof err, "%s:%d: línea inválida", path, lineno);
+            fclose(f);
+            return err;
+        }
         long frame;
         char p1[128], p2[128];
         p2[0] = 0;
@@ -116,6 +143,12 @@ static inline InputPad inputs_pad(InputScript *s, long frame, int player)
     return s->pad[player][s->pos];
 }
 
+/* Último cuadro con un cambio de botones */
+static inline long inputs_last_frame(const InputScript *s)
+{
+    return s->n ? s->frame[s->n - 1] : 0;
+}
+
 static inline void inputs_format(char *out, size_t size, InputPad pad)
 {
     out[0] = 0;
@@ -129,15 +162,18 @@ static inline void inputs_format(char *out, size_t size, InputPad pad)
         }
 }
 
-/* Grabación: escribe una línea solo cuando cambian los botones de alguno de los dos jugadores */
+/* Grabación: escribe una línea solo cuando cambian los botones de alguno de los dos jugadores (con
+ * INPUT_PLAYERS 1, solo el primero y en una columna) */
 static inline void inputs_record(FILE *f, long frame, const InputPad pads[2], int last[2])
 {
-    if (last[0] == pads[0] && last[1] == pads[1]) return;
-    last[0] = pads[0]; last[1] = pads[1];
+    InputPad p2 = INPUT_PLAYERS > 1 ? pads[1] : 0;
+    if (last[0] == pads[0] && last[1] == p2) return;
+    last[0] = pads[0]; last[1] = p2;
     char a[128], b[128];
     inputs_format(a, sizeof a, pads[0]);
-    inputs_format(b, sizeof b, pads[1]);
-    fprintf(f, "%ld %s %s\n", frame, a, b);
+    inputs_format(b, sizeof b, p2);
+    if (INPUT_PLAYERS > 1) fprintf(f, "%ld %s %s\n", frame, a, b);
+    else fprintf(f, "%ld %s\n", frame, a);
     fflush(f);
 }
 

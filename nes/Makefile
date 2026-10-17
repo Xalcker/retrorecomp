@@ -148,7 +148,7 @@ $(BUILD):
 
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
-	sh tests/run_tests.sh
+	python3 tests/run_tests.py
 
 # ROMs de prueba libres en testroms/ (no se versionan): christopherpow/nes-test-roms
 # en un commit fijo (el repositorio no tiene releases)

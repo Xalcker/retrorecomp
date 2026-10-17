@@ -64,8 +64,9 @@ def correr(cmd, entrada=None, **kw):
     cmd = list(cmd)
     if os.sep in cmd[0] or "/" in cmd[0]:
         cmd[0] = os.path.abspath(cmd[0])        # en Windows, una ruta relativa con «/» no la encuentra CreateProcess
+    stderr = kw.pop("stderr", subprocess.STDOUT)    # DEVNULL para quedarse solo con stdout
     try:
-        p = subprocess.run(cmd, input=entrada, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw)
+        p = subprocess.run(cmd, input=entrada, stdout=subprocess.PIPE, stderr=stderr, **kw)
     except OSError as e:
         return 127, f"{cmd[0]}: {e.strerror}\n"
     return p.returncode, p.stdout.decode("utf-8", errors="replace").replace("\r\n", "\n")

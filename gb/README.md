@@ -322,6 +322,9 @@ gbtrace rom.gb traza.txt --frames 3000 --input tests/inputs/partida1.txt   # dir
 gbshot  rom.gb captura.png --frames 900 --input tests/inputs/partida1.txt
 gbaudio rom.gb audio.wav   --frames 600 --seed 3                            # WAV estéreo y nivel por segundo
 gbramdump rom.gb          --frames 600 --input partida.txt                 # WRAM y HRAM (como ramdump de NES)
+gbshot  rom.gb captura.png --frames 179 --expect esperada.png               # pasa si la pantalla final es idéntica al PNG
+gbrecomp rom.gb --info                                                      # la cabecera: modo, cartucho, tamaños, sumas y SHA1
+statetest rom.gb 300 300                                                    # guardar un estado, cargarlo en otra máquina: lo mismo
 ```
 
 `gbtrace` corre el intérprete, así que no necesita el proyecto compilado: la traza se pasa a

@@ -15,9 +15,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import compat  # noqa: E402
 import retrorecomp_gui as rr  # noqa: E402
 
-# Herramienta -> opciones que debe mencionar su ayuda: las mismas para cada sistema del registro
-COMMON = {sid: {sid + "trace": ("--frames", "--input", "--seed"), sid + "shot": ("--frames", "--input", "--seed"),
-                sid + "audio": ("--frames", "--input", "--seed"), sid + "bench": ("--frames", "--input", "--repeat", "--seed")}
+# Los roles de las herramientas, los mismos en cada sistema: nombre del rol -> opciones que debe mencionar su ayuda.
+# Con PREFIJO, la herramienta se llama <sistema><rol> (gentrace, nesshot...); sin él, se llama como el rol (statetest).
+# Un sistema puede no tener un rol a propósito: va en AUSENTES con el motivo, y el contrato deja de pedirlo.
+ENTRADAS = ("--frames", "--input", "--seed")
+ROLES = {"trace": ENTRADAS, "shot": ENTRADAS, "audio": ENTRADAS, "ramdump": ENTRADAS,
+         "bench": (*ENTRADAS, "--repeat"), "run": ("--frames",)}
+ROLES_SIN_PREFIJO = {"statetest": (), "inputtest": ()}
+AUSENTES = {("gb", "run"): "gbtest corre las ROMs de prueba sin ventana y gb es la ventana; no hay un corredor aparte",
+            ("nes", "run"): "nestest corre las ROMs de prueba sin ventana y nes es la ventana; no hay un corredor aparte"}
+# El recompilador de cada sistema (<sistema>recomp): las opciones de análisis que su ayuda debe mencionar
+RECOMP_OPCIONES = ("--info", "--viz", "--why", "--events", "--html", "--dis", "--codemap", "--coverage")
+
+COMMON = {sid: {**{sid + rol: opts for rol, opts in ROLES.items() if (sid, rol) not in AUSENTES},
+                **ROLES_SIN_PREFIJO, sid + "recomp": RECOMP_OPCIONES}
           for sid in rr.REGISTRO}
 
 # Archivos que todos tienen tal cual: los envoltorios de las pruebas comunes (el código vive en shared/) y las

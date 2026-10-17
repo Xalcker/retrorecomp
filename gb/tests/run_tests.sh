@@ -79,6 +79,26 @@ if [ -z "$FILTRO" ] || case "sgb_controles" in *"$FILTRO"*) true ;; *) false ;; 
     fi
 fi
 
+# --- inputtest (entradas grabadas, botones, modelo y paleta, --seed, --model) y statetest (guardar un estado,
+#     cargarlo en otra máquina y volver a correr: lo mismo) ---
+prueba() {    # NOMBRE PROGRAMA [argumentos]
+    nombre=$1; prog=$2; shift 2
+    case "$nombre" in *"$FILTRO"*) ;; *) return ;; esac
+    x=; [ -x ./gbtest.exe ] && x=.exe
+    [ -x "./$prog$x" ] || return
+    mkdir -p build/tests
+    if "./$prog$x" "$@" > /tmp/gbtest.out 2>&1; then
+        pasa=$((pasa + 1))
+    else
+        falla=$((falla + 1))
+        fallidas="$fallidas
+  $nombre: $(tail -n 3 /tmp/gbtest.out)"
+    fi
+}
+prueba "inputtest" inputtest
+prueba "statetest cpu_instrs" statetest "$T/blargg/cpu_instrs/cpu_instrs.gb" 300 300
+for g in roms/*.gb roms/*.gbc; do [ -f "$g" ] && { prueba "statetest $(basename "$g")" statetest "$g" 300 300; break; }; done
+
 # --- dmg-acid2 ---
 corre "$T/dmg-acid2/dmg-acid2.gb" --seconds 3 --expect "$T/dmg-acid2/dmg-acid2-dmg.png"
 

@@ -15,7 +15,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := ../shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c golden_hash.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c golden_hash.h bench_comun.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -49,7 +49,7 @@ RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 RT := $(BUILD)/libsmsrt.a
 # Lo del runtime que vive en shared/: el núcleo del Z80 (común con GENRecomp y NEORecomp; z80_ops.h es su
 # semántica, la misma para el intérprete y el código generado) y console.h
-SHARED_RT := z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h metrica.h
+SHARED_RT := z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h metrica.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 # La ventana: el intérprete con menús (sms)
@@ -102,7 +102,7 @@ smsshot$(EXE): src/tools/smsshot.c $(SHARED)/png.c $(TOOL_DEPS)
 smsaudio$(EXE): src/tools/smsaudio.c $(SHARED)/wav.h $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smsaudio.c $(RT) -lm
 
-smsbench$(EXE): src/platform/bench.c $(TOOL_DEPS)
+smsbench$(EXE): src/platform/bench.c $(SHARED)/bench_comun.h $(SHARED)/golden_hash.h $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
 smsramdump$(EXE): src/tools/smsramdump.c $(TOOL_DEPS)
@@ -128,11 +128,11 @@ z80test$(EXE): $(SHARED)/z80test.c $(SHARED)/json.h $(SHARED)/z80_ops.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $(SHARED)/z80test.c $(RT) -lm
 
 # Archivos que smsrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := sms.h metrica.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80_host.h z80_recomp_host.h recomp.h \
+EMBED_RUNTIME  := sms.h metrica.h cart.c smsdb.c sms.c bus.c io.c vdp.c vdp_render.c z80_host.c z80_host.h z80_recomp_host.h recomp.h prof.h \
                   psg_host.h audio_host.h z80.h z80_ops.h z80.c psg.c psg.h audio.c audio.h console.h
 EMBED_PLATFORM := main_sdl.c ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h settings.c settings.h \
                   files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h \
-                  player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h difftest.c bench.c golden_hash.h
+                  player_touch.h icono.h icono.rc icono.ico inputs.h input_host.h cli.h difftest.c bench.c bench_comun.h golden_hash.h
 EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h \
              $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \

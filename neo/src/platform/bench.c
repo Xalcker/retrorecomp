@@ -1,83 +1,60 @@
 /*
- * bench: velocidad de emulación sin ventana ni límite de cuadros (neobench con el intérprete; en los
- * proyectos generados, bench con el código recompilado).
- *   neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--profile] [boton:desde-hasta ...]
- * Sin entradas, Start a los 2 s y luego la derecha. Con --repeat se reporta la corrida más rápida.
- * También dice cuánto del Z80 corrió nativo, interpretado o saltado; con --profile, en qué se fue el
- * tiempo (prof.h).
- * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
- * --hash del intérprete (golden_hash.h): así tests/golden.py --recompilado compara el código recompilado con
- * la misma línea base.
+ * bench de Neo Geo: velocidad de emulación sin ventana ni límite de cuadros (neobench con el intérprete; en los proyectos generados,
+ * bench con el código recompilado). El esqueleto, las opciones y la salida son los de bench_comun.h (en ../shared); aquí va lo propio
+ * de la consola. También dice cuánto del Z80 corrió nativo, interpretado o saltado.
  */
 #define PROF_SAMPLER        /* antes de cualquier include: neo.h incluye prof.h */
 #ifndef _WIN32
 #define _POSIX_C_SOURCE 200809L     /* nanosleep con -std=c99 (el hilo de prof.h) */
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include "bench_comun.h"
 
-#include "cli.h"
-#include "golden_hash.h"
-#include "console.h"
+static Neo *gg(void *g) { return g; }
+
+static const char *cargar(void *g, const u8 *rom, size_t len, const Cli *c)
+{
+    (void)rom; (void)len;
+    static char msg[1300];
+    const char *err = NULL;
+    if (!neo_load(gg(g), c->pos[0], NULL, &err)) return NULL;
+    snprintf(msg, sizeof msg, "%s: %s", c->pos[0], err);
+    return msg;
+}
+
+static void liberar(void *g) { neo_free(gg(g)); }
+
+static void reiniciar(void *g)
+{
+    z80_stat_of = g;
+    z80_stat = (Z80Stat){ 0 };      /* todas las corridas dan lo mismo: se queda la última */
+    metrica_reiniciar(g);           /* lo mismo con la métrica común (metrica.h) */
+}
+
+static void poner_pad(void *g, unsigned p1, unsigned p2) { gg(g)->pad[0] = (u16)p1; gg(g)->pad[1] = (u16)p2; }
+static void cuadro(void *g) { neo_run_frame(gg(g)); }
+
+static void hash(void *g, GoldenHash *gh)       /* lo mismo que neoshot --hash */
+{
+    static int16_t snd[AUDIO_BINS * 2];
+    int n = neo_audio_take(gg(g), snd, AUDIO_BINS);
+    golden_fnv(&gh->img, gg(g)->fb, sizeof gg(g)->fb);
+    golden_fnv(&gh->aud, snd, (size_t)n * 4);
+}
+
+static void vaciar(void *g) { gg(g)->audio.n = 0; }
+static u64 ciclos(const void *g) { return ((const Neo *)g)->cyc; }
+static void extra(void *g, const Cli *c) { (void)g; (void)c; z80_stat_print(); }
 
 int main(int argc, char **argv)
 {
-    console_utf8();
-    static Cli c;
-    if (cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: %s juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--profile] [--hash] [boton:desde-hasta ...]\n", cli_prog(argv[0]));
-        return 2;
-    }
-    int scripted = c.input || c.nh || c.use_seed;
-    double best = 0;
-    u64 total_cyc = 0;
-    GoldenHash gh;
-    static int16_t snd[AUDIO_BINS * 2];
-    if (c.hash) c.repeat = 1;
-    static Neo g;
-    z80_stat_of = &g;
-    if (c.profile && !prof_start()) { fprintf(stderr, "no se pudo arrancar el hilo de --profile\n"); return 2; }
-    for (int k = 0; k < c.repeat; k++) {
-        const char *err = NULL;
-        if (k) neo_free(&g);
-        if (neo_load(&g, c.pos[0], NULL, &err)) { fprintf(stderr, "%s: %s\n", c.pos[0], err); return 2; }
-        cli_rewind(&c);
-        z80_stat = (Z80Stat){ 0 };      /* todas las corridas dan lo mismo: se queda la última */
-        metrica_reiniciar(&g);          /* lo mismo con la métrica común (metrica.h) */
-        u64 cyc0 = g.cyc;
-        golden_init(&gh);
-        clock_t t0 = clock();
-        for (long i = 0; i < c.frames; i++) {
-            if (scripted) { g.pad[0] = cli_pad(&c, i, 0); g.pad[1] = cli_pad(&c, i, 1); }
-            else g.pad[0] = (i > 120 && i < 125) ? NEO_START : (i > 400 ? NEO_RIGHT : 0);
-            neo_run_frame(&g);
-            if (c.hash) {                /* lo mismo que neoshot --hash */
-                int n = neo_audio_take(&g, snd, AUDIO_BINS);
-                golden_fnv(&gh.img, g.fb, sizeof g.fb);
-                golden_fnv(&gh.aud, snd, (size_t)n * 4);
-            }
-            g.audio.n = 0;
-        }
-        double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
-        if (k == 0 || s < best) best = s;
-        total_cyc = g.cyc - cyc0;
-    }
-    if (c.profile) prof_stop();
-    double xtr = c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K));
-    printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
-           c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, xtr);
-    const Metrica *mres = NULL;
+    BenchOps o = {
+        .uso_rom = "juego", .uso_extra = "", .cuadros = 1800, .fps = MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K),
 #ifdef NEO_RECOMP
-    metrica_imprimir(&metrica, total_cyc);
-    mres = &metrica;
+        .recompilado = 1,
 #endif
-    z80_stat_print();
-    if (c.profile) prof_print();
-    if (c.hash) golden_print(&gh);
-    char res[200];
-    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", c.frames, best, xtr);
-    if (c.hash) snprintf(res + nres, sizeof res - (size_t)nres, ",\"hash_imagen\":\"%016llx\",\"hash_audio\":\"%016llx\"", gh.img, gh.aud);
-    metrica_resumen("bench", 1, res, mres, total_cyc);     /* la última línea (metrica.h) */
-    return 0;
+        .cpu = "68000", .con_z80 = 1, .sin_leer = 1, .start = NEO_START, .derecha = NEO_RIGHT, .tam = sizeof(Neo),
+        .cargar = cargar, .liberar = liberar, .reiniciar = reiniciar, .pad = poner_pad, .cuadro = cuadro, .hash = hash,
+        .vaciar = vaciar, .ciclos = ciclos, .extra = extra,
+    };
+    return bench_main(argc, argv, &o);
 }

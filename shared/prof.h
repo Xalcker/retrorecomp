@@ -5,7 +5,7 @@
  * que se ejecuta ni los ciclos; el hilo corre en otro núcleo. Lo que no está marcado cae en "68000 y lo
  * demás" (el 68000, interpretado o recompilado, el bus, las E/S).
  *
- * Común a GENRecomp y NEORecomp (retrorecomp/shared). Cada consola pone PROF_DEFINE en un .c de su runtime
+ * Común a los cinco recompiladores (retrorecomp/shared). Cada consola pone PROF_DEFINE en un .c de su runtime
  * y marca sus zonas con PROF_ENTER/PROF_LEAVE; solo bench.c define PROF_SAMPLER antes de incluirlo, para
  * tener el hilo (prof_start, prof_stop, prof_print), y fuera de Windows también _POSIX_C_SOURCE 200809L
  * (nanosleep con -std=c99).
@@ -91,15 +91,18 @@ static void prof_stop(void)
 }
 #endif
 
-/* "Perfil (N muestras): Z80 x%, sonido y%, video z%, 68000 y lo demás w%" */
-static void prof_print(void)
+/* "Perfil (N muestras): [Z80 x%, ]sonido y%, video z%, <cpu> y lo demás w%". `cpu` es el nombre del procesador principal (el que
+ * no marca zona: «68000», «6502»...) y `con_z80`, si la consola marca PROF_Z80 (la segunda CPU, la del sonido) */
+static void prof_print(const char *cpu, int con_z80)
 {
     unsigned long long n = 0;
     for (int i = 0; i < PROF_ZONAS; i++) n += prof_count[i];
     if (!n) { puts("Perfil: sin muestras"); return; }
-    printf("Perfil (%llu muestras): Z80 %.1f%%, sonido %.1f%%, video %.1f%%, 68000 y lo demás %.1f%%\n", n,
-           100.0 * (double)prof_count[PROF_Z80] / (double)n, 100.0 * (double)prof_count[PROF_SONIDO] / (double)n,
-           100.0 * (double)prof_count[PROF_VIDEO] / (double)n, 100.0 * (double)prof_count[PROF_OTRO] / (double)n);
+    double d = (double)n;
+    printf("Perfil (%llu muestras): ", n);
+    if (con_z80) printf("Z80 %.1f%%, ", 100.0 * (double)prof_count[PROF_Z80] / d);
+    printf("sonido %.1f%%, video %.1f%%, %s y lo demás %.1f%%\n", 100.0 * (double)prof_count[PROF_SONIDO] / d,
+           100.0 * (double)prof_count[PROF_VIDEO] / d, cpu, 100.0 * (double)prof_count[PROF_OTRO] / d);
 }
 #endif
 

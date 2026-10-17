@@ -1,73 +1,48 @@
 /*
- * bench: velocidad de emulación sin ventana ni límite de cuadros.
- *   bench rom.nes [--frames N] [--repeat N] [--input archivo] [--seed S] [boton:desde-hasta ...]
- * (también vale: bench rom.nes cuadros). Sin entradas, Start y luego la derecha. Con --repeat se
- * reporta la corrida más rápida.
- * Compilado con -DNES_RECOMP (proyecto generado) mide el código recompilado;
- * sin él, el intérprete.
- * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
- * --hash del intérprete (golden_hash.h): así tests/golden.py --recompilado compara el código recompilado con
- * la misma línea base.
+ * bench de NES: velocidad de emulación sin ventana ni límite de cuadros (nesbench con el intérprete; en los proyectos generados,
+ * bench con el código recompilado, compilado con -DNES_RECOMP). El esqueleto, las opciones y la salida son los de bench_comun.h
+ * (en ../shared); aquí va lo propio de la consola.
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include "cli.h"
-#include "golden_hash.h"
+#define PROF_SAMPLER        /* antes de cualquier include: nes.h incluye prof.h */
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L     /* nanosleep con -std=c99 (el hilo de prof.h) */
+#endif
+#include "bench_comun.h"
+
+static NES *gg(void *g) { return g; }
+
+static const char *cargar(void *g, const u8 *rom, size_t len, const Cli *c)
+{
+    (void)c;
+    const char *err = NULL;
+    if (!nes_load(gg(g), rom, len, &err)) return NULL;
+    return err ? err : "no se pudo cargar la ROM";
+}
+
+static void reiniciar(void *g) { metrica_reiniciar(g); }       /* todas las corridas dan lo mismo: se queda la última */
+static void poner_pad(void *g, unsigned p1, unsigned p2) { gg(g)->pad[0] = (u8)p1; gg(g)->pad[1] = (u8)p2; }
+static void cuadro(void *g) { nes_run_frame(gg(g)); }
+
+static void hash(void *g, GoldenHash *gh)       /* lo mismo que nesshot --hash */
+{
+    NES *n = gg(g);
+    golden_fnv(&gh->img, n->ppu.fb, sizeof n->ppu.fb);
+    golden_fnv(&gh->aud, n->apu.buf, (size_t)n->apu.nbuf * sizeof n->apu.buf[0]);
+}
+
+static void vaciar(void *g) { gg(g)->apu.nbuf = 0; }
+static u64 ciclos(const void *g) { return ((const NES *)g)->cyc; }
 
 int main(int argc, char **argv)
 {
-    static Cli c;
-    if (cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: %s rom.nes [--frames N] [--repeat N] [--input archivo] [--seed S] [--hash] [boton:desde-hasta ...]\n", cli_prog(argv[0]));
-        return 2;
-    }
-    FILE *f = fopen(c.pos[0], "rb");
-    if (!f) { fprintf(stderr, "no pude leer %s\n", c.pos[0]); return 2; }
-    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    u8 *rom = malloc(sz);
-    if (fread(rom, 1, sz, f) != (size_t)sz) return 2;
-    fclose(f);
-    int scripted = c.input || c.nh || c.use_seed;
-    long frames = c.frames;
-    double best = 0;
-    u64 total_cyc = 0;
-    GoldenHash gh;
-    if (c.hash) c.repeat = 1;
-    for (int k = 0; k < c.repeat; k++) {
-        static NES n; const char *err = NULL;
-        if (nes_load(&n, rom, sz, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
-        cli_rewind(&c);
-        golden_init(&gh);
-        metrica_reiniciar(&n);      /* todas las corridas dan lo mismo: se queda la última */
-        u64 cyc0 = n.cyc;
-        clock_t t0 = clock();
-        for (long i = 0; i < frames; i++) {
-            if (scripted) { n.pad[0] = cli_pad(&c, i, 0); n.pad[1] = cli_pad(&c, i, 1); }
-            else n.pad[0] = (i > 120 && i < 125) ? BTN_START : (i > 400 ? BTN_RIGHT : 0);
-            nes_run_frame(&n);
-            if (c.hash) {
-                golden_fnv(&gh.img, n.ppu.fb, sizeof n.ppu.fb);
-                golden_fnv(&gh.aud, n.apu.buf, (size_t)n.apu.nbuf * sizeof n.apu.buf[0]);
-            }
-            n.apu.nbuf = 0;
-        }
-        double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
-        if (k == 0 || s < best) best = s;
-        total_cyc = n.cyc - cyc0;
-    }
-    double xtr = frames / best / 60.0988;
-    printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", frames, best,
-           c.repeat > 1 ? " (mejor corrida)" : "", frames / best, xtr);
-    const Metrica *mres = NULL;
+    BenchOps o = {
+        .uso_rom = "rom.nes", .uso_extra = "", .cuadros = 1800, .fps = 60.0988,
 #ifdef NES_RECOMP
-    metrica_imprimir(&metrica, total_cyc);      /* la métrica común (metrica.h) */
-    mres = &metrica;
+        .recompilado = 1,
 #endif
-    if (c.hash) golden_print(&gh);
-    char res[200];
-    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", frames, best, xtr);
-    if (c.hash) snprintf(res + nres, sizeof res - (size_t)nres, ",\"hash_imagen\":\"%016llx\",\"hash_audio\":\"%016llx\"", gh.img, gh.aud);
-    metrica_resumen("bench", 1, res, mres, total_cyc);     /* la última línea (metrica.h) */
-    return 0;
+        .cpu = "6502", .con_z80 = 0, .start = BTN_START, .derecha = BTN_RIGHT, .tam = sizeof(NES),
+        .cargar = cargar, .reiniciar = reiniciar, .pad = poner_pad, .cuadro = cuadro, .hash = hash, .vaciar = vaciar,
+        .ciclos = ciclos,
+    };
+    return bench_main(argc, argv, &o);
 }

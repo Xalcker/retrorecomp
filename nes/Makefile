@@ -15,7 +15,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h,...) vive en el submódulo
 SHARED := ../shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c golden_hash.h
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h files.c wav.h inputs.h cli.h settings.c golden_hash.h bench_comun.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -51,7 +51,7 @@ endif
 RUNTIME := nes.c cpu6502.c ppu.c apu.c mapper.c sha1.c vrc7.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 # Lo del runtime que vive en shared/ (console.h)
-SHARED_RT := console.h metrica.h
+SHARED_RT := console.h metrica.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 RT := $(BUILD)/libnesrt.a
 
@@ -66,15 +66,15 @@ nestest$(EXE): src/tools/nestest.c $(RT)
 nesshot$(EXE): src/tools/nesshot.c $(SHARED)/png.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c $(SHARED)/png.c $(RT)
 
-nesbench$(EXE): src/platform/bench.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
+nesbench$(EXE): src/platform/bench.c $(SHARED)/bench_comun.h $(SHARED)/golden_hash.h $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/platform/bench.c $(RT) -lm
 
 nestrace$(EXE): src/tools/nestrace.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nestrace.c $(RT)
 
 # Archivos que nesrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c metrica.h
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c golden_hash.h cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
+EMBED_RUNTIME  := nes.h nes.c cpu_ops.h cpu6502.c ppu.c apu.c mapper.c recomp.h console.h vrc7.c metrica.h prof.h
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c bench_comun.h golden_hash.h cli.h ui_menu.c ui_menu.h ui_font.c ui_font.h i18n.c i18n.h \
                   settings.c settings.h files.c files.h wav.h export.c export.h png.c png.h player_util.h player_common.h player_audio.h player_rom.h player_touch.h inputs.h input_host.h icono.h icono.rc icono.ico
 EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/trace_line.h $(SHARED)/ram_code.h $(SHARED)/sha1.c $(SHARED)/sha1.h
 EMBED_ARGS := $(foreach f,$(EMBED_RUNTIME),runtime/$(f)=$(call rt,$(f))) \

@@ -8,6 +8,7 @@
 #include "trace_line.h"
 
 METRICA_DEFINIR
+PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
 int nes_load(NES *n, const u8 *d, size_t len, const char **err)
 {

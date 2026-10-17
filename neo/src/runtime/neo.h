@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #include "m68k.h"
-#include "metrica.h"     /* la métrica común del 68000 (cpu68k.c y el despachador) */
+#include "metrica.h"     /* la métrica común del 68000 (m68k.c y el despachador) */
 #include "z80.h"
 #include "prof.h"
 

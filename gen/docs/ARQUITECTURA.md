@@ -12,11 +12,11 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h` (lo que los núcleos, el PSG y la mezcla comunes toman de esta consola). De `../shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `cpu68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `psg.c`/`psg.h` (el SN76489, común también con SMSRecomp), `dis68k.c`; también `sha1`, `console.h`. |
+| `src/runtime/` | La consola: `gen.h` (estado y interfaz), `gen.c` (carga, reset, cuadro, SRAM), `cart.c` (formatos, cabecera, vectores, mapeo), `bus.c` (mapa de memoria del 68000), `io.c` (versión y mandos), `eeprom.c` (EEPROM serie), `vdp.c` (puertos, DMA, líneas), `vdp_render.c` (dibujo), `z80bus.c` (el mapa del Z80 y cuándo corre), `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h` (lo que los núcleos, el PSG y la mezcla comunes toman de esta consola). De `../shared`, comunes con NEORecomp: `m68k.h` (estado del 68000 y lo que pide del bus), `m68k_ops.h` (semántica de cada instrucción), `m68k.c` (decodificador, excepciones, intérprete), `z80.h`/`z80.c` (el Z80), `audio.c`/`audio.h` (la mezcla), `psg.c`/`psg.h` (el SN76489, común también con SMSRecomp), `m68k_dis.c`; también `sha1`, `console.h`. |
 | `src/genrecomp/` | El recompilador. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `input_host.h` (los botones para `inputs.h` y `cli.h` comunes). De `../shared`: `files`, `export`, `png`, `random_pad.h`, `inputs.h`, `cli.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `gentrace`, `genshot`, `genaudio`, `genramdump` (y `genbench`, de `src/platform/bench.c`). Pruebas: `carttest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`), `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`. Diagnóstico: `genrun`. |
-| `tests/` | `run_tests.sh` (`make test`), `sst68k.sh` (las SingleStepTests por familia), `contract.sh` (contrato común). |
+| `tests/` | `run_tests.sh` (`make test`), `sst.sh m68k` (las SingleStepTests por familia), `contract.sh` (contrato común). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `MD.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -25,7 +25,7 @@ contenido dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 `k_NOMBRE(g, op, ext, pc)` que ejecuta la instrucción `op` que está en `pc` y devuelve la dirección
 de la siguiente (la que sigue, el destino de un salto o el manejador de una excepción):
 
-- El **intérprete** (`cpu68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
+- El **intérprete** (`m68k.c`) las llama con `ext = NULL`: las palabras de extensión salen de la
   cola de prefetch (`ir`, `irc`) y cada una que se consume pide la siguiente al bus, como el 68000.
 - El **código generado** las llamará con `op`, `pc` y `ext` constantes (las palabras de extensión,
   leídas de la ROM al recompilar). Las lecturas de programa se vuelven ciclos sin acceso al bus y
@@ -176,7 +176,7 @@ Las mismas que `nesrecomp`, con los mismos formatos:
   origen y desensamblado.
 - `--codemap archivo`: una letra por byte de la ROM (`C` = código), 64 por línea, como `difftest
   --executed`.
-- `--dis OFFSET:DIR:N`: desensambla N instrucciones (`dis68k.c`, que también pone el desensamblado en
+- `--dis OFFSET:DIR:N`: desensambla N instrucciones (`m68k_dis.c`, que también pone el desensamblado en
   los comentarios del código generado).
 
 ### Funciones y emisión
@@ -423,7 +423,7 @@ con el primer y el último byte) no están confirmadas con hardware.
 `z80.c`: el Z80 completo, con lo no documentado (banderas X/Y, MEMPTR/WZ, Q para SCF/CCF, mitades de
 IX/IY, SLL, la copia del resultado de DDCB/FDCB a un registro, las banderas de las instrucciones de
 bloque al repetir) y las interrupciones IM 0/1/2. Pasa las 1 604 000 SingleStepTests del Z80
-(`z80test`, `tests/sstz80.sh`, en `make test`).
+(`z80test`, `tests/sst.sh z80`, en `make test`).
 
 **El driver en código nativo.** `genrecomp` compila también el driver que el 68000 sube a la RAM del Z80,
 con el recompilador del Z80 común con NEORecomp y SMSRecomp (`z80_recomp.h`, en `../shared`;

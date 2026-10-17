@@ -5,7 +5,7 @@
  * instrucción `op` que está en `pc` y devuelve la dirección de la siguiente que hay que
  * ejecutar (la que sigue, el destino de un salto o el manejador de una excepción).
  *
- * - El intérprete (cpu68k.c) las llama con ext = NULL: las palabras de extensión salen de la cola
+ * - El intérprete (m68k.c) las llama con ext = NULL: las palabras de extensión salen de la cola
  *   de prefetch (ir, irc) y cada una que se consume pide la siguiente al bus, como el 68000.
  * - El código generado las llamará con `op`, `pc` y `ext` constantes (las palabras de extensión,
  *   leídas de la ROM al recompilar): el compilador pliega los switch y lo que queda es la
@@ -70,7 +70,7 @@ typedef struct {
     u32 lf;             /* dirección de la última lectura de programa (el error de dirección apila lf - 2) */
 } X;
 
-/* Errores de dirección: acceso de palabra a una dirección impar (cpu68k.c). No vuelve. */
+/* Errores de dirección: acceso de palabra a una dirección impar (m68k.c). No vuelve. */
 enum { AE_READ = 0x10, AE_INSN = 0x08 };       /* bits del estado que se apila: R/W e I/N (I/N = 1: fuera de una instrucción) */
 M68K_NORET void m68k_address_error(X *x, u32 addr, int flags);
 /* Excepción de grupo 1 o 2: apila PC y SR, salta al vector. Devuelve el manejador. */

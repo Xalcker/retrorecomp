@@ -2,7 +2,7 @@
  * 68000: estado del CPU y lo que el CPU necesita de la consola (el bus).
  *
  * La semántica de cada instrucción está en m68k_ops.h, la única fuente de verdad: el intérprete
- * (cpu68k.c) la usa con valores de tiempo de ejecución y el código generado con constantes.
+ * (m68k.c) la usa con valores de tiempo de ejecución y el código generado con constantes.
  *
  * Es común a GENRecomp y NEORecomp (retrorecomp/shared). Cada consola pone su m68k_host.h:
  *   M68K_HOST         el tipo de la consola (Gen, Neo): struct M68K_HOST y typedef con el mismo nombre
@@ -54,7 +54,7 @@ static inline int m68k_native_ok(const M68k *c)
     return !(c->halted | c->stopped | c->t | c->nmi_edge) && c->ipl <= c->ipm;
 }
 
-/* Intérprete (cpu68k.c) */
+/* Intérprete (m68k.c) */
 void     m68k_reset(struct M68K_HOST *g);                         /* reset del CPU: SSP y PC de los vectores 0 y 1 */
 int      m68k_step(struct M68K_HOST *g);                          /* una instrucción (o la interrupción pendiente); ciclos */
 void     m68k_run(struct M68K_HOST *g, int (*after)(struct M68K_HOST *));   /* instrucciones hasta que after() devuelva != 0 */

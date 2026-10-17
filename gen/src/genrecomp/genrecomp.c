@@ -49,7 +49,7 @@
 #include "ram_code.h"
 #include "z80_recomp.h"
 #include "embedded.h"
-#include "dis68k.h"
+#include "m68k_dis.h"
 
 #ifndef GENRECOMP_VERSION
 #define GENRECOMP_VERSION "dev"
@@ -204,7 +204,7 @@ static void disasm_at(size_t off, u32 addr, char *out, size_t size)
 {
     u16 w[5];
     for (int i = 0; i < 5; i++) w[i] = romw(off + 2 * (size_t)i);
-    dis68k(w, addr, out, size);
+    m68k_dis(w, addr, out, size);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1220,7 +1220,7 @@ static void ram_dis(const RcIns *in, char *out, size_t size)
 {
     u16 w[5] = { 0 };
     for (unsigned i = 0; i < 5 && 2 * i + 1 < in->len; i++) w[i] = (u16)(in->bytes[2 * i] << 8 | in->bytes[2 * i + 1]);
-    dis68k(w, in->addr, out, size);
+    m68k_dis(w, in->addr, out, size);
 }
 
 static int ram_word_fixed(const RcIns *in, unsigned word)     /* la palabra i de la instrucción no es variable */

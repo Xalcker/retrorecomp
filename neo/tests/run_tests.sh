@@ -34,7 +34,7 @@ tiempo "pruebas unitarias"
 
 # Z80: SingleStepTests (make testroms)
 if [ -f testroms/z80/v1/00.json.gz ]; then
-    r=$(sh tests/sstz80.sh | tail -1)
+    r=$(sh tests/sst.sh z80 | tail -1)
     case "$r" in *"(0 archivos con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
 else
     echo "(sin testroms/z80 se omiten las SingleStepTests del Z80: make testroms)"
@@ -44,7 +44,7 @@ tiempo "SingleStepTests del Z80"
 # 68000: SingleStepTests (make testroms), por el intérprete y por el camino del código generado
 if [ -f testroms/680x0/68000/v1/NOP.json.gz ]; then
     for modo in "" --recomp; do
-        r=$(SST_OPTS=$modo sh tests/sst68k.sh | tail -1)
+        r=$(SST_OPTS=$modo sh tests/sst.sh m68k | tail -1)
         case "$r" in *"(0 familias con fallas)"*) echo "ok    $r";; *) echo "FALLA $r"; fallas=$((fallas + 1));; esac
     done
 else

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Prueba de asm68k (tools/neobios/asm68k.py): ensambla prueba.s, desensambla cada instrucción con dis68k
+# Prueba de asm68k (tools/neobios/asm68k.py): ensambla prueba.s, desensambla cada instrucción con m68k_dis
 # (build/dis68kbin) y compara con prueba.dis, la salida revisada a mano (igual que el fuente salvo la forma:
 # las etiquetas como direcciones, los números chicos en decimal, move a sr/ccr/usp sin tamaño, dbf = dbra,
 # and.b #n = andi.b #n).

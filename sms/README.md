@@ -111,7 +111,7 @@ resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, 
 | `sms [rom] [--model sms\|gg] [--scale N] [--fullscreen] [--no-menu] [--record archivo \| --play archivo] [--trace archivo]` | La ventana (ver arriba); `--trace` guarda lo que se ejecutó, como `smstrace`. |
 | `smstrace rom traza.txt`, `smsshot rom salida.png [--expect png] [--hash]`, `smsaudio rom salida.wav`, `smsramdump rom`, `smsbench rom [--repeat N]` | Sin ventana, con las opciones comunes de los otros cuatro (`--frames N`, `--input archivo`, `--seed S`, `boton:desde-hasta`) y `--model sms\|gg`: la traza (`BANCO:DIRECCION`), una captura, el sonido, la RAM y la velocidad del intérprete. |
 | `smsrun rom [--frames N] [--model sms\|gg] [--watch DIR] [--sram archivo] [--sram-text] [--sdsc] [--shot png] [--shots dir [--every N]] [--wav archivo] [boton:desde-hasta]` | Diagnóstico sin ventana (ver arriba). |
-| `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`, `z80test` | Pruebas; `make test` corre todas, más ZEXDOC y ZEXALL completos. `z80test` (de `../shared`) corre las SingleStepTests del Z80 (`sh tests/sstz80.sh`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sstz80.sh`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
+| `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`, `z80test` | Pruebas; `make test` corre todas, más ZEXDOC y ZEXALL completos. `z80test` (de `../shared`) corre las SingleStepTests del Z80 (`sh tests/sst.sh z80`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sst.sh z80`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
 
 `sh tests/contract.sh` es el contrato común de los cinco (opciones y comportamiento, con el juego del contrato,
 `testroms/sms/contrato.sms`, que hace `make testroms`); `sh tests/golden.sh`, la línea base exacta (el hash de todos
@@ -130,7 +130,7 @@ primera vez) y la prueba de compatibilidad, `python3 tools/compat/run.py --solo 
 | `src/tools/` | `smsrun` y las pruebas (`carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`). |
 | `tools/` | `make_icon.py` (el icono). |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md` y `COMPATIBILIDAD.md`. |
-| `tests/` | `run_tests.sh` (`make test`), `golden.sh` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sstz80.sh`, y `contract.sh` y `recomp_game.sh` (los mismos archivos en los cinco repos). |
+| `tests/` | `run_tests.sh` (`make test`), `golden.sh` (la línea base exacta), `coverage.sh` (el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), `testroms.sh` (`make testroms`), `sst.sh z80`, y `contract.sh` y `recomp_game.sh` (los mismos archivos en los cinco repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del Z80, ZEXALL y ZEXDOC, el homebrew MIT y, con `EXTRA=1`, `extra/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

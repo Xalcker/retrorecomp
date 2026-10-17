@@ -31,9 +31,9 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
            *(os.path.join("src", "platform", f) for f in ("ui_menu.c", "ui_menu.h", "ui_font.c", "ui_font.h", "png.c", "png.h", "files.h", "files.c", "export.c", "export.h")),
            os.path.join("src", "runtime", "console.h"), os.path.join("src", "tools", "embed.c"), os.path.join("src", "tools", "json.h"),
            # Los núcleos del 68000 y del Z80 (GENRecomp y NEORecomp)
-           *(os.path.join("src", "runtime", f) for f in ("m68k.h", "m68k_ops.h", "cpu68k.c", "z80.h", "z80.c")),
+           *(os.path.join("src", "runtime", f) for f in ("m68k.h", "m68k_ops.h", "m68k.c", "z80.h", "z80.c")),
            *(os.path.join("src", "tools", f) for f in ("m68ktest.c", "z80test.c")),
-           *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("dis68k.c", "dis68k.h")),
+           *(os.path.join("src", r, f) for r in ("genrecomp", "neorecomp") for f in ("m68k_dis.c", "m68k_dis.h")),
            # Las preferencias, las opciones comunes de las herramientas, la mezcla de GEN y NEO y sus oráculos
            os.path.join("src", "platform", "settings.c"), os.path.join("src", "platform", "cli.h"),
            os.path.join("src", "platform", "inputs.h"), os.path.join("src", "tools", "cli.h"), os.path.join("src", "runtime", "audio.c"),
@@ -48,7 +48,7 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
 PROPIOS = {}
 
 # Archivos que solo tienen algunos (las consolas con 68000 o con Z80): idénticos entre los que los tienen
-SOLO = {os.path.join("tests", "sst68k.sh"): ("gen", "neo"), os.path.join("tests", "sstz80.sh"): ("gen", "neo", "sms")}
+SOLO = {os.path.join("tests", "sst.sh"): ("gen", "neo", "sms")}
 
 # Las entradas guionadas del ciclo son las mismas en NES, Game Boy, Genesis y Master System; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)

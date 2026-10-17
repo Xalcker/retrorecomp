@@ -135,13 +135,13 @@ consolas) y, en `genbench`, `--repeat N`. También valen el número de cuadros s
 
 | Ruta | Contenido |
 |---|---|
-| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h`; de `../shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `cpu68k.c`, `z80.h`, `z80.c`, `audio.c`; con SMSRecomp, `psg.c` y `psg.h`; y también `sha1` y `console.h`. |
+| `src/runtime/` | La consola: `gen.h`, `gen.c`, `cart.c`, `bus.c`, `io.c`, `eeprom.c`, `vdp.c`, `vdp_render.c`, `recomp.h`, `z80bus.c`, `ym2612.c`, `m68k_host.h`, `z80_host.h`, `psg_host.h` y `audio_host.h`; de `../shared`, comunes con NEORecomp: `m68k.h`, `m68k_ops.h`, `m68k.c`, `z80.h`, `z80.c`, `audio.c`; con SMSRecomp, `psg.c` y `psg.h`; y también `sha1` y `console.h`. |
 | `src/genrecomp/` | El recompilador. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, `ui_menu`, `ui_font`, `i18n`, `settings`, `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` y, de `../shared`, `png`, `files`, `export`, `random_pad.h`, `inputs.h`, `cli.h`. |
 | `src/tools/` | `gentrace`, `genshot`, `genaudio`, `genramdump`, `genrun`, las pruebas y `embed` (`genbench` está en `src/platform/bench.c`). |
 | `tools/` | `oracles/` (Genesis Plus GX y BlastEm como referencia), `compat/` (prueba de compatibilidad) |
 | `docs/` | `PLAN.md`, `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (el informe con miniaturas). |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst68k.sh`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego: `ROM NOMBRE [CUADROS] [SEMILLAS...]`, como en NESRecomp, GBRecomp y NEORecomp), `sst.sh m68k`, `golden.sh`, `coverage.sh`, `contract.sh` (el mismo archivo en los cuatro repos). |
 | `testroms/` | Pruebas libres (`make testroms`): las SingleStepTests del 68000 y del Z80 y las demos Overdrive 1 y 2 de Titan (scene.org); a mano, el 240p Test Suite en `testroms/240p/`. No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

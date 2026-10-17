@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "dis68k.h"
+#include "m68k_dis.h"
 
 int main(int argc, char **argv)
 {
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
             w[i] = o + 1 < n ? (uint16_t)(img[o] << 8 | img[o + 1]) : 0;
         }
         char out[128];
-        dis68k(w, (uint32_t)a, out, sizeof out);
+        m68k_dis(w, (uint32_t)a, out, sizeof out);
         printf("%06lX %s\n", a, out);
     }
     return 0;

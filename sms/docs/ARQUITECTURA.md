@@ -15,10 +15,10 @@ ventana, las herramientas sin ventana con el contrato común y el recompilador.
 | Ruta | Contenido |
 |---|---|
 | `src/runtime/` | La consola: `sms.h` (estado y interfaz), `sms.c` (encendido, cuadro, RAM del cartucho, estados guardados, traza, el despachador del código recompilado y el salto de los `HALT`), `recomp.h` y `z80_recomp_host.h` (la interfaz con el código generado), `cart.c` (formato, cabeceras, mapper, modelo), `smsdb.c` (base de datos de juegos), `bus.c` (mapa de memoria, mappers, reparto de los puertos), `io.c` (`$3E`, `$3F`, los mandos y los puertos del Game Gear), `vdp.c` (puertos, VRAM, CRAM, contadores e interrupciones), `vdp_render.c` (el dibujo), `z80_host.h` y `z80_host.c` (lo que el Z80 común toma de esta consola), `psg_host.h` y `audio_host.h` (lo que toman el PSG y la mezcla comunes). De `../shared`, común con GENRecomp y NEORecomp: `z80.h`, `z80_ops.h` (la semántica de cada instrucción) y `z80.c` (el intérprete); con GENRecomp, `psg.c` y `psg.h` (el SN76489) y `audio.c` (la mezcla); también `sha1` y `console.h`. |
-| `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `disz80` y el visor de `--html` es `visor_html.h`, de `../shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
+| `src/smsrecomp/` | El recompilador (`smsrecomp.c`: vistas, descubrimiento, heurísticas, informes y el proyecto; `embedded.h`). El Z80 se compila con `z80_recomp.h`, se desensambla con `z80_dis` y el visor de `--html` es `visor_html.h`, de `../shared`. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | La ventana con SDL2 (`main_sdl.c`, con `i18n`, `settings.h`, `input_host.h` y el icono de `tools/make_icon.py`; con `-DSMS_RECOMP`, la del juego recompilado), `difftest.c` y `bench.c` (los del proyecto generado; `bench.c` es también `smsbench`); el resto de la ventana es de `../shared`. |
 | `src/tools/` | Las herramientas sin ventana con las opciones comunes (`cli.h`): `smstrace`, `smsshot`, `smsaudio`, `smsramdump` (y `smsbench`, en `src/platform/bench.c`); el diagnóstico `smsrun`; `mkcontrato` (el juego del contrato); las pruebas `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` y, de `../shared`, `z80test` (SingleStepTests, con `json.h`). |
-| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sstz80.sh` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
+| `tests/` | `run_tests.sh` (`make test`), `testroms.sh` (`make testroms`), `sst.sh z80` (las SingleStepTests del Z80), `golden.sh` y `golden.txt` (la línea base exacta), `coverage.sh` (lo que encuentra el descubrimiento sin traza), `ui_golden.txt` y `ui_golden_gg.txt` (la interfaz), y los envoltorios comunes `contract.sh` y `recomp_game.sh` (el ciclo completo de un juego; el mismo archivo en los cinco repos). |
 | `tools/` | `retrorecomp/` (la GUI común y `shared/`, submódulo), `compat/` (la prueba de compatibilidad: `run.py` y `report.py`, sobre el motor común), `oracles/` (`oracle.py` y `oracle_host.h`: Genesis Plus GX y Gearsystem) y `make_icon.py`. |
 
 ## Una sola fuente de verdad para el CPU
@@ -44,7 +44,7 @@ interrupciones del VDP (fase 2).
 
 **Validación:** las 1 604 000 [SingleStepTests del Z80](https://github.com/SingleStepTests/z80) (registros, con
 WZ, Q y P; RAM; puertos; ciclos) **por los dos caminos**: el intérprete (`z80test`) y el del código generado
-(`z80test --recomp`; `SST_OPTS=--recomp sh tests/sstz80.sh`), en `make test`. En los dos se comprueba además el
+(`z80test --recomp`; `SST_OPTS=--recomp sh tests/sst.sh z80`), en `make test`. En los dos se comprueba además el
 decodificador contra cada prueba (el PC final con o sin salto y los ciclos) y, por el camino del código generado,
 el ciclo del acceso al puerto contra el que marcan las pruebas. Más las pruebas propias de interrupciones
 (`z80test --int`: la INT desde un `HALT` en los modos 1 y 2; `--nmi`: la NMI, que aquí es la Pausa).
@@ -142,7 +142,7 @@ Las mismas de genrecomp, con los formatos que lee la GUI: `--viz` (el mapa color
 vectores, la traza, las tablas o lo especulativo; con `--coverage`, en rojo lo ejecutado y no descubierto),
 `--coverage`, `--why` (la cadena de saltos desde un punto de entrada, con «sigue», «salto», «llamada»,
 «bifurcación», «otra_ranura», «tabla» y «apilada»), `--events`, `--html` (el visor común, `visor_html.h`),
-`--codemap` y `--dis` (con `disz80`).
+`--codemap` y `--dis` (con `z80_dis`).
 
 ### Funciones y emisión
 

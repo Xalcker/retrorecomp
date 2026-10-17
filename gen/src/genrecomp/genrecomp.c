@@ -48,6 +48,8 @@
 #include "trace_line.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
+#include "z80_dis.h"
+#include "z80_vista.h"
 #include "embedded.h"
 #include "m68k_dis.h"
 
@@ -78,6 +80,9 @@ static const char usage_text[] =
     "                     cómo se llegó, de dónde, origen, desensamblado)\n"
     "  --codemap archivo  qué bytes de la ROM se tomaron como código: una letra por byte (C = código),\n"
     "                     64 por línea; el mismo formato que difftest --executed\n"
+    "  --z80              incluye el driver del Z80 en --events, --html, --why y --dis: corre el sondeo (como con -o)\n"
+    "                     y lo descubierto de cada versión va a continuación de la ROM en el mapa; también valen\n"
+    "                     --why z80:VERSIÓN:DIRECCIÓN y --dis z80:VERSIÓN:DIRECCIÓN:N (dirección en hexadecimal)\n"
     "  --z80-frames N     cuadros del sondeo del Z80: el juego corre en el intérprete para ver qué driver\n"
     "                     sube el 68000 a la RAM del Z80, que se compila con una guarda (3600; 0: sin Z80)\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
@@ -832,6 +837,10 @@ static void explain(u32 off)
     }
 }
 
+/* El Z80 en --events, --html, --why y --dis (--z80): las versiones del driver como vistas a continuación de la ROM */
+static Z80Vistas z80_vistas;
+static int z80_on;
+
 static void write_events(const char *path)
 {
     FILE *f = fopen(path, "w");
@@ -847,6 +856,7 @@ static void write_events(const char *path)
             fprintf(f, "%06zX %06X %s %06X %s %s\n", i, ins_addr[i >> 1], how_name[how_at[i >> 1]], parent[i >> 1],
                     org_name[origin[i >> 1]], d);
     }
+    if (z80_on) z80v_events(f, &z80_vistas, org_name);
     fclose(f);
 }
 
@@ -941,10 +951,17 @@ static void write_html(const char *path, const char *rom_name)
     fputs(html_head, f);
     fputs("{\"name\":", f);
     json_str(f, rom_name);
-    fprintf(f, ",\"rom\":%zu,\"cell\":%zu,\"bytes\":%u,\"orgs\":[", rom_size, viz_cell(), stat_bytes);
+    fprintf(f, ",\"rom\":%zu,\"cell\":%zu,\"bytes\":%u,", rom_size, viz_cell(), stat_bytes);
+    if (z80_on && z80_vistas.n) {
+        fprintf(f, "\"mapa\":%zu,\"regiones\":", z80v_total(&z80_vistas, rom_size));
+        z80v_regiones(f, &z80_vistas, json_str);
+        fputc(',', f);
+    }
+    fputs("\"orgs\":[", f);
     for (int i = 0; i < ORG_COUNT; i++) { if (i) fputc(',', f); json_str(f, org_name[i]); }
     fputs("],\"hows\":[", f);
     for (int i = 0; i < HOW_COUNT; i++) { if (i) fputc(',', f); json_str(f, how_name[i]); }
+    if (z80_on) for (int c = Z80RC_SEED; c <= Z80RC_TRACE; c++) { fputc(',', f); json_str(f, z80v_como(c)); }
     fputs("],\"missing\":[", f);
     int first = 1;
     if (missing_mark)
@@ -962,6 +979,7 @@ static void write_html(const char *path, const char *rom_name)
         fprintf(f, ",%d]", ins_len(i));
         first = 0;
     }
+    if (z80_on) z80v_html(f, &z80_vistas, HOW_COUNT, &first, json_str);
     fputs("\n]}", f);
     fputs(html_tail, f);
     fclose(f);
@@ -1421,26 +1439,69 @@ static void remove_old_z80(const char *gdir)
     }
 }
 
+static Z80Rc zrs[ZV_MAX];              /* lo descubierto de cada versión (z80_descubrir) */
+static int z80_sondeado, z80_descubierto;
+static unsigned z80_total, z80_ejecutadas;
+
+/* Corre el juego en el intérprete `frames` cuadros y junta las versiones del driver (zv_img, zv_exec) */
+static void z80_sondear(long frames)
+{
+    if (z80_sondeado) return;
+    z80_sondeado = 1;
+    if (frames <= 0) return;
+    /* Otra consola, para no tocar el estado que usa el análisis */
+    static Gen pg;
+    const char *err = NULL;
+    if (gen_load(&pg, rom, rom_size, &err)) die("sondeo del Z80: %s", err ? err : "no se pudo cargar");
+    gen_z80_probe = z80_probe;
+    for (long f = 0; f < frames; f++) {
+        u16 pad = 0;
+        if ((f >= 120 && f < 126) || (f >= 300 && f < 306) || (f >= 600 && f < 606) || (f >= 900 && f < 906)) pad = GEN_START;
+        else if (f > 400) pad = (u16)(GEN_RIGHT | ((f / 30) % 2 ? GEN_C : 0) | ((f / 70) % 3 == 0 ? GEN_A : 0));
+        pg.pad[0] = pad;
+        gen_run_frame(&pg);
+        pg.audio.n = 0;
+    }
+    gen_z80_probe = NULL;
+    gen_free(&pg);
+}
+
+/* Descubre el código de cada versión con el recompilador común, sembrado con lo que se ejecutó de ella (con guarda: es RAM) */
+static void z80_descubrir(void)
+{
+    if (z80_descubierto) return;
+    z80_descubierto = 1;
+    for (int v = 0; v < zv_n; v++) {
+        char prefix[16];
+        snprintf(prefix, sizeof prefix, "zr%d_", v);
+        z80rc_init(&zrs[v], prefix, 0, 0x1FFF, zv_img[v]);
+        zrs[v].guard = 1;
+        for (unsigned a = 0; a < 0x2000; a++)
+            if (zv_exec[v][a]) { z80rc_seed(&zrs[v], (u16)a, Z80RC_TRACE); z80_ejecutadas++; }
+        z80rc_discover(&zrs[v]);
+        z80_total += zrs[v].ninsns;
+    }
+}
+
+/* Para el análisis (--z80): el sondeo y el descubrimiento, y las versiones como vistas del mapa (después de la ROM, a la celda) */
+static void z80_preparar(long frames)
+{
+    z80_sondear(frames);
+    z80_descubrir();
+    size_t cell = viz_cell();
+    z80v_init(&z80_vistas, (rom_size + cell - 1) / cell * cell);
+    for (int v = 0; v < zv_n; v++) {
+        char nombre[40];
+        snprintf(nombre, sizeof nombre, "Z80, versión %d", v);
+        z80v_add(&z80_vistas, nombre, &zrs[v]);
+    }
+}
+
 static void emit_z80(const char *out, const char *gdir, long frames)
 {
     remove_old_z80(gdir);
-    if (frames > 0) {
-        /* Otra consola, para no tocar el estado que usa el análisis */
-        static Gen pg;
-        const char *err = NULL;
-        if (gen_load(&pg, rom, rom_size, &err)) die("sondeo del Z80: %s", err ? err : "no se pudo cargar");
-        gen_z80_probe = z80_probe;
-        for (long f = 0; f < frames; f++) {
-            u16 pad = 0;
-            if ((f >= 120 && f < 126) || (f >= 300 && f < 306) || (f >= 600 && f < 606) || (f >= 900 && f < 906)) pad = GEN_START;
-            else if (f > 400) pad = (u16)(GEN_RIGHT | ((f / 30) % 2 ? GEN_C : 0) | ((f / 70) % 3 == 0 ? GEN_A : 0));
-            pg.pad[0] = pad;
-            gen_run_frame(&pg);
-            pg.audio.n = 0;
-        }
-        gen_z80_probe = NULL;
-        gen_free(&pg);
-    }
+    z80_sondear(frames);
+    z80_descubrir();
     FILE *f = open_out(out, "gen/zram.c");
     fprintf(f, "/* Generado por genrecomp: no editar. El driver del Z80 en código nativo (z80_recomp.h). */\n#include \"gen.h\"\n");
     for (int v = 0; v < zv_n; v++) fprintf(f, "#include \"zr%d.h\"\n", v);
@@ -1460,24 +1521,15 @@ static void emit_z80(const char *out, const char *gdir, long frames)
                    "    return 0;\n}\n", zv_n);
     }
     fclose(f);
-    static Z80Rc zr;
-    unsigned total = 0, executed = 0;
     for (int v = 0; v < zv_n; v++) {
-        char prefix[16], base[16];
-        snprintf(prefix, sizeof prefix, "zr%d_", v);
+        char base[16];
         snprintf(base, sizeof base, "zr%d", v);
-        z80rc_init(&zr, prefix, 0, 0x1FFF, zv_img[v]);
-        zr.guard = 1;
-        for (unsigned a = 0; a < 0x2000; a++)
-            if (zv_exec[v][a]) { z80rc_seed(&zr, (u16)a, Z80RC_TRACE); executed++; }
-        z80rc_discover(&zr);
-        if (!z80rc_emit(&zr, gdir, base, "genrecomp")) die("no se pudo escribir el código del Z80 en %s", gdir);
-        total += zr.ninsns;
-        z80rc_free(&zr);
+        if (!z80rc_emit(&zrs[v], gdir, base, "genrecomp")) die("no se pudo escribir el código del Z80 en %s", gdir);
+        z80rc_free(&zrs[v]);
     }
     if (frames <= 0) printf("Z80: sin sondeo (--z80-frames 0), en el intérprete\n");
     else printf("Z80: %u instrucciones en %d %s del driver (%u ejecutadas en el sondeo de %ld cuadros)%s\n",
-                total, zv_n, zv_n == 1 ? "versión" : "versiones", executed, frames, zv_lost ? "; hubo más versiones de las que entran" : "");
+                z80_total, zv_n, zv_n == 1 ? "versión" : "versiones", z80_ejecutadas, frames, zv_lost ? "; hubo más versiones de las que entran" : "");
 }
 
 static void write_embedded(const char *dir)
@@ -1611,6 +1663,9 @@ int main(int argc, char **argv)
     u32 why_list[32];
     int ntraces = 0, nwhy = 0, info = 0, viz = 0, force_color = 0;
     long z80_frames = 3600;
+    struct { int v; u16 a; } z80_why[32];
+    int nz80_why = 0;
+    const char *z80_dis_arg = NULL;
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (!strcmp(a, "--version")) { printf("genrecomp %s\n", GENRECOMP_VERSION); return 0; }
@@ -1619,17 +1674,32 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--verbose")) { verbose = 1; continue; }
         if (!strcmp(a, "--viz")) { viz = 1; continue; }
         if (!strcmp(a, "--color")) { force_color = 1; continue; }
+        if (!strcmp(a, "--z80")) { z80_on = 1; continue; }
         if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
         if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
             if (!strcmp(a, "--coverage")) { coverage = argv[++i]; continue; }
-            if (!strcmp(a, "--dis")) { dis_arg = argv[++i]; continue; }
+            if (!strcmp(a, "--dis")) {
+                if (!strncmp(argv[i + 1], "z80:", 4)) z80_dis_arg = argv[++i] + 4, z80_on = 1;
+                else dis_arg = argv[++i];
+                continue;
+            }
             if (!strcmp(a, "--z80-frames")) { z80_frames = atol(argv[++i]); continue; }
             if (!strcmp(a, "--events")) { events_path = argv[++i]; continue; }
             if (!strcmp(a, "--html")) { html_path = argv[++i]; continue; }
             if (!strcmp(a, "--codemap")) { codemap_path = argv[++i]; continue; }
+            if (!strcmp(a, "--why") && !strncmp(argv[i + 1], "z80:", 4)) {
+                unsigned v, ad;
+                if (nz80_why == 32) die("demasiados --why");
+                if (sscanf(argv[i + 1] + 4, "%u:%x", &v, &ad) != 2) die("--why z80: espera z80:VERSIÓN:DIRECCIÓN (decimal y hexadecimal)");
+                z80_why[nz80_why].v = (int)v;
+                z80_why[nz80_why++].a = (u16)ad;
+                z80_on = 1;
+                i++;
+                continue;
+            }
             if (!strcmp(a, "--why")) {
                 if (nwhy == 32) die("demasiados --why");
                 why_list[nwhy++] = why_arg(argv[++i]);
@@ -1646,7 +1716,7 @@ int main(int argc, char **argv)
         rom_path = a;
     }
     if (!rom_path) { fputs(usage_text, stderr); return 2; }
-    int analysis = coverage || dis_arg || nwhy || viz || events_path || html_path || codemap_path;
+    int analysis = coverage || dis_arg || z80_dis_arg || nwhy || nz80_why || viz || events_path || html_path || codemap_path;
 
     size_t len;
     u8 *data = read_file(rom_path, &len);
@@ -1701,6 +1771,7 @@ int main(int argc, char **argv)
                "punteros inmediatos: %u, tras un final: %u\n", stat_ind, stat_unresolved, stat_tables, stat_table_entries, stat_runs,
                stat_run_entries, stat_imm, stat_after);
 
+    if (z80_on) z80_preparar(z80_frames);
     if (events_path) write_events(events_path);
     if (codemap_path) write_codemap(codemap_path);
     if (html_path) {
@@ -1711,7 +1782,14 @@ int main(int argc, char **argv)
     }
     if (viz) viz_map(force_color || isatty(1));
     for (int i = 0; i < nwhy; i++) explain(why_list[i]);
+    for (int i = 0; i < nz80_why; i++) z80v_why(&z80_vistas, z80_why[i].v, z80_why[i].a);
     if (dis_arg) dis_range(dis_arg);
+    if (z80_dis_arg) {
+        unsigned v, ad;
+        unsigned long n;
+        if (sscanf(z80_dis_arg, "%u:%x:%lu", &v, &ad, &n) != 3) die("--dis z80: espera z80:VERSIÓN:DIRECCIÓN:N (decimal, hexadecimal, decimal)");
+        z80v_dis(&z80_vistas, (int)v, (u16)ad, n);
+    }
     if (!out) return 0;
 
     partition();

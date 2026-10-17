@@ -11,7 +11,7 @@
 | F3.1. Registro de sistemas (`shared/sistemas.json`) | Hecho | #140 |
 | F3.2. Nombres en `shared/` | Hecho | #144 |
 | F3.3. Opciones (`--profile`, `--input-line`, `--screens`, `--shot`, `--model` en `cli.h`) | Hecho | #145 |
-| F3.4. Llenar huecos por rol | Hecho salvo el Z80 de GEN y NEO en `--why`, `--events` y `--html` | (este PR) |
+| F3.4. Llenar huecos por rol | Hecho (el Z80 de GEN y NEO en `--why`, `--dis`, `--events` y `--html`, con `--z80`) | #146 y este PR |
 | F3.5. Plantillas comunes | **Pendiente** | — |
 | F3.6. GB converge (`cli.h`, `inputs.h`, `ram_code.h`, visor común) | Hecho | #142 |
 | F3.7. Línea `RESUMEN {json}` | Hecho | #141 |

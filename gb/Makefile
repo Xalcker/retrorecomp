@@ -150,7 +150,7 @@ dist: gbrecomp$(EXE)
 
 # Pruebas: necesitan las ROMs de prueba (make testroms)
 test: all
-	sh tests/run_tests.sh
+	python3 tests/run_tests.py
 
 # ROMs de prueba libres en testroms/ (no se versionan): c-sp/game-boy-test-roms v7.0
 TESTROMS_URL := https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip
@@ -160,7 +160,7 @@ testroms:
 		unzip -q -o $(BUILD)/testroms.zip -d testroms && rm -f $(BUILD)/testroms.zip && \
 		echo "ROMs de prueba en testroms/"; fi
 
-# Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.sh)
+# Prueba de los controles 2-4 del Super Game Boy (la corre run_tests.py)
 $(BUILD)/sgb_controles$(EXE): tests/sgb_controles.c $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -I$(SHARED) -o $@ tests/sgb_controles.c $(BUILD)/libgbrt.a
 

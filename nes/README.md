@@ -271,7 +271,7 @@ la misma traza, captura y audio (`--seed`, `--input` con `--seed`, y `--input` i
 | `src/tools/` | Herramientas sin ventana y `embed`. |
 | `tools/` | `compat/`: prueba de compatibilidad con una colección de ROMs (Python 3, con el motor común de retrorecomp). `oracles/`: emuladores de referencia que se descargan al usarlos (TriCNES y Mesen2). |
 | `docs/` | `ARQUITECTURA.md`, `COMPATIBILIDAD.md` y `compat/` (informe HTML, `results.json` y miniaturas). |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.py`, `golden.sh`, `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py`, `golden.py`, `coverage.sh`, `contrato.py` (en shared/), `accuracycoin.py`. |
 | `testroms/` | ROMs de prueba: `nes-test-roms/` (nestest, Blargg, mmc3...; `make testroms`) y `accuracycoin/` (AccuracyCoin, MIT). No se versionan. |
 | `roms/` | Tus juegos. No se versionan. |
 

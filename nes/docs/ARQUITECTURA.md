@@ -15,7 +15,7 @@ que cambia entre las dos consolas queda dentro de cada una.
 | `src/nesrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión de C y del proyecto. Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h`, `input_host.h` (los botones y las opciones de `nesshot` para `inputs.h` y `cli.h`)), `difftest.c`, `bench.c`; de `../shared`: `files`, `export`, `png`, `settings.c`, `inputs.h`, `cli.h`. Se copian a cada proyecto generado. |
 | `src/tools/` | `nestest`, `nesshot` (captura sin ventana), `nesaudio` (WAV), `nestrace` (traza), `nesramdump`, `sramtest`, `statetest`, `mappertest`, `inputtest`, `embed`. |
-| `tests/` | `run_tests.sh` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.py` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.sh` y `golden.txt` (línea base exacta), `coverage.sh`, `contract.sh`, `accuracycoin.py`. |
+| `tests/` | `run_tests.py` (la batería de `make test`: nestest, Blargg, recompilador, interfaz), `recomp_game.py` (recompila un juego, prueba con varias semillas y recompila con lo que cayó al intérprete), `golden.py` y `golden.txt` (línea base exacta), `coverage.sh`, `contrato.py` (en shared/), `accuracycoin.py`. |
 | `tools/` | `retrorecomp/` (la GUI común con GBRecomp, GENRecomp y NEORecomp, submódulo), `oracles/` (emuladores de referencia que se descargan al usarlos y dan la misma salida que `nesramdump`: `tricnes.py`, la referencia ciclo por ciclo, y `mesen.py`, Mesen2 sin ventana) y `compat/` (prueba de compatibilidad con una colección de ROMs: `run.py` y `report.py`, con el motor común de retrorecomp). Resultados en `docs/compat/` (ver [COMPATIBILIDAD.md](COMPATIBILIDAD.md)). |
 | `testroms/` | ROMs de prueba de código abierto (`make testroms`; no se versionan). |
 
@@ -219,7 +219,7 @@ común de retrorecomp, `shared/ram_code.h`, que salió de lo que hizo GBRecomp:
    al despachador si una escritura cambió el mapeo (`MAPCHK`, como en las ventanas intercambiables del PRG), para
    que la guarda vuelva a mirar los bytes del banco nuevo.
 
-`tests/run_tests.sh` lo prueba con una ROM NROM hecha ahí mismo que copia una rutina a `$0300` y a `$6100`, llama a
+`tests/run_tests.py` lo prueba con una ROM NROM hecha ahí mismo que copia una rutina a `$0300` y a `$6100`, llama a
 las dos en un bucle y parcha el inmediato del `lda` de la primera: la segunda ronda compila 10 instrucciones en 2
 bloques (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `nestrace` y el ejecutable
 anotan las mismas líneas que `difftest`. Con el ciclo de `../shared/recomp_game.py` (1500 cuadros, semilla 1), Gradius
@@ -390,7 +390,7 @@ La prueba de compatibilidad con 732 ROMs de No-Intro está en [COMPATIBILIDAD.md
 
 ## Estado de la validación
 
-`make test` (`tests/run_tests.sh`):
+`make test` (`tests/run_tests.py`):
 
 - CPU: `nestest` (incluida la posición de la PPU), las 16 `instr_test-v5`, `instr_misc`,
   `instr_timing` y `cpu_interrupts_v2` 1, 2, 3, 4 y 5.
@@ -414,4 +414,4 @@ abierto de la PPU y del APU. `tests/accuracycoin.py --compara` lista las diferen
 audio) con `tests/golden.txt`: una optimización no debe cambiar ni un bit (`--update` reescribe la línea
 base). Es lo que respalda la ejecución perezosa de la PPU y el APU (ver "Rendimiento: ejecución perezosa").
 Cada caso se nombra por el SHA1 de la ROM sin la cabecera iNES (el de No-Intro), así que no importa cómo se
-llame el archivo; los juegos que no tengas se omiten. Es el mismo esquema que el `golden.sh` de GENRecomp.
+llame el archivo; los juegos que no tengas se omiten. Es el mismo esquema que el `golden.py` de GENRecomp.

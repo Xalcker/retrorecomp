@@ -27,7 +27,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
 | `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
-| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.pl` (jugadas reproducibles), `iconos.py`. |
+| `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.py` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
 
@@ -238,19 +238,19 @@ HRAM), para distinguir código no descubierto de código en RAM.
 `tools/truth/` construye la "respuesta correcta" a partir de
 [kaspermeerts/tetris](https://github.com/kaspermeerts/tetris):
 
-1. `build_truth.sh` ensambla el desensamblado con RGBDS 0.6.1. Antes inserta
+1. `build_truth.py` ensambla el desensamblado con RGBDS 0.6.1. Antes inserta
    una etiqueta marcadora delante de cada línea que emite bytes, clasificada
-   como instrucción o dato (`instrument.pl`), y comprueba que la ROM
+   como instrucción o dato (`instrument.py`), y comprueba que la ROM
    resultante sea idéntica byte por byte a la original.
-2. `make_truth.pl` convierte los marcadores del `.sym` en un mapa por byte
+2. `make_truth.py` convierte los marcadores del `.sym` en un mapa por byte
    (código, datos o relleno).
-3. `compare.pl` compara contra `gbrecomp --codemap` o `difftest --executed` y
+3. `compare.py` compara contra `gbrecomp --codemap` o `difftest --executed` y
    lista los tramos faltantes con el nombre de la rutina que los contiene.
 
 ```
-sh tools/truth/build_truth.sh build/ext/tetris-disasm build/ext/rgbds tetris.gb build/truth
+python3 tools/truth/build_truth.py build/ext/tetris-disasm build/ext/rgbds tetris.gb build/truth
 gbrecomp tetris.gb -o build/out/tetris --codemap static.map
-perl tools/truth/compare.pl build/truth/truth.txt static.map tetris-disasm/tetris.sym
+python3 tools/truth/compare.py build/truth/truth.txt static.map tetris-disasm/tetris.sym
 ```
 
 Resultados (11,909 bytes de código según el desensamblado):
@@ -277,7 +277,7 @@ meterse en los punteros a canciones: la precisión bajó a 93.1 %. La regla de
 formato de texto (`cuadro botones`); `src/platform/input_host.h` pone los
 botones del Game Boy, un solo jugador al grabar y dos líneas opcionales al
 principio, `modelo dmg|cgb|sgb` y `paleta up+a`. El ejecutable graba con
-`--record` y reproduce con `--play`, y `difftest --input` usa el mismo archivo. `tools/gen_inputs.pl` genera jugadas
+`--record` y reproduce con `--play`, y `difftest --input` usa el mismo archivo. `tools/gen_inputs.py` genera jugadas
 pseudoaleatorias reproducibles para completar guiones escritos a mano. En
 `tests/inputs/tetris_b.txt` hay un guion que entra al modo B y juega.
 

@@ -1,0 +1,6 @@
+[project]
+name = "retrorecomp"
+version = "0.0.0"
+description = "Los cinco recompiladores (GB, NES, Genesis, Neo Geo, Master System y Game Gear): scripts de apoyo, GUI y pruebas"
+requires-python = ">=3.9"
+dependencies = []

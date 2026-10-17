@@ -19,7 +19,7 @@
  *   poner:DIR=VALOR                el byte DIR de la tarjeta (para dañarla a propósito)
  *   error:RESP[:BOTON:DESDE:HASTA] CARD_ERROR con BIOS_CARD_ANSWER = RESP, con las interrupciones como estén y
  *                                  hasta 1200 cuadros; el botón (a b c d start) se mantiene esos cuadros
- *                                  contados desde la llamada; con --shots CARPETA, una imagen cada 30
+ *                                  contados desde la llamada; con --screens CARPETA, una imagen cada 30
  *   proteger / desproteger / sacar / meter
  * Al final guarda la tarjeta (2 KB) en ARCHIVO.
  */
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--bios") && i + 1 < argc) bios = argv[++i];
         else if (!strcmp(argv[i], "--card") && i + 1 < argc) card = argv[++i];
         else if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atol(argv[++i]);
-        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if ((!strcmp(argv[i], "--screens") || !strcmp(argv[i], "--shots")) && i + 1 < argc) shots = argv[++i];
         else if (argv[i][0] == '-') { fprintf(stderr, "opción desconocida: %s\n", argv[i]); return 2; }
         else if (!rom) rom = argv[i];
         else { first = i; break; }

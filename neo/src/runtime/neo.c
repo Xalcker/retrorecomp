@@ -9,7 +9,7 @@
 #include "ram_code.h"
 #include "trace_line.h"
 
-PROF_DEFINE;            /* la zona que muestrea --perfil (prof.h) */
+PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
 int neo_load(Neo *g, const char *rom_path, const char *bios_path, const char **err)
 {

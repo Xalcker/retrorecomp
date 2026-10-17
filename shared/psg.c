@@ -23,7 +23,7 @@
 
 #define MCLK_PER_TICK 240       /* 15 (Z80) x 16 */
 
-#ifndef PROF_ENTER              /* la consola no usa prof.h (--perfil): no se marca la zona */
+#ifndef PROF_ENTER              /* la consola no usa prof.h (--profile): no se marca la zona */
 #define PROF_ENTER(z) ((void)0)
 #define PROF_LEAVE() ((void)0)
 #endif

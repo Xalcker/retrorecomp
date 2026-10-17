@@ -16,28 +16,13 @@
 #include "golden_hash.h"
 #include "console.h"
 
-/* Va también en los proyectos que genere smsrecomp, sin src/tools: --model se lee aquí (cli.h no lo conoce) */
-static int take_model(int *argc, char **argv)
-{
-    int model = MODEL_AUTO;
-    for (int i = 1; i < *argc; i++) {
-        if (strcmp(argv[i], "--model")) continue;
-        if (i + 1 >= *argc || (model = model_from_name(argv[i + 1])) < MODEL_AUTO) return -2;
-        for (int k = i; k + 2 <= *argc; k++) argv[k] = argv[k + 2];
-        *argc -= 2;
-        i--;
-    }
-    return model;
-}
-
 int main(int argc, char **argv)
 {
     console_utf8();
     static Cli c;
-    int model = take_model(&argc, argv);
-    if (model < MODEL_AUTO || cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: smsbench rom.sms [--frames N] [--repeat N] [--input archivo] [--seed S] [--model sms|gg] [--hash]\n"
-                        "                [boton:desde-hasta ...]\n");
+    if (cli_parse(&c, argc, argv, 1, 1800)) {
+        fprintf(stderr, "uso: %s rom.sms [--frames N] [--repeat N] [--input archivo] [--seed S] [--model sms|gg] [--hash]\n"
+                        "                [boton:desde-hasta ...]\n", cli_prog(argv[0]));
         return 2;
     }
     FILE *f = fopen(c.pos[0], "rb");
@@ -60,7 +45,7 @@ int main(int argc, char **argv)
         metrica_reiniciar(g);           /* todas las corridas dan lo mismo: se queda la última (metrica.h) */
         const char *err = NULL;
         if (k) sms_free(g);
-        if (sms_load(g, rom, (size_t)sz, c.pos[0], model, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
+        if (sms_load(g, rom, (size_t)sz, c.pos[0], c.model, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
         cli_rewind(&c);
         golden_init(&gh);
         u64 cyc0 = g->cyc;

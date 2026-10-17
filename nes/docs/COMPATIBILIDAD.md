@@ -114,7 +114,7 @@ uv run tools/compat/vsmesen.py <carpeta o ROMs> [--sin-botones] [--cuadros 450,9
   `$2002` en los dos: coinciden ciclo a ciclo.
 - Mesen2 cambia los botones una vez por cuadro, en la línea 241 (`inputPolled`), y `nesshot` al empezar el cuadro. Con eso, un
   juego que lee el control durante el render (Contra, en la línea 0) y otro que lo lee en el vblank (TMNT) necesitaban
-  corrimientos distintos. `nesshot --entradas-241` cambia los botones en la línea 241 como Mesen2, y con eso los dos casos coinciden.
+  corrimientos distintos. `nesshot --input-line 241` cambia los botones en la línea 241 como Mesen2, y con eso los dos casos coinciden.
 - Los volcados de RAM al final del cuadro no son comparables (nosotros cortamos en la línea 0, Mesen2 en la 240). Para acotar
   una divergencia hay que volcar los dos en el mismo ciclo de CPU.
 

@@ -4,7 +4,7 @@ Para cada ROM corre nesshot (el intérprete) y Mesen2 sin ventana (tools/oracles
 entradas guionadas que la prueba de compatibilidad, y cuenta los píxeles distintos en cada cuadro. Los cuadros de
 Mesen van uno adelante: su cuadro N corresponde a nuestro N - 1 (verificado con las lecturas de $2002, que coinciden
 ciclo a ciclo), así que se compara su cuadro N con --frames N - 1 de nesshot. Mesen cambia los botones en la línea 241
-(inputPolled) y nesshot al empezar el cuadro, así que nesshot corre con --entradas-241 y las entradas corridas un cuadro
+(inputPolled) y nesshot al empezar el cuadro, así que nesshot corre con --input-line 241 y las entradas corridas un cuadro
 hacia atrás. Sin eso, un juego que lee el control durante el render (Contra) o en el vblank (SMB) los veía un cuadro
 antes o después que en Mesen, según el juego.
 
@@ -81,7 +81,7 @@ def juego(rom, cuadros, dst, guion):
     res = {"rom": rom.name, "cuadros": {}}
     for f in cuadros:
         nos, mes = dst / f"{nombre}_{f}_nos.png", dst / f"{nombre}_{f}_mesen.png"
-        subprocess.run([str(ROOT / f"nesshot{EXE}"), str(rom), str(nos), "--frames", str(f + DESFASE), "--entradas-241"] + corridas(guion, ENTRADAS).split(),
+        subprocess.run([str(ROOT / f"nesshot{EXE}"), str(rom), str(nos), "--frames", str(f + DESFASE), "--input-line", "241"] + corridas(guion, ENTRADAS).split(),
                        capture_output=True, timeout=600)
         subprocess.run([sys.executable, str(ROOT / "tools" / "oracles" / "mesen.py"), "shot", str(rom), str(mes), str(f)]
                        + guion.split(), capture_output=True, timeout=900)

@@ -31,9 +31,6 @@
 #ifdef GB_RECOMP
 #include "recomp.h"
 #include "sha1.h"
-#define BENCH_NAME "bench"
-#else
-#define BENCH_NAME "gbbench"
 #endif
 
 static unsigned char *read_file(const char *path, long *size)
@@ -57,7 +54,7 @@ int main(int argc, char **argv)
     console_utf8();
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 3600)) {
-        fprintf(stderr, "uso: " BENCH_NAME " rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]\n");
+        fprintf(stderr, "uso: %s rom.gb [--frames N] [--repeat N] [--model dmg|cgb|sgb] [--input archivo] [--seed S] [--hash]\n", cli_prog(argv[0]));
         return 2;
     }
     const char *rom_path = c.pos[0];

@@ -104,7 +104,7 @@ se mantienen en esos cuadros) y resume instrucciones, ciclos, excepciones por ve
 fue el tiempo al CPU en el último cuadro. `--watch DIR` imprime un byte de la RAM cada vez que cambia
 (en Sonic 1, `$FFF600` es el modo de juego: `$04` título, `$0C` nivel). `--sram ARCHIVO` carga la
 SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula una consola con TMSS
-(apagado por omisión). `--shot ARCHIVO.png` guarda la imagen del último cuadro y `--shots CARPETA
+(apagado por omisión). `--shot ARCHIVO.png` guarda la imagen del último cuadro y `--screens CARPETA
 --every N` una cada N cuadros. `--wav ARCHIVO.wav` guarda el sonido (y dice su nivel por segundo).
 
 ## Herramientas
@@ -120,7 +120,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | `genaudio rom salida.wav [--frames N] [--input archivo] [--seed S]` | Sonido a WAV (estéreo, 44 100 Hz), con el nivel por segundo. |
 | `genbench rom [--frames N] [--repeat N] [--input archivo]` | Velocidad sin ventana. |
 | `genramdump rom [--frames N] [--input archivo] [--seed S]` | Vuelca la RAM del 68000 tras correr la ROM. |
-| `genrun rom [--frames N] [--watch DIR] [--sram archivo] [--tmss] [--shot/--shots/--wav ...]` | Diagnóstico: resume instrucciones, excepciones y dónde se va el tiempo. |
+| `genrun rom [--frames N] [--watch DIR] [--sram archivo] [--tmss] [--shot/--screens/--wav ...]` | Diagnóstico: resume instrucciones, excepciones y dónde se va el tiempo. |
 | `carttest`, `m68ktest`, `z80test`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest` | Pruebas; `make test` corre todas. |
 
 **Opciones comunes.** Las herramientas sin ventana aceptan las mismas opciones que las de NESRecomp y

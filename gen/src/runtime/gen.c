@@ -11,7 +11,7 @@
 #include "trace_line.h"
 #include "sha1.h"
 
-PROF_DEFINE;            /* la zona que muestrea --perfil (prof.h) */
+PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
 /* Región para el registro de versión: se prefiere EE. UU. (NTSC, en inglés); si el cartucho solo
  * dice Japón, Japón; si solo dice Europa, PAL. Acepta "JUE" y el formato de un dígito hexadecimal. */

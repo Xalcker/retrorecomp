@@ -687,12 +687,12 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
 - **`make testroms`** (`tests/testroms.sh`): las SingleStepTests del 68000 y del Z80, en los mismos commits
   fijos que GENRecomp (se quedan comprimidas en `testroms/`, que no se versiona), y el juego de prueba del
   contrato (`testroms/neo/contrato.neo`).
-- **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot/--shots] [boton:desde-hasta]`:**
+- **`neorun juego [--frames N] [--bios archivo] [--card archivo] [--watch DIR] [--fix] [--shot/--screens] [boton:desde-hasta]`:**
   corre sin ventana con el intérprete y resume instrucciones, ciclos, excepciones, el estado del Z80, las
   variables de la BIOS en la RAM (`SYSTEM_MODE`, `USER_REQUEST`, `USER_MODE`...) y los PC más frecuentes del
   último cuadro. `--fix` muestra la capa fija como texto (el byte bajo de cada mosaico como ASCII: muchos
   juegos ponen su fuente así, Metal Slug en `$300` + ASCII). `--shot archivo.png` guarda la imagen del
-  último cuadro y `--shots carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
+  último cuadro y `--screens carpeta --every N` una cada N cuadros; dice cuántos colores distintos tiene.
 - **Oráculos** (`tools/oracles/`, de GENRecomp): `retro_run` corre un núcleo libretro sin ventana con las
   entradas de las herramientas (los botones se asignan por las descripciones que publica cada núcleo) y da
   la RAM del 68000 como `neoramdump`, una captura o el sonido (`--wav`, con el nivel por segundo de

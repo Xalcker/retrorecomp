@@ -4,8 +4,9 @@
  *   --frames N       cuadros a correr
  *   --input ARCHIVO  entradas grabadas (inputs.h); las de --record de la ventana sirven
  *   --seed S         suma un mando aleatorio reproducible con esa semilla
+ *   --model M        (consolas con más de un modelo: GB, SMS) el modelo; lo resuelve CLI_HOST_DONE
  *   --repeat N       corridas (*bench): se reporta la más rápida
- *   --perfil         (genbench, neobench y su bench) en qué se va el tiempo: Z80, sonido, video y lo demás (prof.h)
+ *   --profile         (genbench, neobench y su bench) en qué se va el tiempo: Z80, sonido, video y lo demás (prof.h)
  *   --uncovered F    (difftest) escribe lo que el intérprete tuvo que ejecutar
  *   --screens DIR    (difftest) guarda una captura PNG cada --every N cuadros (600 si no se dice)
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
@@ -20,8 +21,8 @@
  * Común (retrorecomp/shared); lo propio de cada consola viene de su input_host.h (ver inputs.h). Si la
  * consola tiene opciones de más, las agrega con CLI_HOST_FIELDS (campos de Cli), CLI_HOST_OPTION(c, a)
  * (1 si reconoció la opción a), CLI_HOST_VALUE(c, a, v) (1 si reconoció la opción a con el valor v, el
- * argumento que la sigue, como --model en GB), CLI_HOST_EXTRA(a) (1 si el suelto a va a extra, como zapper:
- * en NES) y CLI_HOST_DONE(c) (después de leer --input; 0, o 2 si hay un error ya impreso).
+ * argumento que la sigue, como --palette en GB), CLI_HOST_EXTRA(a) (1 si el suelto a va a extra, como zapper:
+ * en NES), CLI_HAS_MODEL (la consola acepta --model: queda en c->model_arg) y CLI_HOST_DONE(c) (después de leer --input; 0, o 2 si hay un error ya impreso).
  */
 #ifndef CLI_H
 #define CLI_H
@@ -50,14 +51,28 @@
 #define CLI_HOST_DONE(c) 0
 #endif
 
+
+/* El nombre del programa para el "uso:", de argv[0] sin la carpeta ni .exe (así sirve el mismo bench en el de la
+ * consola y en el del proyecto generado) */
+static inline const char *cli_prog(const char *argv0)
+{
+    static char buf[64];
+    const char *b = argv0 ? argv0 : "bench";
+    for (const char *p = b; *p; p++) if (*p == '/' || *p == '\\') b = p + 1;
+    snprintf(buf, sizeof buf, "%s", b);
+    size_t n = strlen(buf);
+    if (n > 4 && !strcmp(buf + n - 4, ".exe")) buf[n - 4] = 0;
+    return buf;
+}
 typedef struct { int btn, from, to; } CliHold;
 
 typedef struct {
     const char *pos[64]; int npos;      /* argumentos sueltos que no son botones ni opciones */
     long frames; int frames_given;
     const char *input; InputScript script;
+    const char *model_arg;              /* --model (solo las consolas con CLI_HAS_MODEL; la resuelve CLI_HOST_DONE) */
     int use_seed; unsigned seed; RandomPad rp;
-    int repeat, perfil;
+    int repeat, profile;
     const char *uncovered;
     const char *screens, *executed; long every; int bench, estricto;     /* solo difftest */
     const char *expect; int hash;                               /* solo *shot */
@@ -91,7 +106,8 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--input") && i + 1 < argc) c->input = argv[++i];
         else if (!strcmp(a, "--seed") && i + 1 < argc) { c->seed = (unsigned)strtoul(argv[++i], NULL, 0); c->use_seed = 1; }
         else if (!strcmp(a, "--repeat") && i + 1 < argc) c->repeat = atoi(argv[++i]);
-        else if (!strcmp(a, "--perfil")) c->perfil = 1;
+        else if (!strcmp(a, "--profile") || !strcmp(a, "--perfil")) c->profile = 1;
+        else if (!strcmp(a, "--model") && i + 1 < argc) c->model_arg = argv[++i];
         else if (!strcmp(a, "--uncovered") && i + 1 < argc) c->uncovered = argv[++i];
         else if (!strcmp(a, "--screens") && i + 1 < argc) c->screens = argv[++i];
         else if (!strcmp(a, "--every") && i + 1 < argc) c->every = atol(argv[++i]);
@@ -120,6 +136,9 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
     if (c->npos > nreq) { fprintf(stderr, "argumento de más: %s\n", c->pos[nreq]); return 2; }
     if (c->frames <= 0) { fprintf(stderr, "los cuadros deben ser un número positivo\n"); return 2; }
     if (c->repeat <= 0) { fprintf(stderr, "--repeat debe ser positivo\n"); return 2; }
+#ifndef CLI_HAS_MODEL
+    if (c->model_arg) { fprintf(stderr, "opción desconocida: --model\n"); return 2; }
+#endif
     if (c->input) {
         const char *err = inputs_load(&c->script, c->input);
         if (err) { fprintf(stderr, "%s\n", err); return 2; }

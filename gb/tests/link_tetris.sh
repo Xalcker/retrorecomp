@@ -17,4 +17,4 @@ mkdir -p build
 # El intercambio después de la derrota lleva el total a más de 2440 bytes
 ./linktest$EXE "$ROM" --frames 5400 \
     --input-a tests/inputs/tetris_2p_a.txt --input-b tests/inputs/tetris_2p_b.txt \
-    --dump build/link_tetris.png --min-bytes 2440
+    --shot build/link_tetris.png --min-bytes 2440

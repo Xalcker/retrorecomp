@@ -59,13 +59,14 @@ int main(void)
     CHECK(!cli_parse(&h, 4, argv2, 1, 600), "boton:desde-hasta");
     CHECK(cli_pad(&h, 5, 0) == SMS_START && cli_pad(&h, 7, 0) == 0 && cli_pad(&h, 8, 0) == SMS_PAUSE, "boton:desde-hasta en sus cuadros");
 
-    /* --model: se saca de los argumentos antes de cli_parse */
-    char *argv3[] = { "x", "rom", "--model", "gg", "--frames", "5", NULL };
-    int n3 = 6;
-    CHECK(take_model(&n3, argv3) == MODEL_GG && n3 == 4 && !strcmp(argv3[2], "--frames"), "--model gg");
-    char *argv4[] = { "x", "rom", "--model", "sg", NULL };
-    int n4 = 4;
-    CHECK(take_model(&n4, argv4) == -2, "--model sg es un error");
+    /* --model: lo resuelve cli_parse (CLI_HOST_DONE de input_host.h) */
+    static Cli m;
+    char *argv3[] = { "x", "rom", "--model", "gg", "--frames", "5" };
+    CHECK(!cli_parse(&m, 6, argv3, 1, 600) && m.model == MODEL_GG && m.frames == 5, "--model gg");
+    char *argv4[] = { "x", "rom", "--model", "sg" };
+    CHECK(cli_parse(&m, 4, argv4, 1, 600) == 2, "--model sg es un error");
+    char *argv5[] = { "x", "rom" };
+    CHECK(!cli_parse(&m, 2, argv5, 1, 600) && m.model == MODEL_AUTO, "sin --model, MODEL_AUTO");
     if (!fails) printf("inputtest: todo bien\n");
     return fails != 0;
 }

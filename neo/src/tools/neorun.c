@@ -11,7 +11,7 @@
  * --watch DIR (hexadecimal, en la RAM: $100000-$10FFFF) imprime el byte cada vez que cambia.
  * --card ARCHIVO mete una tarjeta de memoria (la carga si existe) y la guarda al terminar.
  * --cardlog imprime cada llamada a CARD ($C00468) y CARD_ERROR ($C0046E) con sus variables y la respuesta.
- * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
+ * --shot ARCHIVO.png guarda la imagen del último cuadro; --screens CARPETA --every N, una cada N cuadros.
  * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y su nivel por segundo; --mute M
  *       silencia partes (bits 0-3 FM 1-4, 4 SSG, 5 ADPCM-A, 6 ADPCM-B; en hexadecimal).
  * --fix muestra la capa fija al final como texto: muchos juegos ponen su fuente en el código ASCII
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
         else if (!strcmp(argv[i], "--mute") && i + 1 < argc) mute = (unsigned)strtoul(argv[++i], NULL, 16);
-        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if ((!strcmp(argv[i], "--screens") || !strcmp(argv[i], "--shots")) && i + 1 < argc) shots = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     }
     if (!rom || frames <= 0) {
         fprintf(stderr, "uso: neorun juego [--frames N] [--bios archivo] [--card archivo [--cardlog]] [--watch DIR ...] [--fix]\n"
-                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav [--mute M]]\n"
+                        "              [--shot ARCHIVO.png] [--screens CARPETA [--every N]] [--wav ARCHIVO.wav [--mute M]]\n"
                         "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c d start select\n");
         return 2;

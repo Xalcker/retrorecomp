@@ -16,6 +16,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "prof.h"        /* las zonas de --profile (bench): PPU y APU */
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

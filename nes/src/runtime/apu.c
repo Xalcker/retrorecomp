@@ -689,14 +689,14 @@ static void advance(NES *n, u64 target)
 
 void apu_sync(NES *n)
 {
-    if (n->apu.cycle < n->cyc) advance(n, n->cyc);
+    if (n->apu.cycle < n->cyc) { PROF_ENTER(PROF_SONIDO); advance(n, n->cyc); PROF_LEAVE(); }
 }
 
 /* Al final de cada ciclo de CPU (n->cyc cuenta los ciclos ya terminados menos este): solo si algo
  * visible puede haber pasado en el ciclo que termina */
 void apu_check(NES *n)
 {
-    if (n->cyc + 1 >= n->apu.deadline) advance(n, n->cyc + 1);
+    if (n->cyc + 1 >= n->apu.deadline) { PROF_ENTER(PROF_SONIDO); advance(n, n->cyc + 1); PROF_LEAVE(); }
 }
 
 int apu_take(NES *n, int16_t *dst, int max)

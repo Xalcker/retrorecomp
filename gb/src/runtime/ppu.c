@@ -870,6 +870,7 @@ void ppu_advance(GB *g, u64 until)
         if (until > p->cyc) p->cyc = until;
         return;
     }
+    PROF_ENTER(PROF_VIDEO);
     while (p->cyc < until) {
         u32 n = idle_dots(p);
         if (n > 1) {
@@ -889,6 +890,7 @@ void ppu_advance(GB *g, u64 until)
         ppu_dot(g);
         p->cyc++;
     }
+    PROF_LEAVE();
 }
 
 u64 ppu_next_event(GB *g)

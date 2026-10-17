@@ -64,6 +64,7 @@ static void trace_note(Sms *g, u16 pc)
 }
 
 METRICA_DEFINIR
+PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
 void sms_step(Sms *g)
 {

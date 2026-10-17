@@ -133,6 +133,7 @@ void ppu_sync(NES *n, u64 target)
 {
     Ppu *p = &n->ppu;
     if (p->clock >= target) return;
+    PROF_ENTER(PROF_VIDEO);
     const int mmc3 = CART_MMC3(&n->cart);
     do {
         u64 left = target - p->clock;
@@ -169,6 +170,7 @@ void ppu_sync(NES *n, u64 target)
         ppu_tick(n);
     } while (p->clock < target);
     set_event(n);
+    PROF_LEAVE();
 }
 
 void ppu_flush(NES *n)

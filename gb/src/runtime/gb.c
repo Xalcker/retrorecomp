@@ -724,6 +724,7 @@ void gb_lockup(GB *g)
 /* ------------------------------------------------------------------ */
 
 METRICA_DEFINIR
+PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
 void gb_run(GB *g, u64 until)
 {

@@ -368,6 +368,7 @@ void apu_flush(GB *g)
     Apu *a = &g->apu;
     u32 rem = a->pend, d = a->pend_d;
     a->pend = 0;
+    PROF_ENTER(PROF_SONIDO);
     while (rem > 0) {
         /* k = el próximo M-ciclo en que algo puede cambiar; los k-1
          * anteriores se hacen de una vez y el k-ésimo, normal */
@@ -397,6 +398,7 @@ void apu_flush(GB *g)
         apu_step(g, d);
         rem -= k;
     }
+    PROF_LEAVE();
 }
 
 u8 apu_read(GB *g, u16 addr)

@@ -87,7 +87,7 @@ static void line_begin(Sms *g)
 {
     Vdp *v = &g->vdp;
     if (v->line == 0) { v->height = active_height(g); v->vscroll = v->reg[9]; }
-    if (v->line < v->height) vdp_render_line(g, v->line);
+    if (v->line < v->height) { PROF_ENTER(PROF_VIDEO); vdp_render_line(g, v->line); PROF_LEAVE(); }
     else vdp_border_sprites(g, vdp_vcount(v));
 }
 

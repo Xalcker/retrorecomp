@@ -15,7 +15,7 @@ BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
 SHARED := ../shared
 # Módulos de la ventana que viven en shared/ (el resto de src/platform es de esta consola)
-SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_touch.h files.c wav.h inputs.h cli.h settings.c
+SHARED_PLAT := ui_menu.c ui_menu.h ui_font.c ui_font.h png.c png.h files.h export.c export.h player_util.h player_common.h player_audio.h player_touch.h files.c wav.h inputs.h cli.h settings.c bench_comun.h
 plat = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_PLAT)),$(SHARED)/$(f),src/platform/$(f)))
 # Windows (MSYS2): los ejecutables llevan .exe. El make de MSYS2 no le pasa TMP
 # a gcc, que entonces intenta escribir en C:\WINDOWS: carpeta temporal en build/.
@@ -42,7 +42,7 @@ endif
 RUNTIME := gb.c interp.c timer.c ppu.c apu.c mbc.c sha1.c save.c sgb.c compat.c
 RUNTIME_OBJ := $(RUNTIME:%.c=$(BUILD)/rt_%.o)
 # Lo del runtime que vive en shared/ (console.h)
-SHARED_RT := console.h golden_hash.h metrica.h
+SHARED_RT := console.h golden_hash.h metrica.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 .PHONY: all clean test dist testroms
@@ -63,7 +63,7 @@ gbtest$(EXE): src/tools/gbtest.c src/runtime/gb_golden.h $(SHARED)/golden_hash.h
 
 # Velocidad del runtime sin ventana (tests/golden.py comprueba que no cambie nada)
 # (src/platform/bench.c: el mismo archivo es el bench de los proyectos generados, con -DGB_RECOMP)
-gbbench$(EXE): src/platform/bench.c $(INPUT_DEPS) $(BUILD)/libgbrt.a
+gbbench$(EXE): src/platform/bench.c $(SHARED)/bench_comun.h $(SHARED)/golden_hash.h $(INPUT_DEPS) $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/platform/bench.c $(BUILD)/libgbrt.a
 
 # Herramientas sin ventana con las mismas opciones que las de las otras consolas (cli.h; más --model)
@@ -115,9 +115,9 @@ gb$(EXE): $(call plat,$(GB_SRC)) $(wildcard src/platform/*.h) $(INPUT_DEPS) $(BU
 		$(call plat,$(GB_SRC)) $(BUILD)/libgbrt.a $(WINRES) $(SDL_LIBS) -lm
 
 # Archivos que gbrecomp lleva adentro y escribe en cada proyecto generado
-EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c \
+EMBED_RUNTIME  := gb.h gb.c cpu_ops.h interp.c timer.c ppu.c apu.c mbc.c prof.h \
                   recomp.h console.h save.c sgb.c compat.c gb_golden.h golden_hash.h metrica.h
-EMBED_PLATFORM := main_sdl.c difftest.c bench.c inputs.h input_host.h cli.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
+EMBED_PLATFORM := main_sdl.c difftest.c bench.c bench_comun.h inputs.h input_host.h cli.h ramtrace.h romtrace.h files.c files.h wav.h i18n.c i18n.h settings.c settings.h \
                   ui_menu.c ui_menu.h ui_font.c ui_font.h export.c export.h gbexport.c gbexport.h png.c png.h player_util.h player_common.h player_audio.h player_touch.h \
                   iconos.c iconos.h icono_gb.ico icono_gbc.ico icono_sgb.ico
 EMBED_SRC := $(call rt,$(EMBED_RUNTIME)) $(call plat,$(EMBED_PLATFORM)) $(SHARED)/random_pad.h $(SHARED)/ram_code.h $(BUILD)/gen/interp_ops.inc $(SHARED)/sha1.c $(SHARED)/sha1.h

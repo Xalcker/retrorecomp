@@ -1,44 +1,23 @@
 /*
- * Prueba diferencial: corre la ROM con el código recompilado y con el
- * intérprete puro, con las mismas entradas, y compara el estado completo
- * (CPU, ciclos, RAM, VRAM, OAM, I/O, timer, PPU, RAM del cartucho) al final de
- * cada cuadro. Si algo difiere, regresa al inicio del cuadro y avanza
- * instrucción por instrucción para reportar la primera diferencia exacta.
- *
- * Uso: difftest rom.gb [--frames N] [--input archivo] [--seed S] [--save archivo.sav]
- *                     [--uncovered archivo]
- *                     [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto]
- *   --input reproduce entradas grabadas (ver inputs.h). --seed suma el mando
- *   aleatorio de random_pad.h (el mismo que en NESRecomp y GENRecomp). Sin --input
- *   ni --seed no se pulsa nada, como en el difftest de los otros dos.
- *   --save carga un .sav en ambas máquinas antes de empezar (para partidas
- *   grabadas que empezaron desde una partida guardada).
- *   --save-out escribe la RAM del cartucho (de la máquina recompilada) al terminar.
- *   --screens guarda una captura (PNG) cada N cuadros, para ver hasta dónde
- *   llegaron las entradas aleatorias.
- *   --uncovered escribe, en formato de traza de gbrecomp, las direcciones de
- *   ROM que ejecutó el intérprete y los bytes del código que corrió desde
- *   WRAM o HRAM (para alimentar gbrecomp --trace; ver ramtrace.h).
- *   --executed escribe qué bytes de ROM se ejecutaron (los registra la máquina
- *   de referencia; formato de gbrecomp --codemap).
- *   --estricto falla (código 1) al final del cuadro en que el intérprete ejecutó una instrucción de ROM
- *   que no está recompilada ("ESTRICTO: código que falta en $PC..."; el primer PC). El código en RAM y
- *   lo que el despachador interpreta a propósito (tras EI, bug de HALT) sí pasan. Al final,
- *   "Intérprete por motivo: ..." cuenta las entradas al intérprete.
- * Salida y código de salida como en NESRecomp, GENRecomp y NEORecomp: sin diferencias,
- * "difftest: N cuadros iguales (L llamadas, R a código recompilado)" y la línea común
- * "Métrica: ..." (metrica.h), y 0; con diferencias, líneas "DIFERENCIA ..." y 1; 2 si no pudo correr.
+ * Prueba diferencial de Game Boy: corre la ROM con el código recompilado y con el intérprete puro, con las mismas entradas, y
+ * compara el estado completo (CPU, ciclos, RAM, VRAM, OAM, I/O, timer, PPU, RAM del cartucho) al final de cada cuadro. Si algo
+ * difiere, regresa al inicio del cuadro y avanza instrucción por instrucción para reportar la primera diferencia exacta. Las
+ * opciones, la carga, el bench y el final son los de difftest_comun.h (en ../shared); aquí va lo propio de la consola:
+ *   --model dmg|cgb|sgb, --palette up+a (el modo de compatibilidad del GBC), y --uncovered, que además de las direcciones de ROM
+ *   lleva los bytes del código que corrió desde WRAM o HRAM (ramtrace.h).
+ * "--estricto" falla al final del cuadro en que el intérprete ejecutó una instrucción de ROM que no está recompilada; el código en RAM
+ * y lo que el despachador interpreta a propósito (tras EI, bug de HALT) sí pasan.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "console.h"
-#include "cli.h"
+#include "recomp.h"
+#include "difftest_comun.h"
+#include "png.h"
 #include "ramtrace.h"
 #include "romtrace.h"
-#include "recomp.h"
 #include "sha1.h"
 
 static GB rec, ref, snap_rec, snap_ref;
@@ -198,59 +177,19 @@ static int same_state(GB *a, GB *b)
     return 1;
 }
 
-/* --- Capturas en PNG (gris, sin compresión) --- */
+/* --- Captura del cuadro de B en PNG (en SGB, la imagen completa de la SNES, con el borde) --- */
 
-static u32 crc_table[256];
-
-static u32 crc32_buf(u32 crc, const u8 *p, size_t n)
-{
-    if (!crc_table[1])
-        for (u32 i = 0; i < 256; i++) {
-            u32 c = i;
-            for (int k = 0; k < 8; k++) c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-            crc_table[i] = c;
-        }
-    crc = ~crc;
-    while (n--) crc = crc_table[(crc ^ *p++) & 0xFF] ^ (crc >> 8);
-    return ~crc;
-}
-
-static void put_be32(u8 *p, u32 v)
-{
-    p[0] = (u8)(v >> 24); p[1] = (u8)(v >> 16); p[2] = (u8)(v >> 8); p[3] = (u8)v;
-}
-
-static void png_chunk(FILE *f, const char *type, const u8 *data, u32 len)
-{
-    u8 hdr[8], crc[4];
-    put_be32(hdr, len);
-    memcpy(hdr + 4, type, 4);
-    fwrite(hdr, 1, 8, f);
-    if (len) fwrite(data, 1, len, f);
-    put_be32(crc, crc32_buf(crc32_buf(0, hdr + 4, 4), data, len));
-    fwrite(crc, 1, 4, f);
-}
-
-/* Captura en PNG RGB sin compresión (bloques "stored" de deflate) */
-static void save_screen(GB *g, const char *path)
+static int captura(const char *path)
 {
     static const u8 shade[4] = { 0xFF, 0xAA, 0x55, 0x00 };
-    /* En SGB se guarda la imagen completa de la SNES, con el borde */
-    enum { MAX_RAW = (SGB_SCREEN_W * 3 + 1) * SGB_SCREEN_H,
-           MAX_BLOCKS = (MAX_RAW + 65534) / 65535 };
-    static u8 raw[MAX_RAW];
-    static u8 z[2 + MAX_RAW + MAX_BLOCKS * 5 + 4];
+    GB *g = &rec;
+    static u8 rgb[SGB_SCREEN_W * SGB_SCREEN_H * 3];
     const u16 *fb = g->sgb ? gb_sgb_screen(g) : gb_framebuffer(g);
     const int W = g->sgb ? SGB_SCREEN_W : GB_SCREEN_W, H = g->sgb ? SGB_SCREEN_H : GB_SCREEN_H;
-    const u32 STRIDE = (u32)W * 3 + 1, RAW = STRIDE * (u32)H;
-    const size_t zlen = 2 + RAW + (RAW + 65534) / 65535 * 5 + 4;
-
-    for (int y = 0; y < H; y++) {
-        u8 *row = raw + y * STRIDE;
-        row[0] = 0;     /* sin filtro */
+    for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x++) {
             u16 v = fb[y * W + x];
-            u8 *px = row + 1 + x * 3;
+            u8 *px = rgb + ((size_t)y * (size_t)W + (size_t)x) * 3;
             if (!g->cgb_hw && !g->sgb) {
                 px[0] = px[1] = px[2] = shade[v & 3];
             } else {
@@ -260,49 +199,8 @@ static void save_screen(GB *g, const char *path)
                 }
             }
         }
-    }
-
-    u8 *p = z;
-    u32 a = 1, b = 0;
-    *p++ = 0x78; *p++ = 0x01;
-    for (u32 done = 0; done < RAW;) {
-        u32 n = RAW - done > 65535 ? 65535 : RAW - done;
-        *p++ = done + n == RAW ? 1 : 0;
-        *p++ = (u8)n; *p++ = (u8)(n >> 8);
-        *p++ = (u8)~n; *p++ = (u8)(~n >> 8);
-        for (u32 i = 0; i < n; i++) {
-            u8 v = raw[done + i];
-            *p++ = v;
-            a = (a + v) % 65521;
-            b = (b + a) % 65521;
-        }
-        done += n;
-    }
-    put_be32(p, b << 16 | a);
-
-    FILE *f = fopen(path, "wb");
-    if (!f) return;
-    static const u8 sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-    u8 ihdr[13] = { 0 };
-    fwrite(sig, 1, 8, f);
-    put_be32(ihdr, (u32)W);
-    put_be32(ihdr + 4, (u32)H);
-    ihdr[8] = 8;
-    ihdr[9] = 2;    /* RGB */
-    png_chunk(f, "IHDR", ihdr, 13);
-    png_chunk(f, "IDAT", z, (u32)zlen);
-    png_chunk(f, "IEND", NULL, 0);
-    fclose(f);
+    return png_write_rgb(path, rgb, W, H);
 }
-
-/* --- Entradas: --input, --seed y los botones sostenidos (cli.h, las opciones de los cinco recompiladores) --- */
-
-static Cli c;
-
-static void reset_pad(void) { cli_rewind(&c); }
-
-/* El guion, más el mando aleatorio si se pidió --seed (sin nada, no se pulsa ningún botón, como en los demás) */
-static u8 pad_for(long frame) { return cli_pad(&c, frame, 0); }
 
 /* --- Ubicar la primera diferencia --- */
 
@@ -328,158 +226,125 @@ static void locate(long frame)
     printf("No se pudo reproducir la diferencia instrucción por instrucción.\n");
 }
 
-static unsigned char *read_file(const char *path, long *size)
+/* Un cuadro: las dos máquinas corren el cuadro entero y se comparan al final; si difieren, se vuelve al inicio del cuadro y se avanza
+ * instrucción por instrucción para dar la primera diferencia exacta */
+static int cuadro(DiffCtx *x, long f)
 {
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END);
-    *size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    unsigned char *buf = malloc((size_t)*size);
-    if (buf && fread(buf, 1, (size_t)*size, f) != (size_t)*size) { free(buf); buf = NULL; }
-    fclose(f);
-    return buf;
-}
-
-int main(int argc, char **argv)
-{
-    console_utf8();
-    if (cli_parse(&c, argc, argv, 1, 3600)) {
-        fprintf(stderr, "uso: difftest rom.gb [--frames N] [--seed S] [--uncovered archivo] [--estricto]\n");
-        return 2;
-    }
-    const char *rom_path = c.pos[0], *uncovered = c.uncovered, *screens = c.screens;
-    const char *executed_path = c.executed, *save_path = c.save, *save_out = c.save_out;
-    const char *palette = c.palette;
-    long frames = c.frames, every = c.every;
-    int bench = c.bench, estricto = c.estricto, model = c.model;
-    /* Sin --frames y con --input: hasta 10 segundos después del último cambio */
-    if (c.input && !c.frames_given) frames = inputs_last_frame(&c.script) + 600;
-
-    long size;
-    unsigned char *rom = read_file(rom_path, &size);
-    if (!rom) { fprintf(stderr, "no se pudo leer %s\n", rom_path); return 2; }
-    char sha1[41];
-    sha1_hex(rom, (size_t)size, sha1);
-    if (strcmp(sha1, recomp_rom_sha1) != 0) {
-        fprintf(stderr, "la ROM no coincide: SHA1 %s, se esperaba %s\n", sha1, recomp_rom_sha1);
-        return 2;
-    }
-
-    const char *err;
-    if ((err = gb_init_model(&rec, rom, (u32)size, model)) || (err = gb_init_model(&ref, rom, (u32)size, model)) ||
-        (err = gb_init_model(&snap_rec, rom, (u32)size, model)) || (err = gb_init_model(&snap_ref, rom, (u32)size, model))) {
-        fprintf(stderr, "%s\n", err);
-        return 2;
-    }
-    free(rom);
-    if (palette && !(gb_compat_palette(&rec, palette) && gb_compat_palette(&ref, palette))) {
-        fprintf(stderr, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC\n", palette);
-        return 2;
-    }
-    rec.recomp_lookup = bench ? recomp_lookup : counting_lookup;
-    metrica_reiniciar(&rec);
-    rec.trace = count_interp;
-    if (executed_path) ref.trace = mark_executed;
-    if (save_path) {
-        /* Misma partida en ambas máquinas; hora 0: el reloj no se adelanta */
-        if (!gb_save_read(&rec, save_path, 0) || !gb_save_read(&ref, save_path, 0)) {
-            fprintf(stderr, "no se pudo cargar %s (¿el cartucho no tiene batería?)\n", save_path);
-            return 2;
-        }
-    }
-    reset_pad();
-
-    printf("%s: %ld cuadros, semilla %u\n", recomp_rom_title, frames, c.seed);
-    if (bench) {
-        /* Velocidad: cada máquina por separado, con las mismas entradas */
-        GB *m[2] = { &rec, &ref };
-        const char *name[2] = { "recompilado", "intérprete" };
-        for (int k = 0; k < 2; k++) {
-            reset_pad();
-            clock_t t0 = clock();
-            for (long frame = 0; frame < frames; frame++) {
-                gb_set_pad(m[k], pad_for(frame));
-                gb_run_frame(m[k]);
-            }
-            double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
-            printf("  %-12s %.2f s  (%.0fx tiempo real)\n", name[k], s,
-                   s > 0 ? frames * ((double)GB_CYCLES_FRAME / GB_CPU_HZ) / s : 0.0);
-        }
-        return 0;
-    }
-    int ok = 1;
-    long falla = -1;     /* el cuadro de la diferencia */
-    for (long frame = 0; frame < frames; frame++) {
-        u8 pad = pad_for(frame);
-        gb_copy_state(&snap_rec, &rec);
-        gb_copy_state(&snap_ref, &ref);
+    Cli *c = x->c;
+    u8 pad = (u8)cli_pad(c, f, 0);
+    gb_copy_state(&snap_rec, &rec);
+    gb_copy_state(&snap_ref, &ref);
+    gb_set_pad(&rec, pad);
+    gb_set_pad(&ref, pad);
+    u64 target = rec.cyc + gb_frame_cycles(&rec);
+    gb_run(&rec, target);
+    gb_run(&ref, target);
+    if (!same_state(&rec, &ref)) {
+        printf("DIFERENCIA al final del cuadro %ld: %s\n", f, diff_msg);
+        /* Repetir el cuadro con las mismas entradas */
+        gb_copy_state(&rec, &snap_rec);
+        gb_copy_state(&ref, &snap_ref);
         gb_set_pad(&rec, pad);
         gb_set_pad(&ref, pad);
-        u64 target = rec.cyc + gb_frame_cycles(&rec);
-        gb_run(&rec, target);
-        gb_run(&ref, target);
-        if (!same_state(&rec, &ref)) {
-            printf("DIFERENCIA al final del cuadro %ld: %s\n", frame, diff_msg);
-            /* Repetir el cuadro con las mismas entradas */
-            gb_copy_state(&rec, &snap_rec);
-            gb_copy_state(&ref, &snap_ref);
-            gb_set_pad(&rec, pad);
-            gb_set_pad(&ref, pad);
-            gb_copy_state(&snap_rec, &rec);
-            gb_copy_state(&snap_ref, &ref);
-            locate(frame);
-            ok = 0;
-            falla = frame;
-            break;
-        }
-        if (estricto && metrica_estricto(frame, 4, NULL)) { metrica_resumen_falla(frame, 1); return 1; }
-        if (screens && every > 0 && (frame + 1) % every == 0) {
-            char path[1024];
-            snprintf(path, sizeof path, "%s/cuadro_%06ld.png", screens, frame + 1);
-            save_screen(&rec, path);
-        }
+        gb_copy_state(&snap_rec, &rec);
+        gb_copy_state(&snap_ref, &ref);
+        locate(f);
+        return DT_DIFERENCIA;
     }
+    /* Las llamadas son las funciones recompiladas más las instrucciones del intérprete, como en NESRecomp */
+    x->recompiladas = recomp_calls;
+    x->llamadas = recomp_calls + (unsigned long)metrica.ins_int;
+    for (int k = 0; k < 4; k++) x->zona[k] = interp_zone[k];
+    if (c->estricto && metrica_estricto(f, 4, NULL)) return DT_ESTRICTO;
+    return DT_IGUAL;
+}
 
-    if (ok)
-        printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
-               frames, recomp_calls + (unsigned long)metrica.ins_int, recomp_calls);
-    /* La línea común de los cinco (metrica.h): las instrucciones nativas y el reparto de los ciclos. Lo que el
-     * despachador no atribuye (esperas de la DMA por HBlank) sale como «otros» */
-    if (ok) metrica_imprimir(&metrica, rec.cyc);
-    metrica_imprimir_motivos(&metrica);
-    if (metrica.ins_int)
-        printf("Intérprete por zona: ROM %.1f%%, RAM de cartucho %.1f%%, WRAM %.1f%%, HRAM %.1f%%\n",
-               100.0 * interp_zone[0] / metrica.ins_int, 100.0 * interp_zone[1] / metrica.ins_int,
-               100.0 * interp_zone[2] / metrica.ins_int, 100.0 * interp_zone[3] / metrica.ins_int);
+static const char *cargar(const u8 *rom, size_t len, const Cli *c)
+{
+    const char *err;
+    if ((err = gb_init_model(&rec, rom, (u32)len, c->model)) || (err = gb_init_model(&ref, rom, (u32)len, c->model)) ||
+        (err = gb_init_model(&snap_rec, rom, (u32)len, c->model)) || (err = gb_init_model(&snap_ref, rom, (u32)len, c->model)))
+        return err;
+    return NULL;
+}
 
-    /* El archivo de --uncovered va en orden de dirección (gbrecomp --trace no depende
-     * del orden); el log muestra las TOP_HITS direcciones más ejecutadas */
-    Hit top[TOP_HITS];
-    unsigned ntop = 0, distinct = 0;
-    FILE *uf = uncovered ? fopen(uncovered, "w") : NULL;
+static const char *sha1(const u8 *rom, size_t len)
+{
+    static char sha[41];
+    sha1_hex(rom, len, sha);
+    return sha;
+}
+
+static const char *preparar(const Cli *c)
+{
+    static char msg[200];
+    if (c->palette && !(gb_compat_palette(&rec, c->palette) && gb_compat_palette(&ref, c->palette))) {
+        snprintf(msg, sizeof msg, "paleta \"%s\": solo existe en el modo de compatibilidad del GBC", c->palette);
+        return msg;
+    }
+    rec.recomp_lookup = c->bench ? recomp_lookup : counting_lookup;
+    rec.trace = count_interp;
+    if (c->executed) ref.trace = mark_executed;
+    return NULL;
+}
+
+static void reiniciar(void) { metrica_reiniciar(&rec); }
+static void *maquina(int k) { return k ? (void *)&ref : (void *)&rec; }
+static void poner_pad(void *g, unsigned p1, unsigned p2) { (void)p2; gb_set_pad(g, (u8)p1); }
+static void cuadro_solo(void *g) { gb_run_frame(g); }
+static void vaciar(void *g) { (void)g; }
+static u64 ciclos(void) { return rec.cyc; }
+
+/* Misma partida en ambas máquinas; hora 0: el reloj no se adelanta */
+static int cargar_partida(const char *path) { return gb_save_read(&rec, path, 0) && gb_save_read(&ref, path, 0); }
+static int guardar_partida(const char *path) { return gb_save_write(&rec, path, 0); }
+
+/* --uncovered: las direcciones de ROM que ejecutó el intérprete, en orden de dirección (gbrecomp --trace no depende del orden), y el
+ * código que corrió desde WRAM o HRAM: líneas "ram DIRECCION BYTES" (ramtrace.h) */
+static RcSummary rs_ram;
+
+static size_t uncovered(const char *path, int *ok)
+{
+    FILE *uf = fopen(path, "w");
+    size_t distinct = 0;
     for (u32 s = 0; s < ROM_SLOTS; s++) {
         if (!interp_hits[s]) continue;
         u32 b = rom_slot_bank(s);
         for (u32 off = 0; off < 0x4000; off++) {
             if (!interp_hits[s][off]) continue;
-            u16 addr = rom_slot_addr(s, (u16)off);
             distinct++;
-            if (uf) fprintf(uf, "%02X:%04X\n", b, addr);
-            Hit h = { b, addr, interp_hits[s][off] };
+            if (uf) fprintf(uf, "%02X:%04X\n", b, rom_slot_addr(s, (u16)off));
+        }
+    }
+    rs_ram = ramtrace_write(uf);
+    if (uf) fclose(uf);
+    *ok = uf != NULL;
+    return distinct;
+}
+
+static void ram(unsigned *fijas, unsigned *variables, unsigned *varias, unsigned *perdidas)
+{
+    *fijas = rs_ram.fixed; *variables = rs_ram.vol; *varias = rs_ram.multi; *perdidas = rs_ram.lost;
+}
+
+/* Al terminar: las TOP_HITS direcciones que más ejecutó el intérprete, en ROM y en RAM (dirección, veces y bytes) */
+static void informe(DiffCtx *x)
+{
+    (void)x;
+    Hit top[TOP_HITS];
+    unsigned ntop = 0;
+    for (u32 s = 0; s < ROM_SLOTS; s++) {
+        if (!interp_hits[s]) continue;
+        u32 b = rom_slot_bank(s);
+        for (u32 off = 0; off < 0x4000; off++) {
+            if (!interp_hits[s][off]) continue;
+            Hit h = { b, rom_slot_addr(s, (u16)off), interp_hits[s][off] };
             top_insert(top, &ntop, h);
         }
     }
-    /* Código que corrió desde WRAM ($C000-$DFFF) o HRAM ($FF80-$FFFE): líneas "ram DIRECCION
-     * BYTES" para gbrecomp --trace (ramtrace.h). Con más versiones de las que se guardan, una
-     * dirección no se aprende */
-    RcSummary rs = ramtrace_write(uf);
-    if (uf) fclose(uf);
     if (ntop) printf("Las más ejecutadas por el intérprete:\n");
     for (unsigned i = 0; i < ntop; i++)
         printf("  interpretada en ROM: %02X:%04X (%u veces)\n", top[i].bank, top[i].addr, top[i].n);
-
-    /* Lo que el intérprete ejecutó en RAM (HRAM, WRAM...): dirección, veces y bytes */
     Hit rtop[TOP_HITS];
     unsigned nrtop = 0, rdistinct = 0;
     for (u32 a = 0x8000; a < 0x10000; a++) {
@@ -494,33 +359,31 @@ int main(int argc, char **argv)
         for (unsigned k = 0; k < RAM_BYTES; k++) printf(" %02X", ram_hits[rtop[i].addr - 0x8000].first[k]);
         printf("\n");
     }
-
-    if (executed_path) {
-        /* Mismo formato que gbrecomp --codemap: C = ejecutado */
-        FILE *ef = fopen(executed_path, "w");
-        u32 nbanks = rec.rom_banks;
-        for (u32 b = 0; ef && b < nbanks && b < MAX_BANKS; b++)
-            for (u32 off = 0; off < 0x4000; off++) {
-                fputc(executed[b] && executed[b][off] ? 'C' : '.', ef);
-                if (off % 64 == 63) fputc('\n', ef);
-            }
-        if (ef) fclose(ef);
-    }
-    if (distinct) printf("Instrucciones de ROM interpretadas: %u\n", distinct);
     if (rdistinct) printf("Direcciones de RAM interpretadas: %u\n", rdistinct);
-    if (rs.fixed || rs.vol || rs.multi || rs.lost)
-        printf("Código en WRAM/HRAM: %u instrucciones fijas, %u con operandos variables, %u con varias "
-               "versiones, %u que cambian demasiado\n", rs.fixed, rs.vol, rs.multi, rs.lost);
+}
 
-    if (save_out && !gb_save_write(&rec, save_out, 0))
-        fprintf(stderr, "no se pudo escribir %s\n", save_out);
+/* --executed: mismo formato que gbrecomp --codemap (C = ejecutado) */
+static int executed_map(const char *path)
+{
+    FILE *ef = fopen(path, "w");
+    if (!ef) return 0;
+    u32 nbanks = ref.rom_banks;
+    for (u32 b = 0; b < nbanks && b < MAX_BANKS; b++)
+        for (u32 off = 0; off < 0x4000; off++) {
+            fputc(executed[b] && executed[b][off] ? 'C' : '.', ef);
+            if (off % 64 == 63) fputc('\n', ef);
+        }
+    return fclose(ef) == 0;
+}
 
-    if (ok) {
-        char res[160];
-        snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu,\"interpretadas\":%u", frames,
-                 recomp_calls + (unsigned long)metrica.ins_int, recomp_calls, distinct);
-        metrica_resumen("difftest", 1, res, &metrica, rec.cyc);
-    } else
-        metrica_resumen_falla(falla, 0);
-    return ok ? 0 : 1;
+int main(int argc, char **argv)
+{
+    DiffOps o = {
+        .titulo = recomp_rom_title, .uso_rom = "rom.gb", .uso_extra = " [--model dmg|cgb|sgb] [--palette up+a]", .cuadros = 3600,
+        .fps = (double)GB_CPU_HZ / GB_CYCLES_FRAME, .unidad = "ROM", .zonas = { "ROM", "RAM de cartucho", "WRAM", "HRAM" },
+        .cargar = cargar, .sha1 = sha1, .preparar = preparar, .cargar_partida = cargar_partida, .guardar_partida = guardar_partida,
+        .reiniciar = reiniciar, .maquina = maquina, .pad = poner_pad, .cuadro_solo = cuadro_solo, .vaciar = vaciar, .cuadro = cuadro,
+        .ciclos = ciclos, .captura = captura, .uncovered = uncovered, .ram = ram, .executed = executed_map, .informe = informe,
+    };
+    return difftest_main(argc, argv, &o);
 }

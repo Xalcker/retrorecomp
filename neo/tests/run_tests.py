@@ -137,6 +137,12 @@ def main():
                             and not any(l.startswith("ram") for l in lineas(f"{D}/ram2.unc"))):
                         ok = True
         if ok:
+            # --save-out y --save: la tarjeta de memoria de una corrida es el punto de partida de la siguiente
+            tarjeta = f"{D}/ram.card"
+            borrar(tarjeta)
+            c1, _ = rr.correr([f"{d}/difftest{x}", RR_, "--frames", "60", "--seed", "1", "--save-out", tarjeta], env=bios)
+            c2, o2 = rr.correr([f"{d}/difftest{x}", RR_, "--frames", "60", "--seed", "1", "--save", tarjeta], env=bios)
+            p.comprobar(c1 == 0 and os.path.isfile(tarjeta) and c2 == 0 and "cuadros iguales" in o2, "difftest --save-out y --save con la tarjeta de memoria")
             p.ok("código en RAM: la segunda ronda lo compila (6 instrucciones, 1 parchada) y no queda nada en el intérprete")
         else:
             p.falla("código en RAM")

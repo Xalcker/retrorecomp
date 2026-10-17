@@ -214,6 +214,8 @@ def main():
               and r.paso(make_en("cpu_instrs"))
               and r.paso(rr.correr([f"build/out/cpu_instrs/difftest{x}", rom, "--frames", "3600", "--seed", "1"])))
         registrar(ok, "  recomp cpu_instrs: " + cola(r.salida, 16))
+        codigo, salida = rr.correr([f"build/out/cpu_instrs/difftest{x}", rom, "--frames", "5", "--save", "build/cpu_instrs_nada.sav"])
+        registrar(codigo == 2 and "no guarda partida" in salida, "  difftest --save rechaza un juego sin partida: " + cola(salida, 2))
 
     # --- Recompilador: la rutina de DMA de OAM que el juego copia a HRAM. Dos ROMs libres con las dos formas (firstwhite
     #     lleva ld a,N; strikethrough no): gbrecomp la reconoce, el proyecto compila, difftest no encuentra diferencias y

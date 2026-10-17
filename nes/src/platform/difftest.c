@@ -1,31 +1,11 @@
 /*
- * Prueba diferencial: corre el código recompilado y el intérprete lado a lado y
- * se detiene en la primera diferencia (registros, RAM, PPU, APU, mapper...).
+ * Prueba diferencial de NES: corre el código recompilado y el intérprete lado a lado y se detiene en la primera diferencia
+ * (CPU, RAM, PPU, APU, mapper, interrupciones...). Las opciones, la carga, el bench y el final son los de difftest_comun.h (en
+ * ../shared); aquí va lo propio de la consola.
  *
- *   difftest rom.nes [--frames N] [--input archivo] [--seed S] [--uncovered archivo]
- *                    [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto]
- *                    [boton:desde-hasta ...]
- * (también vale la sintaxis de antes: difftest rom.nes cuadros [boton:desde-hasta ...])
- * Las mismas opciones que difftest de GBRecomp.
- *
- * --seed S       suma a las entradas dadas un mando aleatorio (reproducible con la semilla).
- * --uncovered f  escribe, en formato de traza de nesrecomp ("BANCO:DIRECCION"), las
- *                instrucciones de PRG que la máquina B tuvo que interpretar: sirven como
- *                --trace para recompilar y cubrirlas.
- * --screens d    guarda una captura PNG (cuadro_NNNNNN.png) cada --every N cuadros (600), para
- *                ver hasta dónde llegaron las entradas.
- * --bench        mide la velocidad del código recompilado y la del intérprete por separado, con
- *                las mismas entradas, sin comparar.
- * --executed f   escribe qué bytes de PRG se ejecutaron (los registra la máquina A): una letra
- *                por byte, C = ejecutado, 64 por línea; el formato de nesrecomp --codemap.
- * --estricto     falla (código 1) en la primera instrucción de PRG que B corre con el intérprete porque no está
- *                recompilada ("ESTRICTO: código que falta en $PC..."). El código en RAM, que se descubre al
- *                correr, sí pasa. Al final, "Intérprete por motivo: ..." cuenta las entradas al intérprete.
- *
- * La máquina B corre función por función (recompilada, o el intérprete donde no
- * hay código). Tras cada función, la máquina A (solo intérprete) avanza hasta el
- * mismo ciclo y se comparan. Ambas cuentan los ciclos igual, así que coinciden
- * en cada límite de instrucción.
+ * La máquina B corre función por función (recompilada, o una instrucción del intérprete donde no hay código). Tras cada paso, la
+ * máquina A (solo intérprete) avanza hasta el mismo ciclo y se comparan. Las dos cuentan los ciclos igual, así que coinciden en
+ * cada límite de instrucción.
  */
 #include <stddef.h>
 #include <stdio.h>
@@ -34,7 +14,7 @@
 #include <time.h>
 #include "recomp.h"
 #include "sha1.h"
-#include "cli.h"
+#include "difftest_comun.h"
 #include "png.h"
 
 static NES A, B;
@@ -72,53 +52,19 @@ static int write_executed(const NES *n, const char *path)
     return fclose(f) == 0;
 }
 
-/* --bench: el recompilado y el intérprete por separado, con las mismas entradas */
-static void bench(Cli *c)
-{
-    NES *m[2] = { &B, &A };
-    const char *name[2] = { "recompilado", "intérprete" };
-    for (int k = 0; k < 2; k++) {
-        cli_rewind(c);
-        nes_force_interp = k;
-        clock_t t0 = clock();
-        for (long f = 0; f < c->frames; f++) {
-            m[k]->pad[0] = cli_pad(c, f, 0);
-            m[k]->pad[1] = cli_pad(c, f, 1);
-            nes_run_frame(m[k]);
-            m[k]->apu.nbuf = 0;
-        }
-        double s = (double)(clock() - t0) / CLOCKS_PER_SEC;
-        printf("  %-12s %.2f s  (%.0fx tiempo real)\n", name[k], s, s > 0 ? c->frames / 60.0988 / s : 0.0);
-    }
-    nes_force_interp = 0;
-}
-
-static u8 *slurp(const char *path, size_t *len)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    u8 *b = malloc(sz ? sz : 1);
-    if (fread(b, 1, sz, f) != (size_t)sz) { fclose(f); free(b); return NULL; }
-    fclose(f); *len = sz;
-    return b;
-}
-
-#define CMP(field, what) do { if (memcmp(&A.field, &B.field, sizeof A.field)) { puts("  difiere: " what); bad = 1; } } while (0)
-
 /* Compara todo menos los búferes grandes de salida (full = incluye el cuadro y el audio) */
 static int compare(int full)
 {
     int bad = 0;
-    CMP(cpu, "registros del CPU");
+    DT_CMP(cpu, "registros del CPU");
     if (A.cyc != B.cyc) { puts("  difiere: ciclos"); bad = 1; }
-    CMP(ram, "RAM");
+    DT_CMP(ram, "RAM");
     if (memcmp(&A.ppu, &B.ppu, offsetof(Ppu, fb))) {
         puts("  difiere: estado de la PPU (registros, VRAM, paletas u OAM)"); bad = 1;
     }
     if (memcmp(&A.apu, &B.apu, offsetof(Apu, buf))) { puts("  difiere: APU"); bad = 1; }
-    CMP(cart.reg, "registros del mapper");
-    CMP(cart.prg_ram, "RAM del cartucho");
+    DT_CMP(cart.reg, "registros del mapper");
+    DT_CMP(cart.prg_ram, "RAM del cartucho");
     if (A.cart.chr_is_ram && memcmp(A.cart.chr, B.cart.chr, A.cart.chr_size)) { puts("  difiere: CHR RAM"); bad = 1; }
     if (A.cart.mirroring != B.cart.mirroring) { puts("  difiere: espejado"); bad = 1; }
     if (A.nmi_line != B.nmi_line || A.need_nmi != B.need_nmi || A.prev_need_nmi != B.prev_need_nmi ||
@@ -133,101 +79,104 @@ static int compare(int full)
     return bad;
 }
 
+/* Un cuadro: B avanza paso a paso y A lo alcanza tras cada uno; se comparan en cada límite de instrucción */
+static int cuadro(DiffCtx *x, long f)
+{
+    Cli *c = x->c;
+    A.pad[0] = B.pad[0] = cli_pad(c, f, 0);
+    A.pad[1] = B.pad[1] = cli_pad(c, f, 1);
+    A.ppu.frame_done = B.ppu.frame_done = 0;
+    while (!B.ppu.frame_done) {
+        u16 pc0 = B.cpu.pc;
+        u64 c0 = B.cyc;
+        RecompFn fn = recomp_lookup(&B, B.cpu.pc);
+        if (B.cpu.jammed) fn = NULL;
+        nes_paso(&B, fn);
+        if (c->estricto && metrica.motivo[MOTIVO_FALTA]) {
+            char prg[24];
+            snprintf(prg, sizeof prg, "PRG $%05lX", (unsigned long)mapper_prg_offset(&B.cart, pc0));
+            metrica_estricto(f, 4, prg);
+            return DT_ESTRICTO;
+        }
+        if (fn) x->recompiladas++;
+        else {
+            int zona = pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3;
+            x->zona[zona] += B.cyc - c0;
+            if (zona == 0) dt_golpe(x, (u32)mapper_prg_offset(&B.cart, pc0));
+        }
+        x->llamadas++;
+        while (A.cyc < B.cyc) cpu_step(&A);
+        if (compare(0) || A.ppu.frame_done != B.ppu.frame_done) {
+            printf("DIFERENCIA en el cuadro %ld, tras ejecutar desde $%04X (ciclo %llu, %s)\n"
+                   "  A (intérprete) PC=$%04X A=%02X X=%02X Y=%02X P=%02X SP=%02X\n"
+                   "  B (recompilado) PC=$%04X A=%02X X=%02X Y=%02X P=%02X SP=%02X\n",
+                   f, pc0, (unsigned long long)B.cyc, fn ? "recompilado" : "intérprete",
+                   A.cpu.pc, A.cpu.a, A.cpu.x, A.cpu.y, A.cpu.p, A.cpu.sp,
+                   B.cpu.pc, B.cpu.a, B.cpu.x, B.cpu.y, B.cpu.p, B.cpu.sp);
+            return DT_DIFERENCIA;
+        }
+    }
+    if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); return DT_DIFERENCIA; }
+    A.apu.nbuf = B.apu.nbuf = 0;
+    return DT_IGUAL;
+}
+
+static const char *cargar(const u8 *rom, size_t len, const Cli *c)
+{
+    (void)c;
+    static char msg[200];
+    const char *err = NULL;
+    if (!nes_load(&A, rom, len, &err) && !nes_load(&B, rom, len, &err)) return NULL;
+    snprintf(msg, sizeof msg, "ROM: %s", err);
+    return msg;
+}
+
+static const char *sha1(const u8 *rom, size_t len)
+{
+    static char sha[41];
+    sha1_hex(rom, len, sha);
+    return sha;
+}
+
+static void trazas(const Cli *c)
+{
+    if (c->uncovered) nes_trace_start(&B);  /* solo en B: lo que A (intérprete) ejecuta no cuenta */
+    if (c->executed) nes_trace_start(&A);   /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
+}
+
+static int captura(const char *path) { return save_screen(&B, path); }
+static int executed(const char *path) { return write_executed(&A, path); }
+static void reiniciar(void) { metrica_reiniciar(&B); }
+static void *maquina(int k) { return k ? (void *)&A : (void *)&B; }
+static void modo(int k) { nes_force_interp = k; }
+static void poner_pad(void *g, unsigned p1, unsigned p2) { ((NES *)g)->pad[0] = (u8)p1; ((NES *)g)->pad[1] = (u8)p2; }
+static void cuadro_solo(void *g) { nes_run_frame(g); }
+static void vaciar(void *g) { ((NES *)g)->apu.nbuf = 0; }
+static u64 ciclos(void) { return B.cyc; }
+static void golpe(char *out, size_t size, u32 clave) { snprintf(out, size, "PRG $%05X", clave); }
+
+static size_t uncovered(const char *path, int *ok)
+{
+    size_t cnt = 0;
+    for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;
+    *ok = nes_trace_write(&B, path);
+    return cnt;
+}
+
+static void ram(unsigned *fijas, unsigned *variables, unsigned *varias, unsigned *perdidas) { nes_ram_summary(&B, fijas, variables, varias, perdidas); }
+/* La partida de la NES es la RAM con batería del cartucho */
+static int cargar_partida(const char *path) { return nes_sram_load(&A, path) && nes_sram_load(&B, path); }
+static int guardar_partida(const char *path) { return nes_sram_save(&B, path); }
+
 int main(int argc, char **argv)
 {
-    static Cli c;
-    if (cli_parse(&c, argc, argv, 1, 300)) {
-        fprintf(stderr, "uso: difftest rom.nes [--frames N] [--input archivo] [--seed S] [--uncovered archivo]\n"
-                        "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [--estricto] [boton:desde-hasta ...]\n");
-        return 2;
-    }
-    const char *uncovered = c.uncovered;
-    const char *pos[1] = { c.pos[0] };
-    size_t len; u8 *rom = slurp(pos[0], &len);
-    if (!rom) { fprintf(stderr, "no pude leer %s\n", pos[0]); return 2; }
-    char sha[41]; sha1_hex(rom, len, sha);
-    if (strcmp(sha, recomp_rom_sha1)) {
-        fprintf(stderr, "esta ROM no es la que se recompiló (SHA1 %s, esperaba %s)\n", sha, recomp_rom_sha1);
-        return 2;
-    }
-    const char *err = NULL;
-    if (nes_load(&A, rom, len, &err) || nes_load(&B, rom, len, &err)) { fprintf(stderr, "ROM: %s\n", err); return 2; }
-    long frames = c.frames;
-    if (c.bench) {
-        printf("%s: %ld cuadros\n", recomp_name, frames);
-        bench(&c);
-        return 0;
-    }
-    if (uncovered) nes_trace_start(&B);     /* solo en B: lo que A (intérprete) ejecuta no cuenta */
-    if (c.executed) nes_trace_start(&A);    /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
-
-    unsigned long calls = 0, recomp_calls = 0;
-    u64 cyc0 = B.cyc;
-    metrica_reiniciar(&B);
-    u64 interp_zone[4] = { 0 };     /* ciclos del intérprete por zona del PC: PRG, RAM, RAM del cartucho, otra */
-    for (long f = 0; f < frames; f++) {
-        A.pad[0] = B.pad[0] = cli_pad(&c, f, 0);
-        A.pad[1] = B.pad[1] = cli_pad(&c, f, 1);
-        A.ppu.frame_done = B.ppu.frame_done = 0;
-        while (!B.ppu.frame_done) {
-            u16 pc0 = B.cpu.pc; u64 c0 = B.cyc;
-            RecompFn fn = recomp_lookup(&B, B.cpu.pc);
-            if (B.cpu.jammed) fn = NULL;
-            nes_paso(&B, fn);
-            if (c.estricto && metrica.motivo[MOTIVO_FALTA]) {
-                char prg[24];
-                snprintf(prg, sizeof prg, "PRG $%05lX", (unsigned long)mapper_prg_offset(&B.cart, pc0));
-                metrica_estricto(f, 4, prg);
-                metrica_resumen_falla(f, 1);
-                return 1;
-            }
-            if (fn) recomp_calls++;
-            else interp_zone[pc0 >= 0x8000 ? 0 : pc0 < 0x2000 ? 1 : pc0 >= 0x6000 ? 2 : 3] += B.cyc - c0;
-            calls++;
-            while (A.cyc < B.cyc) cpu_step(&A);
-            if (compare(0) || A.ppu.frame_done != B.ppu.frame_done) {
-                printf("DIFERENCIA en el cuadro %ld, tras ejecutar desde $%04X (ciclo %llu, %s)\n"
-                       "  A (intérprete) PC=$%04X A=%02X X=%02X Y=%02X P=%02X SP=%02X\n"
-                       "  B (recompilado) PC=$%04X A=%02X X=%02X Y=%02X P=%02X SP=%02X\n",
-                       f, pc0, (unsigned long long)B.cyc, fn ? "recompilado" : "intérprete",
-                       A.cpu.pc, A.cpu.a, A.cpu.x, A.cpu.y, A.cpu.p, A.cpu.sp,
-                       B.cpu.pc, B.cpu.a, B.cpu.x, B.cpu.y, B.cpu.p, B.cpu.sp);
-                metrica_resumen_falla(f, 0);
-                return 1;
-            }
-        }
-        if (compare(1)) { printf("DIFERENCIA al final del cuadro %ld\n", f); metrica_resumen_falla(f, 0); return 1; }
-        A.apu.nbuf = B.apu.nbuf = 0;
-        if (c.screens && c.every > 0 && (f + 1) % c.every == 0) {
-            char path[1024];
-            snprintf(path, sizeof path, "%s/cuadro_%06ld.png", c.screens, f + 1);
-            if (!save_screen(&B, path)) fprintf(stderr, "no pude escribir %s\n", path);
-        }
-    }
-    u64 interp = interp_zone[0] + interp_zone[1] + interp_zone[2] + interp_zone[3];
-    if (interp)
-        printf("Intérprete por zona: PRG %.1f%%, RAM %.1f%%, RAM del cartucho %.1f%%, otra %.1f%%\n",
-               100.0 * interp_zone[0] / interp, 100.0 * interp_zone[1] / interp,
-               100.0 * interp_zone[2] / interp, 100.0 * interp_zone[3] / interp);
-    printf("difftest: %ld cuadros iguales (%lu llamadas, %lu a código recompilado)\n",
-           frames, calls, recomp_calls);
-    metrica_imprimir(&metrica, B.cyc - cyc0);
-    char res[160];
-    int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"llamadas\":%lu,\"recompilado\":%lu", frames, calls, recomp_calls);
-    metrica_imprimir_motivos(&metrica);
-    if (uncovered) {
-        size_t cnt = 0;
-        for (size_t i = 0; i < B.cart.prg_size; i++) cnt += B.trace[i] != 0;
-        if (!nes_trace_write(&B, uncovered)) { fprintf(stderr, "no pude escribir %s\n", uncovered); return 2; }
-        printf("Instrucciones de PRG interpretadas: %zu\n", cnt);
-        snprintf(res + nres, sizeof res - (size_t)nres, ",\"interpretadas\":%zu", cnt);
-        unsigned fixed, vol, multi, lost;
-        nes_ram_summary(&B, &fixed, &vol, &multi, &lost);
-        if (fixed || vol || lost)
-            printf("Código en RAM: %u instrucciones fijas, %u con operandos variables, %u direcciones con varias versiones, "
-                   "%u que cambian demasiado\n", fixed, vol, multi, lost);
-    }
-    if (c.executed && !write_executed(&A, c.executed)) { fprintf(stderr, "no pude escribir %s\n", c.executed); return 2; }
-    metrica_resumen("difftest", 1, res, &metrica, B.cyc - cyc0);
-    return 0;
+    DiffOps o = {
+        .titulo = recomp_name, .uso_rom = "rom.nes", .uso_extra = "", .cuadros = 300, .fps = 60.0988, .unidad = "PRG",
+        .zonas = { "PRG", "RAM", "RAM del cartucho", "otra" },
+        .cargar = cargar, .sha1 = sha1, .cargar_partida = cargar_partida, .guardar_partida = guardar_partida,
+        .trazas = trazas, .reiniciar = reiniciar, .maquina = maquina, .modo = modo, .pad = poner_pad, .cuadro_solo = cuadro_solo,
+        .vaciar = vaciar, .cuadro = cuadro, .ciclos = ciclos, .captura = captura, .golpe = golpe, .uncovered = uncovered, .ram = ram,
+        .executed = executed,
+    };
+    return difftest_main(argc, argv, &o);
 }

@@ -113,6 +113,8 @@ def main():
               and os.path.getsize("build/dt_shots/cuadro_000100.png") > 0 and os.path.getsize("build/dt_shots/cuadro_000200.png") > 0
               and "C" in texto("build/dt_exec.txt"))
         p.comprobar(ok, "difftest --bench/--screens/--executed")
+        codigo, salida = rr.correr([f"{D}/difftest{x}", nestest, "--frames", "5", "--save", "build/rt_nada.sav"])
+        p.comprobar(codigo == 2 and "no guarda partida" in salida, "difftest --save rechaza un juego sin partida")
 
     # Descubrimiento: --why, --viz, --events, --html y --codemap
     if hay_recomp:

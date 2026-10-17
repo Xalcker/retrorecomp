@@ -12,7 +12,8 @@
 | F3.2. Nombres en `shared/` | Hecho | #144 |
 | F3.3. Opciones (`--profile`, `--input-line`, `--screens`, `--shot`, `--model` en `cli.h`) | Hecho | #145 |
 | F3.4. Llenar huecos por rol | Hecho (el Z80 de GEN y NEO en `--why`, `--dis`, `--events` y `--html`, con `--z80`) | #146 y este PR |
-| F3.5. Plantillas comunes | **Pendiente** | — |
+| F3.5. Plantillas comunes: bench (`bench_comun.h`, con `--profile` en los cinco), difftest (`difftest_comun.h`, con `--save` y `--save-out` en los cinco) y `*run` (`run_comun.h`, con `gbrun` y `nesrun` nuevos) | Hecho | #157, #158 y este PR |
+| F3.5b. `trace`, `shot`, `audio` y `ramdump` | **Pendiente** (poco que ganar: difieren en 6–30 líneas; unificarlos con macros esconde más de lo que ahorra) | — |
 | F3.6. GB converge (`cli.h`, `inputs.h`, `ram_code.h`, visor común) | Hecho | #142 |
 | F3.7. Línea `RESUMEN {json}` | Hecho | #141 |
 | Scripts a Python, fase 1: los de `shared/` (`golden`, `estricto`, `sst`, `recomp_game`, `contrato`, `ui_golden`) y los `tests/golden.py` y `tests/estricto.py` de cada sistema | Hecho | #148 |

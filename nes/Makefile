@@ -55,13 +55,16 @@ SHARED_RT := console.h metrica.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 RT := $(BUILD)/libnesrt.a
 
-PROGS := nestest nesshot nesaudio nestrace sramtest statetest mappertest inputtest nesramdump nesbench nes nesrecomp
+PROGS := nestest nesshot nesrun nesaudio nestrace sramtest statetest mappertest inputtest nesramdump nesbench nes nesrecomp
 
 .PHONY: all clean test dist testroms
 all: $(PROGS:%=%$(EXE))
 
 nestest$(EXE): src/tools/nestest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^
+
+nesrun$(EXE): src/tools/nesrun.c $(SHARED)/png.c $(SHARED)/run_comun.h $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(SHARED)/wav.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesrun.c $(SHARED)/png.c $(RT) -lm
 
 nesshot$(EXE): src/tools/nesshot.c $(SHARED)/png.c $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/nesshot.c $(SHARED)/png.c $(RT)

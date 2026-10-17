@@ -120,8 +120,8 @@ audiotest$(EXE): src/tools/audiotest.c $(RT)
 lspctest$(EXE): src/tools/lspctest.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ $^ -lm
 
-neorun$(EXE): src/tools/neorun.c $(SHARED)/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
+neorun$(EXE): src/tools/neorun.c $(SHARED)/png.c $(SHARED)/run_comun.h $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(SHARED)/wav.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/neorun.c $(SHARED)/png.c $(RT) -lm
 
 neocard$(EXE): src/tools/neocard.c $(SHARED)/png.c $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm

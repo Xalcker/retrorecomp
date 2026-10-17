@@ -119,8 +119,8 @@ statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/statetest.c $(RT) -lm
 
 # Diagnóstico: corre una ROM sin ventana y resume lo que pasó (como genrun)
-smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(SHARED)/png.c $(SHARED)/wav.h $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -o $@ src/tools/smsrun.c $(SHARED)/png.c $(RT) -lm
+smsrun$(EXE): src/tools/smsrun.c src/tools/romload.h $(SHARED)/png.c $(SHARED)/run_comun.h $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(SHARED)/wav.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/smsrun.c $(SHARED)/png.c $(RT) -lm
 
 # z80test pone su propio bus (memoria plana): no usa el de la consola. Con --recomp ejecuta por el camino del
 # código generado (z80_ops.h)

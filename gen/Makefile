@@ -115,8 +115,8 @@ statetest$(EXE): src/tools/statetest.c src/tools/romload.h $(RT)
 inputtest$(EXE): src/tools/inputtest.c $(TOOL_DEPS)
 	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/inputtest.c $(RT) -lm
 
-genrun$(EXE): src/tools/genrun.c $(SHARED)/png.c $(RT)
-	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ $^ -lm
+genrun$(EXE): src/tools/genrun.c $(SHARED)/png.c $(SHARED)/run_comun.h $(SHARED)/cli.h $(SHARED)/inputs.h src/platform/input_host.h $(SHARED)/random_pad.h $(SHARED)/wav.h $(RT)
+	$(CC) $(CFLAGS) -Isrc/runtime -I$(SHARED) -Isrc/platform -o $@ src/tools/genrun.c $(SHARED)/png.c $(RT) -lm
 
 # m68ktest y z80test ponen su propio bus (memoria plana): no usan bus.c ni z80bus.c
 m68ktest$(EXE): $(SHARED)/m68ktest.c $(SHARED)/json.h $(RT)

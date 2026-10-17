@@ -20,10 +20,9 @@ import retrorecomp_gui as rr  # noqa: E402
 # Un sistema puede no tener un rol a propósito: va en AUSENTES con el motivo, y el contrato deja de pedirlo.
 ENTRADAS = ("--frames", "--input", "--seed")
 ROLES = {"trace": ENTRADAS, "shot": ENTRADAS, "audio": ENTRADAS, "ramdump": ENTRADAS,
-         "bench": (*ENTRADAS, "--repeat", "--profile", "--hash"), "run": ("--frames",)}
+         "bench": (*ENTRADAS, "--repeat", "--profile", "--hash"), "run": (*ENTRADAS, "--watch", "--sram", "--shot", "--screens", "--wav")}
 ROLES_SIN_PREFIJO = {"statetest": (), "inputtest": ()}
-AUSENTES = {("gb", "run"): "gbtest corre las ROMs de prueba sin ventana y gb es la ventana; no hay un corredor aparte",
-            ("nes", "run"): "nestest corre las ROMs de prueba sin ventana y nes es la ventana; no hay un corredor aparte"}
+AUSENTES = {}
 # El recompilador de cada sistema (<sistema>recomp): las opciones de análisis que su ayuda debe mencionar
 RECOMP_OPCIONES = ("--info", "--viz", "--why", "--events", "--html", "--dis", "--codemap", "--coverage")
 

@@ -1,7 +1,7 @@
 -- Lo carga tools/oracles/mesen.py shot: mantiene botones en rangos de cuadros (como mesen_ramdump.lua) y, al
 -- terminar el cuadro ORACLE_FRAMES, guarda la captura en ORACLE_OUT (PNG).
 -- Mesen dispara inputPolled una vez por cuadro, en la línea 241, y lo que se pase a setInput vale hasta la siguiente:
--- los botones cambian al empezar el vblank. nesshot hace lo mismo con --entradas-241 (tools/compat/vsmesen.py).
+-- los botones cambian al empezar el vblank. nesshot hace lo mismo con --input-line 241 (tools/compat/vsmesen.py).
 local frames = tonumber(os.getenv("ORACLE_FRAMES"))
 local holds = {}
 for name, a, b in (os.getenv("ORACLE_HOLD") or ""):gmatch("(%a+):(%d+)%-(%d+)") do

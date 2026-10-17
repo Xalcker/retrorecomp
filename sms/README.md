@@ -100,7 +100,7 @@ juego de Master System en el Game Gear corre en su modo SMS.
 Corre el juego sin ventana con el intérprete y resume lo que pasó: ciclos, interrupciones, el mapeo, el estado del
 VDP y los PC más frecuentes del último cuadro (los bucles de espera). `--watch DIR` avisa cuando cambia un byte de la
 RAM, `--sram ARCHIVO` carga y guarda la RAM del cartucho, `--sram-text` imprime su texto (ahí deja ZEXALL su
-resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, `--shot` y `--shots` la imagen y
+resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, `--shot` y `--screens` la imagen y
 `--wav` el sonido. Botones: `up down left right a b start pause`.
 
 ## Herramientas
@@ -110,7 +110,7 @@ resultado), `--sdsc` lo que el juego escribe en la consola de depuración SDSC, 
 | `smsrecomp juego.sms -o carpeta [--trace archivo]... [--name nombre] [--model sms\|gg]` | Genera el proyecto recompilado (ver «Lo que hace hoy»). Sin `-o`: `--info` (lo que se sabe del cartucho), `--viz [--color]`, `--coverage traza`, `--why BB:DIRECCION`, `--events`, `--html`, `--codemap`, `--dis OFF:DIR:N`, `--no-tables`. |
 | `sms [rom] [--model sms\|gg] [--scale N] [--fullscreen] [--no-menu] [--record archivo \| --play archivo] [--trace archivo]` | La ventana (ver arriba); `--trace` guarda lo que se ejecutó, como `smstrace`. |
 | `smstrace rom traza.txt`, `smsshot rom salida.png [--expect png] [--hash]`, `smsaudio rom salida.wav`, `smsramdump rom`, `smsbench rom [--repeat N]` | Sin ventana, con las opciones comunes de los otros cuatro (`--frames N`, `--input archivo`, `--seed S`, `boton:desde-hasta`) y `--model sms\|gg`: la traza (`BANCO:DIRECCION`), una captura, el sonido, la RAM y la velocidad del intérprete. |
-| `smsrun rom [--frames N] [--model sms\|gg] [--watch DIR] [--sram archivo] [--sram-text] [--sdsc] [--shot png] [--shots dir [--every N]] [--wav archivo] [boton:desde-hasta]` | Diagnóstico sin ventana (ver arriba). |
+| `smsrun rom [--frames N] [--model sms\|gg] [--watch DIR] [--sram archivo] [--sram-text] [--sdsc] [--shot png] [--screens dir [--every N]] [--wav archivo] [boton:desde-hasta]` | Diagnóstico sin ventana (ver arriba). |
 | `carttest`, `bustest`, `vdptest`, `audiotest`, `statetest`, `inputtest`, `z80test` | Pruebas; `make test` corre todas, más ZEXDOC y ZEXALL completos. `z80test` (de `../shared`) corre las SingleStepTests del Z80 (`sh tests/sst.sh z80`; por el camino del código generado, `SST_OPTS=--recomp sh tests/sst.sh z80`) y sus pruebas de interrupciones (`--int`, `--nmi`). |
 
 `sh tests/contract.sh` es el contrato común de los cinco (opciones y comportamiento, con el juego del contrato,

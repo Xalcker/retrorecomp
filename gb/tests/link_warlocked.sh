@@ -17,4 +17,4 @@ mkdir -p build
 # En 3600 cuadros pasan unos 62,000 bytes (la partida empieza en el ~2700)
 ./linktest$EXE "$ROM" --frames 3600 \
     --input-a tests/inputs/warlocked_vs_a.txt --input-b tests/inputs/warlocked_vs_b.txt \
-    --dump build/link_warlocked.png --min-bytes 60000
+    --shot build/link_warlocked.png --min-bytes 60000

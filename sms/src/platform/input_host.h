@@ -27,4 +27,15 @@ static inline InputPad input_from_rp(unsigned rp)
     return p;
 }
 
+/* cli.h: --model sms|gg (MODEL_AUTO si no se da) */
+#define CLI_HAS_MODEL
+#define CLI_HOST_FIELDS int model;
+#define CLI_HOST_DONE(c) sms_cli_done(&(c)->model, (c)->model_arg)
+static inline int sms_cli_done(int *model, const char *model_arg)
+{
+    *model = model_arg ? model_from_name(model_arg) : MODEL_AUTO;
+    if (*model < MODEL_AUTO) { fprintf(stderr, "--model: sms o gg\n"); return 2; }
+    return 0;
+}
+
 #endif

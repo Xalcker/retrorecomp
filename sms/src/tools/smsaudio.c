@@ -17,13 +17,12 @@ int main(int argc, char **argv)
 {
     console_utf8();
     static Cli c;
-    int model = take_model(&argc, argv);
-    if (model < MODEL_AUTO || cli_parse(&c, argc, argv, 2, 600)) {
+    if (cli_parse(&c, argc, argv, 2, 600)) {
         fprintf(stderr, "uso: smsaudio rom.sms salida.wav [--frames N] [--input archivo] [--seed S] [--model sms|gg]\n"
                         "                [boton:desde-hasta ...]\n");
         return 2;
     }
-    Sms *g = load_sms(c.pos[0], model);
+    Sms *g = load_sms(c.pos[0], c.model);
     if (!g) return 2;
     size_t cap = (size_t)c.frames * 800 + 4096, tot = 0;    /* pares L R */
     int16_t *pcm = malloc(cap * 4);

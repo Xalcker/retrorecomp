@@ -9,7 +9,7 @@
  * --watch DIR (hexadecimal, en la RAM: $FF0000-$FFFFFF) imprime el byte cada vez que cambia.
  * --sram ARCHIVO carga la SRAM o EEPROM del cartucho al empezar (si existe) y la guarda al terminar.
  * --tmss: consola con TMSS (el juego debe escribir "SEGA" en $A14000 antes de tocar el VDP).
- * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros.
+ * --shot ARCHIVO.png guarda la imagen del último cuadro; --screens CARPETA --every N, una cada N cuadros.
  * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y su nivel por segundo.
  */
 #include <math.h>
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--tmss")) tmss = 1;
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
-        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if ((!strcmp(argv[i], "--screens") || !strcmp(argv[i], "--shots")) && i + 1 < argc) shots = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--watch") && i + 1 < argc && nw < 16) {
             const char *a = argv[++i];
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     }
     if (!rom || frames <= 0) {
         fprintf(stderr, "uso: genrun rom.bin [--frames N] [--watch DIR ...] [--sram ARCHIVO] [--tmss]\n"
-                        "              [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav]\n"
+                        "              [--shot ARCHIVO.png] [--screens CARPETA [--every N]] [--wav ARCHIVO.wav]\n"
                         "              [boton:desde-hasta ...]\n"
                         "  botones: up down left right a b c start x y z mode\n");
         return 2;

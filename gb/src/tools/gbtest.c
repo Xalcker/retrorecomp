@@ -2,8 +2,8 @@
  * Corredor de ROMs de prueba sin ventana.
  *
  * Uso: gbtest rom.gb [--seconds N] [--mooneye | --until-ldbb] [--input archivo]
- *                    [--expect esperado.png] [--dump salida.png] [--serial] [--no-block]
- *                    [--model dmg|cgb|sgb] [--palette up+a] [--dump-sgb imagen_sgb.png]
+ *                    [--expect esperado.png] [--shot salida.png] [--serial] [--no-block]
+ *                    [--model dmg|cgb|sgb] [--palette up+a] [--shot-sgb imagen_sgb.png]
  *                    [--input2 archivo] [--input3 archivo] [--input4 archivo] [--hash]
  *
  * Criterios de resultado:
@@ -116,8 +116,8 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atof(argv[++i]);
         else if (!strcmp(argv[i], "--expect") && i + 1 < argc) expect = argv[++i];
-        else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
-        else if (!strcmp(argv[i], "--dump-sgb") && i + 1 < argc) dump_sgb = argv[++i];
+        else if ((!strcmp(argv[i], "--shot") || !strcmp(argv[i], "--dump")) && i + 1 < argc) dump = argv[++i];
+        else if ((!strcmp(argv[i], "--shot-sgb") || !strcmp(argv[i], "--dump-sgb")) && i + 1 < argc) dump_sgb = argv[++i];
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
             model = model_from_name(argv[++i]);
             if (model < GB_MODEL_AUTO) { fprintf(stderr, "modelo desconocido: %s\n", argv[i]); return 2; }
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
         else rom_path = argv[i];
     }
     if (!rom_path) {
-        fprintf(stderr, "uso: gbtest rom.gb [--seconds N] [--expect png] [--dump png] [--serial]\n");
+        fprintf(stderr, "uso: gbtest rom.gb [--seconds N] [--expect png] [--shot png] [--serial]\n");
         return 2;
     }
 

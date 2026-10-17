@@ -23,13 +23,12 @@ int main(int argc, char **argv)
 {
     console_utf8();
     static Cli c;
-    int model = take_model(&argc, argv);
-    if (model < MODEL_AUTO || cli_parse(&c, argc, argv, 2, 600)) {
+    if (cli_parse(&c, argc, argv, 2, 600)) {
         fprintf(stderr, "uso: smsshot rom.sms salida.png [--frames N] [--input archivo] [--seed S] [--model sms|gg]\n"
                         "                [--expect esperado.png] [--hash] [boton:desde-hasta ...]\n");
         return 2;
     }
-    Sms *g = load_sms(c.pos[0], model);
+    Sms *g = load_sms(c.pos[0], c.model);
     if (!g) return 2;
     GoldenHash gh;
     golden_init(&gh);

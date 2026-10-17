@@ -1,9 +1,9 @@
 /*
  * bench: velocidad de emulación sin ventana ni límite de cuadros (neobench con el intérprete; en los
  * proyectos generados, bench con el código recompilado).
- *   neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--perfil] [boton:desde-hasta ...]
+ *   neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--profile] [boton:desde-hasta ...]
  * Sin entradas, Start a los 2 s y luego la derecha. Con --repeat se reporta la corrida más rápida.
- * También dice cuánto del Z80 corrió nativo, interpretado o saltado; con --perfil, en qué se fue el
+ * También dice cuánto del Z80 corrió nativo, interpretado o saltado; con --profile, en qué se fue el
  * tiempo (prof.h).
  * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
  * --hash del intérprete (golden_hash.h): así tests/golden.sh --recompilado compara el código recompilado con
@@ -26,7 +26,7 @@ int main(int argc, char **argv)
     console_utf8();
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: neobench juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--perfil] [--hash] [boton:desde-hasta ...]\n");
+        fprintf(stderr, "uso: %s juego [--frames N] [--repeat N] [--input archivo] [--seed S] [--profile] [--hash] [boton:desde-hasta ...]\n", cli_prog(argv[0]));
         return 2;
     }
     int scripted = c.input || c.nh || c.use_seed;
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     if (c.hash) c.repeat = 1;
     static Neo g;
     z80_stat_of = &g;
-    if (c.perfil && !prof_start()) { fprintf(stderr, "no se pudo arrancar el hilo de --perfil\n"); return 2; }
+    if (c.profile && !prof_start()) { fprintf(stderr, "no se pudo arrancar el hilo de --profile\n"); return 2; }
     for (int k = 0; k < c.repeat; k++) {
         const char *err = NULL;
         if (k) neo_free(&g);
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
         if (k == 0 || s < best) best = s;
         total_cyc = g.cyc - cyc0;
     }
-    if (c.perfil) prof_stop();
+    if (c.profile) prof_stop();
     double xtr = c.frames / best / (MCLK_HZ / (M68K_PER_FRAME * MCLK_PER_M68K));
     printf("%ld cuadros en %.2f s%s: %.0f cuadros/s (%.1fx tiempo real)\n", c.frames, best,
            c.repeat > 1 ? " (mejor corrida)" : "", c.frames / best, xtr);
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
     mres = &metrica;
 #endif
     z80_stat_print();
-    if (c.perfil) prof_print();
+    if (c.profile) prof_print();
     if (c.hash) golden_print(&gh);
     char res[200];
     int nres = snprintf(res, sizeof res, "\"cuadros\":%ld,\"segundos\":%.3f,\"x_tiempo_real\":%.1f", c.frames, best, xtr);

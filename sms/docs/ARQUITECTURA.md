@@ -390,10 +390,10 @@ KyleBing/retro-game-console-icons (CC BY 4.0), que `tools/make_icon.py` lleva a 
   y la interfaz de `sms` contra `tests/ui_golden.txt` y `tests/ui_golden_gg.txt` (los 7 menús, 3 diálogos, la barra
   oculta, `--no-menu`, `--fullscreen` y el Game Gear; `UI_GOLDEN_UPDATE=1` las reescribe).
 - **`smsrun rom [--frames N] [--model sms|gg] [--watch DIR] [--sram ARCHIVO] [--sram-text] [--sdsc]
-  [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav] [boton:desde-hasta]`:** el diagnóstico, como `genrun`: corre sin ventana y resume ciclos, interrupciones, el
+  [--shot ARCHIVO.png] [--screens CARPETA [--every N]] [--wav ARCHIVO.wav] [boton:desde-hasta]`:** el diagnóstico, como `genrun`: corre sin ventana y resume ciclos, interrupciones, el
   mapeo, el VDP y los PC más frecuentes del último cuadro (los bucles de espera); `--watch` avisa cuando cambia un
   byte de la RAM, `--sram-text` imprime el texto de la RAM del cartucho (ahí deja ZEXALL su resultado) y `--sdsc`
-  lo que el juego escribe en la consola de depuración SDSC; `--shot` y `--shots` guardan la imagen (lo que se ve) y
+  lo que el juego escribe en la consola de depuración SDSC; `--shot` y `--screens` guardan la imagen (lo que se ve) y
   `--wav` el sonido.
 
 ## Estado de la validación

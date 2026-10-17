@@ -41,20 +41,6 @@
 
 static Sms A, B;
 
-/* --model: la consola, como en las herramientas (cli.h no lo conoce: se saca antes) */
-static int take_model(int *argc, char **argv)
-{
-    int model = MODEL_AUTO;
-    for (int i = 1; i < *argc; i++) {
-        if (strcmp(argv[i], "--model")) continue;
-        if (i + 1 >= *argc || (model = model_from_name(argv[i + 1])) < MODEL_AUTO) return -2;
-        for (int k = i; k + 2 <= *argc; k++) argv[k] = argv[k + 2];
-        *argc -= 2;
-        i--;
-    }
-    return model;
-}
-
 /* Captura de lo que se ve de g en PNG */
 static int save_screen(const Sms *g, const char *path)
 {
@@ -160,8 +146,7 @@ int main(int argc, char **argv)
 {
     console_utf8();
     static Cli c;
-    int model = take_model(&argc, argv);
-    if (model < MODEL_AUTO || cli_parse(&c, argc, argv, 1, 300)) {
+    if (cli_parse(&c, argc, argv, 1, 300)) {
         fprintf(stderr, "uso: difftest rom.sms [--frames N] [--input archivo] [--seed S] [--uncovered archivo] [--model sms|gg]\n"
                         "                      [--screens carpeta [--every N]] [--bench] [--executed archivo] [boton:desde-hasta ...]\n");
         return 2;
@@ -170,7 +155,7 @@ int main(int argc, char **argv)
     u8 *rom = slurp(c.pos[0], &len);
     if (!rom) { fprintf(stderr, "no pude leer %s\n", c.pos[0]); return 2; }
     const char *err = NULL;
-    if (sms_load(&A, rom, len, c.pos[0], model, &err) || sms_load(&B, rom, len, c.pos[0], model, &err)) {
+    if (sms_load(&A, rom, len, c.pos[0], c.model, &err) || sms_load(&B, rom, len, c.pos[0], c.model, &err)) {
         fprintf(stderr, "ROM: %s\n", err);
         return 2;
     }

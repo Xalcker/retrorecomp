@@ -20,6 +20,6 @@ I=tests/inputs/bomberman_batalla
 # gbtest termina con 2 ("sin resultado"): aquí no hay criterio automático
 ./gbtest$EXE "$ROM" --model sgb --seconds 63.7 --input ${I}_1.txt \
     --input2 ${I}_2.txt --input3 ${I}_3.txt --input4 ${I}_4.txt \
-    --dump-sgb build/sgb_bomberman.png > /dev/null
+    --shot-sgb build/sgb_bomberman.png > /dev/null
 [ $? -le 2 ] || exit 1
 echo "Revisa build/sgb_bomberman.png: cuatro Bomberman fuera de sus esquinas"

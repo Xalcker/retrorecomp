@@ -4,14 +4,14 @@
  * espera). Sirve para ver hasta dónde llega un juego mientras falta el resto de la consola, como genrun.
  *
  *   smsrun rom.sms [--frames N] [--model sms|gg] [--watch DIR ...] [--sram ARCHIVO] [--sram-text] [--sdsc]
- *                  [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav] [boton:desde-hasta ...]
+ *                  [--shot ARCHIVO.png] [--screens CARPETA [--every N]] [--wav ARCHIVO.wav] [boton:desde-hasta ...]
  *
  * Botones: up down left right a b start pause (los cuadros en que se mantienen).
  * --watch DIR (hexadecimal, en la RAM: $C000-$DFFF) imprime el byte cada vez que cambia.
  * --sram ARCHIVO carga la RAM del cartucho al empezar (si existe) y la guarda al terminar (si el juego la usa).
  * --sram-text imprime al final el texto ASCII de la RAM del cartucho (ZEXALL deja ahí su resultado).
  * --sdsc imprime lo que el juego escribe en la consola de depuración SDSC (puerto $FD, solo emuladores).
- * --shot ARCHIVO.png guarda la imagen del último cuadro; --shots CARPETA --every N, una cada N cuadros (600). Es lo
+ * --shot ARCHIVO.png guarda la imagen del último cuadro; --screens CARPETA --every N, una cada N cuadros (600). Es lo
  * que se ve: 256×192 (o 224) en el Master System y la ventana de 160×144 en el Game Gear en modo GG.
  * --wav ARCHIVO.wav guarda el sonido (estéreo, 44 100 Hz, 16 bits) y dice su nivel por segundo.
  */
@@ -84,7 +84,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--sram-text")) sram_text = 1;
         else if (!strcmp(argv[i], "--sdsc")) sdsc = 1;
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
-        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) shots = argv[++i];
+        else if ((!strcmp(argv[i], "--screens") || !strcmp(argv[i], "--shots")) && i + 1 < argc) shots = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) wav = argv[++i];
         else if (strchr(argv[i], ':') && argv[i][0] != '-' && nh < 64) {
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
     }
     if (!rom) {
         fprintf(stderr, "uso: smsrun rom.sms [--frames N] [--model sms|gg] [--watch DIR ...] [--sram ARCHIVO] [--sram-text] [--sdsc]\n"
-                        "                    [--shot ARCHIVO.png] [--shots CARPETA [--every N]] [--wav ARCHIVO.wav]\n"
+                        "                    [--shot ARCHIVO.png] [--screens CARPETA [--every N]] [--wav ARCHIVO.wav]\n"
                         "                    [boton:desde-hasta ...]   (botones: up down left right a b start pause)\n");
         return 2;
     }

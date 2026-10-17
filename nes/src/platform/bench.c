@@ -19,7 +19,7 @@ int main(int argc, char **argv)
 {
     static Cli c;
     if (cli_parse(&c, argc, argv, 1, 1800)) {
-        fprintf(stderr, "uso: bench rom.nes [--frames N] [--repeat N] [--input archivo] [--seed S] [--hash] [boton:desde-hasta ...]\n");
+        fprintf(stderr, "uso: %s rom.nes [--frames N] [--repeat N] [--input archivo] [--seed S] [--hash] [boton:desde-hasta ...]\n", cli_prog(argv[0]));
         return 2;
     }
     FILE *f = fopen(c.pos[0], "rb");

@@ -442,7 +442,7 @@ una INT que atender, salvo con `--interp` o en la máquina A de `difftest` (`z80
 el Z80 nativo de B con el intérprete de A tras cada paso.
 
 `genbench` y `difftest` dicen cuánto del Z80 corrió nativo, interpretado o saltado (la línea `Z80: ...`,
-`Z80_STAT` de `z80.h`). `genbench --perfil` dice en qué se fue el tiempo: Z80, sonido (YM2612 y PSG), video
+`Z80_STAT` de `z80.h`). `genbench --profile` dice en qué se fue el tiempo: Z80, sonido (YM2612 y PSG), video
 (el dibujo del VDP) y lo demás (`prof.h`). Los drivers de los juegos medidos no usan `HALT`.
 
 **El Z80 corre atrasado.** Antes se ponía al día tras cada instrucción del 68000: corría una o dos

@@ -14,7 +14,7 @@ for t in "$D"/*.gb; do
     [ -f "$e" ] || e=$D/${b}_dmg_b.png
     [ -f "$e" ] || continue
     total=$((total + 1))
-    if out=$("$GBTEST" "$t" --until-ldbb --seconds 5 --expect "$e" --dump "build/mealybug/$b.png" 2>&1); then
+    if out=$("$GBTEST" "$t" --until-ldbb --seconds 5 --expect "$e" --shot "build/mealybug/$b.png" 2>&1); then
         pasa=$((pasa + 1))
     else
         echo "$out" | tr '\n' ' '; echo

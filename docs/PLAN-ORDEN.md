@@ -9,8 +9,8 @@
 | F2. Medir bien | Hecho salvo F2.7 | #131–#139 |
 | F2.7. Volver a correr compat en los cinco (por primera vez en SMS); después borrar `migrar()` y `neo/docs/compat-neobios` | **Pendiente** | — |
 | F3.1. Registro de sistemas (`shared/sistemas.json`) | Hecho | #140 |
-| F3.2. Nombres en `shared/` | Hecho | (este PR) |
-| F3.3. Opciones (`--profile`, `--input-line`, `--model` en `cli.h`…) | **Pendiente** | — |
+| F3.2. Nombres en `shared/` | Hecho | #144 |
+| F3.3. Opciones (`--profile`, `--input-line`, `--screens`, `--shot`, `--model` en `cli.h`) | Hecho | (este PR) |
 | F3.4. Llenar huecos por rol | **Pendiente** | — |
 | F3.5. Plantillas comunes | **Pendiente** | — |
 | F3.6. GB converge (`cli.h`, `inputs.h`, `ram_code.h`, visor común) | Hecho | #142 |

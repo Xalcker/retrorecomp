@@ -1,7 +1,7 @@
 /*
  * nesshot: corre una ROM sin ventana y guarda una captura en PNG.
  *   nesshot rom.nes salida.png [--frames N] [--input archivo] [--seed S] [--expect esperado.png] [--hash]
- *                              [--entradas-241] [boton:desde-hasta ...]
+ *                              [--input-line 241] [boton:desde-hasta ...]
  * (también vale la sintaxis de antes: nesshot rom.nes salida.png cuadros [boton:desde-hasta ...])
  * Ejemplo: nesshot smb.nes smb.png 600 start:90-95 right:200-500 a:300-320
  * Botones: a b select start up down left right.
@@ -15,7 +15,7 @@
  *   --hash                 imprime un hash de todos los cuadros y de todo el audio
  *                          ("hash imagen X audio Y", golden_hash.h), para comprobar que un cambio no altera
  *                          nada (tests/golden.sh). Corre todos los cuadros, como el bench con --hash.
- *   --entradas-241         los botones del cuadro N cambian en la línea 241 del cuadro N (al empezar el vblank) y no
+ *   --input-line 241   los botones del cuadro N cambian en la línea 241 del cuadro N (al empezar el vblank) y no
  *                          al empezar el cuadro: así lo hace Mesen2, y con eso tools/compat/vsmesen.py ve las mismas
  *                          entradas en los dos emuladores lea el juego el control donde lo lea.
  * Código de salida: 0 pasó, 1 falló (Blargg o --expect), 2 error.

@@ -1,5 +1,5 @@
 /*
- * Perfil por muestreo (`--perfil` de *bench y del bench del proyecto generado): en qué parte de la consola
+ * Perfil por muestreo (`--profile` de *bench y del bench del proyecto generado): en qué parte de la consola
  * se va el tiempo. El runtime marca la zona en la que está (prof_zone, un byte: una escritura al entrar y
  * otra al salir, que devuelve la zona de antes) y un hilo aparte la lee cada ~20 µs y cuenta. No cambia lo
  * que se ejecuta ni los ciclos; el hilo corre en otro núcleo. Lo que no está marcado cae en "68000 y lo

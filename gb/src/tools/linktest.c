@@ -2,7 +2,7 @@
  * Dos Game Boy conectados por cable link, sin ventana.
  *
  * Uso: linktest rom.gb [rom2.gb] [--frames N] [--input-a archivo] [--input-b archivo]
- *               [--model dmg|cgb|sgb] [--screens carpeta [--every N]] [--dump captura.png]
+ *               [--model dmg|cgb|sgb] [--screens carpeta [--every N]] [--shot captura.png]
  *               [--min-bytes N]
  *
  * Con una sola ROM, los dos corren el mismo juego. Cada uno sigue su guion
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--input-b") && i + 1 < argc) input_path[1] = argv[++i];
         else if (!strcmp(argv[i], "--screens") && i + 1 < argc) screens = argv[++i];
         else if (!strcmp(argv[i], "--every") && i + 1 < argc) every = atol(argv[++i]);
-        else if (!strcmp(argv[i], "--dump") && i + 1 < argc) dump = argv[++i];
+        else if ((!strcmp(argv[i], "--shot") || !strcmp(argv[i], "--dump")) && i + 1 < argc) dump = argv[++i];
         else if (!strcmp(argv[i], "--min-bytes") && i + 1 < argc) min_bytes = atol(argv[++i]);
         else if (!strcmp(argv[i], "--model") && i + 1 < argc) {
             model = model_from_name(argv[++i]);
@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     }
     if (!nroms) {
         fprintf(stderr, "uso: linktest rom.gb [rom2.gb] [--frames N] [--input-a archivo] "
-                        "[--input-b archivo] [--screens carpeta [--every N]] [--dump png] [--min-bytes N]\n");
+                        "[--input-b archivo] [--screens carpeta [--every N]] [--shot png] [--min-bytes N]\n");
         return 2;
     }
     if (nroms == 1) rom_path[1] = rom_path[0];

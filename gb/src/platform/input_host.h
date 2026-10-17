@@ -71,10 +71,10 @@ static inline void inputs_record_header(FILE *f, const GB *g, const char *palett
 }
 
 /* cli.h: --model, --palette, --save y --save-out; el modelo y la paleta, si no se dan, de --input */
-#define CLI_HOST_FIELDS const char *model_arg, *palette, *save, *save_out; int model;
+#define CLI_HAS_MODEL
+#define CLI_HOST_FIELDS const char *palette, *save, *save_out; int model;
 #define CLI_HOST_VALUE(c, a, v) \
-    (!strcmp((a), "--model") ? ((c)->model_arg = (v), 1) : \
-     !strcmp((a), "--palette") ? ((c)->palette = (v), 1) : \
+    (!strcmp((a), "--palette") ? ((c)->palette = (v), 1) : \
      !strcmp((a), "--save") ? ((c)->save = (v), 1) : \
      !strcmp((a), "--save-out") ? ((c)->save_out = (v), 1) : 0)
 #define CLI_HOST_DONE(c) \

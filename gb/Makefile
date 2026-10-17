@@ -46,7 +46,7 @@ SHARED_RT := console.h golden_hash.h metrica.h prof.h
 rt = $(foreach f,$(1),$(if $(filter $(f),$(SHARED_RT)),$(SHARED)/$(f),src/runtime/$(f)))
 
 .PHONY: all clean test dist testroms
-all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) statetest$(EXE) inputtest$(EXE) $(BUILD)/sgb_controles$(EXE)
+all: $(BUILD)/libgbrt.a gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbrun$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE) statetest$(EXE) inputtest$(EXE) $(BUILD)/sgb_controles$(EXE)
 
 # Verificador de la música exportada (reproduce el VGM y lo compara con el WAV)
 vgmcheck$(EXE): src/tools/vgmcheck.c $(BUILD)/libgbrt.a
@@ -84,6 +84,9 @@ gbramdump$(EXE): src/tools/gbramdump.c $(CLI_DEPS) $(BUILD)/libgbrt.a
 
 gbshot$(EXE): src/tools/gbshot.c src/runtime/gb_golden.h $(SHARED)/golden_hash.h $(SHARED)/png.c $(SHARED)/png.h $(CLI_DEPS) $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/gbshot.c $(SHARED)/png.c $(BUILD)/libgbrt.a
+
+gbrun$(EXE): src/tools/gbrun.c $(SHARED)/run_comun.h $(SHARED)/wav.h $(SHARED)/png.c $(SHARED)/png.h $(CLI_DEPS) $(BUILD)/libgbrt.a
+	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/gbrun.c $(SHARED)/png.c $(BUILD)/libgbrt.a -lm
 
 gbaudio$(EXE): src/tools/gbaudio.c $(CLI_DEPS) $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/gbaudio.c $(BUILD)/libgbrt.a -lm
@@ -184,4 +187,4 @@ $(BUILD)/libgbrt.a: $(RUNTIME_OBJ)
 	ar rcs $@ $^
 
 clean:
-	rm -rf $(BUILD) dist statetest$(EXE) inputtest$(EXE) gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)
+	rm -rf $(BUILD) dist statetest$(EXE) inputtest$(EXE) gbtest$(EXE) gbbench$(EXE) gbtrace$(EXE) gbshot$(EXE) gbrun$(EXE) gbaudio$(EXE) gbramdump$(EXE) gb$(EXE) linktest$(EXE) gbrecomp$(EXE) vgmcheck$(EXE)

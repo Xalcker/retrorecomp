@@ -39,7 +39,8 @@ def main(argv):
 
     # --- 1. Opciones ---
     checks = [(f"{sid}{rol}", opts) for rol, opts in (("trace", ENTRADAS), ("shot", ENTRADAS), ("audio", ENTRADAS),
-                                                        ("bench", (*ENTRADAS, "--repeat", "--profile", "--hash")))]
+                                                        ("bench", (*ENTRADAS, "--repeat", "--profile", "--hash")),
+                                                        ("run", (*ENTRADAS, "--watch", "--sram", "--shot", "--screens", "--wav")))]
     for tool, opts in checks:
         e = rr.exe(tool)
         if not os.path.isfile(e):

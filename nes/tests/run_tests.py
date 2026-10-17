@@ -116,6 +116,15 @@ def main():
         codigo, salida = rr.correr([f"{D}/difftest{x}", nestest, "--frames", "5", "--save", "build/rt_nada.sav"])
         p.comprobar(codigo == 2 and "no guarda partida" in salida, "difftest --save rechaza un juego sin partida")
 
+    # nesrun (shared/run_comun.h): resume la corrida, imprime el cambio de un byte de la RAM, guarda imagen y sonido
+    borrar("build/run")
+    os.makedirs("build/run")
+    codigo, salida = rr.correr([exe("nesrun"), nestest, "--frames", "120", "--watch", "0", "--shot", "build/run/n.png",
+                                "--wav", "build/run/n.wav"])
+    p.comprobar(codigo == 0 and "cuadros:       120" in salida and "PC más frecuentes" in salida
+                and os.path.getsize("build/run/n.png") > 0 and os.path.getsize("build/run/n.wav") > 44,
+                "nesrun: resumen, --shot y --wav")
+
     # Descubrimiento: --why, --viz, --events, --html y --codemap
     if hay_recomp:
         rec = exe("nesrecomp")

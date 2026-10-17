@@ -203,6 +203,15 @@ def main():
         _, r2 = rr.correr([exe("gbramdump"), rom, "--frames", "60", "--seed", "3"], stderr=rr.subprocess.DEVNULL)
         registrar(len(r1.rstrip("\n").split("\n")) == 8319 and r1 == r2, "  gbramdump")
 
+    # --- gbrun (shared/run_comun.h): resume la corrida, guarda imagen y sonido y vigila un byte de la WRAM ---
+    if aplica("gbrun"):
+        rom = f"{T}/blargg/cpu_instrs/cpu_instrs.gb"
+        os.makedirs("build/run", exist_ok=True)
+        codigo, salida = rr.correr([exe("gbrun"), rom, "--frames", "120", "--watch", "C000", "--shot", "build/run/g.png",
+                                    "--wav", "build/run/g.wav"], stderr=rr.subprocess.DEVNULL)
+        registrar(codigo == 0 and "PC más frecuentes" in salida and os.path.getsize("build/run/g.png") > 0
+                  and os.path.getsize("build/run/g.wav") > 44, "  gbrun: " + cola(salida, 3))
+
     # --- Recompilador: proyecto generado de cpu_instrs, compilado y comparado contra el intérprete con difftest ---
     def recomp_ok(filtro="recomp"):
         return hay_recomp and aplica(filtro)

@@ -10,7 +10,7 @@
  *   --seed    suma el mando al azar de random_pad.h (el mismo que en NESRecomp).
  *   --hash    corre una vez e imprime el hash de todos los cuadros y de todo el
  *             audio, el mismo que gbshot --hash (gb_golden.h): así
- *             tests/golden.sh --recompilado compara el código recompilado con la
+ *             tests/golden.py --recompilado compara el código recompilado con la
  *             misma línea base.
  *   Sin --input ni --seed: Start en los cuadros 121-124 y la derecha desde el 401,
  *   el mismo guion que nesbench y genbench.

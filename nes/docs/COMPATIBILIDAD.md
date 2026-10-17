@@ -47,7 +47,7 @@ misma orden sigue donde iba (salta las ROMs que ya tienen resultado del mismo co
 Los resultados de abajo son de la versión anterior de la prueba, que en la etapa 2 empezaba con una traza guionada
 (`nestrace`); ahora la primera ronda es sin traza, como en los otros dos recompiladores.
 
-**Etapa 1 (todas las ROMs).** `nesshot` corre la ROM en el intérprete con las entradas guionadas de `tests/recomp_game.sh`
+**Etapa 1 (todas las ROMs).** `nesshot` corre la ROM en el intérprete con las entradas guionadas de `../shared/recomp_game.py`
 y toma capturas a los cuadros 450, 900 y 1500. Una ROM «corre» si carga y alguna captura no es casi de un solo color.
 Es una comprobación gruesa: detecta mappers no soportados, errores de carga y cuelgues evidentes, pero **no** valida que el
 juego se vea o suene bien (eso se mira en las miniaturas).
@@ -64,7 +64,7 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   recompilador asigna **una sola dirección a cada desplazamiento del PRG** (`nesrecomp.c`, cuenta los `conflictos`), y en
   mappers con ventanas intercambiables el mismo byte se ejecuta a veces en `$8003` y a veces en `$A003`. La traza trae la
   dirección con que se ejecutó (`000003:8003`), pero el código ya estaba tomado como `$A003`, así que no se puede
-  recompilar y sigue cayendo al intérprete. Por eso la segunda ronda de `recomp_game.sh` aporta poco. Arreglarlo exigiría
+  recompilar y sigue cayendo al intérprete. Por eso la segunda ronda de `recomp_game.py` aporta poco. Arreglarlo exigiría
   emitir una función por cada par (desplazamiento, dirección); no se hizo. No hubo diferencias entre el intérprete y el
   código recompilado en ninguna ROM.
   **Impacto real: despreciable.** En las ROMs aprobadas, la mediana de ciclos que cae al intérprete es 0 %; MMC1 (6 ROMs)
@@ -72,7 +72,7 @@ ronda recompilando con lo que `difftest --uncovered` vio caer al intérprete. De
   Por eso no se justifica la complejidad de emitir una función por cada par (desplazamiento, dirección).
 - **3-D WorldRunner** (mapper 2) corría solo el 57-62 % de los ciclos en código recompilado, con 0 instrucciones de PRG
   interpretadas: el resto era un bucle de espera del NMI en la RAM (`$0760`). Ahora ese código se aprende de la traza
-  (ver «Código que el juego copia a la RAM» en `ARQUITECTURA.md`) y el ciclo de `tests/recomp_game.sh` llega al 100 %
+  (ver «Código que el juego copia a la RAM» en `ARQUITECTURA.md`) y el ciclo de `../shared/recomp_game.py` llega al 100 %
   (1500 cuadros, semilla 1, sin diferencias).
 - **Velocidad** del proyecto generado (MinGW, `-O2`, un solo hilo, medida sin otra carga): mediana 21× tiempo real; entre
   10,7× (juegos MMC5, MMC1 grandes) y 39× (R.C. Pro-Am). Varía de una corrida a otra (una medición anterior dio la mitad

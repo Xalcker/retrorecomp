@@ -141,7 +141,7 @@ funciona igual, solo más lento. La traza lo resuelve.
 **3. Ciclo con trazas**
 
 ```
-sh tests/recomp_game.sh roms/sfa2.gbc sfa2
+python3 ../shared/recomp_game.py roms/sfa2.gbc sfa2
 ```
 
 Graba una traza guionada, corre `difftest` con 3 semillas de 6000 cuadros, junta
@@ -252,12 +252,12 @@ el código cae al intérprete (ver «Código que el juego copia a WRAM o HRAM» 
 que también explica por qué y cómo llevarlo a otra consola). `gbrecomp` dice cuántas instrucciones de
 RAM aprendió y `difftest`, cuántas siguen en el intérprete.
 
-`tests/recomp_game.sh ROM NOMBRE` hace ese ciclo completo con `difftest`. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada. Game Boy corre 6000 cuadros por difftest si no se dice otra cosa.
+`../shared/recomp_game.py ROM NOMBRE` hace ese ciclo completo con `difftest`. Es el mismo script en NESRecomp, GBRecomp, GENRecomp y NEORecomp (la consola sale del recompilador que hay en la carpeta, y `retrorecomp/tests/contract.py` comprueba que sigan idénticos): graba antes una traza guionada con `tests/inputs/ciclo_traza.txt` y corre cada `difftest` con `tests/inputs/ciclo_difftest.txt` más cada semilla; `TRACE_FRAMES=N` y `NOTRACE=1` valen en los cuatro, e `INPUT_TRACE=F` / `INPUT_DIFFTEST=F` cambian las entradas por una partida grabada. Game Boy corre 6000 cuadros por difftest si no se dice otra cosa.
 
 **Contrato común con NESRecomp, GENRecomp y NEORecomp.** Las herramientas sin ventana (`gbtrace`, `gbshot`, `gbaudio`, `gbbench`,
 `difftest`) tienen las mismas opciones que las de [NESRecomp](https://github.com/Xalcker/NESRecomp)
 (`--frames`, `--input`, `--seed`, `--repeat`), y la GUI común ([retrorecomp](https://github.com/Xalcker/retrorecomp))
-se apoya en eso. `sh tests/contract.sh` (el mismo archivo en los dos repos) comprueba que las
+se apoya en eso. `python3 ../shared/contrato.py` (el mismo archivo en los dos repos) comprueba que las
 herramientas compiladas las mencionan y, con las ROMs de prueba, que la misma entrada dé la misma traza,
 captura y audio (`--seed`, y `--input` con `--seed`); el CI lo corre en cada PR. Si cambias una opción aquí, cámbiala también en NESRecomp, GENRecomp, NEORecomp y en la tabla de retrorecomp.
 
@@ -338,7 +338,7 @@ estándar; escucha en 127.0.0.1 con un token) una interfaz sobre todo lo anterio
 NESRecomp, GENRecomp y NEORecomp (en la raíz de [retrorecomp](../README.md)): el mapa de cada banco como `--viz` con clic por celda y la cadena de
 `--why`, el avance por ROM (análisis, cobertura, proyecto, `difftest`, velocidad), trazas con
 `gbtrace`, `difftest --uncovered` o jugando, guiones de entradas (`--input`, `--play`, `--record`),
-`gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`, `tests/recomp_game.sh`, sincronizar el repo y la
+`gbshot`/`gbaudio`, recompilar, `difftest`, `gbbench`, `../shared/recomp_game.py`, sincronizar el repo y la
 salida de cada trabajo en vivo.
 
 El ejecutable generado tiene una barra de menús (la de Moskva 89, dibujada
@@ -428,8 +428,8 @@ y `--forget-rom`. Para pruebas sin ventana: `--ui-shot archivo.png` con
 Además, Mealybug Tearoom pasa 18 de 24 (`tests/run_mealybug.sh`) y Blargg
 `dmg_sound` 9 de 12.
 
-**Línea base exacta** (`sh tests/golden.sh`, el mismo código que los otros
-cuatro en `../shared/golden.sh`): los juegos de `roms/` con entradas fijas, más
+**Línea base exacta** (`python3 tests/golden.py`, el mismo código que los otros
+cuatro en `../shared/golden.py`): los juegos de `roms/` con entradas fijas, más
 acid2, Mealybug, HDMA y `cgb_sound`, con el hash de todos los cuadros y de todo
 el audio (`gbshot --hash`). Cada caso se nombra por el SHA1 de la ROM (y el
 modelo, si una ROM corre en dos); las ROMs que faltan se saltan. Una
@@ -437,7 +437,7 @@ optimización del runtime no debe cambiar ni un byte: `difftest` no lo
 detectaría, porque el código recompilado y el intérprete usan la misma PPU y
 el mismo APU. Tarda unos segundos (un caso por procesador). Tras un cambio que
 sí debe cambiar la salida, se revisa a ojo y se regenera con
-`sh tests/golden.sh --update` (solo los casos que corrieron). La velocidad se
+`python3 tests/golden.py --update` (solo los casos que corrieron). La velocidad se
 mide con `gbbench rom.gb [--frames N] [--repeat N] [--input archivo]`
 (intérprete sin ventana, con audio; reporta la más rápida de N corridas), y la
 del código recompilado con el `bench` del proyecto generado, que es el mismo

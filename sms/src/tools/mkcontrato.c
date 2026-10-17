@@ -1,5 +1,5 @@
 /*
- * mkcontrato: arma el juego de prueba del contrato común (tests/contract.sh) y lo escribe como .sms:
+ * mkcontrato: arma el juego de prueba del contrato común (shared/contrato.py) y lo escribe como .sms:
  *   mkcontrato testroms/sms/contrato.sms
  * Es un programa propio (MIT), hecho aquí y no bajado de ningún lado, para que el contrato se cumpla con una
  * prueba libre, sin ensamblador: este archivo pone los bytes del Z80. Depende de las entradas en las tres

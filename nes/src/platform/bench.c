@@ -6,7 +6,7 @@
  * Compilado con -DNES_RECOMP (proyecto generado) mide el código recompilado;
  * sin él, el intérprete.
  * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
- * --hash del intérprete (golden_hash.h): así tests/golden.sh --recompilado compara el código recompilado con
+ * --hash del intérprete (golden_hash.h): así tests/golden.py --recompilado compara el código recompilado con
  * la misma línea base.
  */
 #include <stdio.h>

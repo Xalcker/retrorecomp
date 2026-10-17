@@ -31,10 +31,8 @@ COMMON = {sid: {**{sid + rol: opts for rol, opts in ROLES.items() if (sid, rol) 
                 **ROLES_SIN_PREFIJO, sid + "recomp": RECOMP_OPCIONES}
           for sid in rr.REGISTRO}
 
-# Archivos que todos tienen tal cual: los envoltorios de las pruebas comunes (el código vive en shared/) y las
-# entradas guionadas del ciclo
-SHARED = (os.path.join("tests", "contract.sh"), os.path.join("tests", "recomp_game.sh"),
-          os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
+# Archivos que todos tienen tal cual: las entradas guionadas del ciclo
+SHARED = (os.path.join("tests", "inputs", "ciclo_traza.txt"), os.path.join("tests", "inputs", "ciclo_difftest.txt"))
 
 # Lo que antes se copiaba en cada repo y ahora se toma de shared/ por el submódulo tools/retrorecomp
 MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", "runtime", "trace_line.h"),
@@ -58,8 +56,8 @@ MOVIDOS = (os.path.join("src", "platform", "random_pad.h"), os.path.join("src", 
 # Los movidos que algún repo conserva a propósito (hoy ninguno: GBRecomp tenía sus inputs.h y cli.h)
 PROPIOS = {}
 
-# Archivos que solo tienen algunos (las consolas con 68000 o con Z80): idénticos entre los que los tienen
-SOLO = {os.path.join("tests", "sst.sh"): ("gen", "neo", "sms")}
+# Archivos que solo tienen algunos: idénticos entre los que los tienen (hoy ninguno)
+SOLO = {}
 
 # Las entradas guionadas del ciclo son las mismas en NES, Game Boy, Genesis y Master System; el Neo Geo tiene las suyas
 # (la BIOS del AES tarda ~1200 cuadros en dejar el juego, así que todo va desplazado)
@@ -122,21 +120,15 @@ def compat_gemelo(roots):
 
 
 def registro(roots):
-    """(revisados, fallas): cada entrada del registro (shared/sistemas.json) tiene los campos de todas, el formato
-    que lee shared/recomp_game.sh, una clase en la GUI, y sus botones son los que acepta el guion de entradas de su recompilador (INPUT_NAMES)"""
+    """(revisados, fallas): cada entrada del registro (shared/sistemas.json) tiene los campos de todas, 
+    una clase en la GUI, y sus botones son los que acepta el guion de entradas de su recompilador (INPUT_NAMES)"""
     checked = fails = 0
     campos = set(next(iter(rr.REGISTRO.values())))
-    texto_reg = open(os.path.join(rr.HERE, "shared", "sistemas.json"), encoding="utf-8").read()
     for sid, r in rr.REGISTRO.items():
         checked += 1
         error = None
-        # shared/recomp_game.sh lee los cuadros con awk: el bloque del sistema empieza en «  "id": {» y cada clave
-        # numérica va en su propia línea
-        bloque = re.search(r'^  "' + sid + r'": \{\n(.*?)^  \}', texto_reg, re.M | re.S)
         if set(r) != campos:
             error = "campos distintos: " + ", ".join(sorted(set(r) ^ campos))
-        elif not bloque or any(not re.search(rf'^    "{k}": {r[k]},$', bloque.group(1), re.M) for k in ("cuadros", "cuadros_traza")):
-            error = "cuadros y cuadros_traza deben ir en una línea propia dentro de «  \"" + sid + "\": {» (los lee recomp_game.sh)"
         elif sid not in rr.CLASES:
             error = "la GUI no tiene una clase para este sistema"
         elif roots.get(sid):

@@ -1,5 +1,5 @@
 /*
- * mkcontrato: arma el juego de prueba del contrato común (tests/contract.sh) y lo escribe como .neo:
+ * mkcontrato: arma el juego de prueba del contrato común (shared/contrato.py) y lo escribe como .neo:
  *   mkcontrato testroms/neo/contrato.neo
  * Es un programa propio (MIT), hecho aquí y no bajado de ningún lado, para que el contrato se cumpla con
  * una prueba libre. Corre con la BIOS del AES del usuario (y con la propia de la fase 10). Hace lo que

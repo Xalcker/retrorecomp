@@ -354,7 +354,7 @@ GEN_INL void gen_after_step_inline(Gen *g)
 
 /* El Z80 corre atrasado: se pone al día solo donde se toca con el resto, y justo hasta donde habría
  * llegado si corriera tras cada instrucción del 68000 (z80_due), así que todo pasa en el mismo orden y
- * nada cambia un bit (tests/golden.sh). Donde el 68000 toca el área del Z80, el pedido del bus o el reset,
+ * nada cambia un bit (tests/golden.py). Donde el 68000 toca el área del Z80, el pedido del bus o el reset,
  * z80_sync lo lleva hasta el ciclo actual, como siempre; aquí: el PSG y el mapper desde el 68000, la
  * ventana de la INT que fija el VDP y el audio al final del cuadro. Lo único que no puede quedar igual: que
  * el Z80 toque la RAM, el VDP o la E/S del 68000 por su ventana de $8000 (gen_z80_window_ext lo cuenta) */

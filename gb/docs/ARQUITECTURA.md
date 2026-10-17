@@ -26,7 +26,7 @@ emite C99 + Makefile                  platform/        SDL2
 | `src/gbrecomp/` | El recompilador: descubrimiento, partición en funciones, emisión del proyecto (`gbrecomp.c`) y el mapa animado de `--viz` (`viz.c`). |
 | `src/platform/` | Se copia a cada proyecto generado: `main_sdl.c` (ventana, controles, audio, cable link), `difftest.c` (prueba diferencial), `ui_menu.c` y `ui_font.c` (menús y diálogos), `i18n.c` (español e inglés), `settings.h` (los campos de `settings.c`, común en `../shared`), `files.c` (carpeta de datos), `export.c` (música y gráficos), `png.c`, `iconos.c`, `input_host.h` (lo del Game Boy en `inputs.h` y `cli.h`, comunes en `../shared`: entradas grabadas y opciones de las herramientas sin ventana) y `ramtrace.h` (lo del Game Boy en `ram_code.h`, común). |
 | `src/tools/` | `gen_interp` (genera el intérprete con el emisor), `embed` (mete el runtime en `gbrecomp`), `gbtest` (corre ROMs sin ventana), `gbbench` (velocidad), `gbtrace`, `gbshot`, `gbaudio` y `gbramdump` (traza, captura, audio y RAM sin ventana, con las opciones de NESRecomp; `gbshot --hash` para golden), `linktest` (dos Game Boy por cable) y `vgmcheck` (compara la música exportada). |
-| `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.sh` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
+| `tests/` | `run_tests.sh` (la batería de `make test`), `run_mealybug.sh`, `golden.sh` y `golden.txt` (línea base exacta), `recomp_game.py` y `batch_roms.sh` (recompilar y comparar juegos), pruebas de cable link y SGB, `sgb_controles.c`. `inputs/`: guiones de entradas. |
 | `tools/` | `compat/` (lista de compatibilidad: `run.py` y `report.py`, con el motor común `retrorecomp/compat.py`), `truth/` (mapa de código y datos desde un desensamblado), `gen_inputs.py` (jugadas reproducibles), `iconos.py`. |
 | `docs/` | Este documento y `compat/` (la lista de compatibilidad generada). |
 | `testroms/` | ROMs de prueba de código abierto (no se versionan). |
@@ -456,7 +456,7 @@ solo anotara la ROM, jugar completaría la ROM y perdería justo lo único que n
 código de RAM. Con el mismo módulo en las dos herramientas, cualquier sesión (aleatoria, guionada,
 grabada con `--record` o jugada a mano) alimenta el mismo ciclo y escribe las mismas líneas; una
 prueba lo comprueba con la ROM mínima. También lo anota `gbtrace`, la traza guionada con la que
-empieza `tests/recomp_game.sh`: el ciclo aprende el código de RAM desde la primera ronda.
+empieza `../shared/recomp_game.py`: el ciclo aprende el código de RAM desde la primera ronda.
 
 **Qué hay que replicar en otra consola** (la idea no depende del SM83):
 
@@ -550,7 +550,7 @@ aleatorias de Pokémon apenas pasan de la introducción, así que esos porcentaj
 valen para lo jugado, no para el juego completo. Ningún juego mostró
 diferencias en la prueba diferencial.
 
-`tests/recomp_game.sh ROM NOMBRE` hace el ciclo completo para un juego:
+`../shared/recomp_game.py ROM NOMBRE` hace el ciclo completo para un juego:
 recompila, compila, prueba con varias semillas, junta la traza, recompila con
 ella y vuelve a probar.
 
@@ -931,7 +931,7 @@ hasta que se sueltan (si no, el Enter que cerró el diálogo llegaría como Star
   enlazado estático: no necesita DLLs), Linux y macOS (SDL2 por pkg-config).
 - **Integración continua** (`.github/workflows/ci.yml`, el mismo flujo que en
   NESRecomp), en Linux, macOS y Windows:
-  - `make` (compila todo) y `sh tests/contract.sh` (contrato común).
+  - `make` (compila todo) y `python3 ../shared/contrato.py` (contrato común).
   - `make testroms` (las ROMs de prueba libres, c-sp/game-boy-test-roms v7.0)
     y `make test`, que también recompila `cpu_instrs` de Blargg, compila el
     proyecto generado y corre `difftest`.
@@ -1052,12 +1052,12 @@ dispararlo mientras toca), que los juegos casi no usan.
 `difftest` compara el código recompilado contra el intérprete, pero los dos
 comparten la PPU, el APU y el timer: un error en una optimización de esas
 piezas sale igual en ambas máquinas y pasa sin diferencias. Para eso está
-`tests/golden.sh`, que guarda en `tests/golden.txt` un hash FNV-1a de cada
+`tests/golden.py`, que guarda en `tests/golden.txt` un hash FNV-1a de cada
 cuadro (pantalla del GB y, en el SGB, la de la SNES con el borde) y de cada
 muestra de audio de cada caso (`gbshot --hash`): los juegos de `roms/` con
 entradas fijas (`tests/inputs/golden.txt`) y pruebas de la PPU y del APU,
 nombrados por el SHA1 de la ROM. El código es el de los cinco sistemas
-(`shared/golden.sh`). El hash se acumula cuadro a cuadro, así que también detecta
+(`shared/golden.py`). El hash se acumula cuadro a cuadro, así que también detecta
 diferencias que no llegan a la imagen final; se comprobó cambiando un solo
 píxel de un solo cuadro y un factor del mezclador de audio.
 

@@ -6,7 +6,7 @@
  * También dice cuánto del Z80 corrió nativo, interpretado o saltado; con --profile, en qué se fue el
  * tiempo (prof.h).
  * Con --hash corre una vez e imprime el hash de todos los cuadros y de todo el audio, el mismo que el *shot
- * --hash del intérprete (golden_hash.h): así tests/golden.sh --recompilado compara el código recompilado con
+ * --hash del intérprete (golden_hash.h): así tests/golden.py --recompilado compara el código recompilado con
  * la misma línea base.
  */
 #define PROF_SAMPLER        /* antes de cualquier include: gen.h incluye prof.h */

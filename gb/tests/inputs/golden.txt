@@ -1,4 +1,4 @@
-# Entradas de tests/golden.sh (las mismas de tools/compat/run.py): pasan del título
+# Entradas de tests/golden.py (las mismas de tools/compat/run.py): pasan del título
 # al juego con Start y A, y luego se mueven con A, B y las flechas.
 0 -
 120 START

@@ -12,7 +12,7 @@
  * pedido o el reset (hasta el mismo ciclo maestro, z80_sync), y antes de que el 68000 escriba el PSG o el
  * mapper, de que el VDP cambie la ventana de su INT y del audio al final del cuadro (hasta z80_due,
  * gen_z80_catchup en gen.h). Todo pasa en el mismo orden que si corriera tras cada instrucción del 68000:
- * tests/golden.sh no cambia un bit. Lo único que no queda igual es que toque la RAM, el VDP o la E/S del
+ * tests/golden.py no cambia un bit. Lo único que no queda igual es que toque la RAM, el VDP o la E/S del
  * 68000 por la ventana de $8000 (gen_z80_window_ext lo cuenta; genbench lo dice). No corre con el reset
  * puesto ($A11200) ni con el bus pedido por el 68000 ($A11100). Su INT dura una línea desde el
  * VBLANK (vdp.c fija la ventana z80_irq_from/until).

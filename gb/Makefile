@@ -9,7 +9,7 @@ CC := $(if $(shell command -v cc 2>/dev/null),cc,gcc)
 endif
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra
 # Sin contraer a*b+c en FMA (clang en arm64 lo hace por omisión): el mismo audio, bit a bit, en todas las
-# plataformas (tests/golden.sh). Con override, también si se da CFLAGS en la línea de make
+# plataformas (tests/golden.py). Con override, también si se da CFLAGS en la línea de make
 override CFLAGS += -ffp-contract=off
 BUILD  := build
 # Lo que se comparte con los otros recompiladores (random_pad.h, trace_line.h...) vive en el submódulo
@@ -61,7 +61,7 @@ CLI_DEPS := $(SHARED)/cli.h $(INPUT_DEPS) src/tools/romload.h
 gbtest$(EXE): src/tools/gbtest.c src/runtime/gb_golden.h $(SHARED)/golden_hash.h $(SHARED)/png.c $(SHARED)/png.h $(INPUT_DEPS) $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/tools/gbtest.c $(SHARED)/png.c $(BUILD)/libgbrt.a
 
-# Velocidad del runtime sin ventana (tests/golden.sh comprueba que no cambie nada)
+# Velocidad del runtime sin ventana (tests/golden.py comprueba que no cambie nada)
 # (src/platform/bench.c: el mismo archivo es el bench de los proyectos generados, con -DGB_RECOMP)
 gbbench$(EXE): src/platform/bench.c $(INPUT_DEPS) $(BUILD)/libgbrt.a
 	$(CC) $(CFLAGS) -Isrc/runtime -Isrc/platform -I$(SHARED) -o $@ src/platform/bench.c $(BUILD)/libgbrt.a

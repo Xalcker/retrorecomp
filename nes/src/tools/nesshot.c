@@ -14,7 +14,7 @@
  *                          Corre todos los cuadros (no se detiene con el resultado de Blargg).
  *   --hash                 imprime un hash de todos los cuadros y de todo el audio
  *                          ("hash imagen X audio Y", golden_hash.h), para comprobar que un cambio no altera
- *                          nada (tests/golden.sh). Corre todos los cuadros, como el bench con --hash.
+ *                          nada (tests/golden.py). Corre todos los cuadros, como el bench con --hash.
  *   --input-line 241   los botones del cuadro N cambian en la línea 241 del cuadro N (al empezar el vblank) y no
  *                          al empezar el cuadro: así lo hace Mesen2, y con eso tools/compat/vsmesen.py ve las mismas
  *                          entradas en los dos emuladores lea el juego el control donde lo lea.

@@ -16,7 +16,7 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `m68k_dis.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`); diagnóstico: `neorun`. |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.sh` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
+| `tests/` | `run_tests.sh` (`make test`), `recomp_game.py` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -321,7 +321,7 @@ y las excepciones atendidas; al final de cada cuadro, también la imagen y el au
 escribe en formato de traza lo que B tuvo que interpretar (del juego y de la BIOS), para volver a
 recompilar con `--trace`.
 
-`tests/recomp_game.sh JUEGO NOMBRE [CUADROS] [SEMILLAS...]` hace el ciclo completo de un juego, como en los
+`../shared/recomp_game.py JUEGO NOMBRE [CUADROS] [SEMILLAS...]` hace el ciclo completo de un juego, como en los
 otros recompiladores (y lo usa la GUI): una traza guionada, recompilar, compilar, `difftest` con cada
 semilla, juntar lo que cayó al intérprete y repetir una vez con esa traza.
 
@@ -404,7 +404,7 @@ ensamblador del 68000 hecho aquí (Python sin dependencias; `make neobios` deja 
 de los chips, como `neo-epo.bin`), que se prueba contra el desensamblador (`tests/asm68k/`). El runtime la
 acepta por su firma (`"NEORECOMP BIOS"` en `$100`), no por el SHA1; `bios_find` la toma antes que la de SNK
 (`neobios.bin` junto al juego, en `roms/` o en `build/`, donde la deja `make`), y también va con
-`--bios`/`NEO_BIOS`. Las pruebas cuyas referencias se hicieron con la de SNK (`tests/golden.sh`,
+`--bios`/`NEO_BIOS`. Las pruebas cuyas referencias se hicieron con la de SNK (`tests/golden.py`,
 `tests/run_tests.sh`, `tools/compat`, `tools/oracles`) fijan `NEO_BIOS=roms/aes.zip` si está. Se recompila como la original.
 Lo que hace:
 
@@ -673,7 +673,7 @@ ventana lo recorta al dibujo y `icono.ico` (Windows) es ese recorte llevado a 25
   El guion de entradas: `cuadro BOTONES [BOTONES]` con `UP DOWN LEFT RIGHT A B C D START SELECT` unidos con
   `+`, `-` o `$hex` (los bits `NEO_*`). El mando aleatorio pulsa A, B, Start y la cruz (C, D y Select solo en
   los guiones).
-- **Contrato común** (`tests/contract.sh`, el mismo archivo en los cuatro repos; si cambia, se copia a los
+- **Contrato común** (`shared/contrato.py`, el mismo archivo en los cuatro repos; si cambia, se copia a los
   otros tres): la rama `neo` con el juego de prueba `testroms/neo/contrato.neo`. Se cumple: las cuatro
   herramientas aceptan las opciones, la misma entrada da la misma traza, captura y sonido, y `--input` da el
   mismo `neoshot --hash` que `boton:desde-hasta`.
@@ -747,7 +747,7 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
   selección de personaje, pelea con la cámara reducida) y Neo Turf Masters (título, menús, el hoyo con el
   campo en perspectiva, que usa el temporizador: unas 13 700 interrupciones en 4200 cuadros) se ven bien.
   Con el intérprete y el dibujo, 16-20 veces el tiempo real.
-- **Recompilador** (`tests/recomp_game.sh` con 1800 cuadros y las semillas 1 y 2): Metal Slug, Samurai
+- **Recompilador** (`../shared/recomp_game.py` con 1800 cuadros y las semillas 1 y 2): Metal Slug, Samurai
   Shodown II y Neo Turf Masters dan cuadros idénticos al intérprete. En la primera ronda (análisis más una
   traza guionada) quedan 52 a 109 instrucciones de ROM en el intérprete; en la segunda, ninguna. Los ciclos en
   código recompilado (del juego y de la BIOS): 100 % en Metal Slug y Samurai Shodown II, 99,7-99,8 % en Neo
@@ -755,7 +755,7 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
   traza, Metal Slug ya da 99,9 %. Velocidad (`difftest --bench`, 3600 cuadros): recompilado 23-31 veces el
   tiempo real, el intérprete 17-20. Compilar un proyecto (`make -j8`): ~55 s (Metal Slug: 95 000
   instrucciones del juego; la BIOS, 5500).
-- **Herramientas, estados y contrato:** `inputtest`, `statetest`, `tests/contract.sh` sin fallas.
+- **Herramientas, estados y contrato:** `inputtest`, `statetest`, `shared/contrato.py` sin fallas.
 - **Audio:** `audiotest`. Los tres juegos suenan: Metal Slug con FM y ADPCM-A, Samurai Shodown II también con
   ADPCM-B y Neo Turf Masters además con el SSG. Con el sonido, 14-18 veces el tiempo real.
 - **Contra los oráculos** (fase 9, `docs/COMPATIBILIDAD.md`): con los 8 juegos, la RAM del 68000 coincide con
@@ -767,7 +767,7 @@ ventana (`--ui-shot`); y que suenen (`neorun --wav`).
 
 ### Línea base para optimizar el runtime
 
-`tests/golden.sh` corre cada juego de `roms/` y el juego de prueba del contrato 3600 cuadros (de la demo a la
+`tests/golden.py` corre cada juego de `roms/` y el juego de prueba del contrato 3600 cuadros (de la demo a la
 partida, con las entradas de `tests/coverage.sh`) y guarda el hash de todos los cuadros y de todo el audio
 (`neoshot --hash`) en `tests/golden.txt`, nombrados por el SHA1 de la imagen. Una optimización no debe
 cambiar ni un bit (`--update` reescribe la línea base). En la fase 8, con `sample` de macOS sobre `bench`:

@@ -217,7 +217,7 @@ $(BUILD):
 	mkdir -p $@
 
 test: all
-	sh tests/run_tests.sh
+	python3 tests/run_tests.py
 
 testroms:
 	sh tests/testroms.sh

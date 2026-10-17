@@ -16,7 +16,7 @@ dicen en qué fase de [PLAN.md](PLAN.md) llegan.
 | `src/neorecomp/` | El recompilador (`neorecomp.c`; el desensamblador `m68k_dis.c` y la página de `--html`, `visor_html.h`, son los de `../shared`). Lleva adentro el runtime y la plataforma (`embed`), así que es un solo ejecutable. |
 | `src/platform/` | SDL2 (`main_sdl.c`, menús y diálogos en `ui_menu`/`ui_font`/`i18n`, `settings.h` (los campos; `settings.c` es común), `icono.h`), `difftest.c` y `bench.c` (también para los proyectos generados), `input_host.h` (los botones para `cli.h` e `inputs.h`, las opciones comunes) y, de `../shared`, lo que no depende de SDL: `png`, `files`, `export`, `random_pad.h`, `cli.h`, `inputs.h`, `settings.c`. |
 | `src/tools/` | Sin ventana, con las opciones comunes (`cli.h`): `neotrace`, `neoshot`, `neoaudio`, `neoramdump` (y `neobench`, de `src/platform/bench.c`), con `romload.h`. `mkcontrato` (el juego de prueba del contrato). Pruebas: `carttest` (con `inflate_vectors.h`), `bustest`, `lspctest`, `audiotest`, `statetest`, `inputtest`, `m68ktest` y `z80test` (SingleStepTests, con `json.h`; los tres de `../shared`); diagnóstico: `neorun`. |
-| `tests/` | `run_tests.sh` (`make test`), `recomp_game.py` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
+| `tests/` | `run_tests.py` (`make test`), `recomp_game.py` (ciclo completo de un juego), `sst.sh m68k` y `sst.sh z80` (las SingleStepTests), `contract.sh` (contrato común, idéntico en los cuatro), `testroms.sh` (`make testroms`). |
 | `tools/` | `retrorecomp/` (la GUI común, submódulo), `make_icon.py` (los iconos a partir de `NEOGEO.png`). |
 
 ## Una sola fuente de verdad para el CPU
@@ -256,7 +256,7 @@ hizo GBRecomp):
    Se comprueba al entrar al bloque: un bloque que reescribe un opcode propio mientras corre sigue con lo
    aprendido hasta la siguiente entrada; `difftest` lo delataría.
 
-`tests/run_tests.sh` lo prueba con la BIOS propia y una variante del juego de prueba (`mkcontrato --ram`) que
+`tests/run_tests.py` lo prueba con la BIOS propia y una variante del juego de prueba (`mkcontrato --ram`) que
 copia una rutina a `$100100`, la llama en cada cuadro y le parcha el inmediato: la segunda ronda compila 6
 instrucciones (1 con un operando variable) y no deja nada en el intérprete, sin diferencias; `neotrace` y el
 ejecutable anotan las mismas líneas que `difftest`. `difftest` dice qué parte del tiempo del intérprete fue ROM
@@ -405,7 +405,7 @@ de los chips, como `neo-epo.bin`), que se prueba contra el desensamblador (`test
 acepta por su firma (`"NEORECOMP BIOS"` en `$100`), no por el SHA1; `bios_find` la toma antes que la de SNK
 (`neobios.bin` junto al juego, en `roms/` o en `build/`, donde la deja `make`), y también va con
 `--bios`/`NEO_BIOS`. Las pruebas cuyas referencias se hicieron con la de SNK (`tests/golden.py`,
-`tests/run_tests.sh`, `tools/compat`, `tools/oracles`) fijan `NEO_BIOS=roms/aes.zip` si está. Se recompila como la original.
+`tests/run_tests.py`, `tools/compat`, `tools/oracles`) fijan `NEO_BIOS=roms/aes.zip` si está. Se recompila como la original.
 Lo que hace:
 
 - **Arranque:** RAM en cero, paletas en negro, `FIX_CLEAR` y `LSP_1st`, las variables (`BIOS_COUNTRY_CODE` 2

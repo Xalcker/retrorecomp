@@ -22,7 +22,7 @@
  *   $000800  el juego: paleta, borra la capa fija y los sprites, y en cada cuadro dibuja los botones
  * Z80 (M1): habilita la NMI y espera; la NMI lee el comando, pone el tono A del SSG y contesta.
  *
- * Con --ram (mkcontrato --ram salida.neo, la prueba del código en RAM de tests/run_tests.sh), el juego además
+ * Con --ram (mkcontrato --ram salida.neo, la prueba del código en RAM de tests/run_tests.py), el juego además
  * copia al arrancar una rutina de $780 a $100100 (move.w #5,d0, un bucle con dbf, guarda en $101000, rts),
  * la llama en cada cuadro y le parcha el inmediato (addq.b #1,$100103).
  */

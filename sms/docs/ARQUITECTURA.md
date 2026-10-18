@@ -118,7 +118,10 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
 - **Las semillas:** `$0000`, los `RST` (`$08-$38`) y `$0066` en las vistas de la ranura 0; las instrucciones de la
   traza en la suya. Desde ahí se sigue el flujo con `z80_decode`. Un salto o una llamada a otra ranura siembra la
   vista de la página que está ahí al encender (lo demás lo dice la traza).
-- **Heurísticas** (las de GBRecomp llevadas al Z80; `--no-tables` las apaga para comparar):
+- **Heurísticas** (las de GBRecomp llevadas al Z80; `--no-tables` las apaga para comparar). Viven en
+  `../shared/z80_heuristicas.h`, común a las tres consolas con Z80; `smsrecomp.c` pone el `Z80Host` (leer un byte según
+  la página de cada ranura, sembrar en la vista que toca, el desplazamiento de la ROM como identificador y los registros
+  de banco del mapper Sega y del de Codemasters):
   - **tablas de saltos:** un `JP (HL)`, `(IX)` o `(IY)` con un `LD HL/IX/IY,nn` en los 24 bytes antes y, entre los dos,
     el `ADD HL/IX/IY,rr` que la indexa: `nn` es una tabla de direcciones de 16 bits. Se toman mientras caigan en la
     ROM, parezcan código y la tabla no llegue a código descubierto ni a sí misma, hasta 128, y se siembran si son dos

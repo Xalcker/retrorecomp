@@ -150,7 +150,8 @@ $(BUILD)/sms:
 
 # El recompilador: un solo ejecutable, con el runtime y la plataforma adentro (embed); el Z80 se compila con el
 # recompilador común (z80_recomp.h) y se desensambla con z80_dis
-smsrecomp$(EXE): src/smsrecomp/smsrecomp.c src/smsrecomp/embedded.h $(SHARED)/z80_recomp.h $(SHARED)/z80_dis.c $(SHARED)/z80_dis.h \
+smsrecomp$(EXE): src/smsrecomp/smsrecomp.c src/smsrecomp/embedded.h $(SHARED)/z80_recomp.h $(SHARED)/z80_heuristicas.h \
+                 $(SHARED)/z80_dis.c $(SHARED)/z80_dis.h \
                  $(SHARED)/visor_html.h $(SHARED)/ram_code.h $(BUILD)/sms/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DSMSRECOMP_VERSION='"$(VERSION)"' -Isrc/smsrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/smsrecomp/smsrecomp.c $(SHARED)/z80_dis.c $(BUILD)/sms/embedded.c $(RT) -lm

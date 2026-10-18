@@ -57,6 +57,7 @@
 #include "trace_line.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
+#include "z80_heuristicas.h"
 #include "z80_dis.h"
 #include "z80_vista.h"
 #include "embedded.h"
@@ -96,6 +97,7 @@ static const char usage_text[] =
     "                     64 por línea; el mismo formato que difftest --executed\n"
     "  --z80              incluye el Z80 (la M1) en --events, --html, --why y --dis: va a continuación de P en el mapa;\n"
     "                     también valen --why z80:0:DIRECCIÓN y --dis z80:0:DIRECCIÓN:N (la dirección en hexadecimal)\n"
+    "  --z80-heuristicas  las heurísticas comunes del Z80 (tablas de saltos, despachadores, JP (HL) constantes) sobre la M1\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
     "  --no-spec          sin los punteros sueltos: inmediatos y tablas que ningún código delata\n"
     "  --dis OFF:DIR:N    desensambla N instrucciones desde ese desplazamiento de P, con esa dirección\n"
@@ -1794,6 +1796,20 @@ static void emit_info(const char *dir, const char *sha1, const char *name, unsig
  * y la RAM quedan en el intérprete. gen/zm1.h, gen/zm1_NNN.c y gen/zm1_dispatch.c (zm1_lookup) */
 static Z80Rc zm1;
 static int zm1_descubierta;
+static int z80_heur;                /* --z80-heuristicas: las heurísticas comunes (z80_heuristicas.h) sobre la M1 */
+
+/* La M1 para las heurísticas comunes: un solo tramo, fijo ($0000 hasta el final de la parte sin bancos). Lo que siembran
+ * se ve como «semilla del Z80» en --why y --events */
+static int zm1_peek(void *ctx, uint32_t a) { (void)ctx; return a <= zm1.hi ? zm1.img[a - zm1.lo] : -1; }
+static int zm1_seed(void *ctx, uint16_t a, int how, uint32_t from)
+{
+    (void)ctx; (void)how; (void)from;
+    if (!z80rc_in(&zm1, a) || zm1.queued[a]) return 0;
+    z80rc_seed(&zm1, a, Z80RC_SEED);
+    return 1;
+}
+static uint32_t zm1_origin(void *ctx, uint16_t a) { (void)ctx; return a; }
+static Z80Host zm1_host = { zm1_peek, zm1_seed, zm1_origin, NULL, NULL, 0x0008, 0x8000, 0, 0, 0, 0, 0 };
 
 static void z80_descubrir(const Cart *cart)
 {
@@ -1808,6 +1824,13 @@ static void z80_descubrir(const Cart *cart)
         z80rc_seed(&zm1, 0x66, Z80RC_SEED);
     }
     z80rc_discover(&zm1);
+    if (z80_heur && n) {
+        zm1_host.max_target = (uint32_t)zm1.hi + 1;
+        while (z80h_heuristics(&zm1_host, NULL, &zm1)) z80rc_discover(&zm1);
+        if (verbose)
+            printf("Z80 de la M1, heurísticas: tablas de saltos: %u (%u entradas), direcciones apiladas: %u, JP (HL) constantes: %u\n",
+                   zm1_host.tables, zm1_host.table_entries, zm1_host.pushed, zm1_host.consts);
+    }
 }
 
 /* Para el análisis (--z80): lo descubierto de la M1 como una vista del mapa (después de P, a la celda) */
@@ -2150,6 +2173,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--color")) { force_color = 1; continue; }
         if (!strcmp(a, "--z80")) { z80_on = 1; continue; }
         if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
+        if (!strcmp(a, "--z80-heuristicas")) { z80_heur = 1; continue; }
         if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }

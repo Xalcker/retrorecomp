@@ -284,7 +284,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
 2. **`shared/m68k_recomp.h`** (#64, parte 2), en dos pasos: primero mover sin cambiar un bit (`--codemap`, coverage y golden iguales); después activar en GEN las heurísticas de NEO.
 3. **Z80:** las heurísticas de SMS pasan a `z80_recomp.h`, más operandos variables en el código de RAM y semillas de traza en la M1 de NEO. Es lo que más falta en SMS, que tiene 46 % estático.
    - Hecho en SMS (18 de octubre de 2026): despachadores de tablas (`LD HL,tabla` + `CALL` a una rutina que lee el puntero), `JP (HL)` a una constante (con `EXX`) y tablas con `LD IX,nn`. Cobertura sin traza de las 27 ROMs de la etapa 2 de compat: 38,8 % → 72,8 % de las instrucciones ejecutadas; en `tests/coverage.py` (20 juegos), 53,2 % → 62,8 %.
-   - Falta: pasar las heurísticas a `z80_recomp.h` (hoy viven en `smsrecomp.c`), los juegos con más páginas que las tres del encendido (Micro Machines 7,9 %, Shinobi 10,0 %, Shining Force 29,5 %) y los datos en línea tras un `CALL` o un `RST` (Alien 3).
+   - Hecho: las heurísticas pasaron de `smsrecomp.c` a `shared/z80_heuristicas.h`, con un `Z80Host` por consola (sin cambiar un bit: `--events` y `--codemap` iguales en 369 ROMs de SMS). GENRecomp y NEORecomp tienen su adaptador, apagado por omisión (`--z80-heuristicas`); con la opción, cambian 2 de 8 ROMs de GEN (+661 y +96 eventos) y 5 de 10 de NEO (+141 a +1 214). Sin efecto medible todavía: la M1 de NEO ya tiene 0 instrucciones interpretadas.
+   - Falta: los juegos con más páginas que las tres del encendido (Micro Machines, Shinobi, Shining Force) y los datos en línea tras un `CALL` o un `RST` (Alien 3); ver el issue #163.
 4. **Descubrimiento guiado por perfil** (retrorecomp#16), con piloto en SMS:
    - un almacén de trazas por SHA1 (`--traces-dir`) que generaliza la caché de BIOS de NEO;
    - conteos en `--uncovered`;

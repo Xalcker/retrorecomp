@@ -173,10 +173,10 @@ static void print_info(const char *path, const Sms *s)
 /* Cómo se llegó a una instrucción: los primeros tres son los de z80_recomp.h (Z80RC_SEED, Z80RC_FLOW,
  * Z80RC_TRACE); HOW_CROSS, un salto desde otra ranura. Para los informes, el de Z80RC_FLOW se detalla mirando la
  * instrucción de la que vino (sigue, salto, llamada, bifurcación) */
-enum { HOW_VECTOR = Z80RC_SEED, HOW_FLOW = Z80RC_FLOW, HOW_TRACE = Z80RC_TRACE, HOW_CROSS, HOW_TABLE, HOW_PUSHED };
-enum { SHOW_VECTOR, SHOW_TRACE, SHOW_NEXT, SHOW_JUMP, SHOW_CALL, SHOW_BRANCH, SHOW_CROSS, SHOW_TABLE, SHOW_PUSHED, SHOW_COUNT };
+enum { HOW_VECTOR = Z80RC_SEED, HOW_FLOW = Z80RC_FLOW, HOW_TRACE = Z80RC_TRACE, HOW_CROSS, HOW_TABLE, HOW_PUSHED, HOW_CONST };
+enum { SHOW_VECTOR, SHOW_TRACE, SHOW_NEXT, SHOW_JUMP, SHOW_CALL, SHOW_BRANCH, SHOW_CROSS, SHOW_TABLE, SHOW_PUSHED, SHOW_CONST, SHOW_COUNT };
 static const char *const how_name[SHOW_COUNT] = { "vector", "traza", "sigue", "salto", "llamada", "bifurcación",
-                                                  "otra_ranura", "tabla", "apilada" };
+                                                  "otra_ranura", "tabla", "apilada", "constante" };
 /* El origen (lo que colorea el mapa): las categorías de la GUI (retrorecomp_gui.py, clase SMS) */
 enum { ORG_VECTORS, ORG_TRACE, ORG_TABLE, ORG_SPEC, ORG_COUNT };
 static const char *const org_name[ORG_COUNT] = { "flujo desde los vectores", "traza", "tabla de saltos",
@@ -190,7 +190,7 @@ typedef struct {
     u8 *img;                    /* los 16 KB que ve el Z80 en la ranura con esa página */
     Z80Rc *r;
     u32 *xsrc;                  /* por dirección de la ranura: 1 + el desplazamiento de la instrucción que la delató
-                                 * desde otra ranura (HOW_CROSS) o con una heurística (HOW_TABLE, HOW_PUSHED) */
+                                 * desde otra ranura (HOW_CROSS) o con una heurística (HOW_TABLE, HOW_PUSHED, HOW_CONST) */
 } View;
 
 static Sms *sms;                    /* la ROM cargada (normalizada) y su mapeo al encender */
@@ -198,7 +198,7 @@ static const u8 *rom;
 static size_t rom_size;
 static int sega, verbose;
 static int use_tables = 1;          /* --no-tables: sin las tablas de saltos ni las direcciones apiladas */
-static unsigned stat_tables, stat_table_entries, stat_pushed;
+static unsigned stat_tables, stat_table_entries, stat_pushed, stat_const;
 static View *views;
 static int nviews;
 static int view_at[MAX_PAGES][3];   /* 1 + la vista de esa página en esa ranura, o 0 */
@@ -309,16 +309,147 @@ static int plausible(int vi, u16 t)
     return 1;
 }
 
+/* La tabla de direcciones de 16 bits que empieza en base (hasta 128): se toman mientras caigan en la ROM
+ * ($0008-$BFFF), parezcan código, no lleguen a código descubierto ni a una dirección a la que apunta la misma
+ * tabla; se siembran si son dos o más. from: el desplazamiento de la instrucción que la delató. Cuántas nuevas, o -1 si
+ * no hay tabla (menos de dos) */
+static int seed_table(int vi, u32 base, u32 from)
+{
+    Z80Rc *r = views[vi].r;
+    u16 entry[128];
+    unsigned n = 0;
+    int added = 0;
+    for (; n < 128; n++) {
+        u32 at = base + 2 * n;
+        if (n && z80rc_in(r, at) && (r->ins[at] || r->ins[at + 1])) break;     /* la tabla llegó a código */
+        int lo = peek_view(vi, at), hi = peek_view(vi, at + 1);
+        if (lo < 0 || hi < 0) break;
+        u32 t = (u32)(lo | hi << 8);
+        if (t >= 0xC000 || t < 0x0008 || (t >= base && t <= at + 1) || !plausible(vi, (u16)t)) break;
+        entry[n] = (u16)t;
+    }
+    if (n < 2) return -1;
+    for (unsigned k = 0; k < n; k++) {
+        added += seed_at(vi, entry[k], HOW_TABLE, from);
+        r = views[vi].r;
+    }
+    stat_tables++;
+    stat_table_entries += n;
+    return added;
+}
+
+/* Rutinas que leen un puntero de una tabla cuya base les deja el llamador en HL (sin un LD HL,nn propio):
+ *   RT_FETCH     devuelve el puntero en HL: ...LD H,(HL)... RET (o LD D,(HL), EX DE,HL, RET)
+ *   RT_DISPATCH  salta a él: lo mismo y JP (HL); o un CALL/RST a una RT_FETCH seguido de JP (HL)
+ * Se decodifica en línea recta desde t (los saltos condicionales siguen de largo; el primero incondicional corta) */
+enum { RT_NONE, RT_FETCH, RT_DISPATCH };
+
+static int fetch4(int vi, u32 t, u8 b[4])
+{
+    for (int k = 0; k < 4; k++) {
+        int c = peek_view(vi, t + (u32)k);
+        if (c < 0) return 0;
+        b[k] = (u8)c;
+    }
+    return 1;
+}
+
+static int routine_kind(int vi, u16 t, int depth)
+{
+    int hfetch = 0, dfetch = 0, ex = 0;
+    u32 pc = t;
+    for (int i = 0; i < 24; i++) {
+        u8 b[4];
+        Z80Insn in;
+        if (pc >= 0xC000 || !fetch4(vi, pc, b)) return RT_NONE;
+        z80_decode(b, (u16)pc, &in);
+        if (b[0] == 0x21) return RT_NONE;                                   /* LD HL,nn: la tabla es suya */
+        if (b[0] == 0x66 || ((b[0] == 0xDD || b[0] == 0xFD) && b[1] == 0x66)) hfetch = 1;   /* LD H,(HL) / LD H,(IX+d) */
+        if (b[0] == 0x56) dfetch = 1;                                       /* LD D,(HL) */
+        if (b[0] == 0xEB) ex = 1;                                           /* EX DE,HL */
+        int fetched = hfetch || (dfetch && ex);
+        if (in.kind == Z80_INS_JP_IND) return b[0] == 0xE9 && fetched ? RT_DISPATCH : RT_NONE;
+        if (in.kind == Z80_INS_RET && !in.cond) return fetched ? RT_FETCH : RT_NONE;
+        if ((in.kind == Z80_INS_CALL || in.kind == Z80_INS_RST) && !in.cond && !depth && !fetched &&
+            routine_kind(vi, in.target, 1) == RT_FETCH) {
+            u8 n[4];
+            return fetch4(vi, pc + in.len, n) && n[0] == 0xE9 ? RT_DISPATCH : RT_NONE;
+        }
+        if (!in.cond && (in.kind == Z80_INS_JP || in.kind == Z80_INS_JR || in.kind == Z80_INS_RETI ||
+                         in.kind == Z80_INS_HALT)) return RT_NONE;
+        pc += in.len;
+    }
+    return RT_NONE;
+}
+
+/* Tablas de despachadores: un CALL, RST o JP a una rutina que despacha por una tabla que ella no trae (o a una que la
+ * lee y vuelve, con un JP (HL) justo después) y, antes en el llamador, el LD HL,nn con la base:
+ * LD HL,tabla / CALL despachar. Descubre de más sin romper nada, como las demás */
+static int dispatch_tables(int vi)
+{
+    int added = 0;
+    View *v = &views[vi];
+    Z80Rc *r = v->r;
+    for (u32 a = r->lo; a <= r->hi; a++) {
+        if (!r->ins[a]) continue;
+        u8 b[4];
+        Z80Insn in;
+        if (!fetch4(vi, a, b)) continue;
+        z80_decode(b, (u16)a, &in);
+        if (in.kind != Z80_INS_CALL && in.kind != Z80_INS_RST && in.kind != Z80_INS_JP) continue;
+        int rk = routine_kind(vi, in.target, 0);
+        if (rk == RT_NONE) continue;
+        if (rk == RT_FETCH) {
+            u8 n[4];
+            if (in.kind == Z80_INS_JP || !fetch4(vi, a + in.len, n) || n[0] != 0xE9) continue;
+        }
+        u32 base = 0x10000;
+        for (u32 x = a > (u32)r->lo + 20 ? a - 20 : r->lo; x < a; x++) {
+            if (!r->ins[x]) continue;
+            if (v->img[x & 0x3FFF] == 0x21 && x + 2 < a)
+                base = (u32)(v->img[(x + 1) & 0x3FFF] | v->img[(x + 2) & 0x3FFF] << 8);
+        }
+        if (base >= 0xC000) continue;
+        int n = seed_table(vi, base, off_of(v, (u16)a));
+        if (n < 0) n = seed_table(vi, base + 2, off_of(v, (u16)a));       /* el índice del llamador empieza en 1 */
+        added += n > 0 ? n : 0;
+        v = &views[vi];
+        r = v->r;
+    }
+    return added;
+}
+
+/* El valor constante que tiene HL en el JP (HL) de a: el último LD HL,nn hacia atrás, en el juego de registros que
+ * está activo (cada EXX los cambia) y sin que nada lo toque en medio. Se mira el código descubierto antes de a, sin
+ * seguir los saltos (hasta 512 bytes). -1 si no hay */
+static int hl_constant(const View *v, u32 a)
+{
+    const Z80Rc *r = v->r;
+    int set = 0;
+    for (u32 x = a; x > r->lo && a - x < 512;) {
+        x--;
+        if (!r->ins[x]) continue;
+        u8 o0 = v->img[x & 0x3FFF], o1 = v->img[(x + 1) & 0x3FFF];
+        if (o0 == 0xD9) { set ^= 1; continue; }                                 /* EXX */
+        if (set) continue;
+        if (o0 == 0x21) return x + 2 < a ? (int)(v->img[(x + 1) & 0x3FFF] | v->img[(x + 2) & 0x3FFF] << 8) : -1;
+        if (o0 == 0xE1 || o0 == 0xEB || o0 == 0xE3 || o0 == 0x2A || (o0 & 0xCF) == 0x09 || o0 == 0x23 || o0 == 0x2B ||
+            o0 == 0x26 || o0 == 0x2E || (o0 >= 0x60 && o0 <= 0x6F) || o0 == 0x24 || o0 == 0x25 || o0 == 0x2C ||
+            o0 == 0x2D)
+            return -1;                                                          /* algo toca HL */
+        if (o0 == 0xED && (o1 >= 0xA0 || (o1 & 0xC7) == 0x42 || o1 == 0x6B || o1 == 0x67 || o1 == 0x6F)) return -1;
+    }
+    return -1;
+}
+
 /* Heurísticas (las de GBRecomp llevadas al Z80; descubrir de más no rompe nada: lo que se compila son los bytes que
  * hay, y se entra por el PC exacto):
  *   tablas de saltos   un JP (HL), (IX) o (IY) con un LD HL/IX/IY,nn poco antes (24 bytes) y, entre los dos, el
- *                      ADD HL/IX/IY,rr que la indexa: nn es una tabla de direcciones de 16 bits; se toman
- *                      mientras caigan en la ROM ($0008-$BFFF), parezcan código (plausible) y la tabla no llegue
- *                      a código descubierto ni a una dirección a la que apunta ella misma, hasta 128, y se
- *                      siembran si son dos o más
+ *                      ADD HL/IX/IY,rr que la indexa: nn es una tabla de direcciones de 16 bits (seed_table)
  *   direcciones apiladas  LD rr,nn seguido de PUSH rr y, en los 24 bytes que siguen, un JP, JR o JP (HL)/(IX)/(IY)
  *                      sin un CALL ni un RET antes: nn es la vuelta de un RET (en el código de SDCC, un PUSH de un
- *                      inmediato es casi siempre un argumento: por eso se pide el salto) */
+ *                      inmediato es casi siempre un argumento: por eso se pide el salto)
+ * y, aparte, dispatch_tables: las tablas que el llamador le deja a un despachador en HL. */
 static int heuristics(int vi)
 {
     int added = 0;
@@ -342,30 +473,28 @@ static int heuristics(int vi)
                 } else if (ix && o0 == want0 && x + 3 < a && o1 == 0x21) {
                     base = (u32)(v->img[(x + 2) & 0x3FFF] | v->img[(x + 3) & 0x3FFF] << 8);
                     indexed = 0;
-                } else if (!ix && (o0 & 0xCF) == 0x09) indexed = 1;                 /* ADD HL,rr */
+                } else if (!ix && (o0 == 0xDD || o0 == 0xFD) && o1 == 0x21 && x + 3 < a) {   /* LD IX/IY,nn: la tabla de un */
+                    base = (u32)(v->img[(x + 2) & 0x3FFF] | v->img[(x + 3) & 0x3FFF] << 8);  /* LD L,(IX+0) / LD H,(IX+1) */
+                    indexed = 0;
+                } else if (!ix && (o0 == 0xDD || o0 == 0xFD) && (o1 & 0xCF) == 0x09) indexed = 1;   /* ADD IX/IY,rr */
+                else if (!ix && (o0 & 0xCF) == 0x09) indexed = 1;                   /* ADD HL,rr */
                 else if (ix && o0 == want0 && (o1 & 0xCF) == 0x09) indexed = 1;     /* ADD IX/IY,rr */
             }
+            if (!ix && !indexed) {                  /* sin tabla: un JP (HL) a una constante (Batman & Robin: LD HL,nn, EXX... EXX, JP (HL)) */
+                int t = hl_constant(v, a);
+                if (t >= 0x0008 && t < 0xC000 && plausible(vi, (u16)t) && seed_at(vi, (u16)t, HOW_CONST, off_of(v, (u16)a))) {
+                    added++;
+                    stat_const++;
+                    v = &views[vi];
+                    r = v->r;
+                }
+                continue;
+            }
             if (base >= 0xC000 || !indexed) continue;
-            u32 from = off_of(v, (u16)a);
-            u16 entry[128];
-            unsigned n = 0;
-            for (; n < 128; n++) {
-                u32 at = base + 2 * n;
-                if (n && z80rc_in(r, at) && (r->ins[at] || r->ins[at + 1])) break;     /* la tabla llegó a código */
-                int lo = peek_view(vi, at), hi = peek_view(vi, at + 1);
-                if (lo < 0 || hi < 0) break;
-                u32 t = (u32)(lo | hi << 8);
-                if (t >= 0xC000 || t < 0x0008 || (t >= base && t <= at + 1) || !plausible(vi, (u16)t)) break;
-                entry[n] = (u16)t;
-            }
-            if (n < 2) continue;
-            for (unsigned k = 0; k < n; k++) {
-                added += seed_at(vi, entry[k], HOW_TABLE, from);
-                v = &views[vi];
-                r = v->r;
-            }
-            stat_tables++;
-            stat_table_entries += n;
+            int n = seed_table(vi, base, off_of(v, (u16)a));
+            added += n > 0 ? n : 0;
+            v = &views[vi];
+            r = v->r;
         } else if ((b0 & 0xCF) == 0x01 && b0 != 0x31) {   /* LD BC/DE/HL,nn y después PUSH del mismo par */
             u32 nn = (u32)(b1 | (a + 2 <= r->hi ? v->img[(a + 2) & 0x3FFF] : 0) << 8);
             u8 push = (u8)(0xC5 | (b0 & 0x30));
@@ -396,7 +525,7 @@ static void discover_all(void)
         changed = 0;
         for (int i = 0; i < nviews; i++) z80rc_discover(views[i].r);
         if (use_tables)
-            for (int i = 0; i < nviews; i++) changed |= heuristics(i) != 0;
+            for (int i = 0; i < nviews; i++) changed |= (heuristics(i) | dispatch_tables(i)) != 0;
         for (int i = 0; i < nviews; i++) {
             View *v = &views[i];
             for (u32 a = v->r->lo; a <= v->r->hi; a++) {
@@ -452,8 +581,8 @@ static void collect(void)
                 how_at[off] = (u16)(from + fi.len) == a && fi.kind != Z80_INS_JP && fi.kind != Z80_INS_JR ? SHOW_NEXT
                             : fi.cond || fi.kind == Z80_INS_DJNZ ? SHOW_BRANCH
                             : fi.kind == Z80_INS_CALL || fi.kind == Z80_INS_RST ? SHOW_CALL : SHOW_JUMP;
-            } else if (how == HOW_CROSS || how == HOW_TABLE || how == HOW_PUSHED) {
-                how_at[off] = how == HOW_CROSS ? SHOW_CROSS : how == HOW_TABLE ? SHOW_TABLE : SHOW_PUSHED;
+            } else if (how == HOW_CROSS || how == HOW_TABLE || how == HOW_PUSHED || how == HOW_CONST) {
+                how_at[off] = how == HOW_CROSS ? SHOW_CROSS : how == HOW_TABLE ? SHOW_TABLE : how == HOW_CONST ? SHOW_CONST : SHOW_PUSHED;
                 if (v->xsrc[a & 0x3FFF]) parent[off] = v->xsrc[a & 0x3FFF] - 1;
             } else how_at[off] = how == HOW_TRACE ? SHOW_TRACE : SHOW_VECTOR;
             stat_insns++;
@@ -467,7 +596,7 @@ static void collect(void)
         int steps = 0, org = -1;
         for (;;) {
             if (how_at[cur] == SHOW_TABLE) { org = ORG_TABLE; break; }
-            if (how_at[cur] == SHOW_PUSHED) { org = ORG_SPEC; break; }
+            if (how_at[cur] == SHOW_PUSHED || how_at[cur] == SHOW_CONST) { org = ORG_SPEC; break; }
             if (parent[cur] == NO_PARENT || !is_ins[parent[cur]] || steps++ > 100000) break;
             cur = parent[cur];
         }

@@ -79,9 +79,9 @@ def main():
     if os.path.isfile(C):
         rr.correr([exe("smstrace"), C, f"{D}/contrato_ciclo.trace", "--frames", "120", "start:30-35", "down:60-69", "a:60-69", "pause:100-101"])
         ok = (re.search(r"^000000  \$0000  F3 .*di$", rr.correr([S, C, "--dis", "0:0:3"], stderr=NULO)[1], re.M)
-              and "punto de entrada: traza" in rr.correr([S, C, "--trace", f"{D}/contrato_ciclo.trace", "--why", "03:8000"], stderr=NULO)[1]
+              and "banco desde" in rr.correr([S, C, "--trace", f"{D}/contrato_ciclo.trace", "--why", "03:8000"], stderr=NULO)[1]     # LD A,3 / LD ($FFFF),A / CALL $8000
               and rr.correr([S, C, "--trace", f"{D}/contrato_ciclo.trace", "--events", f"{D}/contrato.events"])[0] == 0
-              and re.search(r"^00C000 8000 traza - traza ld a,\$5A$", texto(f"{D}/contrato.events"), re.M)
+              and re.search(r"^00C000 8000 banco [0-9A-F]+ especulativo \(punteros sueltos\) ld a,\$5A$", texto(f"{D}/contrato.events"), re.M)
               and "celdas con código" in rr.correr([S, C, "--viz", "--color"], stderr=NULO)[1])
         if ok:
             p.ok("smsrecomp --dis, --why, --events y --viz con el contrato")

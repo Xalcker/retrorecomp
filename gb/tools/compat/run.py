@@ -105,12 +105,6 @@ class GB(compat.Sistema):
     def subtitulo(self, r):
         return f'{r.get("coleccion", "")} · {CONSOLA.get(r.get("modelo"), "")}'
 
-    def migrar(self, r):
-        """De los results.json anteriores al motor común"""
-        if "zip" in r:
-            r["archivo"] = pathlib.PureWindowsPath(r.pop("zip")).name
-        return r
-
 
 if __name__ == "__main__":
     compat.main(GB(ROOT))

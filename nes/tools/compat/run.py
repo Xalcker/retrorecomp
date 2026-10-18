@@ -73,20 +73,6 @@ class NES(compat.Sistema):
             f.append("CHR-RAM")
         return f
 
-    def migrar(self, r):
-        """De los results.json anteriores al motor común"""
-        if "zip" in r:
-            r["archivo"] = pathlib.Path(r.pop("zip")).name
-        if r.get("interprete") == "pantalla uniforme":
-            r["interprete"] = "pantalla en blanco"
-        for fa in (r.get("recompilador") or {}).get("fases", []):
-            if "pct_prg" in fa:
-                fa["pct_rom"] = fa.pop("pct_prg")
-            for d in fa.get("semillas", []):
-                if "ciclos_recompilados_pct" in d:
-                    d["recompilado_pct"] = d.pop("ciclos_recompilados_pct")
-        return r
-
 
 if __name__ == "__main__":
     compat.main(NES(ROOT))

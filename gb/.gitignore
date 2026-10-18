@@ -19,5 +19,7 @@ roms/
 dist/
 /gbrecomp
 /vgmcheck
+/inputtest
+/statetest
 .DS_Store
 __pycache__/

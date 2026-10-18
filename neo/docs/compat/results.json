@@ -1,13 +1,2802 @@
 {
  "sistema": "neo",
- "fecha": "2026-10-12",
- "version": "3e80cb3",
+ "fecha": "2026-10-18",
+ "version": "1a45ac3",
+ "fuente": "d6270e8",
  "roms": [
+  {
+   "archivo": "2020bb.zip",
+   "juego": "2020bb",
+   "coleccion": "BIOS de SNK",
+   "slug": "g2020bba4ddee",
+   "sha1": "1526ee9b4750a308aada138e6b2f85acc4dc8a34",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0030",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "g2020bba4ddee.png",
+   "interprete_s": 15.64,
+   "colores": 123,
+   "dominante": 0.123,
+   "capturas": [
+    70,
+    29,
+    123
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.5,
+      "instrucciones": 25842,
+      "pct_rom": 19.56,
+      "funciones": 66,
+      "compilacion_s": 211.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.1,
+        "recompilado_pct": 57.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 18662631,
+         "instrucciones": 18662631,
+         "ciclos": {
+          "nativo": 57.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 42.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 10.0,
+        "recompilado_pct": 36.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 12590311,
+         "instrucciones": 12590311,
+         "ciclos": {
+          "nativo": 36.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 63.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 235.3,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
+   }
+  },
+  {
+   "archivo": "3countb.zip",
+   "juego": "3countb",
+   "coleccion": "BIOS de SNK",
+   "slug": "g3countb456f4e",
+   "sha1": "e8d36b3cf03580e2248feb235d6d8e5992ab35e8",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0043",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "g3countb456f4e.png",
+   "interprete_s": 13.65,
+   "colores": 239,
+   "dominante": 0.109,
+   "capturas": [
+    190,
+    145,
+    239
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.9,
+      "instrucciones": 44594,
+      "pct_rom": 15.8,
+      "funciones": 67,
+      "compilacion_s": 365.3,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.3,
+        "recompilado_pct": 98.5,
+        "metrica": {
+         "nativas_pct": 99.6,
+         "nativas": 30486822,
+         "instrucciones": 30616298,
+         "ciclos": {
+          "nativo": 98.5,
+          "rom": 0.2,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 124
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.7,
+        "recompilado_pct": 98.6,
+        "metrica": {
+         "nativas_pct": 99.5,
+         "nativas": 30433006,
+         "instrucciones": 30585834,
+         "ciclos": {
+          "nativo": 98.6,
+          "rom": 0.3,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 130
+       }
+      ],
+      "traza": 130
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.7,
+      "instrucciones": 44740,
+      "pct_rom": 15.83,
+      "funciones": 67,
+      "compilacion_s": 340.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 15.7,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 30616298,
+         "instrucciones": 30616298,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 13.3,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 30585834,
+         "instrucciones": 30585834,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 130
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 769.7,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
+   }
+  },
+  {
+   "archivo": "alpham2.zip",
+   "juego": "alpham2",
+   "coleccion": "BIOS de SNK",
+   "slug": "galpham2d9150d",
+   "sha1": "46e7123f3f720b03195b3101c0dd0af800116ad9",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0007",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "galpham2d9150d.png",
+   "interprete_s": 14.6,
+   "colores": 234,
+   "dominante": 0.222,
+   "capturas": [
+    190,
+    192,
+    234
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.9,
+      "instrucciones": 60818,
+      "pct_rom": 22.53,
+      "funciones": 66,
+      "reintento": true,
+      "compilacion_s": 1431.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.0,
+        "recompilado_pct": 33.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 10945189,
+         "instrucciones": 10945189,
+         "ciclos": {
+          "nativo": 33.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 66.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 20.7,
+        "recompilado_pct": 55.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 18157017,
+         "instrucciones": 18157017,
+         "ciclos": {
+          "nativo": 55.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 44.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1466.7,
+    "velocidad_x": 28.7,
+    "velocidad_interp_x": 15.5
+   }
+  },
+  {
+   "archivo": "androdun.zip",
+   "juego": "androdun",
+   "coleccion": "BIOS de SNK",
+   "slug": "gandrodun97721d",
+   "sha1": "61e76a5cdf7736ac1cea298400d17024c667f08c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0049",
+   "rom_kb": 1536,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gandrodun97721d.png",
+   "interprete_s": 12.49,
+   "colores": 118,
+   "dominante": 0.248,
+   "capturas": [
+    118,
+    2,
+    1
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.5,
+      "instrucciones": 23067,
+      "pct_rom": 6.59,
+      "funciones": 66,
+      "reintento": true,
+      "compilacion_s": 533.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 8.0,
+        "recompilado_pct": 58.3,
+        "metrica": {
+         "nativas_pct": 99.9,
+         "nativas": 20940134,
+         "instrucciones": 20961812,
+         "ciclos": {
+          "nativo": 58.3,
+          "rom": 0.1,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 41.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 162
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 3.6,
+        "recompilado_pct": 87.4,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 37504287,
+         "instrucciones": 37509165,
+         "ciclos": {
+          "nativo": 87.4,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 12.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 66
+       }
+      ],
+      "traza": 162
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.4,
+      "instrucciones": 23282,
+      "pct_rom": 6.66,
+      "funciones": 66,
+      "compilacion_s": 146.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 7.3,
+        "recompilado_pct": 58.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 20961812,
+         "instrucciones": 20961812,
+         "ciclos": {
+          "nativo": 58.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 41.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 3.4,
+        "recompilado_pct": 87.5,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 37509165,
+         "instrucciones": 37509165,
+         "ciclos": {
+          "nativo": 87.5,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 12.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 162
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 705.0,
+    "velocidad_x": 40.3,
+    "velocidad_interp_x": 16.0
+   }
+  },
+  {
+   "archivo": "aodk.zip",
+   "juego": "aodk",
+   "coleccion": "BIOS de SNK",
+   "slug": "gaodkeab6fb",
+   "sha1": "b80ce91e23d76a36e533f95ac2bbbdbcf6a02a84",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0074",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gaodkeab6fb.png",
+   "interprete_s": 18.76,
+   "colores": 169,
+   "dominante": 0.087,
+   "capturas": [
+    8,
+    141,
+    169
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.4,
+      "instrucciones": 44879,
+      "pct_rom": 7.79,
+      "funciones": 73,
+      "compilacion_s": 321.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 19.9,
+        "recompilado_pct": 37.5,
+        "metrica": {
+         "nativas_pct": 97.3,
+         "nativas": 14238422,
+         "instrucciones": 14628885,
+         "ciclos": {
+          "nativo": 37.5,
+          "rom": 0.8,
+          "ram": 0.8,
+          "irq": 0.1,
+          "espera": 60.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 184
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 25.0,
+        "recompilado_pct": 47.3,
+        "metrica": {
+         "nativas_pct": 98.5,
+         "nativas": 17627218,
+         "instrucciones": 17889679,
+         "ciclos": {
+          "nativo": 47.3,
+          "rom": 0.9,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 51.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 208
+       }
+      ],
+      "traza": 260
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.0,
+      "instrucciones": 45428,
+      "pct_rom": 7.89,
+      "funciones": 73,
+      "compilacion_s": 320.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 15.5,
+        "recompilado_pct": 39.0,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 14628885,
+         "instrucciones": 14628885,
+         "ciclos": {
+          "nativo": 39.0,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.1,
+          "espera": 60.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 21.3,
+        "recompilado_pct": 48.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 17889679,
+         "instrucciones": 17889679,
+         "ciclos": {
+          "nativo": 48.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 51.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 260
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 726.2,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
+   }
+  },
+  {
+   "archivo": "aof.zip",
+   "juego": "aof",
+   "coleccion": "BIOS de SNK",
+   "slug": "gaof2860e9",
+   "error": "aof.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "interprete": "error",
+   "detalle": "aof.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "aof2.zip",
+   "juego": "aof2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gaof221ba4a",
+   "sha1": "20e230f6c7bffa10f4ee8c8929bf6f425141d7ab",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0056",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gaof221ba4a.png",
+   "interprete_s": 15.51,
+   "colores": 211,
+   "dominante": 0.093,
+   "capturas": [
+    62,
+    148,
+    211
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "aof3.zip",
+   "juego": "aof3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gaof34193fa",
+   "sha1": "95a6fa6f96a600b2dccf4f555b70cd47fb3df3ad",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0096",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gaof34193fa.png",
+   "interprete_s": 17.48,
+   "colores": 198,
+   "dominante": 0.063,
+   "capturas": [
+    68,
+    198,
+    170
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.4,
+      "instrucciones": 55486,
+      "pct_rom": 6.83,
+      "funciones": 61,
+      "compilacion_s": 287.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 15.8,
+        "recompilado_pct": 60.6,
+        "metrica": {
+         "nativas_pct": 99.9,
+         "nativas": 20553248,
+         "instrucciones": 20564019,
+         "ciclos": {
+          "nativo": 60.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 39.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 212
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 20.6,
+        "recompilado_pct": 71.5,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 23535605,
+         "instrucciones": 23545108,
+         "ciclos": {
+          "nativo": 71.5,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 28.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 212
+       }
+      ],
+      "traza": 212
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.0,
+      "instrucciones": 55805,
+      "pct_rom": 6.86,
+      "funciones": 61,
+      "compilacion_s": 311.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 18.0,
+        "recompilado_pct": 60.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 20564019,
+         "instrucciones": 20564019,
+         "ciclos": {
+          "nativo": 60.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 39.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 22.2,
+        "recompilado_pct": 71.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 23545108,
+         "instrucciones": 23545108,
+         "ciclos": {
+          "nativo": 71.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 28.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 212
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 677.5,
+    "velocidad_x": 27.6,
+    "velocidad_interp_x": 16.2
+   }
+  },
+  {
+   "archivo": "b2b.zip",
+   "juego": "b2b",
+   "coleccion": "BIOS de SNK",
+   "slug": "gb2b50c79d",
+   "sha1": "ae188e4266a06633ceb327aff9adbdb9e4f92f62",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0071",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gb2b50c79d.png",
+   "interprete_s": 11.09,
+   "colores": 165,
+   "dominante": 0.091,
+   "capturas": [
+    165,
+    118,
+    103
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "bakatono.zip",
+   "juego": "bakatono",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbakatono10d37d",
+   "sha1": "57186a46e0a2f92bf471f4a5359adbd6d8b62efb",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0036",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "      juego de mahjong: necesita el mando de mahjong, que no se emula",
+   "interprete": "ok",
+   "thumb": "gbakatono10d37d.png",
+   "interprete_s": 14.72,
+   "colores": 71,
+   "dominante": 0.201,
+   "capturas": [
+    39,
+    71,
+    38
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "bangbead.zip",
+   "juego": "bangbead",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbangbead018595",
+   "sha1": "0f9bb2282fc01c6a9da8de61b80272dcf946cdaa",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0259",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "no_soportado": "NGH $0259: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "bangbead.zip: NGH $0259: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 0.89,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "bjourney.zip",
+   "juego": "bjourney",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbjourney8977ec",
+   "error": "bjourney.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "interprete": "error",
+   "detalle": "bjourney.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "blazstar.zip",
+   "juego": "blazstar",
+   "coleccion": "BIOS de SNK",
+   "slug": "gblazstar09f2d4",
+   "sha1": "9472022818913c82849fe1aba56e65163f9cc211",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0239",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gblazstar09f2d4.png",
+   "interprete_s": 17.17,
+   "colores": 122,
+   "dominante": 0.16,
+   "capturas": [
+    1,
+    82,
+    122
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.4,
+      "instrucciones": 80541,
+      "pct_rom": 10.99,
+      "funciones": 66,
+      "compilacion_s": 554.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 25.7,
+        "recompilado_pct": 51.1,
+        "metrica": {
+         "nativas_pct": 96.2,
+         "nativas": 17593297,
+         "instrucciones": 18283349,
+         "ciclos": {
+          "nativo": 51.1,
+          "rom": 2.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 46.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 1809
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 34.9,
+        "recompilado_pct": 65.8,
+        "metrica": {
+         "nativas_pct": 94.9,
+         "nativas": 22271689,
+         "instrucciones": 23473960,
+         "ciclos": {
+          "nativo": 65.8,
+          "rom": 3.6,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 30.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 1801
+       }
+      ],
+      "traza": 1849
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.7,
+      "instrucciones": 82457,
+      "pct_rom": 11.13,
+      "funciones": 66,
+      "compilacion_s": 634.2,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 12.5,
+        "recompilado_pct": 53.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 18283349,
+         "instrucciones": 18283349,
+         "ciclos": {
+          "nativo": 53.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 46.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 16.7,
+        "recompilado_pct": 69.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 23473960,
+         "instrucciones": 23473960,
+         "ciclos": {
+          "nativo": 69.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 30.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 1849
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1281.3,
+    "velocidad_x": 35.3,
+    "velocidad_interp_x": 17.2
+   }
+  },
+  {
+   "archivo": "breakers.zip",
+   "juego": "breakers",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbreakers2285ae",
+   "sha1": "798ccdd894712f52de5f80ee0c275b88209f5645",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0230",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gbreakers2285ae.png",
+   "interprete_s": 16.9,
+   "colores": 269,
+   "dominante": 0.111,
+   "capturas": [
+    7,
+    249,
+    269
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.3,
+      "instrucciones": 78141,
+      "pct_rom": 15.08,
+      "funciones": 67,
+      "compilacion_s": 500.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 60.3,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34444500,
+         "instrucciones": 34444777,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 35
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 47.9,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34124554,
+         "instrucciones": 34124831,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 35
+       }
+      ],
+      "traza": 35
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.0,
+      "instrucciones": 78178,
+      "pct_rom": 15.08,
+      "funciones": 67,
+      "compilacion_s": 500.9,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 59.9,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34444777,
+         "instrucciones": 34444777,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 51.4,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34124831,
+         "instrucciones": 34124831,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 35
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1222.9,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
+   }
+  },
+  {
+   "archivo": "breakrev.zip",
+   "juego": "breakrev",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbreakrev689abd",
+   "sha1": "0f3326a0656308b4e63c29ffe1a5b9bfc688865d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0245",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gbreakrev689abd.png",
+   "interprete_s": 17.35,
+   "colores": 296,
+   "dominante": 0.1,
+   "capturas": [
+    7,
+    296,
+    280
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.7,
+      "instrucciones": 78570,
+      "pct_rom": 15.29,
+      "funciones": 67,
+      "compilacion_s": 473.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 61.3,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 99.1,
+         "nativas": 34417457,
+         "instrucciones": 34731889,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 1.0,
+          "irq": 0.0,
+          "espera": 0.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 71
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 60.1,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 99.3,
+         "nativas": 34480393,
+         "instrucciones": 34721855,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.7,
+          "irq": 0.0,
+          "espera": 0.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 35
+       }
+      ],
+      "traza": 340
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.4,
+      "instrucciones": 78646,
+      "pct_rom": 15.31,
+      "funciones": 67,
+      "compilacion_s": 485.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 55.9,
+        "recompilado_pct": 99.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34731889,
+         "instrucciones": 34731889,
+         "ciclos": {
+          "nativo": 99.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 42.7,
+        "recompilado_pct": 99.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 34721855,
+         "instrucciones": 34721855,
+         "ciclos": {
+          "nativo": 99.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.4,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 340
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1182.1,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
+   }
+  },
+  {
+   "archivo": "bstars.zip",
+   "juego": "bstars",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbstarsa9f1a4",
+   "sha1": "929fcc50f5eb626cce690b8e32fa317720586838",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0002",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gbstarsa9f1a4.png",
+   "interprete_s": 15.75,
+   "colores": 53,
+   "dominante": 0.768,
+   "capturas": [
+    40,
+    53,
+    17
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "bstars2.zip",
+   "juego": "bstars2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gbstars2d706f6",
+   "sha1": "ad1ec64e8a7e23c002dfe3a369ba5f538dea8520",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0041",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gbstars2d706f6.png",
+   "interprete_s": 15.81,
+   "colores": 160,
+   "dominante": 0.067,
+   "capturas": [
+    89,
+    160,
+    146
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "burningf.zip",
+   "juego": "burningf",
+   "coleccion": "BIOS de SNK",
+   "slug": "gburningfeb1d30",
+   "sha1": "f8b8d33aa1d342938d0163e92c4b88830361128f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0018",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gburningfeb1d30.png",
+   "interprete_s": 13.44,
+   "colores": 123,
+   "dominante": 0.081,
+   "capturas": [
+    40,
+    123,
+    116
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "cnbe.zip",
+   "juego": "cnbe",
+   "coleccion": "BIOS de SNK",
+   "slug": "gcnbed1e74e",
+   "sha1": "5d400183f2a23223bfe05d149b6dc5003f1de292",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "FFFF",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gcnbed1e74e.png",
+   "interprete_s": 12.79,
+   "colores": 43,
+   "dominante": 0.503,
+   "capturas": [
+    15,
+    41,
+    43
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "columnsn.zip",
+   "juego": "columnsn",
+   "coleccion": "BIOS de SNK",
+   "slug": "gcolumnsn98a551",
+   "sha1": "aa744c7f918391a959002cd7fbd59df53c08ac2f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "2000",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gcolumnsn98a551.png",
+   "interprete_s": 12.43,
+   "colores": 40,
+   "dominante": 0.377,
+   "capturas": [
+    40,
+    31,
+    31
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "crswd2bl.zip",
+   "juego": "crswd2bl",
+   "coleccion": "BIOS de SNK",
+   "slug": "gcrswd2bld9c4c8",
+   "sha1": "7d20f25f32320d89e9e4f3c50880acbe218f06af",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0054",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gcrswd2bld9c4c8.png",
+   "interprete_s": 18.46,
+   "colores": 180,
+   "dominante": 0.159,
+   "capturas": [
+    47,
+    115,
+    180
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.0,
+      "instrucciones": 52465,
+      "pct_rom": 9.29,
+      "funciones": 73,
+      "compilacion_s": 438.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 15.8,
+        "recompilado_pct": 42.4,
+        "metrica": {
+         "nativas_pct": 97.5,
+         "nativas": 16023535,
+         "instrucciones": 16436668,
+         "ciclos": {
+          "nativo": 42.4,
+          "rom": 1.5,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 56.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 366
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 17.3,
+        "recompilado_pct": 67.4,
+        "metrica": {
+         "nativas_pct": 99.0,
+         "nativas": 25518030,
+         "instrucciones": 25780517,
+         "ciclos": {
+          "nativo": 67.4,
+          "rom": 0.9,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 31.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 367
+       }
+      ],
+      "traza": 380
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.7,
+      "instrucciones": 53289,
+      "pct_rom": 9.44,
+      "funciones": 73,
+      "compilacion_s": 421.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 17.0,
+        "recompilado_pct": 43.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 16436668,
+         "instrucciones": 16436668,
+         "ciclos": {
+          "nativo": 43.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 56.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 20.1,
+        "recompilado_pct": 68.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 25780517,
+         "instrucciones": 25780517,
+         "ciclos": {
+          "nativo": 68.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 31.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 380
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 931.6,
+    "velocidad_x": 27.3,
+    "velocidad_interp_x": 13.1
+   }
+  },
+  {
+   "archivo": "crsword.zip",
+   "juego": "crsword",
+   "coleccion": "BIOS de SNK",
+   "slug": "gcrsword28f3ad",
+   "sha1": "5d65bebfee045c800646bfd87da603c561fe8ec3",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0037",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gcrsword28f3ad.png",
+   "interprete_s": 18.23,
+   "colores": 127,
+   "dominante": 0.203,
+   "capturas": [
+    66,
+    111,
+    127
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ctomaday.zip",
+   "juego": "ctomaday",
+   "coleccion": "BIOS de SNK",
+   "slug": "gctomaday611fb7",
+   "sha1": "89acf12d7f8f699697ed6a5842571f5b567e1f80",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0249",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gctomaday611fb7.png",
+   "interprete_s": 14.28,
+   "colores": 89,
+   "dominante": 0.077,
+   "capturas": [
+    89,
+    81,
+    83
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.0,
+      "instrucciones": 60910,
+      "pct_rom": 12.47,
+      "funciones": 67,
+      "compilacion_s": 444.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 66.0,
+        "recompilado_pct": 98.1,
+        "metrica": {
+         "nativas_pct": 98.7,
+         "nativas": 28585311,
+         "instrucciones": 28951252,
+         "ciclos": {
+          "nativo": 98.1,
+          "rom": 0.5,
+          "ram": 0.6,
+          "irq": 0.0,
+          "espera": 0.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 133
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 58.4,
+        "recompilado_pct": 98.3,
+        "metrica": {
+         "nativas_pct": 98.8,
+         "nativas": 28485438,
+         "instrucciones": 28838092,
+         "ciclos": {
+          "nativo": 98.3,
+          "rom": 0.7,
+          "ram": 0.4,
+          "irq": 0.0,
+          "espera": 0.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 133
+       }
+      ],
+      "traza": 405
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.9,
+      "instrucciones": 61149,
+      "pct_rom": 12.51,
+      "funciones": 67,
+      "compilacion_s": 427.7,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 64.0,
+        "recompilado_pct": 99.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 28951252,
+         "instrucciones": 28951252,
+         "ciclos": {
+          "nativo": 99.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 63.2,
+        "recompilado_pct": 99.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 28838092,
+         "instrucciones": 28838092,
+         "ciclos": {
+          "nativo": 99.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 405
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1125.7,
+    "velocidad_x": 27.0,
+    "velocidad_interp_x": 17.1
+   }
+  },
+  {
+   "archivo": "cyberlip.zip",
+   "juego": "cyberlip",
+   "coleccion": "BIOS de SNK",
+   "slug": "gcyberlip4be3ab",
+   "sha1": "99a897b7553d1908bc3dce1c3139cc91ad357fca",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0010",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gcyberlip4be3ab.png",
+   "interprete_s": 17.16,
+   "colores": 127,
+   "dominante": 0.166,
+   "capturas": [
+    15,
+    83,
+    127
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "diggerma.zip",
+   "juego": "diggerma",
+   "coleccion": "BIOS de SNK",
+   "slug": "gdiggerma740ea8",
+   "sha1": "66172b751da16536a7afee5952350369f86de756",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0066",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gdiggerma740ea8.png",
+   "interprete_s": 18.61,
+   "colores": 67,
+   "dominante": 0.199,
+   "capturas": [
+    13,
+    57,
+    67
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "doubledr.zip",
+   "juego": "doubledr",
+   "coleccion": "BIOS de SNK",
+   "slug": "gdoubledr74d580",
+   "sha1": "7c1cddc7860e5666ddff7493e4fde08bd33cdb7d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0082",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gdoubledr74d580.png",
+   "interprete_s": 15.5,
+   "colores": 151,
+   "dominante": 0.07,
+   "capturas": [
+    36,
+    151,
+    136
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "eightman.zip",
+   "juego": "eightman",
+   "coleccion": "BIOS de SNK",
+   "slug": "geightman7d072e",
+   "sha1": "5542ad94ab76bb4c022ee3eaab9fd930589b1630",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0025",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "geightman7d072e.png",
+   "interprete_s": 13.54,
+   "colores": 120,
+   "dominante": 0.205,
+   "capturas": [
+    53,
+    49,
+    120
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "fatfursp.zip",
+   "juego": "fatfursp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfatfursp89b328",
+   "sha1": "8277af15a715cdd4c84fe7a19830181966b6fa08",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0058",
+   "rom_kb": 1536,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfatfursp89b328.png",
+   "interprete_s": 17.43,
+   "colores": 171,
+   "dominante": 0.083,
+   "capturas": [
+    38,
+    3,
+    171
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "fatfury1.zip",
+   "juego": "fatfury1",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfatfury181e1b7",
+   "sha1": "39fd35cc34af04590efd3e7f6cd10b4aac243908",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0033",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfatfury181e1b7.png",
+   "interprete_s": 16.65,
+   "colores": 163,
+   "dominante": 0.2,
+   "capturas": [
+    139,
+    163,
+    151
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 0.8,
+      "instrucciones": 32326,
+      "pct_rom": 11.36,
+      "funciones": 66,
+      "compilacion_s": 253.4,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 24.1,
+        "recompilado_pct": 22.8,
+        "metrica": {
+         "nativas_pct": 85.4,
+         "nativas": 7256154,
+         "instrucciones": 8493637,
+         "ciclos": {
+          "nativo": 22.8,
+          "rom": 3.1,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 74.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 82
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 15.9,
+        "recompilado_pct": 25.0,
+        "metrica": {
+         "nativas_pct": 93.5,
+         "nativas": 7932681,
+         "instrucciones": 8486351,
+         "ciclos": {
+          "nativo": 25.0,
+          "rom": 1.4,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 73.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 61
+       }
+      ],
+      "traza": 82
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 0.5,
+      "instrucciones": 32434,
+      "pct_rom": 11.4,
+      "funciones": 66,
+      "compilacion_s": 315.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.3,
+        "recompilado_pct": 25.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 8493637,
+         "instrucciones": 8493637,
+         "ciclos": {
+          "nativo": 25.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 74.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 12.3,
+        "recompilado_pct": 26.4,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 8486351,
+         "instrucciones": 8486351,
+         "ciclos": {
+          "nativo": 26.4,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 73.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 82
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 636.0,
+    "velocidad_x": 31.6,
+    "velocidad_interp_x": 16.0
+   }
+  },
+  {
+   "archivo": "fatfury2.zip",
+   "juego": "fatfury2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfatfury2219b67",
+   "sha1": "85afcac01e506239d95064ff6d5ed9cd94359027",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0047",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0047: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "fatfury2.zip: NGH $0047: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete_s": 0.68,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "fatfury3.zip",
+   "juego": "fatfury3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfatfury341b2d7",
+   "sha1": "558d4c6d003b9f9df7f1b96e2de5a52f873ed96a",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0069",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfatfury341b2d7.png",
+   "interprete_s": 19.25,
+   "colores": 331,
+   "dominante": 0.064,
+   "capturas": [
+    3,
+    38,
+    331
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.6,
+      "instrucciones": 88329,
+      "pct_rom": 11.71,
+      "funciones": 69,
+      "compilacion_s": 485.8,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 21.0,
+        "recompilado_pct": 39.0,
+        "metrica": {
+         "nativas_pct": 99.9,
+         "nativas": 12399505,
+         "instrucciones": 12416137,
+         "ciclos": {
+          "nativo": 39.0,
+          "rom": 0.1,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 60.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 28
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 25.7,
+        "recompilado_pct": 49.3,
+        "metrica": {
+         "nativas_pct": 99.8,
+         "nativas": 15728671,
+         "instrucciones": 15758619,
+         "ciclos": {
+          "nativo": 49.3,
+          "rom": 0.1,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 50.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 76
+       }
+      ],
+      "traza": 76
+     },
+     {
+      "ronda": 2,
+      "recomp_s": 1.7,
+      "instrucciones": 88439,
+      "pct_rom": 11.72,
+      "funciones": 69,
+      "compilacion_s": 563.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 22.9,
+        "recompilado_pct": 39.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 12416137,
+         "instrucciones": 12416137,
+         "ciclos": {
+          "nativo": 39.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 60.9,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 24.9,
+        "recompilado_pct": 49.4,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 15758619,
+         "instrucciones": 15758619,
+         "ciclos": {
+          "nativo": 49.4,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 50.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 76
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 1147.1,
+    "velocidad_x": 29.6,
+    "velocidad_interp_x": 14.7
+   }
+  },
+  {
+   "archivo": "fbfrenzy.zip",
+   "juego": "fbfrenzy",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfbfrenzyc663a9",
+   "sha1": "3045c86467dbabc3d0a08812b7df60238d934750",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0034",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfbfrenzyc663a9.png",
+   "interprete_s": 16.01,
+   "colores": 57,
+   "dominante": 0.185,
+   "capturas": [
+    32,
+    55,
+    57
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ffeast.zip",
+   "juego": "ffeast",
+   "coleccion": "BIOS de SNK",
+   "slug": "gffeast7868e0",
+   "sha1": "4b6f9c10fea4b9e5c6db90aa048c0c5a146320c7",
+   "nombre": "ffeastd (ffeastd) (no está en la base de datos)",
+   "ngh": "0202",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gffeast7868e0.png",
+   "interprete_s": 15.06,
+   "colores": 19,
+   "dominante": 0.227,
+   "capturas": [
+    18,
+    19,
+    19
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "fightfev.zip",
+   "juego": "fightfev",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfightfeve51f71",
+   "sha1": "60861be94b6a62fdfb4f48577424077a6d68f992",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0060",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfightfeve51f71.png",
+   "interprete_s": 14.63,
+   "colores": 97,
+   "dominante": 0.12,
+   "capturas": [
+    68,
+    58,
+    97
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "flipshot.zip",
+   "juego": "flipshot",
+   "coleccion": "BIOS de SNK",
+   "slug": "gflipshotc261ab",
+   "sha1": "ef2f3fa486b62a6488745f0d78003bb46a931315",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0247",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gflipshotc261ab.png",
+   "interprete_s": 14.84,
+   "colores": 142,
+   "dominante": 0.361,
+   "capturas": [
+    69,
+    3,
+    142
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "froman2b.zip",
+   "juego": "froman2b",
+   "coleccion": "BIOS de SNK",
+   "slug": "gfroman2b2d2160",
+   "sha1": "e5de7a41a41a8b42526ade452b6c785ed514abe1",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0098",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gfroman2b2d2160.png",
+   "interprete_s": 16.6,
+   "colores": 71,
+   "dominante": 0.485,
+   "capturas": [
+    65,
+    71,
+    65
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "galaxyfg.zip",
+   "juego": "galaxyfg",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggalaxyfgedca03",
+   "sha1": "eb4f312978fffbdb9ca3c9ec04c8e07d38359e9b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0078",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "ggalaxyfgedca03.png",
+   "interprete_s": 16.34,
+   "colores": 202,
+   "dominante": 0.073,
+   "capturas": [
+    21,
+    166,
+    202
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ganryu.zip",
+   "juego": "ganryu",
+   "coleccion": "BIOS de SNK",
+   "slug": "gganryu7cfec4",
+   "sha1": "b9be90bf145cfb93f9cacf676455487e90bf269f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0252",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "no_soportado": "NGH $0252: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "ganryu.zip: NGH $0252: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 1.01,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "garou.zip",
+   "juego": "garou",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggarouec0dd7",
+   "sha1": "e04226fc8dacb6eca11dcda62f0e605d57f8b0f7",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "garou.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.44,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ghostlop.zip",
+   "juego": "ghostlop",
+   "coleccion": "BIOS de SNK",
+   "slug": "gghostlop27990e",
+   "sha1": "e167caa926b402d7101c6ed6166260882fba7d7e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0228",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gghostlop27990e.png",
+   "interprete_s": 20.74,
+   "colores": 304,
+   "dominante": 0.171,
+   "capturas": [
+    19,
+    261,
+    304
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "goalx3.zip",
+   "juego": "goalx3",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggoalx390ae25",
+   "sha1": "fd823e415ad2d8cae60096a947610a2a032e6d5c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0209",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "ggoalx390ae25.png",
+   "interprete_s": 17.38,
+   "colores": 100,
+   "dominante": 0.126,
+   "capturas": [
+    66,
+    80,
+    100
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "gowcaizr.zip",
+   "juego": "gowcaizr",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggowcaizr1ddf40",
+   "sha1": "58665263cae37b6a5789da912e785709c1d91b5b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0094",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "ggowcaizr1ddf40.png",
+   "interprete_s": 16.69,
+   "colores": 155,
+   "dominante": 0.084,
+   "capturas": [
+    115,
+    127,
+    155
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "gpilots.zip",
+   "juego": "gpilots",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggpilotsa21d0f",
+   "sha1": "d4d7170e8f3363e001e60d248a41f23e2fc2318c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0020",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "ggpilotsa21d0f.png",
+   "interprete_s": 17.83,
+   "colores": 59,
+   "dominante": 0.102,
+   "capturas": [
+    57,
+    40,
+    59
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.0,
+      "instrucciones": 55122,
+      "pct_rom": 21.1,
+      "funciones": 65,
+      "compilacion_s": 398.1,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 7.7,
+        "recompilado_pct": 20.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 6985432,
+         "instrucciones": 6985432,
+         "ciclos": {
+          "nativo": 20.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 79.8,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 9.9,
+        "recompilado_pct": 27.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 9190889,
+         "instrucciones": 9190889,
+         "ciclos": {
+          "nativo": 27.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 72.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 416.8,
+    "velocidad_x": 31.6,
+    "velocidad_interp_x": 11.9
+   }
+  },
+  {
+   "archivo": "gururin.zip",
+   "juego": "gururin",
+   "coleccion": "BIOS de SNK",
+   "slug": "ggururindb9f9f",
+   "sha1": "69c2de21b817c5e845a8e25d39470685239537a2",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0067",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "ggururindb9f9f.png",
+   "interprete_s": 18.68,
+   "colores": 153,
+   "dominante": 0.141,
+   "capturas": [
+    153,
+    97,
+    121
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ironclad.zip",
+   "juego": "ironclad",
+   "coleccion": "BIOS de SNK",
+   "slug": "gironcladd41b79",
+   "sha1": "20dd023c96084cc1e0b10468d11ee64acbb450ab",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0220",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gironcladd41b79.png",
+   "interprete_s": 16.39,
+   "colores": 121,
+   "dominante": 0.309,
+   "capturas": [
+    20,
+    46,
+    121
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "irrmaze.zip",
+   "juego": "irrmaze",
+   "coleccion": "BIOS de SNK",
+   "slug": "girrmaze8b4209",
+   "error": "irrmaze.zip: dos archivos con el mismo papel (por ejemplo dos .p1)",
+   "interprete": "error",
+   "detalle": "irrmaze.zip: dos archivos con el mismo papel (por ejemplo dos .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "janshin.zip",
+   "juego": "janshin",
+   "coleccion": "BIOS de SNK",
+   "slug": "gjanshin3f8868",
+   "error": "janshin.zip: dos archivos con el mismo papel (por ejemplo dos .p1)",
+   "interprete": "error",
+   "detalle": "janshin.zip: dos archivos con el mismo papel (por ejemplo dos .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "jockeygp.zip",
+   "juego": "jockeygp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gjockeygp338d35",
+   "sha1": "0e14169511fd2fa6783c4f722968f4a4e79107bd",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0008",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0008: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "jockeygp.zip: NGH $0008: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 0.88,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "joyjoy.zip",
+   "juego": "joyjoy",
+   "coleccion": "BIOS de SNK",
+   "slug": "gjoyjoy7048fa",
+   "sha1": "b2bfbc5c8cc4ec90e1374896894e3cae1a1ab5dc",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0021",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gjoyjoy7048fa.png",
+   "interprete_s": 17.69,
+   "colores": 86,
+   "dominante": 0.289,
+   "capturas": [
+    66,
+    57,
+    86
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kabukikl.zip",
+   "juego": "kabukikl",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkabukikla62c85",
+   "sha1": "f0defa97c14e1913c16dacc357f4b754660cebf2",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0092",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkabukikla62c85.png",
+   "interprete_s": 16.74,
+   "colores": 223,
+   "dominante": 0.037,
+   "capturas": [
+    153,
+    144,
+    223
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "karnovr.zip",
+   "juego": "karnovr",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkarnovrcc3674",
+   "sha1": "b7f4f7d469692e1a304eb37daf26c607967a0cfe",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0066",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkarnovrcc3674.png",
+   "interprete_s": 19.25,
+   "colores": 202,
+   "dominante": 0.079,
+   "capturas": [
+    52,
+    62,
+    202
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kizuna.zip",
+   "juego": "kizuna",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkizuna7dbe6c",
+   "sha1": "758cfec4aa572caaedefead90be26805afd6ca69",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0216",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkizuna7dbe6c.png",
+   "interprete_s": 19.82,
+   "colores": 220,
+   "dominante": 0.306,
+   "capturas": [
+    66,
+    220,
+    163
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof2000.zip",
+   "juego": "kof2000",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof20000f8835",
+   "sha1": "0d8b864cda47faaf8a8e9cf9f41ca5faf8f87071",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "kof2000.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.65,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof2001.zip",
+   "juego": "kof2001",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof20016fa185",
+   "sha1": "12f6ea25a75cf798b6aa0ed0f41c8eeba7351902",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0262",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0262: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "kof2001.zip: NGH $0262: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.53,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof2002.zip",
+   "juego": "kof2002",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof2002cfdb55",
+   "sha1": "80807546c4a5ccc4bcccdde315d49682fa93ef3e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0265",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0265: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "kof2002.zip: NGH $0265: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.7,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof2003.zip",
+   "juego": "kof2003",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof2003aff2e5",
+   "sha1": "0795d5b8522b72347685ae14279deb97c03604c7",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 9216,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "kof2003.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.54,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof94.zip",
+   "juego": "kof94",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof9487ce3f",
+   "sha1": "c79510dfaccd83503e4bc7371e49422164512e6b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0055",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof9487ce3f.png",
+   "interprete_s": 16.61,
+   "colores": 242,
+   "dominante": 0.101,
+   "capturas": [
+    22,
+    223,
+    242
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof95.zip",
+   "juego": "kof95",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof95e7e78f",
+   "sha1": "ac60cf75ce5cfb61f4d008651dfea8c641f18773",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0084",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof95e7e78f.png",
+   "interprete_s": 18.03,
+   "colores": 347,
+   "dominante": 0.086,
+   "capturas": [
+    3,
+    168,
+    347
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof96.zip",
+   "juego": "kof96",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof96479d5f",
+   "sha1": "c041931a96fbc04aae3fafdf766c631ba0300ef9",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0214",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkof96479d5f.png",
+   "interprete_s": 19.14,
+   "colores": 497,
+   "dominante": 0.108,
+   "capturas": [
+    4,
+    156,
+    497
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.9,
+      "instrucciones": 84843,
+      "pct_rom": 12.04,
+      "funciones": 52,
+      "compilacion_s": 570.0,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 13.1,
+        "recompilado_pct": 32.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 10905300,
+         "instrucciones": 10905300,
+         "ciclos": {
+          "nativo": 32.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 67.1,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 16.9,
+        "recompilado_pct": 57.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 19294928,
+         "instrucciones": 19294928,
+         "ciclos": {
+          "nativo": 57.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 42.6,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 601.9,
+    "velocidad_x": 37.4,
+    "velocidad_interp_x": 17.8
+   }
+  },
   {
    "archivo": "kof97.zip",
    "juego": "kof97",
-   "coleccion": "roms",
-   "slug": "gkof970c7216",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof9727b4ef",
    "sha1": "843642a9e5e75b49f066b79a8f61d37f3b214a48",
    "nombre": "The King of Fighters '97 (MVS) (kof97, SNK 1997)",
    "ngh": "0232",
@@ -15,8 +2804,8 @@
    "bancos": 4,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "gkof970c7216.png",
-   "interprete_s": 10.0,
+   "thumb": "gkof9727b4ef.png",
+   "interprete_s": 21.51,
    "colores": 250,
    "dominante": 0.297,
    "capturas": [
@@ -24,40 +2813,67 @@
     250,
     103
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 1.5,
+      "recomp_s": 2.0,
       "instrucciones": 117473,
       "pct_rom": 10.13,
-      "funciones": 366,
-      "compilacion_s": 117.4,
+      "funciones": 56,
+      "compilacion_s": 814.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 22.4,
-        "recompilado_pct": 100.0,
+        "segundos": 17.2,
+        "recompilado_pct": 34.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 11831884,
+         "instrucciones": 11831884,
+         "ciclos": {
+          "nativo": 34.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 65.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 21.1,
-        "recompilado_pct": 100.0,
+        "segundos": 17.2,
+        "recompilado_pct": 37.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 12171894,
+         "instrucciones": 12171894,
+         "ciclos": {
+          "nativo": 37.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 62.8,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 0
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 162.5,
-    "velocidad_x": 78.1,
-    "velocidad_interp_x": 33.9
+    "total_s": 850.6,
+    "velocidad_x": 33.0,
+    "velocidad_interp_x": 14.1
    },
    "oraculos": {
     "1200": {
@@ -88,22 +2904,23 @@
       "img": 1.0
      }
     }
-   }
+   },
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "kof98.zip",
    "juego": "kof98",
-   "coleccion": "roms",
-   "slug": "gkof985ce5c7",
-   "sha1": "e920d771c7df9248de2090e3e43bff68e9cd4623",
-   "nombre": "The King of Fighters '98 - The Slugfest (AES) (kof98h, SNK 1998)",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof9877233e",
+   "sha1": "68027c457f3a1a72a1fcce2e351c87131fbf51ac",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
    "ngh": "0242",
-   "rom_kb": 5120,
-   "bancos": 4,
+   "rom_kb": 6144,
+   "bancos": 5,
    "aviso": "",
-   "interprete": "ok",
+   "interprete": "error",
    "thumb": "gkof985ce5c7.png",
-   "interprete_s": 15.33,
+   "interprete_s": 3.25,
    "colores": 402,
    "dominante": 0.1,
    "capturas": [
@@ -111,41 +2928,7 @@
     381,
     402
    ],
-   "version1": "3e80cb3",
-   "recompilador": {
-    "fases": [
-     {
-      "ronda": 1,
-      "recomp_s": 3.3,
-      "instrucciones": 127659,
-      "pct_rom": 11.13,
-      "funciones": 413,
-      "compilacion_s": 121.8,
-      "semillas": [
-       {
-        "semilla": 1,
-        "ok": true,
-        "segundos": 28.1,
-        "recompilado_pct": 99.1,
-        "interpretadas": 0
-       },
-       {
-        "semilla": 2,
-        "ok": true,
-        "segundos": 26.6,
-        "recompilado_pct": 99.3,
-        "interpretadas": 0
-       }
-      ],
-      "traza": 0
-     }
-    ],
-    "version": "3e80cb3",
-    "resultado": "ok",
-    "total_s": 179.7,
-    "velocidad_x": 58.6,
-    "velocidad_interp_x": 34.7
-   },
+   "version1": "1a45ac3",
    "oraculos": {
     "1200": {
      "neorecomp-geolith": {
@@ -175,13 +2958,69 @@
       "img": 0.9972098214285714
      }
     }
-   }
+   },
+   "no_soportado": "NGH $0242: es el set de MVS de KOF '98 (kof98), con el P1 cifrado; usa el del AES (kof98h, 242-pn1.p1 de 1 MB)",
+   "detalle": "kof98.zip: NGH $0242: es el set de MVS de KOF '98 (kof98), con el P1 cifrado; usa el del AES (kof98h, 242-pn1.p1 de 1 MB)",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kof99.zip",
+   "juego": "kof99",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkof99170a8e",
+   "sha1": "3e9911dcbd39d3b1e664c39e81e0a3f53f3c586f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "kof99.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.28,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kotm.zip",
+   "juego": "kotm",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkotmbc5d08",
+   "sha1": "b5723d797ffe0b2062fc1b8e459562288ef9b252",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0016",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gkotmbc5d08.png",
+   "interprete_s": 15.5,
+   "colores": 208,
+   "dominante": 0.271,
+   "capturas": [
+    18,
+    208,
+    192
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "kotm2.zip",
+   "juego": "kotm2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gkotm299fc99",
+   "error": "kotm2.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "interprete": "error",
+   "detalle": "kotm2.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "lastblad.zip",
    "juego": "lastblad",
-   "coleccion": "roms",
-   "slug": "glastbladbca64a",
+   "coleccion": "BIOS de SNK",
+   "slug": "glastbladb567b4",
    "sha1": "7d1074ed50af973bc5df98b0b5d541372ae7c03d",
    "nombre": "The Last Blade / Bakumatsu Roman - Gekka no Kenshi (lastblad, SNK 1997)",
    "ngh": "0234",
@@ -189,8 +3028,8 @@
    "bancos": 4,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "glastbladbca64a.png",
-   "interprete_s": 10.55,
+   "thumb": "glastbladb567b4.png",
+   "interprete_s": 20.45,
    "colores": 270,
    "dominante": 0.084,
    "capturas": [
@@ -198,29 +3037,55 @@
     257,
     270
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 1.6,
+      "recomp_s": 2.3,
       "instrucciones": 109762,
       "pct_rom": 8.12,
-      "funciones": 340,
-      "compilacion_s": 122.5,
+      "funciones": 56,
+      "compilacion_s": 832.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 38.3,
-        "recompilado_pct": 100.0,
+        "segundos": 39.6,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 26195731,
+         "instrucciones": 26195766,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 35
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 36.1,
-        "recompilado_pct": 100.0,
+        "segundos": 39.4,
+        "recompilado_pct": 99.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27039136,
+         "instrucciones": 27039171,
+         "ciclos": {
+          "nativo": 99.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.9,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 35
        }
       ],
@@ -228,35 +3093,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 1.6,
+      "recomp_s": 2.1,
       "instrucciones": 109798,
       "pct_rom": 8.12,
-      "funciones": 339,
-      "compilacion_s": 107.1,
+      "funciones": 56,
+      "compilacion_s": 846.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 37.1,
-        "recompilado_pct": 100.0,
+        "segundos": 41.0,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 26195766,
+         "instrucciones": 26195766,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 35.4,
-        "recompilado_pct": 100.0,
+        "segundos": 40.9,
+        "recompilado_pct": 99.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27039171,
+         "instrucciones": 27039171,
+         "ciclos": {
+          "nativo": 99.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.9,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 35
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 379.7,
-    "velocidad_x": 55.7,
-    "velocidad_interp_x": 32.2
+    "total_s": 1844.4,
+    "velocidad_x": 23.8,
+    "velocidad_interp_x": 16.2
    },
    "oraculos": {
     "1200": {
@@ -287,13 +3179,412 @@
       "img": 0.15726841517857143
      }
     }
+   },
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "lastbld2.zip",
+   "juego": "lastbld2",
+   "coleccion": "BIOS de SNK",
+   "slug": "glastbld22bcc6c",
+   "sha1": "38b007b907e374f3ab289140861fa5f64c25d542",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0243",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glastbld22bcc6c.png",
+   "interprete_s": 22.62,
+   "colores": 158,
+   "dominante": 0.081,
+   "capturas": [
+    19,
+    158,
+    137
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "lasthope.zip",
+   "juego": "lasthope",
+   "coleccion": "BIOS de SNK",
+   "slug": "glasthope77996f",
+   "sha1": "ac2c61a98d8fd6c725e9ba85717d1b6ed1de45a0",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0300",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glasthope77996f.png",
+   "interprete_s": 17.41,
+   "colores": 108,
+   "dominante": 0.819,
+   "capturas": [
+    70,
+    72,
+    108
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "lbowling.zip",
+   "juego": "lbowling",
+   "coleccion": "BIOS de SNK",
+   "slug": "glbowling0ca986",
+   "sha1": "5d95ea73303433d782eec752c2b7df79325f482e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0019",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "      juego con cable de enlace entre consolas (Riding Hero, League Bowling, Thrash Rally): el enlace no se emula",
+   "interprete": "ok",
+   "thumb": "glbowling0ca986.png",
+   "interprete_s": 17.97,
+   "colores": 143,
+   "dominante": 0.337,
+   "capturas": [
+    81,
+    143,
+    143
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "legendos.zip",
+   "juego": "legendos",
+   "coleccion": "BIOS de SNK",
+   "slug": "glegendos18125c",
+   "sha1": "c92926264d32afda29686ce80b0e960ec5a1d303",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0029",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glegendos18125c.png",
+   "interprete_s": 15.59,
+   "colores": 132,
+   "dominante": 0.129,
+   "capturas": [
+    74,
+    112,
+    132
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "lresort.zip",
+   "juego": "lresort",
+   "coleccion": "BIOS de SNK",
+   "slug": "glresorta0a5e8",
+   "sha1": "8d158de269c98fc73801b8acce59a8f9b206c4e2",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0024",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "glresorta0a5e8.png",
+   "interprete_s": 15.98,
+   "colores": 20,
+   "dominante": 0.865,
+   "capturas": [
+    18,
+    9,
+    20
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ltorb.zip",
+   "juego": "ltorb",
+   "coleccion": "BIOS de SNK",
+   "slug": "gltorb630b9c",
+   "sha1": "66dfe14e9ccbc98e9ca5747fcf52971c098f6fcf",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "FFFF",
+   "rom_kb": 256,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gltorb630b9c.png",
+   "interprete_s": 14.73,
+   "colores": 13,
+   "dominante": 0.378,
+   "capturas": [
+    5,
+    13,
+    13
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.0,
+      "instrucciones": 2919,
+      "pct_rom": 4.48,
+      "funciones": 11,
+      "reintento": true,
+      "compilacion_s": 236.5,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 4.9,
+        "recompilado_pct": 22.3,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 7068523,
+         "instrucciones": 7068523,
+         "ciclos": {
+          "nativo": 22.3,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 77.7,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 4.0,
+        "recompilado_pct": 20.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 6533597,
+         "instrucciones": 6533597,
+         "ciclos": {
+          "nativo": 20.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 79.3,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 246.4,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
    }
+  },
+  {
+   "archivo": "magdrop2.zip",
+   "juego": "magdrop2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmagdrop21f88db",
+   "sha1": "02646ab39300d5825cd951d5bb09990d6d87bf1e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0221",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmagdrop21f88db.png",
+   "interprete_s": 19.4,
+   "colores": 130,
+   "dominante": 0.095,
+   "capturas": [
+    19,
+    122,
+    130
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "magdrop3.zip",
+   "juego": "magdrop3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmagdrop37fa16b",
+   "sha1": "d711170817880e8d78bc892f7dabc2440adcc83b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0233",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmagdrop37fa16b.png",
+   "interprete_s": 17.58,
+   "colores": 179,
+   "dominante": 0.08,
+   "capturas": [
+    32,
+    115,
+    179
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "maglord.zip",
+   "juego": "maglord",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmaglord3adc40",
+   "sha1": "dc56c595702bc72cd71cfc32185fb4b914f7cdef",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0005",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmaglord3adc40.png",
+   "interprete_s": 20.16,
+   "colores": 236,
+   "dominante": 0.045,
+   "capturas": [
+    236,
+    186,
+    192
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mahretsu.zip",
+   "juego": "mahretsu",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmahretsu2eee5c",
+   "sha1": "a85bccff21c63c122c02c3324ee2985f82b0c18c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0004",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "      juego de mahjong: necesita el mando de mahjong, que no se emula",
+   "interprete": "ok",
+   "thumb": "gmahretsu2eee5c.png",
+   "interprete_s": 15.98,
+   "colores": 35,
+   "dominante": 0.93,
+   "capturas": [
+    3,
+    32,
+    35
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "marukodq.zip",
+   "juego": "marukodq",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmarukodqc3dc51",
+   "sha1": "e1b3130f8b0fa0685862d3e7f3454311b63ae1d5",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0206",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmarukodqc3dc51.png",
+   "interprete_s": 16.27,
+   "colores": 144,
+   "dominante": 0.072,
+   "capturas": [
+    44,
+    131,
+    144
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "miexchng.zip",
+   "juego": "miexchng",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmiexchng4424ad",
+   "sha1": "44c61e80a4b6fbe9282d5d95d6a925daf0f86d11",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0231",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmiexchng4424ad.png",
+   "interprete_s": 16.85,
+   "colores": 268,
+   "dominante": 0.074,
+   "capturas": [
+    63,
+    245,
+    268
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "minasan.zip",
+   "juego": "minasan",
+   "coleccion": "BIOS de SNK",
+   "slug": "gminasanc7a110",
+   "sha1": "ac51aa1e0fee8d1dcd301c0ce3adff669d0bc4a4",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0027",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "      juego de mahjong: necesita el mando de mahjong, que no se emula",
+   "interprete": "ok",
+   "thumb": "gminasanc7a110.png",
+   "interprete_s": 17.13,
+   "colores": 112,
+   "dominante": 0.214,
+   "capturas": [
+    112,
+    35,
+    93
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "moshougi.zip",
+   "juego": "moshougi",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmoshougi185ad8",
+   "sha1": "d240e02428d0c4fe1e239c65e22dd9912540b1e6",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0203",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmoshougi185ad8.png",
+   "interprete_s": 19.71,
+   "colores": 550,
+   "dominante": 0.155,
+   "capturas": [
+    12,
+    215,
+    550
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "mslug.zip",
    "juego": "mslug",
-   "coleccion": "roms",
-   "slug": "gmslugfb756a",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslugd0b393",
    "sha1": "582233c4d95e4a2d80dd78a9de29b92e0f60d40f",
    "nombre": "Metal Slug - Super Vehicle-001 (mslug, Nazca 1996)",
    "ngh": "0201",
@@ -301,8 +3592,8 @@
    "bancos": 1,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "gmslugfb756a.png",
-   "interprete_s": 8.65,
+   "thumb": "gmslugd0b393.png",
+   "interprete_s": 20.52,
    "colores": 134,
    "dominante": 0.1,
    "capturas": [
@@ -310,29 +3601,55 @@
     89,
     134
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.9,
+      "recomp_s": 1.6,
       "instrucciones": 100739,
       "pct_rom": 20.88,
-      "funciones": 362,
-      "compilacion_s": 101.8,
+      "funciones": 103,
+      "compilacion_s": 632.8,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 18.8,
-        "recompilado_pct": 100.0,
+        "segundos": 14.2,
+        "recompilado_pct": 99.0,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 26765946,
+         "instrucciones": 26770357,
+         "ciclos": {
+          "nativo": 99.0,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.0,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 51
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 18.8,
-        "recompilado_pct": 99.9,
+        "segundos": 15.0,
+        "recompilado_pct": 99.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 25219118,
+         "instrucciones": 25225973,
+         "ciclos": {
+          "nativo": 99.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.8,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 58
        }
       ],
@@ -340,35 +3657,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 0.9,
+      "recomp_s": 1.5,
       "instrucciones": 100873,
       "pct_rom": 20.91,
-      "funciones": 366,
-      "compilacion_s": 91.3,
+      "funciones": 103,
+      "compilacion_s": 660.6,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 19.1,
-        "recompilado_pct": 100.0,
+        "segundos": 14.7,
+        "recompilado_pct": 99.0,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 26770357,
+         "instrucciones": 26770357,
+         "ciclos": {
+          "nativo": 99.0,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.0,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 18.5,
-        "recompilado_pct": 100.0,
+        "segundos": 14.8,
+        "recompilado_pct": 99.2,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 25225973,
+         "instrucciones": 25225973,
+         "ciclos": {
+          "nativo": 99.2,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 0.8,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 58
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 270.0,
-    "velocidad_x": 51.1,
-    "velocidad_interp_x": 29.3
+    "total_s": 1355.4,
+    "velocidad_x": 19.7,
+    "velocidad_interp_x": 13.9
    },
    "oraculos": {
     "1200": {
@@ -399,13 +3743,14 @@
       "img": 1.0
      }
     }
-   }
+   },
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "mslug2.zip",
    "juego": "mslug2",
-   "coleccion": "roms",
-   "slug": "gmslug2adbbc5",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslug2e5dabb",
    "sha1": "f0549c1556470ffc828f9d4e8c4e91b2d202a2bb",
    "nombre": "Metal Slug 2 - Super Vehicle-001/II (mslug2, SNK 1998)",
    "ngh": "0241",
@@ -413,8 +3758,8 @@
    "bancos": 2,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "gmslug2adbbc5.png",
-   "interprete_s": 9.96,
+   "thumb": "gmslug2e5dabb.png",
+   "interprete_s": 22.51,
    "colores": 167,
    "dominante": 0.064,
    "capturas": [
@@ -422,29 +3767,55 @@
     97,
     167
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 1.3,
+      "recomp_s": 2.0,
       "instrucciones": 120541,
       "pct_rom": 15.97,
-      "funciones": 437,
-      "compilacion_s": 103.8,
+      "funciones": 101,
+      "compilacion_s": 738.6,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 22.4,
-        "recompilado_pct": 99.8,
+        "segundos": 14.6,
+        "recompilado_pct": 98.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27913009,
+         "instrucciones": 27919193,
+         "ciclos": {
+          "nativo": 98.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.2,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 169
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 17.3,
-        "recompilado_pct": 99.9,
+        "segundos": 10.4,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 25956251,
+         "instrucciones": 25967014,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 120
        }
       ],
@@ -452,35 +3823,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 1.3,
+      "recomp_s": 1.9,
       "instrucciones": 120939,
       "pct_rom": 16.02,
-      "funciones": 437,
-      "compilacion_s": 116.4,
+      "funciones": 101,
+      "compilacion_s": 786.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 21.8,
-        "recompilado_pct": 99.8,
+        "segundos": 17.6,
+        "recompilado_pct": 98.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27919193,
+         "instrucciones": 27919193,
+         "ciclos": {
+          "nativo": 98.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.2,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 16.4,
-        "recompilado_pct": 100.0,
+        "segundos": 10.7,
+        "recompilado_pct": 98.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 25967014,
+         "instrucciones": 25967014,
+         "ciclos": {
+          "nativo": 98.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 172
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 300.7,
-    "velocidad_x": 44.9,
-    "velocidad_interp_x": 27.7
+    "total_s": 1582.7,
+    "velocidad_x": 21.1,
+    "velocidad_interp_x": 13.4
    },
    "oraculos": {
     "1200": {
@@ -511,13 +3909,1081 @@
       "img": 0.9654311560150376
      }
     }
+   },
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mslug3.zip",
+   "juego": "mslug3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslug385f30b",
+   "sha1": "2c7121f1693f00a5e56db34cd971d4c659822ace",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "mslug3.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.44,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mslug4.zip",
+   "juego": "mslug4",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslug4a52f1b",
+   "sha1": "4bca821abee376b81580ab11e8580f927171103c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0263",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0263: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "mslug4.zip: NGH $0263: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.13,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mslug5.zip",
+   "juego": "mslug5",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslug5c506ab",
+   "sha1": "7e4ade81be11eed64b5fe2839eac6d0bc26a7e15",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "mslug5.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.63,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mslugx.zip",
+   "juego": "mslugx",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmslugxa69a53",
+   "sha1": "8201ebcc560c2d91bb9f4dda31612e615088ef7f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0250",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0250: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "mslugx.zip: NGH $0250: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete_s": 2.34,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "mutnat.zip",
+   "juego": "mutnat",
+   "coleccion": "BIOS de SNK",
+   "slug": "gmutnat920f6f",
+   "sha1": "714793a6dcfd3ecc5027284c1595329c2f62b1c1",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0014",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gmutnat920f6f.png",
+   "interprete_s": 16.72,
+   "colores": 146,
+   "dominante": 0.075,
+   "capturas": [
+    32,
+    86,
+    146
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "nam1975.zip",
+   "juego": "nam1975",
+   "coleccion": "BIOS de SNK",
+   "slug": "gnam19753677e1",
+   "sha1": "cff5e5d71addfda90a6dc63ec9afdda9949caeeb",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0001",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gnam19753677e1.png",
+   "interprete_s": 19.12,
+   "colores": 117,
+   "dominante": 0.055,
+   "capturas": [
+    25,
+    117,
+    117
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ncombat.zip",
+   "juego": "ncombat",
+   "coleccion": "BIOS de SNK",
+   "slug": "gncombat2a4e8d",
+   "sha1": "7a1dcf4831740b880d1318e598f9b2ed2fd561fe",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0009",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gncombat2a4e8d.png",
+   "interprete_s": 21.47,
+   "colores": 174,
+   "dominante": 0.335,
+   "capturas": [
+    49,
+    170,
+    174
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ncommand.zip",
+   "juego": "ncommand",
+   "coleccion": "BIOS de SNK",
+   "slug": "gncommandb2141f",
+   "sha1": "40a35f22db7d82d6fdb5fd91049792b5b05c6a21",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0050",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gncommandb2141f.png",
+   "interprete_s": 18.88,
+   "colores": 99,
+   "dominante": 0.58,
+   "capturas": [
+    99,
+    90,
+    84
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neobombe.zip",
+   "juego": "neobombe",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneobombe99954f",
+   "sha1": "59b92d509daf476e4d51e8f5f6f198af3abc87e5",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0093",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneobombe99954f.png",
+   "interprete_s": 16.69,
+   "colores": 174,
+   "dominante": 0.064,
+   "capturas": [
+    11,
+    166,
+    174
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neocup98.zip",
+   "juego": "neocup98",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneocup985aa2af",
+   "sha1": "b0998989ea14814f531272d3d4b8b502d52aafa9",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0244",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneocup985aa2af.png",
+   "interprete_s": 17.85,
+   "colores": 44,
+   "dominante": 0.104,
+   "capturas": [
+    40,
+    32,
+    44
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neodrift.zip",
+   "juego": "neodrift",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneodrift631008",
+   "sha1": "3b5220fcb2dd75d2c307a5bad53f5406978ad3f9",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0213",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneodrift631008.png",
+   "interprete_s": 15.88,
+   "colores": 113,
+   "dominante": 0.138,
+   "capturas": [
+    80,
+    58,
+    113
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neomrdo.zip",
+   "juego": "neomrdo",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneomrdo179524",
+   "sha1": "63f8e9c988a44c3f55fd101946d6481340d34375",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0207",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneomrdo179524.png",
+   "interprete_s": 16.52,
+   "colores": 188,
+   "dominante": 0.092,
+   "capturas": [
+    99,
+    157,
+    188
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neonopon.zip",
+   "juego": "neonopon",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneonoponeab99a",
+   "sha1": "a8d1e204a375186f1868728b45249b2b43d319b3",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "2000",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneonoponeab99a.png",
+   "interprete_s": 14.44,
+   "colores": 45,
+   "dominante": 0.534,
+   "capturas": [
+    22,
+    45,
+    45
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "neopong.zip",
+   "juego": "neopong",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneopong4b2477",
+   "sha1": "bb3226d3ae51f28dc34c5f4ab063730f5b382ede",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "9999",
+   "rom_kb": 128,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneopong4b2477.png",
+   "interprete_s": 16.38,
+   "colores": 66,
+   "dominante": 0.173,
+   "capturas": [
+    66,
+    51,
+    42
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8",
+   "recompilador": {
+    "fases": [
+     {
+      "ronda": 1,
+      "recomp_s": 1.1,
+      "instrucciones": 2858,
+      "pct_rom": 11.08,
+      "funciones": 67,
+      "reintento": true,
+      "compilacion_s": 319.6,
+      "semillas": [
+       {
+        "semilla": 1,
+        "ok": true,
+        "segundos": 10.1,
+        "recompilado_pct": 40.5,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 9938433,
+         "instrucciones": 9938433,
+         "ciclos": {
+          "nativo": 40.5,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 59.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       },
+       {
+        "semilla": 2,
+        "ok": true,
+        "segundos": 9.5,
+        "recompilado_pct": 40.5,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 9900464,
+         "instrucciones": 9900464,
+         "ciclos": {
+          "nativo": 40.5,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 59.5,
+          "otros": 0.0
+         }
+        },
+        "interpretadas": 0
+       }
+      ],
+      "traza": 0
+     }
+    ],
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
+    "resultado": "ok",
+    "total_s": 340.3,
+    "velocidad_x": null,
+    "velocidad_interp_x": null
    }
+  },
+  {
+   "archivo": "neothund.zip",
+   "juego": "neothund",
+   "coleccion": "BIOS de SNK",
+   "slug": "gneothund159ccf",
+   "sha1": "bb997c5a935d732ec2b01da7ce4d646dff27452e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "1234",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gneothund159ccf.png",
+   "interprete_s": 10.77,
+   "colores": 9,
+   "dominante": 0.982,
+   "capturas": [
+    7,
+    7,
+    9
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ngem2k.zip",
+   "juego": "ngem2k",
+   "coleccion": "BIOS de SNK",
+   "slug": "gngem2kc08fb9",
+   "sha1": "e9b5d8d5cfa1cfc038cb3078cd8a400a96ecc95c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "FFFF",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gngem2kc08fb9.png",
+   "interprete_s": 13.11,
+   "colores": 9,
+   "dominante": 0.841,
+   "capturas": [
+    9,
+    9,
+    9
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ngtetris.zip",
+   "juego": "ngtetris",
+   "coleccion": "BIOS de SNK",
+   "slug": "gngtetrisfa68e3",
+   "sha1": "65c81053d2dc74776a471ef3ff51c6b8bc143d3d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "1234",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gngtetrisfa68e3.png",
+   "interprete_s": 14.09,
+   "colores": 20,
+   "dominante": 0.596,
+   "capturas": [
+    16,
+    18,
+    20
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ninjamas.zip",
+   "juego": "ninjamas",
+   "coleccion": "BIOS de SNK",
+   "slug": "gninjamas27cc10",
+   "sha1": "b904ee7cca69cc3543905ed871f0bb0151623b95",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0217",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gninjamas27cc10.png",
+   "interprete_s": 23.43,
+   "colores": 180,
+   "dominante": 0.045,
+   "capturas": [
+    29,
+    153,
+    180
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "nitd.zip",
+   "juego": "nitd",
+   "coleccion": "BIOS de SNK",
+   "slug": "gnitd9c0427",
+   "sha1": "61c4ac71af88a282cfcdfb12a1b1c50a6abb0c4d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0260",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0260: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "nitd.zip: NGH $0260: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 0.99,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "overtop.zip",
+   "juego": "overtop",
+   "coleccion": "BIOS de SNK",
+   "slug": "govertop121cbc",
+   "sha1": "febf80af55117ebdde2e07779a065d10999df667",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0212",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "govertop121cbc.png",
+   "interprete_s": 20.04,
+   "colores": 220,
+   "dominante": 0.109,
+   "capturas": [
+    68,
+    220,
+    160
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "panicbom.zip",
+   "juego": "panicbom",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpanicbomf71075",
+   "sha1": "bcf91b9c9ad6a17e1c1c5aee1c8a26e508fcf4ba",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0073",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpanicbomf71075.png",
+   "interprete_s": 16.29,
+   "colores": 89,
+   "dominante": 0.127,
+   "capturas": [
+    34,
+    73,
+    89
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pbobbl2n.zip",
+   "juego": "pbobbl2n",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpbobbl2na799ad",
+   "sha1": "3e2fd2848470f3820423859d378fdb0af563b05c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0248",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpbobbl2na799ad.png",
+   "interprete_s": 17.74,
+   "colores": 203,
+   "dominante": 0.05,
+   "capturas": [
+    191,
+    203,
+    198
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pbobblen.zip",
+   "juego": "pbobblen",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpbobblen2ca1e2",
+   "error": "pbobblen.zip: falta el programa (P1: un archivo .p1)",
+   "interprete": "error",
+   "detalle": "pbobblen.zip: falta el programa (P1: un archivo .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pgoal.zip",
+   "juego": "pgoal",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpgoald14265",
+   "sha1": "71a4385f3f24bc06783e4be3ea1d97718eca9afa",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0219",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpgoald14265.png",
+   "interprete_s": 17.62,
+   "colores": 164,
+   "dominante": 0.074,
+   "capturas": [
+    85,
+    164,
+    162
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pnyaa.zip",
+   "juego": "pnyaa",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpnyaa00340b",
+   "sha1": "6bcec8bae73b430fd04e06ee0cc83b251d8cf3a8",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0267",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0267: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "pnyaa.zip: NGH $0267: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 0.93,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "poknight.zip",
+   "juego": "poknight",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpoknightc46bda",
+   "sha1": "41ca092b751f1dbbc9341754f6209eca12591f6d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "2003",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpoknightc46bda.png",
+   "interprete_s": 13.78,
+   "colores": 55,
+   "dominante": 0.219,
+   "capturas": [
+    30,
+    55,
+    55
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "popbounc.zip",
+   "juego": "popbounc",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpopbounc09ce3e",
+   "sha1": "95f9cdb844a44674a429704a34a85712bc222c24",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0237",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpopbounc09ce3e.png",
+   "interprete_s": 19.33,
+   "colores": 117,
+   "dominante": 0.122,
+   "capturas": [
+    51,
+    94,
+    117
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "powerins.zip",
+   "juego": "powerins",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpowerins94fd4c",
+   "error": "powerins.zip: falta el programa (P1: un archivo .p1)",
+   "interprete": "error",
+   "detalle": "powerins.zip: falta el programa (P1: un archivo .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "preisle2.zip",
+   "juego": "preisle2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpreisle25f7842",
+   "sha1": "cb296b8ec475c00cae3b51734e895ba7efee76a8",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0255",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0255: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "preisle2.zip: NGH $0255: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 2.49,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pspikes2.zip",
+   "juego": "pspikes2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpspikes21f63e5",
+   "sha1": "f6bdc51d14886e74c3ff097a4681c1c7518e66d4",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0068",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpspikes21f63e5.png",
+   "interprete_s": 18.39,
+   "colores": 138,
+   "dominante": 0.29,
+   "capturas": [
+    49,
+    138,
+    120
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "pulstar.zip",
+   "juego": "pulstar",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpulstare81367",
+   "sha1": "aabee08b2f8b94fb0a6d0b8a61b1244095bf2099",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0089",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpulstare81367.png",
+   "interprete_s": 18.0,
+   "colores": 179,
+   "dominante": 0.282,
+   "capturas": [
+    55,
+    105,
+    179
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "puzzldpr.zip",
+   "juego": "puzzldpr",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpuzzldpr106f91",
+   "error": "puzzldpr.zip: falta el programa del Z80 (M1: un archivo .m1)",
+   "interprete": "error",
+   "detalle": "puzzldpr.zip: falta el programa del Z80 (M1: un archivo .m1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "puzzledp.zip",
+   "juego": "puzzledp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gpuzzledpe077c8",
+   "sha1": "535f0ca10cb394f91b9fce9270ce757782d98194",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0202",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gpuzzledpe077c8.png",
+   "interprete_s": 15.41,
+   "colores": 125,
+   "dominante": 0.16,
+   "capturas": [
+    40,
+    125,
+    26
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "quizdai2.zip",
+   "juego": "quizdai2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gquizdai2db261d",
+   "sha1": "c572c893fce6253ff69b494fad7639e18505e5e7",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0042",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gquizdai2db261d.png",
+   "interprete_s": 14.87,
+   "colores": 124,
+   "dominante": 0.23,
+   "capturas": [
+    70,
+    123,
+    124
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "quizdais.zip",
+   "juego": "quizdais",
+   "coleccion": "BIOS de SNK",
+   "slug": "gquizdais4857e4",
+   "sha1": "ee75b6ba9054a5ed482c67faf3328f5cb88f61f3",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0023",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gquizdais4857e4.png",
+   "interprete_s": 16.6,
+   "colores": 100,
+   "dominante": 0.254,
+   "capturas": [
+    4,
+    62,
+    100
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "quizkof.zip",
+   "juego": "quizkof",
+   "coleccion": "BIOS de SNK",
+   "slug": "gquizkof422ed6",
+   "sha1": "8a0f09916ab19517c65ee9673f1121a3c12800b0",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0080",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gquizkof422ed6.png",
+   "interprete_s": 16.47,
+   "colores": 111,
+   "dominante": 0.197,
+   "capturas": [
+    63,
+    111,
+    98
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ragnagrd.zip",
+   "juego": "ragnagrd",
+   "coleccion": "BIOS de SNK",
+   "slug": "gragnagrdfd9307",
+   "sha1": "d2c3db5be2f92afa92f64c4e4cd1201fa5b1cf43",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0218",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gragnagrdfd9307.png",
+   "interprete_s": 18.68,
+   "colores": 524,
+   "dominante": 0.093,
+   "capturas": [
+    524,
+    427,
+    474
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "rbff1.zip",
+   "juego": "rbff1",
+   "coleccion": "BIOS de SNK",
+   "slug": "grbff1d91a96",
+   "sha1": "c31b7c6a5fbf5497d53ab8593cb76c356a1245db",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0095",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "grbff1d91a96.png",
+   "interprete_s": 20.07,
+   "colores": 236,
+   "dominante": 0.051,
+   "capturas": [
+    16,
+    234,
+    236
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "rbff2.zip",
+   "juego": "rbff2",
+   "coleccion": "BIOS de SNK",
+   "slug": "grbff2796046",
+   "sha1": "f5c0e074d895b93386f6ec9338661fe57ef552a6",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0240",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "grbff2796046.png",
+   "interprete_s": 22.54,
+   "colores": 180,
+   "dominante": 0.047,
+   "capturas": [
+    5,
+    178,
+    180
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "rbffspec.zip",
+   "juego": "rbffspec",
+   "coleccion": "BIOS de SNK",
+   "slug": "grbffspec114605",
+   "sha1": "a550e7fbd7195f61aa4bbd282d9763e0b37628a4",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0223",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "grbffspec114605.png",
+   "interprete_s": 20.6,
+   "colores": 153,
+   "dominante": 0.08,
+   "capturas": [
+    3,
+    72,
+    153
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ridhero.zip",
+   "juego": "ridhero",
+   "coleccion": "BIOS de SNK",
+   "slug": "gridhero84f0d9",
+   "sha1": "c533dc730dea8f8bb0100e0980f4a93ff41e2613",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0006",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "      juego con cable de enlace entre consolas (Riding Hero, League Bowling, Thrash Rally): el enlace no se emula",
+   "interprete": "ok",
+   "thumb": "gridhero84f0d9.png",
+   "interprete_s": 17.08,
+   "colores": 113,
+   "dominante": 0.166,
+   "capturas": [
+    16,
+    113,
+    113
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "roboarmy.zip",
+   "juego": "roboarmy",
+   "coleccion": "BIOS de SNK",
+   "slug": "groboarmycf3712",
+   "sha1": "4fa0d09437b20afe51167ed88dcc0284626d6ac6",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0032",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "groboarmycf3712.png",
+   "interprete_s": 15.74,
+   "colores": 156,
+   "dominante": 0.339,
+   "capturas": [
+    122,
+    156,
+    148
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "rotd.zip",
+   "juego": "rotd",
+   "coleccion": "BIOS de SNK",
+   "slug": "grotd581579",
+   "sha1": "5517a0be6e0cd0f9529cf99c63cb80e79b717c2b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0264",
+   "rom_kb": 8192,
+   "bancos": 7,
+   "aviso": "",
+   "no_soportado": "NGH $0264: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "rotd.zip: NGH $0264: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.71,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "s1945p.zip",
+   "juego": "s1945p",
+   "coleccion": "BIOS de SNK",
+   "slug": "gs1945p2961db",
+   "sha1": "781545b0aa5f8ae19ebd359b50228da8f44f6eec",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0254",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "no_soportado": "NGH $0254: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "s1945p.zip: NGH $0254: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.52,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "samsh5sp.zip",
+   "juego": "samsh5sp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsh5spccebd5",
+   "sha1": "d134cad8ee3bc5ef0442813ec23a8b40f4dd4b15",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0272",
+   "rom_kb": 8192,
+   "bancos": 7,
+   "aviso": "",
+   "no_soportado": "NGH $0272: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "samsh5sp.zip: NGH $0272: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.7,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "samsho.zip",
+   "juego": "samsho",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsho1b8d1c",
+   "sha1": "cfda32f44df313cd1976206409f7170111577456",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0045",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsamsho1b8d1c.png",
+   "interprete_s": 14.96,
+   "colores": 266,
+   "dominante": 0.074,
+   "capturas": [
+    13,
+    217,
+    266
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "samsho2.zip",
    "juego": "samsho2",
-   "coleccion": "roms",
-   "slug": "gsamsho2ca9b6e",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsho2b38f34",
    "sha1": "83af9153f655527de0f24c9bd1fa1543cb4d68c3",
    "nombre": "Samurai Shodown II / Shin Samurai Spirits (samsho2, SNK 1994)",
    "ngh": "0063",
@@ -525,8 +4991,8 @@
    "bancos": 1,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "gsamsho2ca9b6e.png",
-   "interprete_s": 8.25,
+   "thumb": "gsamsho2b38f34.png",
+   "interprete_s": 18.17,
    "colores": 210,
    "dominante": 0.16,
    "capturas": [
@@ -534,29 +5000,55 @@
     199,
     210
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.8,
+      "recomp_s": 1.4,
       "instrucciones": 62366,
       "pct_rom": 12.5,
-      "funciones": 381,
-      "compilacion_s": 73.6,
+      "funciones": 68,
+      "compilacion_s": 467.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 21.9,
-        "recompilado_pct": 100.0,
+        "segundos": 12.8,
+        "recompilado_pct": 37.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 13118202,
+         "instrucciones": 13121303,
+         "ciclos": {
+          "nativo": 37.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 62.0,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 199
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 22.8,
-        "recompilado_pct": 100.0,
+        "segundos": 15.1,
+        "recompilado_pct": 43.8,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 15123260,
+         "instrucciones": 15128271,
+         "ciclos": {
+          "nativo": 43.8,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 56.2,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 274
        }
       ],
@@ -564,35 +5056,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 0.8,
+      "recomp_s": 1.0,
       "instrucciones": 62879,
       "pct_rom": 12.6,
-      "funciones": 381,
-      "compilacion_s": 62.6,
+      "funciones": 68,
+      "compilacion_s": 491.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 21.6,
-        "recompilado_pct": 100.0,
+        "segundos": 16.2,
+        "recompilado_pct": 38.0,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 13121303,
+         "instrucciones": 13121303,
+         "ciclos": {
+          "nativo": 38.0,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 62.0,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 23.1,
-        "recompilado_pct": 100.0,
+        "segundos": 18.9,
+        "recompilado_pct": 43.8,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 15128271,
+         "instrucciones": 15128271,
+         "ciclos": {
+          "nativo": 43.8,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 56.2,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 298
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 227.1,
-    "velocidad_x": 61.8,
-    "velocidad_interp_x": 30.9
+    "total_s": 1024.2,
+    "velocidad_x": 30.0,
+    "velocidad_interp_x": 15.4
    },
    "oraculos": {
     "1200": {
@@ -623,13 +5142,216 @@
       "img": 0.7836495535714286
      }
     }
-   }
+   },
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "samsho3.zip",
+   "juego": "samsho3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsho3d3a684",
+   "error": "samsho3.zip: falta el programa (P1: un archivo .p1)",
+   "interprete": "error",
+   "detalle": "samsho3.zip: falta el programa (P1: un archivo .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "samsho4.zip",
+   "juego": "samsho4",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsho4f37a94",
+   "sha1": "65225feb31add50fff263b6075d2ca4b043d8412",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0222",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsamsho4f37a94.png",
+   "interprete_s": 19.59,
+   "colores": 145,
+   "dominante": 0.209,
+   "capturas": [
+    19,
+    60,
+    145
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "samsho5.zip",
+   "juego": "samsho5",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsamsho5935324",
+   "sha1": "caee2365bcfe9f51f1a4d981496178301cf808b4",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0270",
+   "rom_kb": 8192,
+   "bancos": 7,
+   "aviso": "",
+   "no_soportado": "NGH $0270: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "samsho5.zip: NGH $0270: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 3.84,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "savagere.zip",
+   "juego": "savagere",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsavagere1dcb71",
+   "sha1": "caf111cd410343636b768fb150152817475b54ec",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0059",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsavagere1dcb71.png",
+   "interprete_s": 17.25,
+   "colores": 324,
+   "dominante": 0.087,
+   "capturas": [
+    1,
+    324,
+    1
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sbp.zip",
+   "juego": "sbp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsbp579cf2",
+   "error": "sbp.zip: falta el programa (P1: un archivo .p1)",
+   "interprete": "error",
+   "detalle": "sbp.zip: falta el programa (P1: un archivo .p1)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sdodgeb.zip",
+   "juego": "sdodgeb",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsdodgebd2c880",
+   "sha1": "f739dc65071bf69cbdf9df9e86078fef7fe4aa39",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0208",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsdodgebd2c880.png",
+   "interprete_s": 18.35,
+   "colores": 255,
+   "dominante": 0.053,
+   "capturas": [
+    27,
+    220,
+    255
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sengoku.zip",
+   "juego": "sengoku",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsengokuc1d49b",
+   "sha1": "0cb432940c90bb1cf3639fcb9e1b98955791d6e8",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0017",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsengokuc1d49b.png",
+   "interprete_s": 17.64,
+   "colores": 282,
+   "dominante": 0.637,
+   "capturas": [
+    243,
+    282,
+    275
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sengoku2.zip",
+   "juego": "sengoku2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsengoku24b43ee",
+   "sha1": "35085cfe43c02bb9caa01806a7501c053358db46",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0040",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsengoku24b43ee.png",
+   "interprete_s": 17.5,
+   "colores": 132,
+   "dominante": 0.186,
+   "capturas": [
+    109,
+    116,
+    132
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sengoku3.zip",
+   "juego": "sengoku3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsengoku32b6a5e",
+   "sha1": "ed069046ba9620cac37686b74d88ebf5172b6689",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0261",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "no_soportado": "NGH $0261: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "sengoku3.zip: NGH $0261: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 2.07,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "shocktr2.zip",
+   "juego": "shocktr2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gshocktr228e6be",
+   "sha1": "41f03c0c2ad6080f44a43712585a34e7b34726b5",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0246",
+   "rom_kb": 5120,
+   "bancos": 4,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gshocktr228e6be.png",
+   "interprete_s": 21.33,
+   "colores": 180,
+   "dominante": 0.213,
+   "capturas": [
+    55,
+    180,
+    159
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "shocktro.zip",
    "juego": "shocktro",
-   "coleccion": "roms",
-   "slug": "gshocktroa22c3a",
+   "coleccion": "BIOS de SNK",
+   "slug": "gshocktroabedc4",
    "sha1": "c06c42f8999fa5c284aa7e728574f15434e2a09a",
    "nombre": "Shock Troopers (shocktro, Saurus 1997)",
    "ngh": "0238",
@@ -637,8 +5359,8 @@
    "bancos": 4,
    "aviso": "      salió solo en MVS: puede fallar con la BIOS del AES",
    "interprete": "ok",
-   "thumb": "gshocktroa22c3a.png",
-   "interprete_s": 8.99,
+   "thumb": "gshocktroabedc4.png",
+   "interprete_s": 18.97,
    "colores": 133,
    "dominante": 0.307,
    "capturas": [
@@ -646,29 +5368,55 @@
     66,
     110
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 1.1,
+      "recomp_s": 1.4,
       "instrucciones": 21019,
       "pct_rom": 1.43,
-      "funciones": 205,
-      "compilacion_s": 23.6,
+      "funciones": 67,
+      "compilacion_s": 266.8,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 21.6,
-        "recompilado_pct": 99.5,
+        "segundos": 15.6,
+        "recompilado_pct": 24.6,
+        "metrica": {
+         "nativas_pct": 98.2,
+         "nativas": 8202161,
+         "instrucciones": 8352663,
+         "ciclos": {
+          "nativo": 24.6,
+          "rom": 0.5,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 74.9,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 112
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 24.1,
-        "recompilado_pct": 99.0,
+        "segundos": 26.0,
+        "recompilado_pct": 30.9,
+        "metrica": {
+         "nativas_pct": 97.1,
+         "nativas": 10291860,
+         "instrucciones": 10601850,
+         "ciclos": {
+          "nativo": 30.9,
+          "rom": 1.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 68.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 147
        }
       ],
@@ -676,35 +5424,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 1.1,
+      "recomp_s": 1.3,
       "instrucciones": 21683,
       "pct_rom": 1.47,
-      "funciones": 210,
-      "compilacion_s": 30.8,
+      "funciones": 67,
+      "compilacion_s": 312.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 20.3,
-        "recompilado_pct": 100.0,
+        "segundos": 15.0,
+        "recompilado_pct": 25.1,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 8352663,
+         "instrucciones": 8352663,
+         "ciclos": {
+          "nativo": 25.1,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 74.9,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 21.3,
-        "recompilado_pct": 100.0,
+        "segundos": 15.1,
+        "recompilado_pct": 31.9,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 10601850,
+         "instrucciones": 10601850,
+         "ciclos": {
+          "nativo": 31.9,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 68.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 147
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 143.9,
-    "velocidad_x": 68.7,
-    "velocidad_interp_x": 32.4
+    "total_s": 653.1,
+    "velocidad_x": 33.9,
+    "velocidad_interp_x": 13.2
    },
    "oraculos": {
     "1200": {
@@ -735,13 +5510,410 @@
       "img": 0.9877378994360902
      }
     }
-   }
+   },
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "socbrawl.zip",
+   "juego": "socbrawl",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsocbrawla87e80",
+   "sha1": "18e4045660079621489fad27aaf24c2b0f87e33c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0031",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsocbrawla87e80.png",
+   "interprete_s": 17.12,
+   "colores": 63,
+   "dominante": 0.356,
+   "capturas": [
+    1,
+    52,
+    63
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sonicwi2.zip",
+   "juego": "sonicwi2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsonicwi2e3e1ed",
+   "sha1": "74d93c4cb90f6b60d044ff290e05e58567547451",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0075",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsonicwi2e3e1ed.png",
+   "interprete_s": 17.67,
+   "colores": 102,
+   "dominante": 0.227,
+   "capturas": [
+    27,
+    70,
+    102
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "sonicwi3.zip",
+   "juego": "sonicwi3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsonicwi383c85d",
+   "sha1": "862aa77c3f049552049eecbbe6adcd78916d0583",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0097",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsonicwi383c85d.png",
+   "interprete_s": 18.89,
+   "colores": 116,
+   "dominante": 0.277,
+   "capturas": [
+    30,
+    116,
+    97
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "spinmast.zip",
+   "juego": "spinmast",
+   "coleccion": "BIOS de SNK",
+   "slug": "gspinmast2a9082",
+   "sha1": "5a6906097c8cee18370df3de6b88f1ffa571f201",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0062",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gspinmast2a9082.png",
+   "interprete_s": 17.65,
+   "colores": 176,
+   "dominante": 0.111,
+   "capturas": [
+    176,
+    141,
+    145
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ssideki.zip",
+   "juego": "ssideki",
+   "coleccion": "BIOS de SNK",
+   "slug": "gssidekiff6ad3",
+   "sha1": "d8f369a04055feb40eb382e155029fcada6b2b83",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0052",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0052: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "ssideki.zip: NGH $0052: el programa tiene protección (Fatal Fury 2, Super Sidekicks, Metal Slug X); llega en una fase posterior",
+   "interprete_s": 0.44,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ssideki2.zip",
+   "juego": "ssideki2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gssideki28db4f2",
+   "sha1": "69a1852722a6effe584fc19ccafc0d9499a4a5b2",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0061",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gssideki28db4f2.png",
+   "interprete_s": 15.9,
+   "colores": 95,
+   "dominante": 0.211,
+   "capturas": [
+    43,
+    22,
+    95
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ssideki3.zip",
+   "juego": "ssideki3",
+   "coleccion": "BIOS de SNK",
+   "slug": "gssideki3ed9d42",
+   "sha1": "b4aa18ff206b92b7bc7f3930d5aba7ae0f609c23",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0081",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gssideki3ed9d42.png",
+   "interprete_s": 17.14,
+   "colores": 45,
+   "dominante": 0.104,
+   "capturas": [
+    37,
+    31,
+    45
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "ssideki4.zip",
+   "juego": "ssideki4",
+   "coleccion": "BIOS de SNK",
+   "slug": "gssideki4cd4152",
+   "sha1": "931259613f3da1f53716ccf377792a043ddf4dc0",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0215",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gssideki4cd4152.png",
+   "interprete_s": 20.04,
+   "colores": 137,
+   "dominante": 0.156,
+   "capturas": [
+    14,
+    114,
+    137
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "stakwin.zip",
+   "juego": "stakwin",
+   "coleccion": "BIOS de SNK",
+   "slug": "gstakwin7231e2",
+   "sha1": "285a1ddd4201d5ed9af11e6ca6343202814ae51b",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0088",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gstakwin7231e2.png",
+   "interprete_s": 18.3,
+   "colores": 144,
+   "dominante": 0.226,
+   "capturas": [
+    21,
+    118,
+    144
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "stakwin2.zip",
+   "juego": "stakwin2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gstakwin2dc3993",
+   "sha1": "81de4725d211db9ef3757804a6870e6bf0801162",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0227",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gstakwin2dc3993.png",
+   "interprete_s": 16.24,
+   "colores": 135,
+   "dominante": 0.074,
+   "capturas": [
+    13,
+    135,
+    102
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "strhoop.zip",
+   "juego": "strhoop",
+   "coleccion": "BIOS de SNK",
+   "slug": "gstrhoop0850e2",
+   "sha1": "28a372e2b16c0453687a744bd848a9c15f41908c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0079",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gstrhoop0850e2.png",
+   "interprete_s": 18.22,
+   "colores": 158,
+   "dominante": 0.212,
+   "capturas": [
+    92,
+    158,
+    130
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "superspy.zip",
+   "juego": "superspy",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsuperspy4d1040",
+   "sha1": "b1e106d8c8ae66a115f1f029f87b7fd10fe3c09d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0011",
+   "rom_kb": 1152,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gsuperspy4d1040.png",
+   "interprete_s": 17.16,
+   "colores": 229,
+   "dominante": 0.103,
+   "capturas": [
+    135,
+    184,
+    229
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "svc.zip",
+   "juego": "svc",
+   "coleccion": "BIOS de SNK",
+   "slug": "gsvc50312d",
+   "sha1": "cb7996acfb19fc4c2ece47fc5951d491787b9079",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "",
+   "rom_kb": 8192,
+   "bancos": 0,
+   "aviso": "no hay \"NEO-GEO\" en $100",
+   "no_soportado": "el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete": "error",
+   "detalle": "svc.zip: el programa no tiene \"NEO-GEO\" en $100: no es un juego de Neo Geo, o está cifrado",
+   "interprete_s": 3.58,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "tophuntr.zip",
+   "juego": "tophuntr",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtophuntr4e05c7",
+   "sha1": "666f9fe05e7f57e9879a5a34735916a33db88c9d",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0046",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gtophuntr4e05c7.png",
+   "interprete_s": 17.59,
+   "colores": 230,
+   "dominante": 0.08,
+   "capturas": [
+    77,
+    230,
+    214
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "totc.zip",
+   "juego": "totc",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtotc17c0ee",
+   "sha1": "e8b9ad5a474d2191117e71c3255fc24b58025160",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0048",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "      juego de mahjong: necesita el mando de mahjong, que no se emula",
+   "interprete": "ok",
+   "thumb": "gtotc17c0ee.png",
+   "interprete_s": 15.46,
+   "colores": 177,
+   "dominante": 0.421,
+   "capturas": [
+    42,
+    43,
+    177
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "tpgolf.zip",
+   "juego": "tpgolf",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtpgolf430a42",
+   "sha1": "6268adaf8205a70d63f9f1c8e1d6f42a9a6de3d3",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0003",
+   "rom_kb": 1536,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gtpgolf430a42.png",
+   "interprete_s": 17.55,
+   "colores": 91,
+   "dominante": 0.531,
+   "capturas": [
+    46,
+    60,
+    91
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "trally.zip",
+   "juego": "trally",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtrally82318d",
+   "sha1": "de029888c33d0deccecf3c8f50c83c230cbb7a92",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0038",
+   "rom_kb": 1536,
+   "bancos": 1,
+   "aviso": "      juego con cable de enlace entre consolas (Riding Hero, League Bowling, Thrash Rally): el enlace no se emula",
+   "interprete": "ok",
+   "thumb": "gtrally82318d.png",
+   "interprete_s": 17.33,
+   "colores": 209,
+   "dominante": 0.215,
+   "capturas": [
+    209,
+    1,
+    1
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   },
   {
    "archivo": "turfmast.zip",
    "juego": "turfmast",
-   "coleccion": "roms",
-   "slug": "gturfmast7accb6",
+   "coleccion": "BIOS de SNK",
+   "slug": "gturfmast730d48",
    "sha1": "6383d852c17c0eb770cd51c4fa8cb9b29874bbb2",
    "nombre": "Neo Turf Masters / Big Tournament Golf (turfmast, Nazca 1996)",
    "ngh": "0200",
@@ -749,8 +5921,8 @@
    "bancos": 1,
    "aviso": "",
    "interprete": "ok",
-   "thumb": "gturfmast7accb6.png",
-   "interprete_s": 8.51,
+   "thumb": "gturfmast730d48.png",
+   "interprete_s": 19.91,
    "colores": 208,
    "dominante": 0.123,
    "capturas": [
@@ -758,29 +5930,55 @@
     127,
     208
    ],
-   "version1": "3e80cb3",
+   "version1": "1a45ac3",
    "recompilador": {
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.5,
+      "recomp_s": 0.9,
       "instrucciones": 34743,
       "pct_rom": 6.96,
-      "funciones": 172,
-      "compilacion_s": 35.9,
+      "funciones": 103,
+      "compilacion_s": 370.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 19.5,
-        "recompilado_pct": 100.0,
+        "segundos": 11.8,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27237099,
+         "instrucciones": 27237099,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 22.2,
-        "recompilado_pct": 99.6,
+        "segundos": 15.5,
+        "recompilado_pct": 98.5,
+        "metrica": {
+         "nativas_pct": 99.9,
+         "nativas": 28362897,
+         "instrucciones": 28385813,
+         "ciclos": {
+          "nativo": 98.5,
+          "rom": 0.1,
+          "ram": 0.0,
+          "irq": 0.3,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 68
        }
       ],
@@ -788,35 +5986,62 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 0.6,
+      "recomp_s": 0.7,
       "instrucciones": 34811,
       "pct_rom": 6.96,
-      "funciones": 172,
-      "compilacion_s": 46.7,
+      "funciones": 103,
+      "compilacion_s": 252.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 18.8,
-        "recompilado_pct": 100.0,
+        "segundos": 12.2,
+        "recompilado_pct": 98.7,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 27237099,
+         "instrucciones": 27237099,
+         "ciclos": {
+          "nativo": 98.7,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.0,
+          "espera": 1.3,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 21.6,
-        "recompilado_pct": 99.7,
+        "segundos": 17.1,
+        "recompilado_pct": 98.6,
+        "metrica": {
+         "nativas_pct": 100.0,
+         "nativas": 28385813,
+         "instrucciones": 28385813,
+         "ciclos": {
+          "nativo": 98.6,
+          "rom": 0.0,
+          "ram": 0.0,
+          "irq": 0.3,
+          "espera": 1.1,
+          "otros": 0.0
+         }
+        },
         "interpretadas": 0
        }
       ],
       "traza": 68
      }
     ],
-    "version": "3e80cb3",
+    "version": "1a45ac3",
+    "fuente": "d6270e8",
     "resultado": "ok",
-    "total_s": 165.9,
-    "velocidad_x": 42.1,
-    "velocidad_interp_x": 27.1
+    "total_s": 680.9,
+    "velocidad_x": 25.2,
+    "velocidad_interp_x": 11.5
    },
    "oraculos": {
     "1200": {
@@ -847,7 +6072,301 @@
       "img": 0.9973713580827067
      }
     }
-   }
+   },
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "twinspri.zip",
+   "juego": "twinspri",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtwinspri3d587b",
+   "sha1": "bba834551b765c75e671d45f5d39f13ac8617678",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0224",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gtwinspri3d587b.png",
+   "interprete_s": 19.85,
+   "colores": 231,
+   "dominante": 0.116,
+   "capturas": [
+    43,
+    140,
+    231
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "twsoc96.zip",
+   "juego": "twsoc96",
+   "coleccion": "BIOS de SNK",
+   "slug": "gtwsoc967ecf4f",
+   "sha1": "ca7b5b8962fc588ae9cdb3abf72b14ac38b05c8a",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0086",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gtwsoc967ecf4f.png",
+   "interprete_s": 19.07,
+   "colores": 75,
+   "dominante": 0.098,
+   "capturas": [
+    70,
+    30,
+    75
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "viewpoin.zip",
+   "juego": "viewpoin",
+   "coleccion": "BIOS de SNK",
+   "slug": "gviewpoinf1f801",
+   "sha1": "8a452832cc3dc970d6b2376a283d7f6e193bc49c",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0051",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gviewpoinf1f801.png",
+   "interprete_s": 12.03,
+   "colores": 60,
+   "dominante": 0.468,
+   "capturas": [
+    27,
+    60,
+    19
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "vliner.zip",
+   "juego": "vliner",
+   "coleccion": "BIOS de SNK",
+   "slug": "gvlinerd01216",
+   "sha1": "8bc2c68b7dec5a94d141292e6e39665d31317e51",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "03E7",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gvlinerd01216.png",
+   "interprete_s": 11.07,
+   "colores": 5,
+   "dominante": 0.888,
+   "capturas": [
+    5,
+    5,
+    5
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "wakuwak7.zip",
+   "juego": "wakuwak7",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwakuwak79933eb",
+   "sha1": "7bd945d92ae886c092a5b4d69dc2c1f0938f3e89",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0225",
+   "rom_kb": 3072,
+   "bancos": 2,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gwakuwak79933eb.png",
+   "interprete_s": 16.43,
+   "colores": 282,
+   "dominante": 0.855,
+   "capturas": [
+    282,
+    67,
+    175
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "wh1.zip",
+   "juego": "wh1",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwh110ea7e",
+   "error": "wh1.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "interprete": "error",
+   "detalle": "wh1.zip: falta un archivo en medio de una serie (por ejemplo .c2 o .v2)",
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "wh2.zip",
+   "juego": "wh2",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwh2b090ae",
+   "sha1": "2164fc440559ca98703787c1d610cd6d0cd6758f",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0057",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gwh2b090ae.png",
+   "interprete_s": 17.64,
+   "colores": 229,
+   "dominante": 0.205,
+   "capturas": [
+    99,
+    93,
+    229
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "wh2j.zip",
+   "juego": "wh2j",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwh2j2e7283",
+   "sha1": "3b209330589a013ea161fc988350c735b41cafed",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0064",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gwh2j2e7283.png",
+   "interprete_s": 15.27,
+   "colores": 169,
+   "dominante": 0.143,
+   "capturas": [
+    40,
+    169,
+    169
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "whp.zip",
+   "juego": "whp",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwhp839b87",
+   "sha1": "face4490b606db3302475bcda63e883add95c02e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0090",
+   "rom_kb": 2048,
+   "bancos": 1,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gwhp839b87.png",
+   "interprete_s": 15.54,
+   "colores": 260,
+   "dominante": 0.033,
+   "capturas": [
+    19,
+    260,
+    248
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "wjammers.zip",
+   "juego": "wjammers",
+   "coleccion": "BIOS de SNK",
+   "slug": "gwjammers1c6025",
+   "sha1": "bef5bb49278822a56bf47732f34d1dc959a3c2bc",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0065",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gwjammers1c6025.png",
+   "interprete_s": 14.16,
+   "colores": 197,
+   "dominante": 0.218,
+   "capturas": [
+    174,
+    59,
+    197
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "zedblade.zip",
+   "juego": "zedblade",
+   "coleccion": "BIOS de SNK",
+   "slug": "gzedblade1136b1",
+   "sha1": "32d2bf3d7d444bf082d2b4cf0cbf8937f360a203",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0076",
+   "rom_kb": 512,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gzedblade1136b1.png",
+   "interprete_s": 12.11,
+   "colores": 123,
+   "dominante": 0.323,
+   "capturas": [
+    31,
+    107,
+    123
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "zintrckb.zip",
+   "juego": "zintrckb",
+   "coleccion": "BIOS de SNK",
+   "slug": "gzintrckb2b53b1",
+   "sha1": "b14670fa8023b78bdf17238f1b0d0e5cd6c83a1e",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0211",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "interprete": "ok",
+   "thumb": "gzintrckb2b53b1.png",
+   "interprete_s": 12.76,
+   "colores": 193,
+   "dominante": 0.112,
+   "capturas": [
+    143,
+    53,
+    193
+   ],
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
+  },
+  {
+   "archivo": "zupapa.zip",
+   "juego": "zupapa",
+   "coleccion": "BIOS de SNK",
+   "slug": "gzupapa682221",
+   "sha1": "addbe8104beacdaad36a13c1b850e7254e2e9391",
+   "nombre": "no está en la base de datos (armado por los nombres de los archivos)",
+   "ngh": "0070",
+   "rom_kb": 1024,
+   "bancos": 0,
+   "aviso": "",
+   "no_soportado": "NGH $0070: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete": "error",
+   "detalle": "zupapa.zip: NGH $0070: juego cifrado (NEO-CMC, SMA, PCM2 o PVC); llega en una fase posterior",
+   "interprete_s": 0.91,
+   "version1": "1a45ac3",
+   "fuente1": "d6270e8"
   }
  ]
 }

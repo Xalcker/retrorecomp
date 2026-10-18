@@ -6,8 +6,8 @@
 |---|---|---|
 | F0. Decidir | Hecho: monorepo en `retrorecomp`, carpetas `gb/ nes/ gen/ neo/ sms/`, web y Android fuera (tag `web-android-final`), CI por niveles | — |
 | F1. Monorepo | Hecho | #66 (merge commit) |
-| F2. Medir bien | Hecho salvo el borrado de `neo/docs/compat-neobios` (F2.7) | #131–#139 |
-| F2.7. Volver a correr compat en los cinco (por primera vez en SMS); después borrar `migrar()` y `neo/docs/compat-neobios` | Corrida y `migrar()` hechos; falta repetir NEO con la BIOS propia y borrar `compat-neobios` | — |
+| F2. Medir bien | Hecho | #131–#139, #161 |
+| F2.7. Volver a correr compat en los cinco (por primera vez en SMS); después borrar `migrar()` y `neo/docs/compat-neobios` | Hecho | #161 |
 | F3.1. Registro de sistemas (`shared/sistemas.json`) | Hecho | #140 |
 | F3.2. Nombres en `shared/` | Hecho | #144 |
 | F3.3. Opciones (`--profile`, `--input-line`, `--screens`, `--shot`, `--model` en `cli.h`) | Hecho | #145 |
@@ -237,7 +237,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
 6. **`--estricto`.** Cada despachador tiene una sola rama hacia el intérprete; ahí se anota el motivo (falta en ROM, falta en RAM, guarda, switch default, IRQ, STOP, tras EI…). Con `--estricto`, difftest falla en la primera entrada a una categoría de «falta código». Se suma al CI con las ROMs de prueba. Piloto: NES.
 7. **Volver a correr compat** en los cinco, y por primera vez en SMS. Después, borrar `migrar()` y `docs/compat-neobios`.
    - Hecho (18 de octubre de 2026): las cinco corridas con la versión `1a45ac3` (NEO con la BIOS de SNK) y `migrar()` borrado.
-   - Falta: repetir NEO con la BIOS propia (`NEO_BIOS=build/neobios.bin`, colección «BIOS propia») y, con eso, borrar `neo/docs/compat-neobios`.
+   - NEO con la BIOS propia (`NEO_BIOS=build/neobios.bin`, colección «BIOS propia»): 5 juegos (Metal Slug, Metal Slug 2, The Last Blade, Samurai Shodown II y KOF '97), todos sin diferencias. `neo/docs/compat-neobios` borrado.
+   - Lo que baja el porcentaje nativo en NEO, GB y SMS son las esperas (HALT/STOP), no el intérprete: en NEO hay 0 instrucciones interpretadas y 38,6 % de ciclos de espera de media. Es lo que F4.1 (STOP salta al próximo evento) quita.
 
 ### F3. Herramientas gemelas de verdad (3–4 sesiones; cada punto es independiente)
 1. **Registro de sistemas** en un solo archivo: id, nombre, extensiones, botones, modelos, BIOS, cuadros por omisión y herramientas. Lo leen la GUI, el contrato, `recomp_game.sh`, `compat_test` y las tablas del README. Con eso un sexto sistema es una entrada más, y de paso se arreglan PAUSE y `PRESETS`.

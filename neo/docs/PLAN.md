@@ -278,9 +278,9 @@ estructura `Neo` en lugar de `Gen`), sin cambiar la semántica de lo que ya est�
     menos de ~3 dB de los dos. Golden actualizado a propósito.
 - [ ] **10. (Opcional) BIOS de reemplazo propia.** Ver "BIOS". Se mide con `tools/compat` contra la original.
   En curso. `tools/neobios/`: `asm68k.py` (un ensamblador del 68000 propio, probado contra el desensamblador) y
-  `neobios.s` (la BIOS, MIT, desde la interfaz documentada y lo que se ve desde afuera con la original). **Los 8
-  juegos de `roms/` corren con ella y salen recompilados sin diferencias** (`docs/compat-neobios/`), a 49-102×
-  el tiempo real; el contrato común pasa con ella. Lo que pidieron los juegos y no estaba documentado: la tabla
+  `neobios.s` (la BIOS, MIT, desde la interfaz documentada y lo que se ve desde afuera con la original). **Cinco
+  juegos corren con ella y salen recompilados sin diferencias** (la colección «BIOS propia» de `docs/compat/`),
+  a 22-30× el tiempo real; el contrato común pasa con ella. Lo que pidieron los juegos y no estaba documentado: la tabla
   de azar de `$C04200` (propia) y la bandera de VBLANK `$10FE8C`. **La tarjeta de memoria** (`CARD` y
   `CARD_ERROR`) usa el formato que deja la original, medido por la interfaz con `neocard`: las tarjetas
   escritas por una BIOS se leen con la otra, y 60 llamadas dan lo mismo (`tests/neobios/`). Falta la

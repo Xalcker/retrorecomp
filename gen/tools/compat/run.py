@@ -73,26 +73,6 @@ class GEN(compat.Sistema):
             f.append("6 botones")
         return f
 
-    def migrar(self, r):
-        """De los results.json anteriores al motor común"""
-        if "archivo" not in r:
-            r["archivo"] = r["juego"]
-            r["juego"] = pathlib.Path(r["juego"]).stem
-        if "etapa2" in r:
-            r["recompilador"] = r.pop("etapa2")
-        if "kb" in r:
-            r["rom_kb"] = r.pop("kb")
-        if r.get("interprete") == "pantalla uniforme":
-            r["interprete"] = "pantalla en blanco"
-        rc = r.get("recompilador") or {}
-        if "velocidad_interprete_x" in rc:
-            rc["velocidad_interp_x"] = rc.pop("velocidad_interprete_x")
-        for fa in rc.get("fases", []):
-            for d in fa.get("semillas", []):
-                if "ciclos_recompilados_pct" in d:
-                    d["recompilado_pct"] = d.pop("ciclos_recompilados_pct")
-        return r
-
     def oraculos(self, f, guion):
         import oracle
         res = {}

@@ -200,7 +200,8 @@ def main():
         P.guardar()
         guardado = json.loads(P.res_path.read_text(encoding="utf-8"))
         T(not compat.rutas_locales(guardado), f"guardar dejó rutas: {compat.rutas_locales(guardado)}")
-        T(guardado["roms"][0]["detalle"] == "no se pudo abrir build/compat/roms/gtetris123456.gb",
+        # En Windows lo que queda del path usa «\», como lo escribe pathlib: lo que se prueba es que se quite el prefijo
+        T(guardado["roms"][0]["detalle"].replace("\\", "/") == "no se pudo abrir build/compat/roms/gtetris123456.gb",
           f"guardar: detalle {guardado['roms'][0]['detalle']!r}")
         viejo = [{"zip": r"E:\Roms\No-Intro\Nintendo - Game Boy\Tetris (World).zip"}, {"detalle": "/Users/x/GBRecomp/a"},
                  {"detalle": "/home/x/a"}, {"detalle": "C:/msys64/x"}, {"detalle": "cuadro 12: A/B y 3:4, $C0:1234"}]

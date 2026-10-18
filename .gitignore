@@ -4,3 +4,7 @@ __pycache__/
 .DS_Store
 /*/testroms
 .venv/
+*.log
+# Red de seguridad: ni ROMs ni partidas de nadie en el repo (cada sistema ignora además sus extensiones)
+roms/
+*.sav

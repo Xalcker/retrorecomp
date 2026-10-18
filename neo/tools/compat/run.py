@@ -87,12 +87,6 @@ class NEO(compat.Sistema):
     def soportado(self, r):
         return not r.get("no_soportado")
 
-    def migrar(self, r):
-        """Las filas de antes de separar las BIOS se corrieron con la de SNK y se llamaban como la carpeta"""
-        if r.get("coleccion") == "roms":
-            r["coleccion"] = "BIOS de SNK"
-        return r
-
     def categoria(self, r):
         if r.get("no_soportado"):
             return "cifrado"

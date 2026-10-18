@@ -228,7 +228,6 @@ corrida de los mensajes que guarda y el informe avisa si encuentra una ruta loca
 | opcional: `coleccion(carpeta)` | el nombre de la colección (por omisión, la carpeta) | GB: `"GB"`/`"GBC"`; NEO: la BIOS |
 | opcional: `es_juego(p)`, `juego_zip`, `cuadros1`, `guiones()` | lo que el Neo Geo cambia por su BIOS | NEO salta `aes.zip` y captura más tarde |
 | opcional: `oraculos(f, guion)`, `nombres_oraculos`, `columnas_oraculos(r)` | emuladores de referencia (`--oraculos`): una celda por nombre | GEN: Genesis Plus GX y BlastEm; NEO: Geolith y FBNeo; SMS: Genesis Plus GX y Gearsystem |
-| opcional: `migrar(r)` | pasar filas de un `results.json` anterior al motor común | hasta regenerar los de NES y GB |
 
 `python3 tests/compat_test.py` (en el CI) arma un `results.json` sintético para cada uno de los cinco sistemas y
 genera su informe: comprueba las cabeceras de los oráculos, los estados y que no queden rutas locales. Corre antes de

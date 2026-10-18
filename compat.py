@@ -106,10 +106,6 @@ class Sistema:
     def subtitulo(self, r):
         return ""
 
-    def migrar(self, r):
-        """Pasa una fila de un results.json viejo al formato común."""
-        return r
-
     oraculos = None                  # función (fila, guion) -> dict, si la consola tiene emuladores de referencia
     nombres_oraculos = ()            # cabeceras de las columnas de oráculos del informe ("Geolith", "FBNeo"...)
 
@@ -387,7 +383,6 @@ class Prueba:
         if self.res_path.exists():
             datos = json.loads(self.res_path.read_text(encoding="utf-8"))
             for r in (datos["roms"] if isinstance(datos, dict) else datos):
-                r = S.migrar(r)
                 self.res[self.clave(r)] = r
         self.guion = self.work / "guion.txt"
         self.entradas_diff = self.work / "entradas_diff.txt"
@@ -797,12 +792,12 @@ def informe(S, argv=None):
     utf8()
     D = pathlib.Path(a.salida)
     datos = json.loads((D / "results.json").read_text(encoding="utf-8"))
-    rutas = rutas_locales(datos)                      # antes de migrar(), que quita el campo zip de los viejos
+    rutas = rutas_locales(datos)
     for donde, texto in rutas[:3]:
         print(f"aviso: ruta local en results.json ({donde}): {texto[:80]}", file=sys.stderr)
     if len(rutas) > 3:
         print(f"aviso: {len(rutas)} rutas locales en total; se quitan al volver a correr la prueba", file=sys.stderr)
-    rs = [S.migrar(r) for r in (datos["roms"] if isinstance(datos, dict) else datos)]
+    rs = list(datos["roms"] if isinstance(datos, dict) else datos)
     meta = datos if isinstance(datos, dict) else {}
     for r in rs:
         r["estado"] = estado(S, r)

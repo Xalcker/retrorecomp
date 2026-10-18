@@ -124,7 +124,15 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
     ROM, parezcan código y la tabla no llegue a código descubierto ni a sí misma, hasta 128, y se siembran si son dos
     o más;
   - **direcciones apiladas:** `LD rr,nn` y `PUSH rr` seguidos de un salto (`JP`, `JR` o `JP (HL)`) sin un `CALL` ni un
-    `RET` antes: `nn` es la vuelta de un `RET`. Sin el salto, en el código de SDCC (el homebrew) es un argumento.
+    `RET` antes: `nn` es la vuelta de un `RET`. Sin el salto, en el código de SDCC (el homebrew) es un argumento;
+  - **despachadores:** `LD HL,tabla` y, justo después, un `CALL`, `RST` o `JP` a una rutina que lee el puntero de la
+    tabla que le deja el llamador (`LD H,(HL)` y `JP (HL)`, o `LD D,(HL)`, `EX DE,HL` y `JP (HL)`, o un `CALL`/`RST` a
+    otra que devuelve el puntero con un `JP (HL)` justo después). La tabla se lee como la de arriba; si su primera
+    entrada no es código, se prueba con `tabla + 2` (el índice del llamador empieza en 1). La rutina no debe traer su
+    propio `LD HL,nn`: ese caso es el de las tablas de saltos;
+  - **`JP (HL)` a una constante:** el `LD HL,nn` anterior, en el juego de registros que está activo (cada `EXX` los
+    cambia) y sin que nada toque HL en medio (hasta 512 bytes hacia atrás); `nn` es un destino, si parece código.
+    En `--why` sale como «constante».
 
   «Parece código» (`plausible`): decodificado hasta el primer salto incondicional, no tiene `RST $38` (lo que hay en la
   ROM vacía), un `ED` sin definir, un prefijo seguido de otro ni cuatro `NOP` seguidos. Descubrir de más no rompe nada
@@ -132,16 +140,18 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
   esa comprobación, una entrada que apuntaba a datos arrastraba miles de instrucciones de mentira.
 
 Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`python3 tests/coverage.py`, 3000
-cuadros con las mismas entradas: el 53,2 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
-heurísticas; del 7,9 % de Micro Machines al 99,7 % de Dragon Blaster); el resto lo dan la traza guionada y lo que
-`difftest --uncovered` ve caer al intérprete (`../shared/recomp_game.py`).
+cuadros con las mismas entradas: el 62,8 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
+heurísticas; del 7,9 % de Micro Machines al 100 % de TransBot); el resto lo dan la traza guionada y lo que
+`difftest --uncovered` ve caer al intérprete (`../shared/recomp_game.py`). Lo que más falta: los juegos con más
+páginas que las tres del encendido (el código de las demás solo lo ve la traza: Micro Machines, Shinobi, Shining
+Force) y los datos en línea tras un `CALL` o un `RST`.
 
 ### Herramientas de análisis
 
 Las mismas de genrecomp, con los formatos que lee la GUI: `--viz` (el mapa coloreado por cómo se descubrió: los
 vectores, la traza, las tablas o lo especulativo; con `--coverage`, en rojo lo ejecutado y no descubierto),
 `--coverage`, `--why` (la cadena de saltos desde un punto de entrada, con «sigue», «salto», «llamada»,
-«bifurcación», «otra_ranura», «tabla» y «apilada»), `--events`, `--html` (el visor común, `visor_html.h`),
+«bifurcación», «otra_ranura», «tabla», «apilada» y «constante»), `--events`, `--html` (el visor común, `visor_html.h`),
 `--codemap` y `--dis` (con `z80_dis`).
 
 ### Funciones y emisión

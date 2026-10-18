@@ -88,7 +88,7 @@ def main():
         else:
             p.falla("smsrecomp --dis, --why, --events o --viz")
         P = f"{D}/proy_contrato"
-        if (rr.correr([S, C, "-o", P, "--name", "contrato", "--trace", f"{D}/contrato_ciclo.trace"])[0] == 0
+        if (rr.correr([S, C, "-o", P, "--name", "contrato", "--trace", f"{D}/contrato_ciclo.trace", *rr.opciones_pruebas("sms")])[0] == 0
                 and rr.correr(["make", "-s", "-C", P, "-j8"])[0] == 0):
             _, o = rr.correr([f"{P}/difftest{x}", C, "--frames", "300", "start:30-35", "down:60-69", "a:60-69", "pause:100-101",
                               "--uncovered", f"{D}/contrato.unc"])

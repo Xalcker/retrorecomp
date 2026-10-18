@@ -79,7 +79,7 @@ def main(argv):
     estado = {"falla": False, "ronda": 1}
 
     def ronda():
-        c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza])
+        c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza, *rr.opciones_pruebas(con)])
         util = [l for l in salida.splitlines() if re.search("código|funciones", l)]
         if not util:
             return 2

@@ -84,6 +84,8 @@ static const char usage_text[] =
     "  --dis OFF:DIR:N    desensambla N instrucciones desde ese desplazamiento de la ROM, con esa dirección\n"
     "  --no-tables        sin las heurísticas: tablas de saltos (JP (HL) con un LD HL,nn antes) ni\n"
     "                     direcciones apiladas (LD rr,nn y PUSH rr); para comparar\n"
+    "  --no-spec          sin los punteros sueltos: un LD rr,nn que apunta a una tabla de 4 o más direcciones de código.\n"
+    "                     Descubren mucho más código, y compilarlo tarda\n"
     "  --model M          sms (Master System II) o gg (Game Gear); por omisión, el de la extensión (.sms, .gg)\n"
     "                     o el de la región de la cabecera (el proyecto lo usa igual)\n"
     "  --info             lo que se sabe del cartucho (lo que hace sin otras opciones)\n"
@@ -175,10 +177,10 @@ static void print_info(const char *path, const Sms *s)
  * Z80RC_TRACE); HOW_CROSS, un salto desde otra ranura. Para los informes, el de Z80RC_FLOW se detalla mirando la
  * instrucción de la que vino (sigue, salto, llamada, bifurcación) */
 enum { HOW_VECTOR = Z80RC_SEED, HOW_FLOW = Z80RC_FLOW, HOW_TRACE = Z80RC_TRACE, HOW_CROSS, HOW_TABLE = Z80H_TABLE, HOW_PUSHED = Z80H_PUSHED,
-       HOW_CONST = Z80H_CONST, HOW_BANK = Z80H_BANK };
-enum { SHOW_VECTOR, SHOW_TRACE, SHOW_NEXT, SHOW_JUMP, SHOW_CALL, SHOW_BRANCH, SHOW_CROSS, SHOW_TABLE, SHOW_PUSHED, SHOW_CONST, SHOW_BANK, SHOW_COUNT };
+       HOW_CONST = Z80H_CONST, HOW_BANK = Z80H_BANK, HOW_LOOSE = Z80H_LOOSE };
+enum { SHOW_VECTOR, SHOW_TRACE, SHOW_NEXT, SHOW_JUMP, SHOW_CALL, SHOW_BRANCH, SHOW_CROSS, SHOW_TABLE, SHOW_PUSHED, SHOW_CONST, SHOW_BANK, SHOW_LOOSE, SHOW_COUNT };
 static const char *const how_name[SHOW_COUNT] = { "vector", "traza", "sigue", "salto", "llamada", "bifurcación",
-                                                  "otra_ranura", "tabla", "apilada", "constante", "banco" };
+                                                  "otra_ranura", "tabla", "apilada", "constante", "banco", "inmediato" };
 /* El origen (lo que colorea el mapa): las categorías de la GUI (retrorecomp_gui.py, clase SMS) */
 enum { ORG_VECTORS, ORG_TRACE, ORG_TABLE, ORG_SPEC, ORG_COUNT };
 static const char *const org_name[ORG_COUNT] = { "flujo desde los vectores", "traza", "tabla de saltos",
@@ -200,6 +202,7 @@ static const u8 *rom;
 static size_t rom_size;
 static int sega, verbose;
 static int use_tables = 1;          /* --no-tables: sin las tablas de saltos ni las direcciones apiladas */
+static int use_spec = 1;            /* --no-spec: sin los punteros sueltos (inmediatos que apuntan a una tabla de direcciones) */
 
 static View *views;
 static int nviews;
@@ -319,12 +322,14 @@ static int host_seed_bank(void *ctx, int page, int slot, uint16_t a, int how, ui
     return seed_page(page, slot, a, how, from);
 }
 
-static Z80Host sms_host = { host_peek, host_seed, host_origin, host_bank_slot, host_seed_bank, 0x0008, 0xC000, 0, 0, 0, 0, 0 };
+static Z80Host sms_host = { .peek = host_peek, .seed = host_seed, .origin = host_origin, .bank_slot = host_bank_slot,
+                           .seed_bank = host_seed_bank, .min_target = 0x0008, .max_target = 0xC000, .loose_min = 4 };
 
 /* Descubre en todas las vistas, y los saltos a otra ranura siembran la vista de la página que está ahí al
  * encender, hasta que no quede nada nuevo */
 static void discover_all(void)
 {
+    if (!use_spec) sms_host.loose_min = 0;
     for (int changed = 1; changed;) {
         changed = 0;
         for (int i = 0; i < nviews; i++) z80rc_discover(views[i].r);
@@ -385,8 +390,8 @@ static void collect(void)
                 how_at[off] = (u16)(from + fi.len) == a && fi.kind != Z80_INS_JP && fi.kind != Z80_INS_JR ? SHOW_NEXT
                             : fi.cond || fi.kind == Z80_INS_DJNZ ? SHOW_BRANCH
                             : fi.kind == Z80_INS_CALL || fi.kind == Z80_INS_RST ? SHOW_CALL : SHOW_JUMP;
-            } else if (how == HOW_CROSS || how == HOW_TABLE || how == HOW_PUSHED || how == HOW_CONST || how == HOW_BANK) {
-                how_at[off] = how == HOW_CROSS ? SHOW_CROSS : how == HOW_TABLE ? SHOW_TABLE : how == HOW_CONST ? SHOW_CONST : how == HOW_BANK ? SHOW_BANK : SHOW_PUSHED;
+            } else if (how == HOW_CROSS || how == HOW_TABLE || how == HOW_PUSHED || how == HOW_CONST || how == HOW_BANK || how == HOW_LOOSE) {
+                how_at[off] = how == HOW_CROSS ? SHOW_CROSS : how == HOW_TABLE ? SHOW_TABLE : how == HOW_CONST ? SHOW_CONST : how == HOW_BANK ? SHOW_BANK : how == HOW_LOOSE ? SHOW_LOOSE : SHOW_PUSHED;
                 if (v->xsrc[a & 0x3FFF]) parent[off] = v->xsrc[a & 0x3FFF] - 1;
             } else how_at[off] = how == HOW_TRACE ? SHOW_TRACE : SHOW_VECTOR;
             stat_insns++;
@@ -400,7 +405,7 @@ static void collect(void)
         int steps = 0, org = -1;
         for (;;) {
             if (how_at[cur] == SHOW_TABLE) { org = ORG_TABLE; break; }
-            if (how_at[cur] == SHOW_PUSHED || how_at[cur] == SHOW_CONST || how_at[cur] == SHOW_BANK) { org = ORG_SPEC; break; }
+            if (how_at[cur] == SHOW_PUSHED || how_at[cur] == SHOW_CONST || how_at[cur] == SHOW_BANK || how_at[cur] == SHOW_LOOSE) { org = ORG_SPEC; break; }
             if (parent[cur] == NO_PARENT || !is_ins[parent[cur]] || steps++ > 100000) break;
             cur = parent[cur];
         }
@@ -970,6 +975,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--viz")) { viz = 1; continue; }
         if (!strcmp(a, "--color")) { force_color = 1; continue; }
         if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
+        if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
@@ -1044,8 +1050,8 @@ int main(int argc, char **argv)
                      ram_dropped ? " (y direcciones con demasiadas versiones, que quedan en el intérprete)" : "");
     printf("\n");
     if (verbose)
-        printf("tablas de saltos: %u (%u entradas), direcciones apiladas: %u, JP (HL) constantes: %u, cambios de banco: %u\n",
-               sms_host.tables, sms_host.table_entries, sms_host.pushed, sms_host.consts, sms_host.banks);
+        printf("tablas de saltos: %u (%u entradas), direcciones apiladas: %u, JP (HL) constantes: %u, cambios de banco: %u, punteros sueltos: %u\n",
+               sms_host.tables, sms_host.table_entries, sms_host.pushed, sms_host.consts, sms_host.banks, sms_host.loose);
     if (verbose)
         for (int i = 0; i < nviews; i++)
             printf("  página %02X en la ranura %d ($%04X): %u instrucciones\n", views[i].page, views[i].slot,

@@ -30,6 +30,13 @@ def registro():
         return json.load(f)
 
 
+def opciones_pruebas(sid):
+    """Las opciones extra con que las pruebas de ese sistema llaman a su recompilador ("opciones_pruebas" de
+    shared/sistemas.json; ninguna si no dice). SMS: --no-spec, porque los punteros sueltos descubren tanto código que
+    compilarlo alarga mucho las pruebas"""
+    return list(registro()[sid].get("opciones_pruebas", []))
+
+
 def exe(nombre):
     """./nombre.exe si existe (Windows), si no ./nombre"""
     if os.path.isfile(f"./{nombre}.exe"):

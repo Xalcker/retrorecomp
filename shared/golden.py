@@ -98,7 +98,7 @@ def main(sis, opciones, casos, sha1=None, skip=None, argv=None):
             if os.path.isfile(f"{d}/bench{exe_ext}"):
                 return True
             shutil.rmtree(d, ignore_errors=True)
-            c1, s1 = rr.correr([recomp, rom, "-o", d])
+            c1, s1 = rr.correr([recomp, rom, "-o", d, *rr.opciones_pruebas(sis)])
             ok = c1 == 0
             s2 = ""
             if ok:

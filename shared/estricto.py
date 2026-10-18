@@ -34,7 +34,7 @@ def main(argv):
     def proyecto(rom, traza=None):
         """build/out/estricto con su difftest"""
         shutil.rmtree("build/out/estricto", ignore_errors=True)
-        cmd = [f"./{con}recomp{x}", rom, "-o", "build/out/estricto", "--name", "estricto"]
+        cmd = [f"./{con}recomp{x}", rom, "-o", "build/out/estricto", "--name", "estricto", *rr.opciones_pruebas(con)]
         if traza:
             cmd += ["--trace", traza]
         if rr.correr(cmd)[0] != 0:

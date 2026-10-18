@@ -48,6 +48,7 @@
 #include "trace_line.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
+#include "z80_heuristicas.h"
 #include "z80_dis.h"
 #include "z80_vista.h"
 #include "embedded.h"
@@ -85,6 +86,8 @@ static const char usage_text[] =
     "                     --why z80:VERSIÓN:DIRECCIÓN y --dis z80:VERSIÓN:DIRECCIÓN:N (dirección en hexadecimal)\n"
     "  --z80-frames N     cuadros del sondeo del Z80: el juego corre en el intérprete para ver qué driver\n"
     "                     sube el 68000 a la RAM del Z80, que se compila con una guarda (3600; 0: sin Z80)\n"
+    "  --z80-heuristicas  las heurísticas comunes del Z80 (tablas de saltos, despachadores, JP (HL) constantes) sobre\n"
+    "                     cada versión del driver\n"
     "  --no-tables        sin las heurísticas de tablas de saltos (para comparar)\n"
     "  --no-spec          sin los punteros sueltos: inmediatos y tablas que ningún código delata\n"
     "  --dis OFF:DIR:N    desensambla N instrucciones desde ese desplazamiento de la ROM, con esa dirección\n"
@@ -1442,6 +1445,21 @@ static void remove_old_z80(const char *gdir)
 static Z80Rc zrs[ZV_MAX];              /* lo descubierto de cada versión (z80_descubrir) */
 static int z80_sondeado, z80_descubierto;
 static unsigned z80_total, z80_ejecutadas;
+static int z80_heur;                    /* --z80-heuristicas: las heurísticas comunes (z80_heuristicas.h) sobre cada versión */
+
+/* Cada versión del driver para las heurísticas comunes: un tramo ($0000-$1FFF, la RAM del Z80) cuyo contexto es el índice
+ * de la versión. Lo que siembran se ve como «semilla del Z80» en --why y --events */
+static int zh_peek(void *ctx, uint32_t a) { return a <= 0x1FFF ? zv_img[(int)(intptr_t)ctx][a] : -1; }
+static int zh_seed(void *ctx, uint16_t a, int how, uint32_t from)
+{
+    Z80Rc *r = &zrs[(int)(intptr_t)ctx];
+    (void)how; (void)from;
+    if (!z80rc_in(r, a) || r->queued[a]) return 0;
+    z80rc_seed(r, a, Z80RC_SEED);
+    return 1;
+}
+static uint32_t zh_origin(void *ctx, uint16_t a) { (void)ctx; return a; }
+static Z80Host z80_host = { zh_peek, zh_seed, zh_origin, NULL, NULL, 0x0008, 0x2000, 0, 0, 0, 0, 0 };
 
 /* Corre el juego en el intérprete `frames` cuadros y junta las versiones del driver (zv_img, zv_exec) */
 static void z80_sondear(long frames)
@@ -1479,8 +1497,13 @@ static void z80_descubrir(void)
         for (unsigned a = 0; a < 0x2000; a++)
             if (zv_exec[v][a]) { z80rc_seed(&zrs[v], (u16)a, Z80RC_TRACE); z80_ejecutadas++; }
         z80rc_discover(&zrs[v]);
+        if (z80_heur)
+            while (z80h_heuristics(&z80_host, (void *)(intptr_t)v, &zrs[v])) z80rc_discover(&zrs[v]);
         z80_total += zrs[v].ninsns;
     }
+    if (z80_heur && verbose)
+        printf("Z80, heurísticas: tablas de saltos: %u (%u entradas), direcciones apiladas: %u, JP (HL) constantes: %u\n",
+               z80_host.tables, z80_host.table_entries, z80_host.pushed, z80_host.consts);
 }
 
 /* Para el análisis (--z80): el sondeo y el descubrimiento, y las versiones como vistas del mapa (después de la ROM, a la celda) */
@@ -1676,6 +1699,7 @@ int main(int argc, char **argv)
         if (!strcmp(a, "--color")) { force_color = 1; continue; }
         if (!strcmp(a, "--z80")) { z80_on = 1; continue; }
         if (!strcmp(a, "--no-tables")) { use_tables = 0; continue; }
+        if (!strcmp(a, "--z80-heuristicas")) { z80_heur = 1; continue; }
         if (!strcmp(a, "--no-spec")) { use_spec = 0; continue; }
         if (i + 1 < argc) {
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }

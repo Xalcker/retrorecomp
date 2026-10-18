@@ -238,7 +238,7 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
 7. **Volver a correr compat** en los cinco, y por primera vez en SMS. Después, borrar `migrar()` y `docs/compat-neobios`.
    - Hecho (18 de octubre de 2026): las cinco corridas con la versión `1a45ac3` (NEO con la BIOS de SNK) y `migrar()` borrado.
    - NEO con la BIOS propia (`NEO_BIOS=build/neobios.bin`, colección «BIOS propia»): 5 juegos (Metal Slug, Metal Slug 2, The Last Blade, Samurai Shodown II y KOF '97), todos sin diferencias. `neo/docs/compat-neobios` borrado.
-   - Lo que baja el porcentaje nativo en NEO, GB y SMS son las esperas (HALT/STOP), no el intérprete: en NEO hay 0 instrucciones interpretadas y 38,6 % de ciclos de espera de media. Es lo que F4.1 (STOP salta al próximo evento) quita.
+   - Lo que baja el porcentaje nativo en NEO, GB y SMS son las esperas (HALT/STOP), no el intérprete: en NEO hay 0 instrucciones interpretadas y 38,6 % de ciclos de espera de media. Los bucles de espera ya se saltan (`neo.c`, `METRICA(g, espera, ...)`): son tiempo con el CPU dormido, no trabajo del intérprete. Sin contar la espera, las cinco están en 99,6 % nativo o más en la ronda final; lo que falta está en la ronda 1 (sin traza), sobre todo en SMS (67 %) y GB (82 %). F4.1 mueve poco (GEN: 0,2-0,3 % de los ciclos); F4.3 y F4.4 son los que más.
 
 ### F3. Herramientas gemelas de verdad (3–4 sesiones; cada punto es independiente)
 1. **Registro de sistemas** en un solo archivo: id, nombre, extensiones, botones, modelos, BIOS, cuadros por omisión y herramientas. Lo leen la GUI, el contrato, `recomp_game.sh`, `compat_test` y las tablas del README. Con eso un sexto sistema es una entrada más, y de paso se arreglan PAUSE y `PRESETS`.
@@ -283,6 +283,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
    Es lo único que baja el piso que las trazas no tocan.
 2. **`shared/m68k_recomp.h`** (#64, parte 2), en dos pasos: primero mover sin cambiar un bit (`--codemap`, coverage y golden iguales); después activar en GEN las heurísticas de NEO.
 3. **Z80:** las heurísticas de SMS pasan a `z80_recomp.h`, más operandos variables en el código de RAM y semillas de traza en la M1 de NEO. Es lo que más falta en SMS, que tiene 46 % estático.
+   - Hecho en SMS (18 de octubre de 2026): despachadores de tablas (`LD HL,tabla` + `CALL` a una rutina que lee el puntero), `JP (HL)` a una constante (con `EXX`) y tablas con `LD IX,nn`. Cobertura sin traza de las 27 ROMs de la etapa 2 de compat: 38,8 % → 72,8 % de las instrucciones ejecutadas; en `tests/coverage.py` (20 juegos), 53,2 % → 62,8 %.
+   - Falta: pasar las heurísticas a `z80_recomp.h` (hoy viven en `smsrecomp.c`), los juegos con más páginas que las tres del encendido (Micro Machines 7,9 %, Shinobi 10,0 %, Shining Force 29,5 %) y los datos en línea tras un `CALL` o un `RST` (Alien 3).
 4. **Descubrimiento guiado por perfil** (retrorecomp#16), con piloto en SMS:
    - un almacén de trazas por SHA1 (`--traces-dir`) que generaliza la caché de BIOS de NEO;
    - conteos en `--uncovered`;

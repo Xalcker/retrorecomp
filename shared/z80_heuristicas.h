@@ -33,7 +33,7 @@
 
 /* Cómo se llegó a una instrucción con estas heurísticas (se suman a Z80RC_SEED, Z80RC_FLOW y Z80RC_TRACE; los de la
  * consola, como el salto a otra ranura de SMS, van por debajo) */
-enum { Z80H_TABLE = 16, Z80H_PUSHED, Z80H_CONST, Z80H_BANK };
+enum { Z80H_TABLE = 16, Z80H_PUSHED, Z80H_CONST, Z80H_BANK, Z80H_LOOSE };
 
 typedef struct Z80Host {
     /* El byte que ve el Z80 en a, o -1 si no es código fijo (la RAM, lo que está fuera del mapa) */
@@ -49,8 +49,9 @@ typedef struct Z80Host {
     /* Opcional: siembra a en la página que dice el cambio de banco (no en la del encendido). 1 si es nueva */
     int      (*seed_bank)(void *ctx, int page, int slot, uint16_t a, int how, uint32_t from);
     uint32_t min_target, max_target;    /* los destinos que valen: min_target <= t < max_target (SMS: $0008-$BFFF) */
+    unsigned loose_min;                 /* punteros sueltos: cuántas entradas debe tener la tabla (0: apagado) */
     /* Estadísticas, para --verbose */
-    unsigned tables, table_entries, pushed, consts, banks;
+    unsigned tables, table_entries, pushed, consts, banks, loose;
 } Z80Host;
 
 /* El byte de r->img en a, o 0 si cae fuera del tramo */
@@ -99,7 +100,7 @@ static inline int z80h_plausible(const Z80Host *h, void *ctx, uint16_t t)
 /* La tabla de direcciones de 16 bits que empieza en base (hasta 128): se toman mientras caigan donde valen
  * (min_target..max_target), parezcan código, no lleguen a código descubierto ni a una dirección a la que apunta la misma
  * tabla; se siembran si son dos o más. from: lo que devuelve origin. Cuántas nuevas, o -1 si no hay tabla (menos de dos) */
-static inline int z80h_seed_table(Z80Host *h, void *ctx, const Z80Rc *r, uint32_t base, uint32_t from)
+static inline int z80h_seed_table_n(Z80Host *h, void *ctx, const Z80Rc *r, uint32_t base, uint32_t from, unsigned min_n, int how)
 {
     uint16_t entry[128];
     unsigned n = 0;
@@ -113,11 +114,20 @@ static inline int z80h_seed_table(Z80Host *h, void *ctx, const Z80Rc *r, uint32_
         if (t >= h->max_target || t < h->min_target || (t >= base && t <= at + 1) || !z80h_plausible(h, ctx, (uint16_t)t)) break;
         entry[n] = (uint16_t)t;
     }
-    if (n < 2) return -1;
-    for (unsigned k = 0; k < n; k++) added += h->seed(ctx, entry[k], Z80H_TABLE, from);
-    h->tables++;
-    h->table_entries += n;
+    if (n < min_n) return -1;
+    for (unsigned k = 0; k < n; k++) added += h->seed(ctx, entry[k], how, from);
+    if (how == Z80H_LOOSE) {
+        h->loose++;
+    } else {
+        h->tables++;
+        h->table_entries += n;
+    }
     return added;
+}
+
+static inline int z80h_seed_table(Z80Host *h, void *ctx, const Z80Rc *r, uint32_t base, uint32_t from)
+{
+    return z80h_seed_table_n(h, ctx, r, base, from, 2, Z80H_TABLE);
 }
 
 /* Rutinas que leen un puntero de una tabla cuya base les deja el llamador en HL (sin un LD HL,nn propio):
@@ -262,7 +272,8 @@ static inline int z80h_tables_and_pushed(Z80Host *h, void *ctx, const Z80Rc *r)
         uint8_t b0 = z80h_img(r, a);
         uint8_t b1 = a + 1 <= r->hi ? z80h_img(r, a + 1) : 0;
         int ix = (b0 == 0xDD || b0 == 0xFD) && b1 == 0xE9;
-        if (b0 == 0xE9 || ix) {                     /* JP (HL) / JP (IX) / JP (IY) */
+        int pushret = (b0 == 0xC5 || b0 == 0xD5 || b0 == 0xE5) && b1 == 0xC9;      /* PUSH rr / RET: un salto por la pila */
+        if (b0 == 0xE9 || ix || pushret) {       /* JP (HL) / JP (IX) / JP (IY) / PUSH rr y RET */
             uint8_t want0 = ix ? b0 : 0x21;
             uint32_t base = 0x10000;
             int indexed = 0;
@@ -287,6 +298,7 @@ static inline int z80h_tables_and_pushed(Z80Host *h, void *ctx, const Z80Rc *r)
                 else if (ix && o0 == want0 && (o1 & 0xCF) == 0x09) indexed = 1;     /* ADD IX/IY,rr */
             }
             if (!ix && !indexed) {                  /* sin tabla: un JP (HL) a una constante (LD HL,nn, EXX... EXX, JP (HL)) */
+                if (pushret && b0 != 0xE5) continue;       /* PUSH BC/DE: no se sabe qué lleva */
                 int t = z80h_hl_constant(r, a);
                 if (t >= (int)h->min_target && (uint32_t)t < h->max_target && z80h_plausible(h, ctx, (uint16_t)t) &&
                     h->seed(ctx, (uint16_t)t, Z80H_CONST, h->origin(ctx, (uint16_t)a))) {
@@ -318,13 +330,36 @@ static inline int z80h_tables_and_pushed(Z80Host *h, void *ctx, const Z80Rc *r)
     return added;
 }
 
-/* Todas las heurísticas sobre un tramo, en este orden: tablas y direcciones apiladas, despachadores, cambios de banco.
- * Cuántas direcciones nuevas sembró (0: no queda nada por descubrir con ellas) */
+/* Punteros sueltos: un LD HL/DE/BC/IX/IY,nn cuyo nn es el comienzo de una tabla de al menos loose_min direcciones de código
+ * plausible (las tablas que recorre un bucle o que lee una rutina, sin un JP (HL) cerca que las delate). Más estricto
+ * que las de arriba (4 entradas y no 2) porque el inmediato puede ser cualquier dato. Descubre mucho más código, y
+ * compilarlo tarda: la consola decide con loose_min (0: apagado) */
+static inline int z80h_loose_tables(Z80Host *h, void *ctx, const Z80Rc *r)
+{
+    int added = 0;
+    if (!h->loose_min) return 0;
+    for (uint32_t a = r->lo; a <= r->hi; a++) {
+        if (!r->ins[a]) continue;
+        uint8_t b0 = z80h_img(r, a), b1 = a + 1 <= r->hi ? z80h_img(r, a + 1) : 0;
+        uint32_t nn;
+        if ((b0 == 0x21 || b0 == 0x11 || b0 == 0x01) && a + 2 <= r->hi) nn = (uint32_t)(z80h_img(r, a + 1) | z80h_img(r, a + 2) << 8);
+        else if ((b0 == 0xDD || b0 == 0xFD) && b1 == 0x21 && a + 3 <= r->hi) nn = (uint32_t)(z80h_img(r, a + 2) | z80h_img(r, a + 3) << 8);
+        else continue;
+        if (nn < h->min_target || nn >= h->max_target) continue;
+        int n = z80h_seed_table_n(h, ctx, r, nn, h->origin(ctx, (uint16_t)a), h->loose_min, Z80H_LOOSE);
+        added += n > 0 ? n : 0;
+    }
+    return added;
+}
+
+/* Todas las heurísticas sobre un tramo, en este orden: tablas y direcciones apiladas, despachadores, cambios de banco y
+ * punteros sueltos. Cuántas direcciones nuevas sembró (0: no queda nada por descubrir con ellas) */
 static inline int z80h_heuristics(Z80Host *h, void *ctx, const Z80Rc *r)
 {
     int added = z80h_tables_and_pushed(h, ctx, r);
     added |= z80h_dispatch_tables(h, ctx, r);
     added |= z80h_bank_switches(h, ctx, r);
+    added |= z80h_loose_tables(h, ctx, r);
     return added;
 }
 

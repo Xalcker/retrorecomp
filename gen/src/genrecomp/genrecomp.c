@@ -1459,7 +1459,7 @@ static int zh_seed(void *ctx, uint16_t a, int how, uint32_t from)
     return 1;
 }
 static uint32_t zh_origin(void *ctx, uint16_t a) { (void)ctx; return a; }
-static Z80Host z80_host = { zh_peek, zh_seed, zh_origin, NULL, NULL, 0x0008, 0x2000, 0, 0, 0, 0, 0 };
+static Z80Host z80_host = { .peek = zh_peek, .seed = zh_seed, .origin = zh_origin, .min_target = 0x0008, .max_target = 0x2000 };
 
 /* Corre el juego en el intérprete `frames` cuadros y junta las versiones del driver (zv_img, zv_exec) */
 static void z80_sondear(long frames)

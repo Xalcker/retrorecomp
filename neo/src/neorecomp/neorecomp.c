@@ -1809,7 +1809,7 @@ static int zm1_seed(void *ctx, uint16_t a, int how, uint32_t from)
     return 1;
 }
 static uint32_t zm1_origin(void *ctx, uint16_t a) { (void)ctx; return a; }
-static Z80Host zm1_host = { zm1_peek, zm1_seed, zm1_origin, NULL, NULL, 0x0008, 0x8000, 0, 0, 0, 0, 0 };
+static Z80Host zm1_host = { .peek = zm1_peek, .seed = zm1_seed, .origin = zm1_origin, .min_target = 0x0008, .max_target = 0x8000 };
 
 static void z80_descubrir(const Cart *cart)
 {

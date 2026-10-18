@@ -135,26 +135,38 @@ en cualquier ranura, el código de una página se compila para la ranura donde c
     propio `LD HL,nn`: ese caso es el de las tablas de saltos;
   - **`JP (HL)` a una constante:** el `LD HL,nn` anterior, en el juego de registros que está activo (cada `EXX` los
     cambia) y sin que nada toque HL en medio (hasta 512 bytes hacia atrás); `nn` es un destino, si parece código.
-    En `--why` sale como «constante».
+    En `--why` sale como «constante»;
+  - **otras formas de tabla de saltos:** `PUSH rr` y `RET` (un salto por la pila) con el mismo `LD HL,nn` y `ADD HL,rr`
+    antes; la base armada con `ADD A,lo / LD L,A / ADC A,hi / SUB L / LD H,A` (HL = hi:lo + A); y `LD IX/IY,nn` con
+    `LD L,(IX+0)` y `LD H,(IX+1)`;
+  - **cambios de banco constantes:** `LD A,n` y `LD ($FFFE o $FFFF),A` (en Codemasters, una dirección de la ranura 1 o
+    2) seguidos de un `CALL`, `JP` o `RST` a esa ranura: el destino se siembra en la vista de la página `n` y no en la
+    del encendido. En `--why` sale como «banco»;
+  - **punteros sueltos:** un `LD HL/DE/BC/IX/IY,nn` cuyo `nn` abre una tabla de 4 o más direcciones de código
+    plausible (las que recorre un bucle o lee una rutina, sin un `JP (HL)` cerca). Es la que más descubre y la que más
+    cuesta compilar (Fantastic Dizzy pasó de 67 a 596 s en la ronda 1); `--no-spec` la apaga. En `--why` sale como
+    «inmediato».
+
+  Las heurísticas viven en `../shared/z80_heuristicas.h`; este archivo solo pone el `Z80Host`.
 
   «Parece código» (`plausible`): decodificado hasta el primer salto incondicional, no tiene `RST $38` (lo que hay en la
   ROM vacía), un `ED` sin definir, un prefijo seguido de otro ni cuatro `NOP` seguidos. Descubrir de más no rompe nada
   (lo que se compila son los bytes que hay ahí, y se entra por el PC exacto), pero cuesta tiempo de compilación: sin
   esa comprobación, una entrada que apuntaba a datos arrastraba miles de instrucciones de mentira.
 
-Sin traza, el análisis encuentra algo más de la mitad de lo que ejecuta un juego (`python3 tests/coverage.py`, 3000
-cuadros con las mismas entradas: el 62,8 % de 91 596 instrucciones ejecutadas en 20 juegos, contra el 41,1 % sin las
-heurísticas; del 7,9 % de Micro Machines al 100 % de TransBot); el resto lo dan la traza guionada y lo que
-`difftest --uncovered` ve caer al intérprete (`../shared/recomp_game.py`). Lo que más falta: los juegos con más
-páginas que las tres del encendido (el código de las demás solo lo ve la traza: Micro Machines, Shinobi, Shining
-Force) y los datos en línea tras un `CALL` o un `RST`.
+Sin traza, el análisis encuentra casi todo lo que ejecuta un juego (`python3 tests/coverage.py`, 3000 cuadros con las
+mismas entradas: el 90,6 % de 91 596 instrucciones ejecutadas en 20 juegos; 71,4 % con `--no-spec` y 41,1 % sin ninguna
+heurística); el resto lo dan la traza guionada y lo que `difftest --uncovered` ve caer al intérprete
+(`../shared/recomp_game.py`). Lo que más falta: los juegos que cambian de página con un número que no es una constante
+(una variable o una tabla: Alien 3, Cosmic Spacehead, Predator 2, Shining Force), porque el código de esas páginas solo
+lo ve la traza.
 
 ### Herramientas de análisis
 
 Las mismas de genrecomp, con los formatos que lee la GUI: `--viz` (el mapa coloreado por cómo se descubrió: los
 vectores, la traza, las tablas o lo especulativo; con `--coverage`, en rojo lo ejecutado y no descubierto),
 `--coverage`, `--why` (la cadena de saltos desde un punto de entrada, con «sigue», «salto», «llamada»,
-«bifurcación», «otra_ranura», «tabla», «apilada» y «constante»), `--events`, `--html` (el visor común, `visor_html.h`),
+«bifurcación», «otra_ranura», «tabla», «apilada», «constante», «banco» e «inmediato»), `--events`, `--html` (el visor común, `visor_html.h`),
 `--codemap` y `--dis` (con `z80_dis`).
 
 ### Funciones y emisión

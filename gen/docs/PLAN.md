@@ -97,8 +97,9 @@ mismo contrato de línea de comandos.
     (`--z80-frames`) y compilado con guarda (ver `ARQUITECTURA.md`, «Z80»), sin diferencias en `difftest`.
   - Hecho: el Z80 corre atrasado y se pone al día solo donde se toca con el resto, sin cambiar un bit de
     `golden.py`: de 22-33× a 29-44× tiempo real con el driver nativo.
-  - Falta: más de 4 versiones del driver (Mortal Kombat 3 modifica su código: agrupar por opcodes y leer los
-    operandos de la RAM) y las líneas del Z80 en la traza, para lo que el sondeo no ve.
+  - Hecho: las versiones del driver se agrupan por opcodes y los operandos que cambian se leen de la RAM (Sonic 2:
+    Z80 de 96,1 % a 100 % nativo; Mortal Kombat 3 ya no pierde versiones).
+  - Falta: las líneas del Z80 en la traza, para lo que el sondeo no ve.
 
 ## Comparación con SonicTheHedgehogRecomp (mstan/segagenesisrecomp)
 

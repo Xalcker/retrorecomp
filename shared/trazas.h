@@ -85,8 +85,8 @@ static inline unsigned trazas_carpeta(const char *carpeta, void (*fn)(const char
     closedir(d);
     if (n) qsort(nombres, n, sizeof *nombres, trazas_cmp);
     for (size_t i = 0; i < n; i++) {
-        char ruta[1024];
-        snprintf(ruta, sizeof ruta, "%s/%s", carpeta, nombres[i]);
+        char ruta[1300];                /* la carpeta (hasta 1024) más el nombre */
+        snprintf(ruta, sizeof ruta, "%s/%.255s", carpeta, nombres[i]);
         fn(ruta, ctx);
         free(nombres[i]);
     }

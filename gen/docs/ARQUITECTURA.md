@@ -430,12 +430,15 @@ con el recompilador del Z80 común con NEORecomp y SMSRecomp (`z80_recomp.h`, en
 Xalcker/retrorecomp#59). El driver no está en la ROM tal cual: muchos juegos lo suben comprimido. Por eso
 se aprende corriendo el juego en el intérprete (el **sondeo**: `--z80-frames`, 3600 cuadros por omisión, con
 Start y un poco de mando; `0` lo apaga). El gancho `gen_z80_probe` de `z80bus.c` ve cada instrucción que el
-Z80 ejecuta desde su RAM. Si sus bytes no están en ninguna de las versiones ya vistas, se guarda una copia
-de la RAM como versión nueva (hasta 4).
+Z80 ejecuta desde su RAM. Si sus bytes no están en ninguna de las versiones ya vistas, se busca una versión
+con los mismos opcodes: los drivers que cambian sus propios operandos (los de SMPS, el de Mortal Kombat 3) no
+hacen una versión por cada cambio, sino que esa instrucción se marca como variable (`zv_vol`). Si tampoco
+hay, se guarda una copia de la RAM como versión nueva (hasta 4).
 
 Cada versión se compila aparte (`gen/zrN*.c`), sembrada con lo que se ejecutó de ella, y **con guarda**:
 cada instrucción compara antes sus bytes con la RAM del Z80 (`Z80RC_BYTE`). Si cambiaron (otro driver,
-código que se modifica a sí mismo), la ejecuta el intérprete con lo que hay. `gen/zram.c` (`zram_run`)
+código que se modifica a sí mismo), la ejecuta el intérprete con lo que hay. Las variables comparan solo
+sus opcodes y leen los operandos de la RAM al ejecutar (`vol` de `z80_recomp.h`), como el intérprete. `gen/zram.c` (`zram_run`)
 prueba las versiones, primero la que anduvo la última vez. `src/runtime/z80_recomp_host.h` pone lo mismo
 que `z80_run_until` alrededor de `z80_step`. `z80_run_until` la llama si el PC está en `$0000-$1FFF` y no hay
 una INT que atender, salvo con `--interp` o en la máquina A de `difftest` (`z80_interp_only`), que compara

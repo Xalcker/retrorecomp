@@ -146,7 +146,7 @@ $(BUILD)/gen:
 # El recompilador: un solo ejecutable, con el runtime adentro
 genrecomp$(EXE): src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(SHARED)/m68k_dis.h $(SHARED)/z80_dis.c $(SHARED)/z80_dis.h \
                  $(SHARED)/z80_recomp.h $(SHARED)/z80_heuristicas.h $(SHARED)/z80_vista.h $(SHARED)/visor_html.h \
-                 $(SHARED)/trazas.h src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
+                 $(SHARED)/trazas.h $(SHARED)/m68k_recomp.h src/genrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DGENRECOMP_VERSION='"$(VERSION)"' -Isrc/genrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/genrecomp/genrecomp.c $(SHARED)/m68k_dis.c $(SHARED)/z80_dis.c $(BUILD)/gen/embedded.c $(RT) -lm
 

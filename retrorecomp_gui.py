@@ -13,7 +13,7 @@ Dónde busca los recompiladores: --nes/--gb/--gen/--neo/--sms, las variables
 NESRECOMP_DIR/GBRECOMP_DIR/GENRECOMP_DIR/NEORECOMP_DIR/SMSRECOMP_DIR, la carpeta que contiene a retrorecomp si es
 uno de ellos (submódulo) o sus hermanas NESRecomp, GBRecomp, GENRecomp, NEORecomp y SMSRecomp.
 """
-import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zlib
+import argparse, glob, json, os, re, secrets, shlex, subprocess, sys, threading, time, webbrowser, zipfile, zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
@@ -21,9 +21,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = ".exe" if os.name == "nt" else ""
 WORK = os.path.join(HERE, "build", "gui")
 STATE_FILE = os.path.join(WORK, "state.json")
-# El almacén de trazas por SHA1 (shared/trazas.h): el de RETROCOMP_TRAZAS o uno propio de la GUI. Al recompilar se suma
-# solo (--traces-dir) y el ciclo completo (recomp_game.py) guarda ahí lo que aprende de cada juego
-ALMACEN = os.path.abspath(os.environ.get("RETROCOMP_TRAZAS") or os.path.join(WORK, "almacen"))
+# El almacén de trazas por SHA1 (shared/trazas.h): el de RETROCOMP_TRAZAS o uno propio de la GUI, más el repositorio de trazas
+# compartidas si está clonado al lado (../recomp-trazas, Xalcker/retrorecomp#16). Al recompilar se suman todos (--traces-dir,
+# separados como en PATH) y el ciclo completo (recomp_game.py) guarda lo que aprende de cada juego en el primero
+ALMACEN = os.pathsep.join(
+    [os.path.abspath(d) for d in (os.environ.get("RETROCOMP_TRAZAS") or os.path.join(WORK, "almacen")).split(os.pathsep) if d]
+    + [d for d in [os.path.abspath(os.path.join(HERE, "..", "recomp-trazas"))] if os.path.isdir(d)])
 CELL = 256
 BANK = 0x4000
 
@@ -370,7 +373,8 @@ class NES(System):
             if exe == self.tool(self.window):
                 self.record_trace(argv, env, record_trace_path)
             else:
-                raise ValueError("el juego recompilado no graba trazas: use «todo con el intérprete»")
+                # El recompilado graba lo que tuvo que pasarle al intérprete: justo lo que vale la pena compartir (#16)
+                argv += ["--uncovered", record_trace_path]
         if record_input_path:
             argv += ["--record", record_input_path]
         if play_input:
@@ -1094,6 +1098,29 @@ def merge_traces(rid, names, out_name):
     return len(lines)
 
 
+def share_traces(rid, names, alias):
+    """Una aportación para el repositorio de trazas compartidas (#16, docs/TRAZAS.md): trazas.py compartir junta las marcadas
+    en build/gui/compartir/<sistema>/<SHA1>/ y esa carpeta queda en un .zip. No sube nada"""
+    files = trace_files(rid, names)
+    if not files:
+        raise ValueError("marque al menos una traza")
+    sysm, rp = rom_of(rid)
+    dest = os.path.join(WORK, "compartir")
+    argv = [sys.executable, os.path.join(HERE, "shared", "trazas.py"), "compartir", "--dir", dest]
+    if alias:
+        argv += ["--alias", alias]
+    r = subprocess.run(argv + [rp, *files], cwd=sysm.root, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    m = re.search(r"^(\w+)/([0-9a-f]{40}): ", r.stdout, re.M)
+    if r.returncode != 0 or not m:
+        raise ValueError((r.stderr or r.stdout).strip()[-300:] or "trazas.py compartir falló")
+    carpeta = os.path.join(dest, m.group(1), m.group(2))
+    zip_path = os.path.join(dest, f"{m.group(1)}-{m.group(2)[:12]}.zip")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+        for n in sorted(os.listdir(carpeta)):
+            z.write(os.path.join(carpeta, n), f"{m.group(1)}/{m.group(2)}/{n}")
+    return {"zip": zip_path}
+
+
 def api_map(rid, traces, coverage):
     sysm, rp = rom_of(rid)
     tf = trace_files(rid, traces)
@@ -1234,6 +1261,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"ok": True})
             if path == "/api/trace/merge":
                 return self._send(200, {"lines": merge_traces(p["rom"], p.get("names"), p.get("out") or "unida")})
+            if path == "/api/trace/share":
+                return self._send(200, share_traces(p["rom"], p.get("names"), p.get("alias") or ""))
             if path == "/api/trace/delete":
                 for f in trace_files(p["rom"], [p["name"]]):
                     os.remove(f)

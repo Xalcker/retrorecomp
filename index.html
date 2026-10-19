@@ -188,7 +188,7 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <div class="row">
       <button id="bPlayRec">Jugar grabando traza y entradas</button>
       <button id="bPlay">Jugar</button>
-      <label class="f cap-interp" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterp"> todo con el intérprete</label><label class="f cap-plays" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterpN"> con el intérprete (necesario para grabar traza)</label>
+      <label class="f cap-interp" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterp"> todo con el intérprete</label><label class="f cap-plays" style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pInterpN"> con el intérprete (la traza es todo lo ejecutado; sin él, solo lo que el recompilado no tenía)</label>
      </div>
      <div class="mut" style="font-size:12px">Se guardan al cerrar la ventana del juego. Las entradas grabadas quedan disponibles en la lista «Entradas».</div>
     </div>
@@ -197,6 +197,8 @@ body.easy #roms .st-ok,body.easy #roms .st-error{display:none}
      <div class="mut" style="font-size:12px;margin-bottom:6px">Las marcadas se agregan al análisis (mapa, recompilación).</div>
      <table id="trtab"><thead><tr><th></th><th>Archivo</th><th>Dir.</th><th></th></tr></thead><tbody></tbody></table>
      <div class="row"><input type="text" id="mName" value="unida" style="width:9em"><button id="bMerge">Unir marcadas</button></div>
+     <div class="row"><input type="text" id="shAlias" placeholder="alias (opcional)" style="width:9em"><button id="bShare">Preparar para compartir</button></div>
+     <div class="mut" style="font-size:12px">Junta las marcadas en una aportación para el repositorio de trazas compartidas (sin alias, anónima) y la deja en un .zip; no sube nada.</div>
      <div id="trmsg" class="msg"></div>
     </div>
    </div>
@@ -468,6 +470,10 @@ $("#trtab").onclick=guard(async e=>{
 $("#bMerge").onclick=guard(async()=>{
   const r=await api("/api/trace/merge",{rom:S.rom,names:[...S.checked],out:$("#mName").value});
   $("#trmsg").textContent=`${r.lines} direcciones unidas.`;await refresh();
+});
+$("#bShare").onclick=guard(async()=>{
+  const r=await api("/api/trace/share",{rom:S.rom,names:[...S.checked],alias:$("#shAlias").value.trim()});
+  $("#trmsg").textContent=`Aportación lista: ${r.zip}`;
 });
 
 /* ---------- entradas ---------- */

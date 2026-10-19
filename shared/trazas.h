@@ -10,8 +10,10 @@
  * traza no lleva nada de la ROM: solo desplazamientos y direcciones. Generaliza la caché de la BIOS de NEORecomp
  * (~/.neorecomp/bios/<SHA1>/semillas.txt), que guarda las semillas de cada versión de la BIOS.
  *
- * La carpeta sale de --traces-dir, o de la variable de entorno RETROCOMP_TRAZAS. Una traza de más no rompe nada (a lo más
- * agrega puntos de entrada), pero una de otro juego sí agregaría basura: por eso se entra por el SHA1.
+ * La carpeta sale de --traces-dir, o de la variable de entorno RETROCOMP_TRAZAS. Pueden ser varias, separadas como en PATH
+ * (";" en Windows, ":" en los demás): el almacén propio y, por ejemplo, el repositorio de trazas compartidas; se leen todas,
+ * y lo que se escribe (el sondeo) va a la primera. Una traza de más no rompe nada (a lo más agrega puntos de entrada), pero
+ * una de otro juego sí agregaría basura: por eso se entra por el SHA1.
  */
 #ifndef TRAZAS_H
 #define TRAZAS_H
@@ -22,6 +24,11 @@
 #include <string.h>
 
 #define TRAZAS_ENV "RETROCOMP_TRAZAS"
+#ifdef _WIN32
+#define TRAZAS_SEP ';'
+#else
+#define TRAZAS_SEP ':'
+#endif
 
 /* ¿Son cuarenta dígitos hexadecimales? (el SHA1 forma parte de una ruta: nada de «..» ni de barras) */
 static inline int trazas_sha1_valido(const char *s)
@@ -32,12 +39,24 @@ static inline int trazas_sha1_valido(const char *s)
     return n == 40;
 }
 
-/* La carpeta del almacén: la que se dijo, o la de la variable de entorno, o NULL */
+/* Las carpetas del almacén: las que se dijeron, o las de la variable de entorno, o NULL */
 static inline const char *trazas_dir(const char *dado)
 {
     if (dado && *dado) return dado;
     const char *e = getenv(TRAZAS_ENV);
     return e && *e ? e : NULL;
+}
+
+/* La primera carpeta de la lista (donde se escribe), en buf; NULL si no hay */
+static inline const char *trazas_primera(const char *dirs, char *buf, size_t size)
+{
+    if (!dirs || !*dirs || !size) return NULL;
+    const char *fin = strchr(dirs, TRAZAS_SEP);
+    size_t n = fin ? (size_t)(fin - dirs) : strlen(dirs);
+    if (!n || n >= size) return NULL;
+    memcpy(buf, dirs, n);
+    buf[n] = 0;
+    return buf;
 }
 
 static int trazas_cmp(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
@@ -75,17 +94,32 @@ static inline unsigned trazas_carpeta(const char *carpeta, void (*fn)(const char
     return (unsigned)n;
 }
 
-/* Las trazas del almacén para ese sistema y ese SHA1 (primero DIR/<sistema>/<SHA1>, después DIR/<SHA1>). 0 si no hay, si el
- * SHA1 no es válido o si no se dio carpeta */
-static inline unsigned trazas_del_juego(const char *dir, const char *sistema, const char *sha1,
+/* Las trazas del almacén para ese sistema y ese SHA1: en cada carpeta de la lista `dirs`, primero DIR/<sistema>/<SHA1> y
+ * después DIR/<SHA1> (el SHA1 en minúsculas, como lo escriben trazas.py y sha1_hex). 0 si no hay, si el SHA1 no es válido o
+ * si no se dio carpeta */
+static inline unsigned trazas_del_juego(const char *dirs, const char *sistema, const char *sha1,
                                         void (*fn)(const char *ruta, void *ctx), void *ctx)
 {
-    if (!dir || !*dir || !trazas_sha1_valido(sha1)) return 0;
-    char carpeta[1024];
-    snprintf(carpeta, sizeof carpeta, "%s/%s/%s", dir, sistema, sha1);
-    unsigned n = trazas_carpeta(carpeta, fn, ctx);
-    snprintf(carpeta, sizeof carpeta, "%s/%s", dir, sha1);
-    return n + trazas_carpeta(carpeta, fn, ctx);
+    if (!dirs || !*dirs || !trazas_sha1_valido(sha1)) return 0;
+    char sha[41];
+    for (int i = 0; i < 41; i++) sha[i] = (char)(sha1[i] >= 'A' && sha1[i] <= 'F' ? sha1[i] - 'A' + 'a' : sha1[i]);
+    unsigned n = 0;
+    for (const char *p = dirs; *p;) {
+        const char *fin = strchr(p, TRAZAS_SEP);
+        size_t largo = fin ? (size_t)(fin - p) : strlen(p);
+        if (largo && largo < 900) {
+            char dir[900], carpeta[1024];
+            memcpy(dir, p, largo);
+            dir[largo] = 0;
+            snprintf(carpeta, sizeof carpeta, "%s/%s/%s", dir, sistema, sha);
+            n += trazas_carpeta(carpeta, fn, ctx);
+            snprintf(carpeta, sizeof carpeta, "%s/%s", dir, sha);
+            n += trazas_carpeta(carpeta, fn, ctx);
+        }
+        if (!fin) break;
+        p = fin + 1;
+    }
+    return n;
 }
 
 /* Para los recompiladores que juntan las rutas de --trace en una lista antes de leerlas: trazas_del_juego(..., trazas_a_lista,

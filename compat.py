@@ -631,7 +631,7 @@ class Prueba:
             return
         sha1 = m.group(1).lower()
         with self.lock:
-            _, _, nuevas = trazas.juntar(os.path.join(self.almacen, self.S.id, sha1), [str(traza)])
+            _, _, nuevas = trazas.juntar(os.path.join(trazas.carpeta(self.almacen), self.S.id, sha1), [str(traza)])
         r["almacen_nuevas"] = nuevas
 
     def velocidad(self, f, r):
@@ -702,14 +702,16 @@ def main(S, argv=None):
     ap.add_argument("--oraculos", action="store_true", help="comparar contra los emuladores de referencia (si la consola los tiene)")
     ap.add_argument("--almacen", metavar="DIR", help="el almacén de trazas por SHA1 (shared/trazas.h): el recompilador suma "
                     "las que ya hay de cada juego desde la ronda 1, y lo que cae al intérprete en una ROM sin diferencias se "
-                    "guarda ahí. Sin la opción, la ronda 1 es sin traza (no se lee RETROCOMP_TRAZAS)")
+                    "guarda ahí (varias carpetas separadas como en PATH: se leen todas y se guarda en la primera). "
+                    "Sin la opción, la ronda 1 es sin traza (no se lee RETROCOMP_TRAZAS)")
     a = ap.parse_args(argv)
     utf8()
     if a.oraculos and not S.oraculos:
         sys.exit(f"{S.nombre} no tiene oráculos para --oraculos")
     P = Prueba(S, a.salida)
     if a.almacen:
-        P.almacen = str(pathlib.Path(a.almacen).resolve())
+        # Varias carpetas separadas como en PATH: se leen todas y se guarda en la primera (shared/trazas.h)
+        P.almacen = os.pathsep.join(str(pathlib.Path(d).resolve()) for d in a.almacen.split(os.pathsep) if d)
         print(f"almacén de trazas: {P.almacen}", flush=True)
     guion, diff = S.guiones()
     P.work.mkdir(parents=True, exist_ok=True)

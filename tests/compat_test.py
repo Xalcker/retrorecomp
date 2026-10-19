@@ -209,6 +209,31 @@ def main():
         T([d for d, _ in hall] == ["[0].zip", "[1].detalle", "[2].detalle", "[3].detalle"],
           f"rutas_locales encontró {hall}")
         print("ok    rutas locales: se quitan al guardar y se detectan al leer")
+
+        # --almacen: una ROM sin diferencias deja su traza en DIR/<sistema>/<SHA1>/acumulada.trace (el SHA1 sale de --info),
+        # sin el conteo " xN" y sin repetir; el informe avisa cuántas ROMs usaron el almacén
+        P.almacen = str(pathlib.Path(tmp) / "almacen")
+        traza = pathlib.Path(tmp) / "traza.txt"
+        traza.write_text("00:0150\n01:4000 x7\n00:0150\n")
+        sha = "ab" * 20
+        correr_real = compat.correr
+        compat.correr = lambda argv, **kw: (0, f"rom.gb: 32 KB\nSHA1:        {sha.upper()}\n", 0.0)
+        try:
+            r = {}
+            P.guardar_traza({"rom": "rom.gb"}, traza, r)
+        finally:
+            compat.correr = correr_real
+        acum = pathlib.Path(P.almacen) / "gb" / sha / "acumulada.trace"
+        T(acum.is_file() and acum.read_text().splitlines() == ["00:0150", "01:4000"] and r.get("almacen_nuevas") == 2,
+          f"--almacen: {acum} {acum.read_text() if acum.is_file() else '(no está)'} {r}")
+        D = pathlib.Path(tmp) / "almacen_informe"
+        D.mkdir()
+        rs = filas(S)
+        rs[0]["recompilador"]["almacen"] = True
+        (D / "results.json").write_text(json.dumps({"sistema": "gb", "roms": rs}, ensure_ascii=False), encoding="utf-8")
+        compat.informe(S, ["--salida", str(D)])
+        T("1 ROMs con el almacén de trazas" in (D / "index.html").read_text(encoding="utf-8"), "--almacen: el informe no lo dice")
+        print("ok    --almacen: la traza de una ROM sin diferencias va al almacén por SHA1 y el informe lo dice")
     # La línea común de difftest y bench (shared/metrica.h), como la imprime metrica_imprimir
     linea = ("difftest: 300 cuadros iguales (10 llamadas, 9 a código recompilado)\n"
              "Métrica: 97.0% de las instrucciones nativas (970 de 1000); ciclos: 90.0% nativo, 3.6% intérprete en ROM, "

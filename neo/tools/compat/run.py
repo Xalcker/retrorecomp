@@ -13,6 +13,7 @@ de SNK) y «BIOS propia» con NEO_BIOS=build/neobios.bin. Los oráculos solo se 
 Uso (en la raíz del repo, con todo compilado con "make" y la BIOS del AES en roms/aes.zip o NEO_BIOS):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
                                 [--categoria CATEGORIAS] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+                                [--almacen DIR]
     python3 tools/compat/report.py
 Escribe docs/compat/results.json (después de cada juego: si se corta, la misma orden sigue donde iba) y las
 miniaturas en docs/compat/thumbs/.

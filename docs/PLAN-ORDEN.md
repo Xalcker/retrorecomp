@@ -293,7 +293,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
    - un sondeo dentro del recompilador.
    - Hecho en SMS (18 de octubre de 2026): `shared/trazas.h` y `trazas.py` (el almacén `DIR/sms/<SHA1>/*.trace`, con `--traces-dir` y `RETROCOMP_TRAZAS`), `smsrecomp --probe N` y `--counts` (en `--uncovered` y en `smstrace`); `recomp_game.py` lo usa con `RETROCOMP_TRAZAS`. Con waternet y sin traza guionada, la primera ronda pasa de 979 instrucciones y 30,9 % nativo a 7 658 y 100 % si el almacén ya tiene la corrida anterior.
    - Hecho en los cinco: `--traces-dir` en gbrecomp, nesrecomp, genrecomp y neorecomp (sin el campo `almacen_trazas` del registro: todos lo tienen) y `trazas.py sondear`, el sondeo con el `*trace` de cualquier sistema y las entradas de `tests/inputs/ciclo_traza.txt`; `pruebas.almacen()` lo prueba en cada `run_tests.py`.
-   - Falta: que compat y la GUI lo usen; y el repositorio compartido de trazas del #16 (público o privado, con alias o sin él: decisiones pendientes).
+   - Hecho: `difftest --estricto --uncovered` deja la traza del hueco; compat con `--almacen DIR` (la ronda 1 suma lo guardado y una ROM sin diferencias guarda lo suyo; sin la opción, la ronda 1 sigue sin traza aunque haya `RETROCOMP_TRAZAS`); la GUI usa el almacén de `RETROCOMP_TRAZAS` o `build/gui/almacen` al recompilar y en el ciclo completo.
+   - Falta: el repositorio compartido de trazas del #16 (público o privado, con alias o sin él: decisiones pendientes).
 5. **Huecos puntuales:**
    - NES#10 (una función por par desplazamiento/dirección);
    - espejos de RAM en GEN y NEO;

@@ -5,7 +5,7 @@ solo va lo propio del Game Boy.
 
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
-                                [--categoria MBCS] [--hilos N] [--salida DIR] [--rehacer]
+                                [--categoria MBCS] [--hilos N] [--salida DIR] [--rehacer] [--almacen DIR]
     python3 tools/compat/report.py
 Escribe docs/compat/results.json (después de cada ROM: si se corta, la misma orden sigue donde iba) y las
 miniaturas en docs/compat/thumbs/. Las ROMs se extraen a build/compat/roms y los proyectos a build/compat/out.

@@ -2,7 +2,7 @@
  * El almacén de trazas por SHA1 (F4.4 de docs/PLAN-ORDEN.md; Xalcker/retrorecomp#16). Una carpeta con las trazas de cada juego,
  * que los recompiladores suman a las suyas:
  *
- *   DIR/<sistema>/<SHA1>/ARCHIVO.trace   las trazas de ese juego (las de smstrace, --uncovered o --probe; el formato es
+ *   DIR/<sistema>/<SHA1>/ARCHIVO.trace   las trazas de ese juego (las de *trace, --uncovered o el sondeo; el formato es
  *                                     el de trace_line.h, una instrucción por línea)
  *   DIR/<SHA1>/ARCHIVO.trace             lo mismo, sin la carpeta del sistema
  *
@@ -86,6 +86,18 @@ static inline unsigned trazas_del_juego(const char *dir, const char *sistema, co
     unsigned n = trazas_carpeta(carpeta, fn, ctx);
     snprintf(carpeta, sizeof carpeta, "%s/%s", dir, sha1);
     return n + trazas_carpeta(carpeta, fn, ctx);
+}
+
+/* Para los recompiladores que juntan las rutas de --trace en una lista antes de leerlas: trazas_del_juego(..., trazas_a_lista,
+ * &lista) agrega una copia de cada ruta del almacén mientras quepa (las que no caben se cuentan en `sobran`) */
+typedef struct { const char **v; int n, max; unsigned sobran; } TrazasLista;
+
+static inline void trazas_a_lista(const char *ruta, void *ctx)
+{
+    TrazasLista *l = ctx;
+    char *copia = l->n < l->max ? strdup(ruta) : NULL;
+    if (copia) l->v[l->n++] = copia;
+    else l->sobran++;
 }
 
 #endif

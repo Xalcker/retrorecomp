@@ -8,7 +8,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "shared"))
 import rr  # noqa: E402
-from pruebas import Pruebas, borrar, escribir, exe, lineas, texto  # noqa: E402
+from pruebas import Pruebas, almacen, borrar, escribir, exe, lineas, texto  # noqa: E402
 
 NULO = rr.subprocess.DEVNULL
 
@@ -280,6 +280,9 @@ def main():
     # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
     p.programa(sys.executable, "tests/estricto.py")
     p.tiempo("--estricto")
+    # El almacén de trazas por SHA1 (--traces-dir) y el sondeo (trazas.py sondear), con la ROM de estricto.py
+    almacen(p, "gen", "build/tests/salto.bin", "build/tests/almacen")
+    p.tiempo("almacén de trazas")
 
     print(f"      (total: {int(time.time() - T0)} s)")
     if p.fallas == 0:

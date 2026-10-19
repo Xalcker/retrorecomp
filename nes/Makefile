@@ -93,7 +93,7 @@ $(BUILD)/gen:
 	mkdir -p $@
 
 # El recompilador: un solo ejecutable, con el runtime adentro
-nesrecomp$(EXE): src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(BUILD)/gen/embedded.c $(RT)
+nesrecomp$(EXE): src/nesrecomp/nesrecomp.c src/nesrecomp/embedded.h $(SHARED)/trazas.h $(BUILD)/gen/embedded.c $(RT)
 	$(CC) $(CFLAGS) -DNESRECOMP_VERSION='"$(VERSION)"' -Isrc/nesrecomp -Isrc/runtime -I$(SHARED) -o $@ \
 		src/nesrecomp/nesrecomp.c $(BUILD)/gen/embedded.c $(RT)
 

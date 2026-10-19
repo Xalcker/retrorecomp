@@ -46,6 +46,7 @@
 #include "console.h"
 #include "ram_code.h"
 #include "sha1.h"
+#include "trazas.h"
 #include "embedded.h"
 #include "viz.h"
 
@@ -66,6 +67,10 @@ static const char usage_text[] =
     "                     puntos de entrada, y el código que corrió desde WRAM o\n"
     "                     HRAM (líneas ram) se compila. Se puede repetir: se leen\n"
     "                     todas. Repite el ciclo hasta que no queden.\n"
+    "  --traces-dir DIR   el almacén de trazas por SHA1: suma todas las\n"
+    "                     DIR/gb/<SHA1>/*.trace de este juego (y las de\n"
+    "                     DIR/<SHA1>/) como si fueran --trace; sin la opción,\n"
+    "                     la carpeta de RETROCOMP_TRAZAS\n"
     "  --codemap archivo  qué bytes se tomaron como código (para compararlo con\n"
     "                     un desensamblado)\n"
     "  --dis BB:AAAA:N    desensambla N instrucciones del banco BB en $AAAA\n"
@@ -2842,8 +2847,8 @@ static void print_info(const char *path, const u8 *raw, long size, const char *s
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *rom_path = NULL, *out = NULL, *name = NULL, *codemap = NULL;
-    const char *traces[32];     /* --trace, se puede repetir */
+    const char *rom_path = NULL, *out = NULL, *name = NULL, *codemap = NULL, *traces_dir = NULL;
+    const char *traces[64];     /* --trace, se puede repetir (hasta 32), y después las del almacén */
     int ntraces = 0;
     const char *dis = NULL;     /* --dis BB:AAAA:N */
     const char *events = NULL, *coverage = NULL, *html = NULL;
@@ -2868,6 +2873,7 @@ int main(int argc, char **argv)
             if (ntraces == 32) die("--trace: como mucho 32 archivos");
             traces[ntraces++] = argv[++i];
         }
+        else if (!strcmp(argv[i], "--traces-dir") && i + 1 < argc) traces_dir = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--codemap") && i + 1 < argc) codemap = argv[++i];
         else if (!strcmp(argv[i], "--verbose")) verbose = 1;
@@ -2961,6 +2967,12 @@ int main(int argc, char **argv)
     ev_on = events || viz || nwhy || html;
     ev_add(EV_PHASE, 0, 0, 0, 0, 0, 0, PH_VECTORS);
     discover();
+    /* El almacén de trazas por SHA1 (trazas.h): las de este juego se suman a las de --trace */
+    TrazasLista store = { traces, ntraces, 64, 0 };
+    unsigned nstore = trazas_del_juego(trazas_dir(traces_dir), "gb", sha1, trazas_a_lista, &store);
+    if (store.sobran) printf("almacén: %u trazas no caben (64 como mucho) y no se leen\n", store.sobran);
+    if (nstore) printf("%u trazas del almacén\n", nstore - store.sobran);
+    ntraces = store.n;
     if (ntraces) {
         load_traces(traces, ntraces);
         discover();

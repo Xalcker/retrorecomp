@@ -3,6 +3,10 @@
 sistema, como recomp_game.py: la consola sale de qué recompilador del registro hay en la carpeta.
 
     python3 ../shared/trazas.py agregar [--dir DIR] ROM TRAZA...   suma esas trazas a las del juego (DIR/<sistema>/<SHA1>/)
+    python3 ../shared/trazas.py sondear [--dir DIR] [--cuadros N] ROM
+                                                                   el sondeo: corre el juego en el intérprete (*trace) con
+                                                                   las entradas de tests/inputs/ciclo_traza.txt y deja
+                                                                   sondeo.trace en la carpeta del juego
     python3 ../shared/trazas.py resumen [--dir DIR]                qué juegos hay y cuántas instrucciones tiene cada uno
 
 DIR sale de --dir o de la variable de entorno RETROCOMP_TRAZAS. Las trazas de un juego se juntan en acumulada.trace: una
@@ -19,6 +23,7 @@ import rr  # noqa: E402
 
 ENV = "RETROCOMP_TRAZAS"
 ACUMULADA = "acumulada.trace"
+SONDEO = "sondeo.trace"
 RE_CONTEO = re.compile(r"\s+x\d+\s*$")
 
 
@@ -35,23 +40,32 @@ def lineas_de(ruta):
                 yield l
 
 
-def agregar(dir_, rom, trazas):
+def destino_de(dir_, rom):
+    """(sistema, SHA1, DIR/<sistema>/<SHA1>) de esa ROM, con la carpeta ya creada; None si falta algo (ya avisado)"""
     sis = rr.sistema_aqui()
     if not sis:
         print("no encuentro el recompilador de ningún sistema de shared/sistemas.json en esta carpeta", file=sys.stderr)
-        return 2
+        return None
     if not dir_:
         print(f"falta la carpeta del almacén: --dir DIR o la variable {ENV}", file=sys.stderr)
-        return 2
+        return None
     if not os.path.isfile(rom):
         print(f"no encuentro la ROM {rom}", file=sys.stderr)
-        return 2
+        return None
     sha1 = rr.sha1_de_info(f"{sis}recomp", rom)
     if not re.fullmatch(r"[0-9a-fA-F]{40}", sha1 or ""):
         print(f"no pude leer el SHA1 de {rom} con {sis}recomp --info", file=sys.stderr)
-        return 2
+        return None
     destino = os.path.join(dir_, sis, sha1.lower())
     os.makedirs(destino, exist_ok=True)
+    return sis, sha1.lower(), destino
+
+
+def agregar(dir_, rom, trazas):
+    d = destino_de(dir_, rom)
+    if not d:
+        return 2
+    sis, sha1, destino = d
     ruta = os.path.join(destino, ACUMULADA)
     juntas = set(lineas_de(ruta)) if os.path.isfile(ruta) else set()
     antes = len(juntas)
@@ -62,7 +76,28 @@ def agregar(dir_, rom, trazas):
         juntas.update(lineas_de(t))
     with open(ruta, "w", encoding="utf-8", newline="\n") as f:
         f.write("".join(l + "\n" for l in sorted(juntas)))
-    print(f"{sis}/{sha1.lower()}: {len(juntas)} líneas ({len(juntas) - antes} nuevas) en {ruta}")
+    print(f"{sis}/{sha1}: {len(juntas)} líneas ({len(juntas) - antes} nuevas) en {ruta}")
+    return 0
+
+
+def sondear(dir_, rom, cuadros=None):
+    """El sondeo: corre el juego en el intérprete con el *trace del sistema y las entradas guionadas de
+    tests/inputs/ciclo_traza.txt (las de la traza inicial de recomp_game.py) y deja lo que ejecutó en
+    DIR/<sistema>/<SHA1>/sondeo.trace, que el recompilador suma solo con --traces-dir"""
+    d = destino_de(dir_, rom)
+    if not d:
+        return 2
+    sis, sha1, destino = d
+    cuadros = cuadros or rr.registro()[sis]["cuadros_traza"]
+    ruta = os.path.join(destino, SONDEO)
+    entradas = os.path.join("tests", "inputs", "ciclo_traza.txt")
+    cmd = [rr.exe(f"{sis}trace"), rom, ruta, "--frames", str(cuadros), *(["--input", entradas] if os.path.isfile(entradas) else [])]
+    codigo, salida = rr.correr(cmd)
+    if codigo != 0 or not os.path.isfile(ruta):
+        sys.stdout.write(salida)
+        print(f"el sondeo de {rom} falló ({sis}trace salió con {codigo})", file=sys.stderr)
+        return 2
+    print(f"{sis}/{sha1}: sondeo de {cuadros} cuadros, {sum(1 for _ in lineas_de(ruta))} líneas en {ruta}")
     return 0
 
 
@@ -92,11 +127,15 @@ def resumen(dir_):
 def main(argv):
     rr.utf8()
     dir_ = None
+    cuadros = None
     resto = []
     i = 0
     while i < len(argv):
         if argv[i] == "--dir" and i + 1 < len(argv):
             dir_ = argv[i + 1]
+            i += 2
+        elif argv[i] == "--cuadros" and i + 1 < len(argv) and argv[i + 1].isdigit():
+            cuadros = int(argv[i + 1])
             i += 2
         else:
             resto.append(argv[i])
@@ -104,6 +143,8 @@ def main(argv):
     dir_ = carpeta(dir_)
     if resto[:1] == ["agregar"] and len(resto) >= 3:
         return agregar(dir_, resto[1], resto[2:])
+    if resto[:1] == ["sondear"] and len(resto) == 2:
+        return sondear(dir_, resto[1], cuadros)
     if resto[:1] == ["resumen"] and len(resto) == 1:
         return resumen(dir_)
     print(__doc__, file=sys.stderr)

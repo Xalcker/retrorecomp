@@ -226,12 +226,13 @@ recompilado sin traza), bastan los pasos 1, 2 y 6.
 ## Uso
 
 ```
-gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo]... [--viz] [--events archivo]
-         [--coverage archivo] [--why BB:AAAA]
+gbrecomp juego.gb -o salida/ [--name nombre] [--trace archivo]... [--traces-dir DIR] [--viz]
+         [--events archivo] [--coverage archivo] [--why BB:AAAA]
 ```
 
 `--trace` se puede repetir: se leen todas las trazas (la guionada de `gbtrace` y la de `difftest`,
-por ejemplo), igual que en nesrecomp. `gbrecomp --help` lista todas las opciones, también
+por ejemplo), igual que en nesrecomp. `--traces-dir DIR` (o la variable `RETROCOMP_TRAZAS`) suma además las
+trazas de este juego que haya en el almacén por SHA1, `DIR/gb/<SHA1>/*.trace` (`../shared/trazas.py`). `gbrecomp --help` lista todas las opciones, también
 `--codemap`, `--dis BB:AAAA:N` y `--verbose`.
 
 El descubrimiento estático encuentra casi todo el código. Para lo que quede

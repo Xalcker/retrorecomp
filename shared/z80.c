@@ -37,8 +37,12 @@ void z80_reset(Z80 *z)
     z->sp = 0xFFFF;
 }
 
-int z80_step(struct Z80_HOST *g, Z80 *z)
+/* La entrada a una NMI o a una interrupción, o un paso de HALT: lo que hace z80_step sin ejecutar una instrucción. Devuelve
+ * los ciclos T, o 0 si toca ejecutar una instrucción (y entonces no cambia nada). Aparte del intérprete para que el código
+ * recompilado lo use sin pasar por él (F4.1 de docs/PLAN-ORDEN.md) */
+int z80_service(struct Z80_HOST *g, Z80 *z)
 {
+    if (!z->nmi && !(z->irq && z->iff1 && !z->ei) && !z->halted) return 0;
     Z80X s = { g, z, NULL, 0, z->pc, 0, 0 };
     int ei_was = z->ei;
     z->ei = 0;
@@ -75,7 +79,18 @@ int z80_step(struct Z80_HOST *g, Z80 *z)
         z->p = 0;
         return t;
     }
-    if (z->halted) { z_inc_r(z); z->q = 0; z->p = 0; return 4; }
+    z_inc_r(z);                         /* HALT */
+    z->q = 0;
+    z->p = 0;
+    return 4;
+}
+
+int z80_step(struct Z80_HOST *g, Z80 *z)
+{
+    int t = z80_service(g, z);
+    if (t) return t;
+    Z80X s = { g, z, NULL, 0, z->pc, 0, 0 };
+    z->ei = 0;
     t = z80_exec(&s);
     z->pc = s.pc;
     return t;

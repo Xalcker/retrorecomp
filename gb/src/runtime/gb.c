@@ -781,20 +781,26 @@ void gb_run(GB *g, u64 until)
                 continue;
             }
             if (c->ei_pend) {
-                c->ei_pend = 0;
-                c->ime = 1;
-                g->next_event = 0;
-                after_ei = 1;
+                /* Si la instrucción que sigue al EI tiene código recompilado, el EI queda pendiente y su primer CHECK
+                 * (next_event = 0) lo resuelve en gb_check: activa IME y deja correr esa instrucción antes de cualquier
+                 * interrupción, como dentro del código recompilado (F4.1 de docs/PLAN-ORDEN.md). Si no, el intérprete */
+                if (g->recomp_lookup && !c->halt_bug && !dma_conflict(g, c->pc) && g->recomp_lookup(g, c->pc)) {
+                    g->next_event = 0;
+                } else {
+                    c->ei_pend = 0;
+                    c->ime = 1;
+                    g->next_event = 0;
+                    after_ei = 1;
+                }
             } else {
                 g->next_event = next_hw_event(g);
             }
         }
 
-        /* Tras un EI, IME ya está activo cuando se busca la función recompilada de la instrucción
-         * siguiente: su primer CHECK vería una interrupción pendiente y devolvería el control antes
-         * de ejecutarla, así que la interrupción se atendería una instrucción antes que en el
-         * hardware (con EI seguido de DI, se atendería cuando nunca debe). El intérprete ejecuta
-         * esa instrucción sin revisar nada y el siguiente paso del bucle atiende la interrupción */
+        /* after_ei: el EI ya activó IME y la instrucción siguiente no tiene código recompilado (arriba, la que
+         * sí tiene deja el EI pendiente para su gb_check). Con IME activo, un CHECK vería la interrupción
+         * pendiente y devolvería el control antes de ejecutarla: el intérprete ejecuta esa instrucción sin
+         * revisar nada y el siguiente paso del bucle atiende la interrupción */
         RecompFn fn = NULL;
         if (g->recomp_lookup && !after_ei && !c->halt_bug && !dma_conflict(g, c->pc))
             fn = g->recomp_lookup(g, c->pc);

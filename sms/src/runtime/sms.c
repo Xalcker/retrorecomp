@@ -67,25 +67,37 @@ static void trace_note(Sms *g, u16 pc)
 METRICA_DEFINIR
 PROF_DEFINE;            /* la zona que muestrea --profile (prof.h) */
 
-void sms_step(Sms *g)
+/* La entrada a una NMI o a una interrupción, o un paso de HALT, sin el intérprete (z80_service; F4.1 de docs/PLAN-ORDEN.md).
+ * Devuelve 0 si toca ejecutar una instrucción */
+static int sms_service(Sms *g)
 {
     Z80 *z = &g->z80;
-    int que = 0;                /* para la métrica: 0 instrucción, 1 entrada a una interrupción, 2 HALT */
-    u16 pc0 = z->pc;
+    int que;                    /* para la métrica: 1 entrada a una interrupción, 2 HALT */
     if (z->nmi) { g->nmi_count++; que = 1; }
     else if (z->irq && z->iff1 && !z->ei) { g->irq_count++; que = 1; }
     else if (z->halted) que = 2;
-    else if (g->cart.trace) trace_note(g, z->pc);
+    else return 0;
+    int t = z80_service(g, z);
+    g->cyc += (u64)t;
+    Z80_STAT(g, interp, (u64)t);
+    if (que == 1) METRICA(g, irq, (u64)t);
+    else METRICA(g, espera, (u64)t);
+    sms_after_step(g);
+    return 1;
+}
+
+void sms_step(Sms *g)
+{
+    if (sms_service(g)) return;
+    Z80 *z = &g->z80;
+    u16 pc0 = z->pc;
+    if (g->cart.trace) trace_note(g, z->pc);
     int t = z80_step(g, z);
     g->cyc += (u64)t;
     Z80_STAT(g, interp, (u64)t);
     if ((const void *)g == metrica_de) {
-        if (que == 1) metrica.irq += (u64)t;
-        else if (que == 2) metrica.espera += (u64)t;
-        else {
-            metrica.ins_int++;
-            if (bus_rom_offset(g, pc0) >= 0) metrica.rom += (u64)t; else metrica.ram += (u64)t;
-        }
+        metrica.ins_int++;
+        if (bus_rom_offset(g, pc0) >= 0) metrica.rom += (u64)t; else metrica.ram += (u64)t;
     }
     sms_after_step(g);
 }
@@ -116,10 +128,10 @@ int sms_recomp_step(Sms *g)
 {
     Z80 *z = &g->z80;
     if (halt_skip(g)) return 0;
-    int instr = !z->nmi && !(z->irq && z->iff1 && !z->ei) && !z->halted;    /* no es entrada a interrupción ni HALT */
-    if (instr && (sms_force_interp || (const void *)g == z80_interp_only))
+    if (sms_service(g)) return 0;       /* la entrada a una interrupción o el HALT: sin el intérprete */
+    if (sms_force_interp || (const void *)g == z80_interp_only)
         metrica_motivo(g, MOTIVO_FORZADO, z->pc);
-    else if (instr) {
+    else {
         Z80RecompFn fn = recomp_lookup(g, z->pc);
         if (fn) {
             sms_rc_map_ver = g->map.map_ver;

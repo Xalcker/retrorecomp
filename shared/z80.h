@@ -39,6 +39,7 @@ void    z80_out(struct Z80_HOST *g, uint16_t port, uint8_t v);
 
 void z80_reset(Z80 *z);
 int  z80_step(struct Z80_HOST *g, Z80 *z);   /* una instrucción (o la interrupción pendiente); ciclos T */
+int  z80_service(struct Z80_HOST *g, Z80 *z);    /* solo la entrada a NMI/INT o un paso de HALT; 0 si toca una instrucción */
 
 /* Estadística (bench, difftest): ciclos T del Z80 por camino, solo de la consola en z80_stat_of (NULL:
  * de ninguna; difftest mide la máquina B). Va fuera de la estructura de la consola, porque los estados

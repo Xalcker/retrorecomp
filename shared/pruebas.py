@@ -71,7 +71,9 @@ def exe(nombre):
 def almacen(p, sis, rom, carpeta, cuadros=300):
     """El almacén de trazas por SHA1 (shared/trazas.h y trazas.py) con una ROM de prueba del sistema `sis`:
     - trazas.py agregar y --traces-dir dan el mismo --codemap que --trace con la misma traza;
-    - trazas.py sondear deja sondeo.trace en la carpeta del juego, y el recompilador la suma.
+    - trazas.py sondear deja sondeo.trace en la carpeta del juego, y el recompilador la suma;
+    - --traces-dir con varias carpetas las lee todas;
+    - trazas.py compartir arma una aportación que trazas.py validar acepta (y el almacén también).
     `carpeta` es de trabajo (se borra y se vuelve a crear)"""
     import shutil
     if not os.path.isfile(rom):
@@ -98,6 +100,17 @@ def almacen(p, sis, rom, carpeta, cuadros=300):
     p.comprobar(c4 == c5 == 0 and len(hecho) == 1 and f"{os.sep}{sis}{os.sep}" in hecho[0] and "1 trazas del almacén" in o_r,
                 "trazas.py sondear deja sondeo.trace en el almacén y el recompilador la suma",
                 "trazas.py sondear deja sondeo.trace en el almacén y el recompilador la suma:\n" + (o_s + o_r)[-600:])
+    # Varias carpetas (como en PATH): se leen todas
+    _, o_v, _ = codemap(f"{carpeta}/varias.cm", "--traces-dir", os.pathsep.join([dir_, sondeo]))
+    p.comprobar("2 trazas del almacén" in o_v, f"{sis}recomp --traces-dir con dos carpetas lee las dos")
+    # Una aportación para el repositorio compartido (#16): anónima, válida, y el recompilador la lee como cualquier traza
+    aporte = f"{carpeta}/aporte"
+    c6, o_c = rr.correr([sys.executable, "../shared/trazas.py", "compartir", "--dir", aporte, rom, traza])
+    c7, o_val = rr.correr([sys.executable, "../shared/trazas.py", "validar", aporte, dir_, sondeo])
+    _, o_a, _ = codemap(f"{carpeta}/aporte.cm", "--traces-dir", aporte)
+    p.comprobar(c6 == c7 == 0 and "1 trazas del almacén" in o_a,
+                "trazas.py compartir y validar: la aportación y el almacén pasan la validación del repositorio compartido",
+                "trazas.py compartir y validar:\n" + (o_c + o_val)[-600:])
 
 
 def nombre_seguro(ruta):

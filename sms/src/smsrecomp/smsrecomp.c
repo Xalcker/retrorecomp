@@ -1091,9 +1091,9 @@ int main(int argc, char **argv)
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
     if (probe_frames > 0) {
         /* El sondeo: la traza va al almacén (DIR/sms/<SHA1>/sondeo.trace, que se suma sola abajo) o, sin almacén, a la
-         * carpeta de salida */
-        const char *almacen = trazas_dir(traces_dir);
-        char carpeta[900], ruta[1000];
+         * carpeta de salida. Con varias carpetas de almacén, a la primera */
+        char primera[700], carpeta[900], ruta[1000];
+        const char *almacen = trazas_primera(trazas_dir(traces_dir), primera, sizeof primera);
         int al_almacen = almacen && trazas_sha1_valido(cart->sha1);
         if (al_almacen) snprintf(carpeta, sizeof carpeta, "%s/sms/%s", almacen, cart->sha1);
         else if (out) snprintf(carpeta, sizeof carpeta, "%s", out);

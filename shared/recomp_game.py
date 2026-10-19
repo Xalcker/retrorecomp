@@ -82,12 +82,14 @@ def main(argv):
     estado = {"falla": False, "ronda": 1}
 
     # El almacén de trazas por SHA1 (shared/trazas.h): si hay carpeta (RETROCOMP_TRAZAS), el recompilador suma las trazas que ya
-    # hay de este juego y, al terminar sin diferencias, la traza acumulada se guarda ahí para la próxima
+    # hay de este juego y, al terminar sin diferencias, la traza acumulada se guarda ahí para la próxima (con varias carpetas,
+    # se leen todas y se guarda en la primera)
+    almacenes = env.get(trazas.ENV, "")
     almacen = trazas.carpeta(None)
 
     def ronda():
         c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza, *rr.opciones_pruebas(con),
-                               *(["--traces-dir", almacen] if almacen else [])])
+                               *(["--traces-dir", almacenes] if almacen else [])])
         util = [l for l in salida.splitlines() if re.search("código|funciones", l)]
         if not util:
             return 2

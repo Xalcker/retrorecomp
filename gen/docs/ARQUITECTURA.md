@@ -133,14 +133,24 @@ Los saltos indirectos se resuelven con heurísticas (`--no-tables` las apaga), m
 - **Tabla de instrucciones:** `jmp tbl(pc,d0.w)` sin una carga desde tabla: cada entrada es un
   `bra.w`, `bra.s` o `jmp` del mismo largo (los modos de juego de Sonic 1).
 - **Tabla de punteros de 32 bits:** `movea.l tbl(pc,d0.w),a0` / `jmp (a0)` (Sonic 3).
+- **Tabla de tablas:** `movea.l tbls(pc,d0.w),a0` / `move.w 0(a0,d0.w),d1` / `jmp 0(a0,d1.w)`: cada
+  puntero de `tbls` es una tabla de desplazamientos relativos a ella misma.
+- **Desplazamiento cargado con `lea`:** `lea tbl,a0` / `move.w 0(a0,d0.w),d0` / `lea 0(a0,d0.w),a0` /
+  `jsr (a0)`.
+- **Bloque desenrollado:** `jmp blk(pc,d4.w)` sin tabla detrás: se entra a la mitad de un bloque
+  repetido, que es código desde `blk`.
 - **Base constante:** `lea rutina,a0` / `jmp (a0)`.
 
 Y otras especulativas (`--no-spec` las apaga), que se recorren solo cuando ya no queda nada seguro:
 
 - **Punteros inmediatos:** `move.l #rutina,...` (no a un `Dn`), `movea.l #rutina,An`, `pea rutina` y
   `lea rutina,An`: punteros que se guardan para llamarlos después (los objetos de Sonic 2 y 3, las
-  tareas de Comix Zone, los trampolines `JMP` en la RAM).
-- **Tablas sueltas:** cuatro o más largos seguidos que apuntan, todos, a algo con pinta de rutina.
+  tareas de Comix Zone, los trampolines `JMP` en la RAM). Si es `move.l #siguiente,...` seguido de un
+  `RTS` y `siguiente` está justo después, basta con que parezca código: es el próximo estado de un objeto.
+- **Tablas sueltas:** cuatro o más largos con el mismo paso (4, 6 u 8 bytes: punteros sueltos o
+  registros con un puntero) que apuntan, todos, a algo con pinta de rutina.
+- **Anclas de estados:** `move.l #X,(An)` o `move.l #X,d16(An)` donde X es la instrucción que sigue (o la
+  que sigue a un `RTS` inmediato): el objeto guarda su próximo estado, que empieza ahí.
 - **Tras un final:** después de un `RTS`, `RTE`, `RTR`, `BRA` o `JMP` suele empezar otra rutina, aunque
   solo se llegue a ella por un salto calculado (los trozos desenrollados de Mortal Kombat 3 que
   terminan en `jmp (a0)`).
@@ -148,18 +158,22 @@ Y otras especulativas (`--no-spec` las apaga), que se recorren solo cuando ya no
 "Con pinta de código" (`plausible`) es decodificar en línea recta sin guardar nada: opcodes válidos
 (ni `ILLEGAL`, ni línea A/F, ni `ori.b #0,d0`, que son ceros), direcciones absolutas razonables
 (cartucho, Z80, E/S, VDP, RAM) y destinos de saltos dentro de la ROM, hasta un final de rutina. Para lo
-especulativo ese final tiene que llegar en menos de 64 instrucciones; para las tablas que el código
+especulativo ese final tiene que llegar en menos de 64 instrucciones, o en menos de 160 si hay señales
+de código (llamadas a rutinas ya descubiertas, saltos que caen justo en una de las instrucciones
+decodificadas, accesos absolutos a la RAM, al VDP, a la E/S o al Z80); para las tablas que el código
 delata también valen 64 instrucciones válidas seguidas (las rutinas de inicialización son largas).
+Estas heurísticas son las de NEORecomp (F4.2 de `docs/PLAN-ORDEN.md`).
 
 Descubrir de más no rompe nada: lo que se recompila es lo que hay en esa dirección, y si el juego
 nunca llega ahí, nunca se ejecuta. Solo cuesta tiempo de compilación. Las instrucciones de las trazas
 (`--trace`) se agregan como semillas para lo que las heurísticas no encuentran.
 
 **Cobertura sin traza** (`python3 tests/coverage.py`: de lo que el juego ejecuta en 1800 cuadros con un
-mando aleatorio, cuánto encuentra el análisis solo): 97,6 % en total con los 23 juegos de `roms/`;
-100 % en Sonic 1 y 2, Comix Zone, Contra Hard Corps, Phantasy Star IV, MK1, Road Rash II, SF2CE y
-SSF2; entre 93 y 99,7 % en el resto (lo más bajo: Wonder Boy in Monster World, 92,8 %, y Wily Wars,
-93,6 %). Sin las heurísticas (`--no-tables`), Sonic 1 se queda en 25 %.
+mando aleatorio, cuánto encuentra el análisis solo): 98,9 % en total con los 23 juegos de `roms/`
+(97,5 % antes de las heurísticas de NEORecomp); 100 % en Sonic 1, 2 y 3, Sonic & Knuckles, Comix Zone,
+Contra Hard Corps, Phantasy Star IV, MK1, Road Rash II, SF2CE, SSF2, Wily Wars, Mickey Mania y los dos
+NBA Jam; entre 96 y 99,7 % en el resto, salvo Wonder Boy in Monster World (92,8 %). Sin las
+heurísticas (`--no-tables`), Sonic 1 se queda en 25 %.
 
 ### Herramientas de análisis
 

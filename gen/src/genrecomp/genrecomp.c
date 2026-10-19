@@ -262,51 +262,98 @@ static void follow(u32 off, u32 addr, u32 target)
 /*
  * ¿Lo que hay en (off, addr) parece el comienzo de una rutina? Se decodifica en línea recta, sin
  * guardar nada: opcodes válidos (ni ILLEGAL, ni línea A/F, ni ori.b #0,d0: ceros), direcciones absolutas
- * razonables y destinos de saltos dentro de la ROM, hasta un RTS/RTE/RTR/BRA/JMP. Con `strict`
- * (punteros sueltos, sin un código que los use como tabla) ese final tiene que llegar en menos de 64
- * instrucciones; si no, también valen 64 instrucciones válidas seguidas (las rutinas de
- * inicialización son largas). Los datos al azar casi nunca pasan.
+ * razonables y destinos de saltos dentro de la ROM, hasta un RTS/RTE/RTR/BRA/JMP (o código ya
+ * descubierto). Sin `strict` basta con llegar a ese final o con 64 instrucciones válidas seguidas.
+ * Con `strict` (punteros sueltos, sin un código que los use como tabla) el final tiene que llegar en
+ * menos de 64 instrucciones; las rutinas largas (de inicialización, de estados) valen si dan señales
+ * de código: un final antes de 160 instrucciones con algo de evidencia, o 160 instrucciones con mucha.
+ * La evidencia: llamadas a rutinas ya descubiertas, saltos que caen justo en una de las instrucciones
+ * decodificadas y accesos absolutos a la RAM, al VDP, a la E/S o al Z80 (como en NEORecomp). Los datos
+ * al azar casi nunca pasan.
  */
+static int abs_evidence(size_t off, u16 op, int kind);
+
+#define PLAUSIBLE_SHORT 64
+#define PLAUSIBLE_LONG  160
+
 static int plausible(u32 off, u32 addr, int strict)
 {
     if ((off & 1) || (addr & 1) || addr < 0x200) return 0;
-    for (int n = 0; n < 64; n++) {
+    int evidence = 0, nstart = 0, nfwd = 0, n, max = strict ? PLAUSIBLE_LONG : PLAUSIBLE_SHORT, ended = 0;
+    u32 starts[PLAUSIBLE_LONG], fwd[PLAUSIBLE_LONG];
+    for (n = 0; n < max && !ended; n++) {
         if (off + 2 > rom_size) return 0;
-        if (is_ins[off >> 1]) return 1;                 /* se une a código ya descubierto */
+        if (is_ins[off >> 1]) { ended = 1; break; }    /* se une a código ya descubierto */
+        starts[nstart++] = addr;
         u16 op = romw(off);
         int kind = m68k_decode(op), len = ins_len(off);
         if ((op == 0x0000 && romw(off + 2) == 0x0000) || kind == K_ILLEGAL || kind == K_LINEA || kind == K_LINEF) return 0;
         if (off + (u32)len > rom_size || !sane_operands(off, op, kind)) return 0;
         switch (kind) {
-        case K_BCC: {
+        case K_BCC: case K_DBCC: {
             u32 d8 = op & 0xFF;
-            u32 to = addr + 2 + (d8 ? sx8(d8) : sx16(romw(off + 2)));
+            u32 to = addr + 2 + (kind == K_BCC && d8 ? sx8(d8) : sx16(romw(off + 2)));
             if (target_offset(off, addr, to) < 0) return 0;
-            if ((op >> 8 & 15) == 0) return 1;          /* BRA */
+            if (kind == K_BCC && (op >> 8 & 15) == 0) { ended = 1; break; }     /* BRA */
+            /* un salto corto hacia atrás o adelante que cae justo en una de estas instrucciones */
+            if (to < addr) { for (int k = 0; k < nstart; k++) if (starts[k] == to) { evidence += 3; break; } }
+            else if (to - addr < 0x400 && nfwd < PLAUSIBLE_LONG) fwd[nfwd++] = to;
             break; }
-        case K_DBCC:
-            if (target_offset(off, addr, addr + 2 + sx16(romw(off + 2))) < 0) return 0;
-            break;
         case K_JMP: case K_JSR: {
             long t = jump_target(off, addr, op);
             if (t >= 0 && t < 0x400000 && target_offset(off, addr, (u32)t) < 0) return 0;
-            if (kind == K_JMP) return 1;
+            if (kind == K_JMP) { ended = 1; break; }
+            if (t >= 0 && t < 0x400000) {               /* llamada a una rutina ya descubierta */
+                long to = target_offset(off, addr, (u32)t);
+                if (to >= 0 && is_ins[to >> 1]) evidence += 3;
+            }
             break; }
-        case K_RTS: case K_RTE: case K_RTR: return 1;
-        default: break;
+        case K_RTS: case K_RTE: case K_RTR: ended = 1; break;
+        default: evidence += abs_evidence(off, op, kind); break;
         }
         off += (u32)len;
         addr += (u32)len;
         if ((off ^ (off - (u32)len)) & ~(BANK_SIZE - 1)) return 0;     /* cruzó de banco */
     }
-    return !strict;
+    if (n <= PLAUSIBLE_SHORT && (ended || !strict)) return 1;
+    for (int j = 0; j < nfwd; j++)
+        for (int k = 0; k < nstart; k++) if (starts[k] == fwd[j]) { evidence += 3; break; }
+    return ended ? evidence >= 4 : evidence >= 8;
+}
+
+/* ¿Una dirección absoluta larga a la RAM ($E00000-$FFFFFF), al VDP, a la E/S o al Z80? Solo en los
+ * operandos de MOVE y de las operaciones de un operando, como sane_operands */
+static int abs_target(u32 a)
+{
+    a &= 0xFFFFFF;
+    return a >= 0xE00000 || (a >= 0xC00000 && a < 0xC00020) || (a >= 0xA10000 && a < 0xA10020) ||
+           (a >= 0xA11100 && a < 0xA11300) || (a >= 0xA00000 && a < 0xA02000);
+}
+
+static int abs_evidence(size_t off, u16 op, int kind)
+{
+    int i = 1, e = 0;
+    int ea[2][2] = { { op >> 3 & 7, op & 7 }, { op >> 6 & 7, op >> 9 & 7 } }, n = 0;
+    switch (kind) {
+    case K_MOVE: case K_MOVEA: n = 2; break;
+    case K_TST: case K_UNARY: case K_ALU: case K_QUICK: n = 1; break;
+    default: return 0;
+    }
+    int sz = kind == K_MOVE || kind == K_MOVEA ? ((op >> 12 & 3) == 1 ? 0 : (op >> 12 & 3) == 3 ? 1 : 2) : op >> 6 & 3;
+    for (int k = 0; k < n; k++) {
+        int mode = ea[k][0], reg = ea[k][1];
+        if (mode == 7 && reg == 1 && abs_target(roml(off + 2 * (size_t)i))) e++;
+        sane_ea(off, mode, reg, sz, &i);
+    }
+    return e;
 }
 
 /* --- Tablas de saltos (hist, known_areg, loaded_from_table... en m68k_recomp.h) --- */
 
 /* Tabla de desplazamientos de 16 bits relativos a la base (Sonic: move.w tbl(pc,d0.w),d1 /
  * jmp tbl(pc,d1.w)). Termina donde empieza la primera rutina o en la primera entrada que no apunta
- * a algo con pinta de código. */
+ * a algo con pinta de código. Lo especulativo no la corta: "tras un final" pudo tomar la tabla, que
+ * sigue a un BRA, por código (como en NEORecomp). */
 static void scan_offset_table(u32 src_off, u32 src_addr, u32 base)
 {
     long tb = target_offset(src_off, src_addr, base);
@@ -317,7 +364,7 @@ static void scan_offset_table(u32 src_off, u32 src_addr, u32 base)
     int good = 0;
     for (int i = 0; i < 512; i++) {
         long p = tb + 2 * i;
-        if (p + 2 > end || (i && is_ins[p >> 1])) break;
+        if (p + 2 > end || (i && is_ins[p >> 1] && origin[p >> 1] != ORG_SPEC)) break;
         u32 t = (base + sx16(romw((size_t)p))) & 0xFFFFFF;
         long to = target_offset(src_off, src_addr, t);
         if (to < 0 || !(is_ins[to >> 1] || plausible((u32)to, t, 0))) break;
@@ -331,10 +378,10 @@ static void scan_offset_table(u32 src_off, u32 src_addr, u32 base)
 
 /* Tabla de saltos hecha de instrucciones (jmp tbl(pc,d0.w) con tbl: bra.w a / bra.w b / ...): cada
  * entrada es código. Se aceptan BRA.W, BRA.S, JMP (xxx).w y JMP (xxx).l, todas del mismo largo. */
-static void scan_branch_table(u32 src_off, u32 src_addr, u32 base)
+static int scan_branch_table(u32 src_off, u32 src_addr, u32 base)
 {
     long tb = target_offset(src_off, src_addr, base);
-    if (tb < 0) return;
+    if (tb < 0) return 0;
     int saved = cur_how;
     cur_how = HOW_TABLE;
     int size = 0, good = 0;
@@ -358,6 +405,7 @@ static void scan_branch_table(u32 src_off, u32 src_addr, u32 base)
     if (verbose) printf("  $%06X: tabla de saltos en $%06X, %d entradas\n", src_addr, base, good);
     if (good) { stat_tables++; stat_table_entries += (unsigned)good; }
     cur_how = saved;
+    return good;
 }
 
 /* Tabla de punteros de 32 bits (movea.l tbl(pc,d0.w),a0 / jmp (a0)) */
@@ -370,7 +418,7 @@ static void scan_ptr_table(u32 src_off, u32 src_addr, u32 base)
     int good = 0;
     for (int i = 0; i < 256; i++) {
         long p = tb + 4 * i;
-        if (p + 4 > (long)rom_size || (i && is_ins[p >> 1])) break;
+        if (p + 4 > (long)rom_size || (i && is_ins[p >> 1] && origin[p >> 1] != ORG_SPEC)) break;
         u32 t = roml((size_t)p);
         if (t >> 24 || t >= 0x400000) break;
         long to = gen_code_offset(gen, t);
@@ -378,6 +426,7 @@ static void scan_ptr_table(u32 src_off, u32 src_addr, u32 base)
         push_work((u32)to, t);
         good++;
     }
+    if (verbose) printf("  $%06X: tabla de punteros en $%06X, %d entradas\n", src_addr, base, good);
     if (good) { stat_tables++; stat_table_entries += (unsigned)good; }
     cur_how = saved;
 }
@@ -389,17 +438,57 @@ static void analyze_indirect(u32 off, u32 addr, u16 op)
     u16 x = romw(off + 2);
     stat_ind++;
     if ((mode == 7 && reg == 3) || mode == 6) {
-        u32 base, tbase;
+        u32 base, tbase, k;
+        /* movea.l tbls(pc,d0.w),a0 / move.w 0(a0,d0.w),d1 / jmp 0(a0,d1.w): cada puntero de tbls es una
+         * tabla de desplazamientos relativos a ella misma */
+        if (mode == 6 && !known_areg(h, reg, &k) && loaded_from_table(h, 1, reg, &tbase) == 2) {
+            long pt = target_offset(off, addr, tbase);
+            for (int i = 0; pt >= 0 && i < 64 && pt + 4 * (long)i + 4 <= (long)rom_size; i++) {
+                u32 t = roml((size_t)pt + 4 * (size_t)i);
+                if (t >> 24 || (t & 1) || target_offset(off, addr, t) < 0) break;
+                int dup = 0;
+                for (int j = 0; j < i && !dup; j++) dup = roml((size_t)pt + 4 * (size_t)j) == t;
+                if (!dup) scan_offset_table(off, addr, t);
+            }
+            return;
+        }
         if (!indexed_base(h, mode, reg, x, addr + 2, &base)) return;
         int sz = loaded_from_table(h, (x & 0x8000) != 0, x >> 12 & 7, &tbase);
         if (sz == 1 && tbase == base) scan_offset_table(off, addr, base);
-        else scan_branch_table(off, addr, base);
+        else if (!scan_branch_table(off, addr, base)) {
+            /* jmp blk(pc,d4.w) sin tabla: se entra a la mitad de un bloque desenrollado (move.l d7,(a6) /
+             * add.l d3,d7 ...); el bloque es código desde blk */
+            long tb = target_offset(off, addr, base);
+            if (tb >= 0 && !is_ins[tb >> 1] && plausible((u32)tb, base, 0)) {
+                int saved = cur_how;
+                cur_how = HOW_TABLE;
+                push_work((u32)tb, base);
+                cur_how = saved;
+            }
+        }
         return;
     }
     if (mode == 2 || mode == 5) {
         u32 d = mode == 5 ? sx16(x) : 0, base, k;
         int sz = loaded_from_table(h, 1, reg, &base);
         if (sz == 2) { scan_ptr_table(off, addr, base); return; }
+        /* lea tbl,a0 / move.w 0(a0,d0.w),d0 / lea 0(a0,d0.w),a0 / jsr (a0): desplazamientos desde tbl */
+        for (int i = h - 1; !sz && i >= 0 && i >= h - 10; i--) {
+            u32 o = hist[i];
+            if (!writes_areg(o, reg)) continue;
+            u16 lop = romw(o);
+            int lm = lop >> 3 & 7, lr = lop & 7;
+            if (m68k_decode(lop) == K_LEA && (lm == 6 || (lm == 7 && lr == 3))) {
+                u16 lx = romw(o + 2);
+                u32 b, tb;
+                if (indexed_base(i, lm, lr, lx, ins_addr[o >> 1] + 2, &b) &&
+                    loaded_from_table(i, (lx & 0x8000) != 0, lx >> 12 & 7, &tb) == 1 && tb == b) {
+                    scan_offset_table(off, addr, b);
+                    return;
+                }
+            }
+            break;
+        }
         if (!sz && known_areg(h, reg, &k)) {                       /* lea rutina,a0 / jmp (a0) */
             int saved = cur_how;
             cur_how = HOW_TABLE;
@@ -422,7 +511,12 @@ static void immediate_pointer(u32 off, u32 addr, u16 op)
     else return;
     if (t >> 24 || t >= 0x400000 || t < 0x200 || (t & 1)) return;
     long to = gen_code_offset(gen, t);
-    if (to < 0 || is_ins[to >> 1] || !plausible((u32)to, t, 1)) return;
+    /* move.l #siguiente,estado(a6) / rts / [unos datos] / siguiente: (el próximo estado de un objeto,
+     * justo después): basta con que parezca código */
+    u32 len = (u32)ins_len(off);
+    int next_state = (op >> 12) == 2 && off + len + 2 <= rom_size && romw(off + len) == 0x4E75 &&
+                     t >= addr + len + 2 && t <= addr + len + 2 + 16;
+    if (to < 0 || is_ins[to >> 1] || !plausible((u32)to, t, !next_state)) return;
     int saved = cur_how;
     cur_how = HOW_IMM;
     push_work((u32)to, t);
@@ -430,34 +524,63 @@ static void immediate_pointer(u32 off, u32 addr, u16 op)
     cur_how = saved;
 }
 
-/* Tablas de punteros que ningún patrón de código delata: cuatro o más largos seguidos que apuntan,
- * todos, a algo con pinta de rutina (tablas de objetos, de estados) */
+/* Tablas de punteros que ningún patrón de código delata: cuatro o más largos con el mismo paso (4, 6 u 8
+ * bytes: tablas de punteros sueltos o de registros con un puntero, como las de objetos y estados) que
+ * apuntan, todos, a algo con pinta de rutina. En los primeros 4 MB, donde la dirección es el desplazamiento */
 static void scan_pointer_runs(void)
 {
     cur_how = HOW_RUN;
     cur_from = NO_PARENT;
     size_t lim = rom_size < ROM_LINEAR ? rom_size : ROM_LINEAR;
-    int run = 0;
-    for (size_t o = 0x200; o + 4 <= lim; o += 2) {
-        u32 v = roml(o);
-        long to = -1;
-        if (!(v >> 24) && v >= 0x200 && v < lim && !(v & 1)) to = gen_code_offset(gen, v);
-        if (to >= 0 && (is_ins[to >> 1] || plausible((u32)to, v, 1))) {
-            /* un largo cada 4 bytes: las entradas de la misma tabla van seguidas */
-            run = run ? run + 1 : 1;
-            if (run == 4) {
-                stat_runs++;
-                for (int k = 0; k < 4; k++) {
-                    u32 kv = roml(o - 12 + 4 * (size_t)k);
+    /* ok[o / 2]: el largo en o apunta a algo con pinta de rutina (0 sin calcular, 1 sí, 2 no) */
+    u8 *ok = calloc(lim / 2 + 1, 1);
+    if (!ok) die("sin memoria");
+    for (int stride = 4; stride <= 8; stride += 2) {
+        for (size_t start = 0x200; start < 0x200 + (size_t)stride && start + 4 <= lim; start += 2) {
+            int run = 0;
+            for (size_t o = start; o + 4 <= lim; o += (size_t)stride) {
+                if (!ok[o >> 1]) {
+                    u32 v = roml(o);
+                    long to = -1;
+                    if (!(v >> 24) && v >= 0x200 && v < lim && !(v & 1)) to = gen_code_offset(gen, v);
+                    ok[o >> 1] = to >= 0 && (is_ins[to >> 1] || plausible((u32)to, v, 1)) ? 1 : 2;
+                }
+                if (ok[o >> 1] != 1) { run = 0; continue; }
+                run++;
+                if (run < 4) continue;
+                if (run == 4) stat_runs++;
+                for (int k = run == 4 ? 3 : 0; k >= 0; k--) {
+                    u32 kv = roml(o - (size_t)k * (size_t)stride);
                     push_work((u32)gen_code_offset(gen, kv), kv);
                     stat_run_entries++;
                 }
-            } else if (run > 4) {
-                push_work((u32)to, v);
-                stat_run_entries++;
             }
-            o += 2;                                     /* la siguiente entrada, 4 bytes después */
-        } else run = 0;
+        }
+    }
+    free(ok);
+}
+
+/* Anclas de máquinas de estados: move.l #X,(An) o move.l #X,d16(An) donde X es la instrucción que
+ * sigue (o la que sigue a un RTS inmediato): el objeto guarda su próximo estado, que empieza justo
+ * ahí. Que unos datos valgan justo su propia dirección más 6 u 8 es casi imposible: se toman como
+ * código, en los primeros 4 MB (como en NEORecomp) */
+static void scan_state_anchors(void)
+{
+    cur_how = HOW_IMM;
+    cur_from = NO_PARENT;
+    size_t lim = rom_size < ROM_LINEAR ? rom_size : ROM_LINEAR;
+    for (size_t o = 0x200; o + 8 <= lim; o += 2) {
+        u16 op = romw(o);
+        u32 len;
+        if ((op & 0xF1FF) == 0x20BC) len = 6;                           /* move.l #imm,(An) */
+        else if ((op & 0xF1FF) == 0x217C) len = 8;                      /* move.l #imm,d16(An) */
+        else continue;
+        u32 addr = (u32)o, t = roml(o + 2);
+        int ok = t == addr + len;
+        if (!ok && o + len + 2 <= lim && romw(o + len) == 0x4E75) ok = t >= addr + len + 2 && t <= addr + len + 2 + 16;
+        if (!ok || is_ins[o >> 1]) continue;
+        stat_imm++;
+        push_work((u32)o, addr);
     }
 }
 
@@ -562,11 +685,12 @@ static void drain(void)
 /* Recorre todo lo pendiente; las tablas sueltas pueden agregar más y se repite */
 static void discover(void)
 {
-    int runs_done = 0;
+    int runs_done = 0, anchors_done = 0;
     for (;;) {
         drain();
         unsigned before = stat_insns;
         if (use_spec && use_tables && !runs_done) { runs_done = 1; scan_pointer_runs(); }
+        if (use_spec && !anchors_done) { anchors_done = 1; scan_state_anchors(); }
         drain();
         if (stat_insns == before) break;
     }

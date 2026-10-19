@@ -277,21 +277,35 @@ void (*m68k_ram_trace)(struct M68K_HOST *g, u32 pc);
 #endif
 METRICA_DEFINIR     /* aquí y no en gen.c/neo.c: m68ktest enlaza el núcleo sin el resto de la consola */
 
-/* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
-static void step_body(struct M68K_HOST *g)
+/* Lo que no es ejecutar una instrucción: el CPU detenido (doble falta), la entrada a la interrupción pendiente y la espera
+ * en STOP. Devuelve 1 si tocaba algo de eso. Es aparte del intérprete para que el bucle híbrido lo atienda sin pasar por
+ * él (F4.1 de docs/PLAN-ORDEN.md: un juego sin intérprete también necesita sus interrupciones) */
+static int service(struct M68K_HOST *g)
 {
     M68k *c = &g->cpu;
-    if (c->halted) { m68k_idle(g, 4); return; }
+    if (c->halted) { m68k_idle(g, 4); return 1; }
     u64 c0 = g->cyc;
     int lvl = c->ipl;
     if (lvl > c->ipm || (lvl == 7 && c->nmi_edge)) {
         c->nmi_edge = 0;
         interrupt(g, lvl);
         METRICA(g, irq, g->cyc - c0);
-    } else if (c->stopped) {
+        return 1;
+    }
+    if (c->stopped) {
         m68k_idle(g, 4);
         METRICA(g, espera, 4);
-    } else {
+        return 1;
+    }
+    return 0;
+}
+
+/* Una instrucción (o la interrupción pendiente). El error de dirección sale con longjmp a g->jb. */
+static void step_body(struct M68K_HOST *g)
+{
+    M68k *c = &g->cpu;
+    if (!service(g)) {
+        u64 c0 = g->cyc;
         int trace = c->t;
         u16 op = c->ir;
         u32 pc0 = c->pc;
@@ -340,8 +354,9 @@ out:
 
 /* Como m68k_run, pero antes de cada instrucción prueba native(): el código recompilado. native()
  * devuelve 0 si no tiene esa instrucción (la ejecuta el intérprete), 1 si corrió (y ya puso al día
- * VDP y Z80 tras cada instrucción) y 2 si además terminó el cuadro. Solo se llama sin interrupción
- * pendiente, sin traza, sin STOP y con el CPU andando: eso lo atiende el intérprete. */
+ * VDP y Z80 tras cada instrucción) y 2 si además terminó el cuadro. La interrupción pendiente, el STOP y
+ * el CPU detenido los atiende service(), sin el intérprete; native() solo se llama sin ellos y sin traza
+ * (el bit T, que sí va al intérprete). */
 void m68k_run_hybrid(struct M68K_HOST *g, int (*after)(struct M68K_HOST *), int (*native)(struct M68K_HOST *))
 {
     if (!kind_ready) kinds_init();
@@ -350,6 +365,10 @@ void m68k_run_hybrid(struct M68K_HOST *g, int (*after)(struct M68K_HOST *), int 
     g->jb = &jb;
     if (setjmp(jb) && after(g)) goto out;
     for (;;) {
+        if (service(g)) {
+            if (after(g)) break;
+            continue;
+        }
         if (m68k_native_ok(&g->cpu)) {
             int r = native(g);
             if (r == 2) break;

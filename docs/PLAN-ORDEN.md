@@ -276,11 +276,13 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
 
 ### F4. Menos intérprete (trabajo continuo; medir cada paso con F2)
 1. **Deberes nativos:**
-   - STOP salta al próximo evento y la entrada a IRQ se hace desde el bucle híbrido, en `shared/cpu68k.c`, para GEN y NEO;
+   - STOP salta al próximo evento y la entrada a IRQ se hace desde el bucle híbrido, en `shared/m68k.c`, para GEN y NEO;
    - INT/NMI en SMS;
    - lo que sigue a EI en GB.
 
    Es lo único que baja el piso que las trazas no tocan.
+   - Hecho (18 de octubre de 2026): en `shared/m68k.c`, `service()` atiende el CPU detenido, la interrupción pendiente y el STOP aparte del intérprete, y `m68k_run_hybrid` lo llama antes de buscar código nativo (GEN y NEO); en `shared/z80.c`, `z80_service()` hace la entrada a NMI/INT y el paso de HALT, y el despachador de SMS lo usa sin pasar por `z80_step`; en GB, si la instrucción que sigue a un EI tiene código recompilado, el EI queda pendiente y lo resuelve `gb_check` en su primer CHECK, como ya pasaba dentro del código recompilado (el intérprete queda solo cuando no hay código). Lo de GEN, NEO y SMS no cambia un bit (golden y difftest iguales).
+   - Falta: que el STOP del 68000 salte de una vez al próximo evento (como `halt_skip` en SMS): hace falta que cada consola diga cuándo es su próximo evento, y no se midió ganancia (el STOP ya cuenta como espera, no como intérprete).
 2. **`shared/m68k_recomp.h`** (#64, parte 2), en dos pasos: primero mover sin cambiar un bit (`--codemap`, coverage y golden iguales); después activar en GEN las heurísticas de NEO.
    - Hecho, primer paso (18 de octubre de 2026): la cola de trabajo (`push_work`), `jump_target`, los operandos razonables (`sane_ea`, `sane_operands`; cada consola pone su `sane_abs`), el historial (`hist_push`) y los registros conocidos (`writes_areg`, `known_areg`, `indexed_base`, `loaded_from_table`) pasaron a `shared/m68k_recomp.h`. `--codemap`, `--events` y el proyecto generado (con `--z80`) son idénticos en las 23 ROMs de `gen/roms/` y en mslug, kof94 y `contrato.neo`.
    - Falta: el resto de lo idéntico (la salida de `--events`, `--codemap`, `--html` y `--dis`; el código en RAM, `emit_ram_ins` y compañía) y lo casi igual (`walk`, `explain`, `partition`, `scan_*`); después, el segundo paso.

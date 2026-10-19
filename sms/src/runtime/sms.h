@@ -8,6 +8,7 @@
 #define SMS_H
 
 #include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
 
 #include "z80.h"
@@ -103,6 +104,7 @@ typedef struct {
     u8    *ram_saved;                   /* lo último guardado en disco (para ver si cambió) */
     u8     ram_used;                    /* el juego la mapeó alguna vez: tiene partida que guardar */
     u8    *trace;                       /* NULL, o por cada byte de la ROM: 0 no se ejecutó; si no, 1 + la ranura (0-2) con que se ejecutó */
+    u32   *trace_n;                     /* con la traza: cuántas veces ejecutó el intérprete la instrucción que empieza en ese byte (--counts) */
     void  *ram_code;                    /* con la traza: el código que corrió desde la RAM ($8000-$FFFF), un RcTable de ram_code.h */
 } Cart;
 
@@ -199,6 +201,8 @@ int  sms_state_load(Sms *g, const u8 *data, size_t size);  /* 1 si se cargó */
 void   sms_trace_start(Sms *g);
 int    sms_trace_load(Sms *g, const char *path);    /* suma lo de una traza anterior; 1 si se leyó */
 int    sms_trace_write(const Sms *g, const char *path);
+int    sms_trace_write_counts(const Sms *g, const char *path);       /* como sms_trace_write, con « xN» (cuántas veces) al final de cada línea */
+void   sms_trace_top(const Sms *g, FILE *f, unsigned n, const char *titulo);  /* las n instrucciones que más ejecutó el intérprete, con su cuenta (el título solo si hay alguna) */
 size_t sms_trace_count(const Sms *g);               /* instrucciones de la ROM */
 void   sms_trace_free(Sms *g);
 void   sms_ram_summary(const Sms *g, unsigned *fixed, unsigned *vol, unsigned *multi, unsigned *lost);

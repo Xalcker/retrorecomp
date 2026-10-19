@@ -11,6 +11,7 @@
  *   --interp     solo el intérprete (para comparar)
  *   --force      acepta otra ROM (corre con el intérprete)
  *   --uncovered  como --trace: lo que el intérprete tuvo que ejecutar (para smsrecomp --trace)
+ *   --counts     con --uncovered o --trace: cada línea lleva cuántas veces se interpretó, "BANCO:DIRECCION xN"
  *   --model       la consola, si no la que pide el cartucho (Entrada → Consola)
  *   --fullscreen  arranca en pantalla completa
  *   --no-menu     sin barra de menús (ni con el ratón, Alt o F10); los atajos siguen
@@ -124,6 +125,7 @@ typedef struct {
     FILE *record;
     int last_pad[2];
     const char *trace_path;
+    int trace_counts;                   /* --counts: la traza lleva cuántas veces se interpretó cada instrucción */
 } App;
 
 /* Las funciones de la ventana iguales en los recompiladores (retrorecomp/shared) */
@@ -249,7 +251,10 @@ static const TouchLayout touch_layout_gg = { SMS_UP, SMS_DOWN, SMS_LEFT, SMS_RIG
 
 static void write_trace(App *app)
 {
-    if (app->trace_path && app->loaded && app->sms->cart.trace) sms_trace_write(app->sms, app->trace_path);
+    if (app->trace_path && app->loaded && app->sms->cart.trace) {
+        if (app->trace_counts) sms_trace_write_counts(app->sms, app->trace_path);
+        else sms_trace_write(app->sms, app->trace_path);
+    }
 }
 
 /* Enciende (o reinicia) la consola con la ROM actual, en el modelo elegido (Entrada → Consola). La traza de
@@ -1005,6 +1010,7 @@ int main(int argc, char *argv[])
         else if (!strcmp(argv[i], "--record") && i + 1 < argc) record_path = argv[++i];
         else if (!strcmp(argv[i], "--play") && i + 1 < argc) play_path = argv[++i];
         else if ((!strcmp(argv[i], "--trace") || !strcmp(argv[i], "--uncovered")) && i + 1 < argc) app->trace_path = argv[++i];
+        else if (!strcmp(argv[i], "--counts")) app->trace_counts = 1;
         else if (!strcmp(argv[i], "--interp")) app->interp_only = 1;
         else if (!strcmp(argv[i], "--force")) force = 1;
         else if (!strcmp(argv[i], "--ui-shot") && i + 1 < argc) ui_shot_path = argv[++i];

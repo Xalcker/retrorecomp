@@ -54,6 +54,7 @@ static void trace_note(Sms *g, u16 pc)
     long off = bus_rom_offset(g, pc);
     if (off >= 0) {
         if (!g->cart.trace[off]) g->cart.trace[off] = (u8)(1 + (pc >> 14));
+        if (g->cart.trace_n && g->cart.trace_n[off] != 0xFFFFFFFFu) g->cart.trace_n[off]++;
     } else if (pc >= 0x8000 && g->cart.ram_code) {
         u8 b[4];
         Z80Insn in;
@@ -152,6 +153,7 @@ void sms_run_frame(Sms *g)
 void sms_trace_start(Sms *g)
 {
     if (!g->cart.trace) g->cart.trace = calloc(g->cart.rom_size, 1);
+    if (!g->cart.trace_n) g->cart.trace_n = calloc(g->cart.rom_size, sizeof *g->cart.trace_n);
     if (!g->cart.ram_code) {
         RcTable *t = calloc(1, sizeof *t);
         if (t && rc_init(t, 0x8000, 0x8000)) g->cart.ram_code = t;
@@ -189,6 +191,8 @@ void sms_trace_free(Sms *g)
     g->cart.ram_code = NULL;
     free(g->cart.trace);
     g->cart.trace = NULL;
+    free(g->cart.trace_n);
+    g->cart.trace_n = NULL;
 }
 
 int sms_trace_load(Sms *g, const char *path)
@@ -221,6 +225,47 @@ int sms_trace_write(const Sms *g, const char *path)
             trace_line_write(f, SMS_TRACE_SHIFT, 4, i, (unsigned long)(g->cart.trace[i] - 1) << 14 | (i & 0x3FFF));
     if (g->cart.ram_code) rc_write((const RcTable *)g->cart.ram_code, f, 4);
     return fclose(f) == 0;
+}
+
+/* Lo mismo con la cuenta: "BANCO:DIRECCION xN". Los lectores de trazas (smsrecomp, sms_trace_load, shared/trazas.py)
+ * ignoran lo que sigue a la dirección. Las líneas "ram" van sin cuenta */
+int sms_trace_write_counts(const Sms *g, const char *path)
+{
+    if (!g->cart.trace) return 0;
+    FILE *f = fopen(path, "w");
+    if (!f) return 0;
+    for (size_t i = 0; i < g->cart.rom_size; i++)
+        if (g->cart.trace[i]) {
+            /* La dirección cae en la misma posición de su página que el desplazamiento: es el formato nuevo de trace_line.h */
+            unsigned long addr = (unsigned long)(g->cart.trace[i] - 1) << 14 | (unsigned long)(i & 0x3FFF);
+            fprintf(f, "%02lX:%04lX x%u\n", (unsigned long)(i >> SMS_TRACE_SHIFT), addr, g->cart.trace_n ? (unsigned)g->cart.trace_n[i] : 0u);
+        }
+    if (g->cart.ram_code) rc_write((const RcTable *)g->cart.ram_code, f, 4);
+    return fclose(f) == 0;
+}
+
+/* Las n instrucciones de la ROM que más ejecutó el intérprete (lo que pesa de lo que quedó sin recompilar) */
+void sms_trace_top(const Sms *g, FILE *f, unsigned n, const char *titulo)
+{
+    if (!g->cart.trace || !g->cart.trace_n || !n) return;
+    size_t best[32];
+    unsigned have = 0;
+    if (n > 32) n = 32;
+    for (size_t i = 0; i < g->cart.rom_size; i++) {
+        if (!g->cart.trace[i] || !g->cart.trace_n[i]) continue;
+        unsigned p = have < n ? have : n;
+        while (p > 0 && g->cart.trace_n[best[p - 1]] < g->cart.trace_n[i]) p--;
+        if (p >= n) continue;
+        if (have < n) have++;
+        for (unsigned k = have - 1; k > p; k--) best[k] = best[k - 1];
+        best[p] = i;
+    }
+    if (have && titulo) fprintf(f, "%s\n", titulo);
+    for (unsigned k = 0; k < have; k++) {
+        size_t i = best[k];
+        unsigned long addr = (unsigned long)(g->cart.trace[i] - 1) << 14 | (unsigned long)(i & 0x3FFF);
+        fprintf(f, "  %02X:%04lX x%u\n", (unsigned)(i >> SMS_TRACE_SHIFT), addr, (unsigned)g->cart.trace_n[i]);
+    }
 }
 
 size_t sms_trace_count(const Sms *g)

@@ -161,6 +161,27 @@ heurística); el resto lo dan la traza guionada y lo que `difftest --uncovered` 
 (una variable o una tabla: Alien 3, Cosmic Spacehead, Predator 2, Shining Force), porque el código de esas páginas solo
 lo ve la traza.
 
+### Trazas: el almacén por SHA1, el sondeo y los conteos (F4.4)
+
+Una traza es una línea `BANCO:DIRECCION` por instrucción que ejecutó el juego (`trace_line.h`), sin nada de la ROM. Tres
+piezas para no armarlas a mano cada vez (Xalcker/retrorecomp#16):
+
+- **Almacén por SHA1** (`../shared/trazas.h` y `trazas.py`). Una carpeta con `DIR/sms/<SHA1>/*.trace` por juego;
+  `smsrecomp --traces-dir DIR` (o la variable `RETROCOMP_TRAZAS`) las suma todas como si fueran `--trace`. Entra por el
+  SHA1 de la ROM, así que no importa cómo se llame el archivo y las trazas de un juego no tocan a otro.
+  `python3 ../shared/trazas.py agregar --dir DIR ROM TRAZA...` suma trazas al juego (en `acumulada.trace`, sin repetir ni
+  contar veces) y `resumen --dir DIR` lista lo que hay. Generaliza la caché de la BIOS de NEORecomp.
+  `../shared/recomp_game.py` lo usa solo si hay `RETROCOMP_TRAZAS`: arranca con lo que ya hay del juego y, si el ciclo
+  termina sin diferencias, guarda ahí la traza acumulada. Con waternet y sin la traza guionada, la primera ronda pasa de 979
+  instrucciones y 30,9 % nativo a 7 658 y 100 % cuando el almacén ya tiene la corrida anterior.
+- **Sondeo** (`smsrecomp --probe N`). Corre el juego N cuadros en el intérprete con las entradas guionadas de
+  `tests/coverage.py` (semilla 1) y suma lo que ejecutó como una traza: lo mismo que `smstrace`, sin el paso aparte
+  (3000 cuadros son unos 2 s). La traza va a `DIR/sms/<SHA1>/sondeo.trace` o, sin almacén, a la carpeta de `-o`.
+- **Conteos** (`--counts`). Con `--uncovered` (`difftest` y el ejecutable recompilado) o con `smstrace`, cada línea lleva
+  cuántas veces se interpretó la instrucción, `00:1B90 x588`, y se imprimen las diez que más pesan. En `smstrace` es un
+  perfil de todo el juego; en `difftest --uncovered`, de lo que quedó sin recompilar. Los lectores de trazas ignoran el
+  conteo, y sin `--counts` el formato no cambia.
+
 ### Herramientas de análisis
 
 Las mismas de genrecomp, con los formatos que lee la GUI: `--viz` (el mapa coloreado por cómo se descubrió: los

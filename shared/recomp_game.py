@@ -10,6 +10,9 @@ Uso (desde la raíz de un sistema): python3 ../shared/recomp_game.py ROM NOMBRE 
   NOTRACE=1: sin la traza guionada inicial (solo análisis estático y lo que descubra difftest).
   INPUT_TRACE=ARCHIVO, INPUT_DIFFTEST=ARCHIVO: otras entradas (una partida grabada con --record)
     en lugar de las guionadas de abajo; sirven cuando estas no pasan del título de un juego.
+  RETROCOMP_TRAZAS=DIR: el almacén de trazas por SHA1 (solo en los sistemas con «almacen_trazas» en el registro, hoy SMS):
+    el recompilador suma las trazas que ya hay de este juego (--traces-dir) y, si el ciclo termina sin diferencias, la
+    traza acumulada queda guardada en DIR/<sistema>/<SHA1>/acumulada.trace (shared/trazas.py).
 
 La consola sale de qué recompilador del registro (shared/sistemas.json) hay en la carpeta. Las entradas guionadas
 (Start, A, derecha...) son las de tests/inputs/ciclo_traza.txt y ciclo_difftest.txt, las mismas para todos los
@@ -27,6 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rr  # noqa: E402
+import trazas  # noqa: E402
 
 USO = ("uso: python3 ../shared/recomp_game.py ROM NOMBRE [CUADROS] [SEMILLAS...]  "
        "(TRACE_FRAMES=N, NOTRACE=1, INPUT_TRACE=F, INPUT_DIFFTEST=F)")
@@ -78,8 +82,13 @@ def main(argv):
 
     estado = {"falla": False, "ronda": 1}
 
+    # El almacén de trazas por SHA1 (shared/trazas.h): si el sistema lo tiene y hay carpeta (RETROCOMP_TRAZAS), el recompilador
+    # suma las trazas que ya hay de este juego y, al terminar sin diferencias, la traza acumulada se guarda ahí para la próxima
+    almacen = trazas.carpeta(None) if reg[con].get("almacen_trazas") else ""
+
     def ronda():
-        c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza, *rr.opciones_pruebas(con)])
+        c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza, *rr.opciones_pruebas(con),
+                               *(["--traces-dir", almacen] if almacen else [])])
         util = [l for l in salida.splitlines() if re.search("código|funciones", l)]
         if not util:
             return 2
@@ -133,6 +142,8 @@ def main(argv):
         resumen(f'"evento":"ronda","ronda":2,"direcciones":{d}')
         if ronda():
             return 2
+    if almacen and not estado["falla"]:
+        trazas.agregar(almacen, rom, [traza])
     print("HAY DIFERENCIAS." if estado["falla"] else "Sin diferencias.")
     resumen('"evento":"fin","ok":' + ("false" if estado["falla"] else "true"))
     return 1 if estado["falla"] else 0

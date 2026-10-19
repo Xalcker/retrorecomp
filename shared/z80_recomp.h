@@ -27,7 +27,8 @@
  *                         bucles de espera
  *   Z80RC_BYTE(a)         solo con guarda (código en RAM): el byte que hay hoy en a
  * Con guarda (r->guard = 1, para código en RAM), cada instrucción compara antes sus bytes con Z80RC_BYTE y,
- * si alguno cambió (otro driver, código que se modifica), sale y la ejecuta el intérprete con lo que hay.
+ * si alguno cambió (otro driver, código que se modifica), sale y la ejecuta el intérprete con lo que hay. Las que la
+ * consola marca en r->vol (sus operandos cambian al correr) comparan solo los opcodes y leen los operandos de la RAM.
  * Dentro de la función están g, z (el Z80), target y r (1 desde que corrió una instrucción). Después de
  * cada instrucción se sigue con un goto si el destino es de la misma función; si no, el switch del
  * principio vuelve a buscarlo y, si tampoco está, la función devuelve 1 y la consola busca otra.
@@ -65,6 +66,9 @@ typedef struct {
     uint16_t lo, hi;            /* el tramo de código fijo, con las dos puntas */
     const uint8_t *img;         /* sus bytes: img[a - lo] */
     int      guard;             /* 1: código en RAM, cada instrucción comprueba sus bytes (Z80RC_BYTE) */
+    const uint8_t *vol;         /* con guarda, opcional: vol[a - lo] != 0 si los operandos de la instrucción en a cambian
+                                   al correr (código que se modifica): la guarda mira solo sus opcodes y los operandos se
+                                   leen de la RAM al ejecutar, como en el intérprete */
     uint8_t  ins[0x10000];     /* 0, o de dónde salió la instrucción que empieza en a (Z80RC_*) */
     uint8_t  queued[0x10000];   /* ya se puso en la pila */
     uint16_t stack[0x10000];
@@ -97,6 +101,16 @@ static inline int z80rc_in(const Z80Rc *r, uint32_t a) { return a >= r->lo && a 
 static inline void z80rc_bytes(const Z80Rc *r, uint16_t a, uint8_t b[4])
 {
     for (int i = 0; i < 4; i++) b[i] = z80rc_in(r, (uint32_t)a + i) ? r->img[a + i - r->lo] : 0;
+}
+
+/* ¿El byte i de la instrucción b es parte del opcode? (los demás son operandos: inmediatos, direcciones, desplazamientos).
+ * Prefijos CB y ED: dos bytes; DD/FD: dos, y con DD/FD CB d op, también el cuarto */
+static inline int z80rc_es_opcode(const uint8_t b[4], int i)
+{
+    if (i == 0) return 1;
+    if (b[0] == 0xCB || b[0] == 0xED) return i == 1;
+    if (b[0] == 0xDD || b[0] == 0xFD) return i == 1 || (i == 3 && b[1] == 0xCB);
+    return 0;
 }
 
 /* La instrucción en a cabe entera en el tramo (un prefijo DD/FD suelto mira también el byte siguiente) */
@@ -197,15 +211,21 @@ static inline void z80rc_emit_ins(FILE *f, const Z80Rc *r, uint16_t a)
     fprintf(f, "L_%04X: /*", a);
     for (int i = 0; i < in.len; i++) fprintf(f, " %02X", b[i]);
     fprintf(f, " */\n    Z80RC_BEFORE(0x%04X);\n", a);
+    int vol = r->guard && r->vol && r->vol[a - r->lo];
     if (r->guard) {     /* los bytes de la instrucción (y el siguiente tras un prefijo DD/FD suelto): XOR, sin saltos */
-        int need = in.len == 1 && (b[0] == 0xDD || b[0] == 0xFD) ? 2 : in.len;
+        int need = in.len == 1 && (b[0] == 0xDD || b[0] == 0xFD) ? 2 : in.len, k = 0;
         fprintf(f, "    if (");
         for (int i = 0; i < need; i++)
-            fprintf(f, "%s(Z80RC_BYTE(0x%04X) ^ 0x%02X)", i ? " | " : "", (uint16_t)(a + i), b[i]);
+            if (!vol || z80rc_es_opcode(b, i))
+                fprintf(f, "%s(Z80RC_BYTE(0x%04X) ^ 0x%02X)", k++ ? " | " : "", (uint16_t)(a + i), b[i]);
         fprintf(f, ") return r;\n");
     }
-    fprintf(f, "    { static const uint8_t b[4] = { 0x%02X, 0x%02X, 0x%02X, 0x%02X };\n", b[0], b[1], b[2], b[3]);
-    fprintf(f, "      Z80X s = { g, z, b, 0, 0x%04X, 0, 0 };\n", a);
+    if (vol) {          /* los operandos cambian: de la RAM al ejecutar (ops = NULL, como el intérprete) */
+        fprintf(f, "    { Z80X s = { g, z, NULL, 0, 0x%04X, 0, 0 };\n", a);
+    } else {
+        fprintf(f, "    { static const uint8_t b[4] = { 0x%02X, 0x%02X, 0x%02X, 0x%02X };\n", b[0], b[1], b[2], b[3]);
+        fprintf(f, "      Z80X s = { g, z, b, 0, 0x%04X, 0, 0 };\n", a);
+    }
     switch (b[0]) {     /* la rama de z80_exec, sin copiar las otras (como z80test --recomp) */
     case 0xCB: fprintf(f, "      z80_exec_begin(&s);\n      t = z80_exec_cb(&s);\n"); break;
     case 0xED: fprintf(f, "      z80_exec_begin(&s);\n      t = z80_exec_ed(&s);\n"); break;

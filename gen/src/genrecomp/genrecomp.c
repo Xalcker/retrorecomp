@@ -1271,12 +1271,16 @@ static void emit_info(const char *dir, const char *sha1, const char *name)
 #define ZV_MAX 4
 static u8 zv_img[ZV_MAX][0x2000];
 static u8 zv_exec[ZV_MAX][0x2000];
+static u8 zv_vol[ZV_MAX][0x2000];       /* la instrucción se vio con otros operandos: se leen de la RAM (z80_recomp.h, vol) */
 static int zv_n, zv_last;
 static unsigned zv_lost;                /* instrucciones de versiones que no entraron */
 
-static int zv_match(int v, const u8 *zram, u16 pc, int len)
+/* ¿La instrucción en pc tiene en la versión v los mismos bytes que en zram? Con solo_opcodes, basta con los del opcode
+ * (los drivers que cambian sus propios operandos, como el de Mortal Kombat 3, no hacen una versión por cada cambio) */
+static int zv_match(int v, const u8 *zram, u16 pc, int len, const u8 b[4], int solo_opcodes)
 {
-    for (int i = 0; i < len; i++) if (zv_img[v][(pc + i) & 0x1FFF] != zram[(pc + i) & 0x1FFF]) return 0;
+    for (int i = 0; i < len; i++)
+        if ((!solo_opcodes || z80rc_es_opcode(b, i)) && zv_img[v][(pc + i) & 0x1FFF] != zram[(pc + i) & 0x1FFF]) return 0;
     return 1;
 }
 
@@ -1288,9 +1292,14 @@ static void z80_probe(Gen *g, u16 pc)
     Z80Insn in;
     z80_decode(b, pc, &in);
     int len = in.len == 1 && (b[0] == 0xDD || b[0] == 0xFD) ? 2 : in.len;
-    if (zv_n && zv_match(zv_last, g->zram, pc, len)) { zv_exec[zv_last][pc] = 1; return; }
+    if (zv_n && zv_match(zv_last, g->zram, pc, len, b, 0)) { zv_exec[zv_last][pc] = 1; return; }
     for (int v = 0; v < zv_n; v++)
-        if (zv_match(v, g->zram, pc, len)) { zv_exec[v][pc] = 1; zv_last = v; return; }
+        if (zv_match(v, g->zram, pc, len, b, 0)) { zv_exec[v][pc] = 1; zv_last = v; return; }
+    /* Los mismos opcodes con otros operandos: la misma versión, y esa instrucción lee sus operandos al correr */
+    for (int k = -1; k < zv_n; k++) {
+        int v = k < 0 ? zv_last : k;
+        if (zv_n && zv_match(v, g->zram, pc, len, b, 1)) { zv_exec[v][pc] = 1; zv_vol[v][pc] = 1; zv_last = v; return; }
+    }
     if (zv_n == ZV_MAX) { zv_lost++; return; }
     memcpy(zv_img[zv_n], g->zram, 0x2000);
     zv_exec[zv_n][pc] = 1;
@@ -1364,6 +1373,7 @@ static void z80_descubrir(void)
         snprintf(prefix, sizeof prefix, "zr%d_", v);
         z80rc_init(&zrs[v], prefix, 0, 0x1FFF, zv_img[v]);
         zrs[v].guard = 1;
+        zrs[v].vol = zv_vol[v];
         for (unsigned a = 0; a < 0x2000; a++)
             if (zv_exec[v][a]) { z80rc_seed(&zrs[v], (u16)a, Z80RC_TRACE); z80_ejecutadas++; }
         z80rc_discover(&zrs[v]);

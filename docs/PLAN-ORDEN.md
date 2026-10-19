@@ -305,6 +305,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
    - espejos de RAM en GEN y NEO;
    - más de 4 versiones del driver del Z80;
    - GB#36, #14 y #32.
+   - Hecho (19 de octubre de 2026): las versiones del driver del Z80 de GEN se distinguen por sus opcodes; una instrucción que se vio con otros operandos los lee de la RAM al ejecutar (`vol` en `z80_recomp.h`). Sonic 2: Z80 de 96,1 % a 100 % nativo (y 1 745 instrucciones compiladas en lugar de 3 233); Mortal Kombat 3: 98,7 % a 98,8 %, sin perder versiones y con 3 852 instrucciones en lugar de 11 672. Sin diferencias en difftest.
+   - Sin hacer, con lo medido: NES#10 (ahora #105; impacto bajo, peor caso 1,1 % de ciclos al intérprete, y el arreglo es una función por par desplazamiento/dirección); los espejos de la RAM en GEN y NEO (ninguna pérdida medida: compat da 0 instrucciones interpretadas en NEO y 99,7 % en GEN); los huecos de descubrimiento de GB (#78, #85, #86, #88), que el almacén de trazas por SHA1 (F4.4) cubre en la práctica.
 
 ### F5. Juegos sin intérprete (meta)
 `make SIN_INTERPRETE=1` en el proyecto generado: no enlaza el intérprete, y un fallo de búsqueda termina de forma controlada con PC, banco, estado y `--uncovered`.

@@ -13,7 +13,8 @@
  *                  64 por línea.
  *   --estricto     falla (código 1) en la primera instrucción de la ROM que B corre con el intérprete porque no está
  *                  recompilada ("ESTRICTO: código que falta en ..."). El código en RAM sí pasa. Al final, "Intérprete por
- *                  motivo: ..." cuenta las entradas al intérprete (metrica.h).
+ *                  motivo: ..." cuenta las entradas al intérprete (metrica.h). Con --uncovered, también al fallar escribe lo
+ *                  que B interpretó hasta ahí, el código que falta incluido: la traza del hueco, para --trace o el almacén.
  *   --save f       empieza las dos máquinas con esa partida guardada (la RAM con batería, la EEPROM o la tarjeta); --save-out f
  *                  guarda la de B al terminar.
  * Sin diferencias termina con "difftest: N cuadros iguales (L llamadas, R a código recompilado)", la línea común "Métrica: ..."
@@ -203,6 +204,14 @@ static inline int difftest_main(int argc, char **argv, const DiffOps *o)
     for (long f = 0; f < frames; f++) {
         int r = o->cuadro(&x, f);
         if (r) {
+            if (r == DT_ESTRICTO && c.uncovered) {
+                /* La traza del hueco: lo que B interpretó hasta aquí, con el código que falta */
+                int ok = 1;
+                size_t cnt = o->uncovered(c.uncovered, &ok);
+                if (!ok) fprintf(stderr, "no pude escribir %s\n", c.uncovered);
+                else printf("ESTRICTO: la traza del hueco (%zu instrucciones de %s interpretadas, la que falta incluida) quedó en %s\n",
+                            cnt, o->unidad, c.uncovered);
+            }
             metrica_resumen_falla(f, r == DT_ESTRICTO);
             return 1;
         }

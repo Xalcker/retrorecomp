@@ -14,7 +14,8 @@
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
  *   --executed F     (difftest) escribe qué bytes del programa se ejecutaron (formato de --codemap)
  *   --estricto       (difftest) falla en la primera instrucción de la ROM que corre el intérprete
- *                    porque no está recompilada (el motivo «código que falta» de metrica.h)
+ *                    porque no está recompilada (el motivo «código que falta» de metrica.h); con --uncovered
+ *                    deja también la traza del hueco
  *   --expect PNG     (*shot) pasa si la pantalla final es idéntica al PNG, como gbtest --expect
  *   --hash           (*shot) imprime un hash de todos los cuadros y de todo el audio, como gbtest --hash
  * También valen el número de cuadros como argumento suelto y los botones sostenidos

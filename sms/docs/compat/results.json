@@ -1,8 +1,8 @@
 {
  "sistema": "sms",
- "fecha": "2026-10-17",
- "version": "1a45ac3",
- "fuente": "511f183",
+ "fecha": "2026-10-19",
+ "version": "aa06f50",
+ "fuente": "ee10163",
  "roms": [
   {
    "archivo": "5 in One FunPak (USA).zip",
@@ -33,16 +33,16 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
+      "recomp_s": 0.4,
       "instrucciones": 1823,
       "pct_rom": 1.35,
       "funciones": null,
-      "compilacion_s": 35.4,
+      "compilacion_s": 68.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 6.2,
+        "segundos": 14.6,
         "recompilado_pct": 97.5,
         "metrica": {
          "nativas_pct": 97.2,
@@ -62,7 +62,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 7.6,
+        "segundos": 27.6,
         "recompilado_pct": 93.6,
         "metrica": {
          "nativas_pct": 93.4,
@@ -84,16 +84,16 @@
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 8154,
-      "pct_rom": 5.92,
+      "recomp_s": 1.3,
+      "instrucciones": 29935,
+      "pct_rom": 16.34,
       "funciones": null,
-      "compilacion_s": 101.7,
+      "compilacion_s": 470.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.0,
+        "segundos": 17.3,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -113,7 +113,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.5,
+        "segundos": 14.3,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -134,12 +134,12 @@
       "traza": 170
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 158.8,
-    "velocidad_x": 35.5,
-    "velocidad_interp_x": 29.0
+    "total_s": 614.6,
+    "velocidad_x": 34.6,
+    "velocidad_interp_x": 29.4
    }
   },
   {
@@ -171,67 +171,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 1173,
-      "pct_rom": 1.64,
+      "recomp_s": 0.6,
+      "instrucciones": 27047,
+      "pct_rom": 31.26,
       "funciones": null,
-      "compilacion_s": 25.4,
+      "compilacion_s": 301.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 47.0,
-        "recompilado_pct": 22.1,
+        "segundos": 4.4,
+        "recompilado_pct": 99.7,
         "metrica": {
-         "nativas_pct": 21.5,
-         "nativas": 2456383,
+         "nativas_pct": 99.8,
+         "nativas": 11418191,
          "instrucciones": 11444699,
          "ciclos": {
-          "nativo": 22.1,
-          "rom": 77.9,
+          "nativo": 99.7,
+          "rom": 0.3,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3027
+        "interpretadas": 205
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 42.7,
-        "recompilado_pct": 21.9,
+        "segundos": 4.5,
+        "recompilado_pct": 99.5,
         "metrica": {
-         "nativas_pct": 21.5,
-         "nativas": 2461177,
+         "nativas_pct": 99.6,
+         "nativas": 11413192,
          "instrucciones": 11454699,
          "ciclos": {
-          "nativo": 21.9,
-          "rom": 78.1,
+          "nativo": 99.5,
+          "rom": 0.5,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 2667
+        "interpretadas": 156
        }
       ],
-      "traza": 3092
+      "traza": 214
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 5723,
-      "pct_rom": 9.02,
+      "recomp_s": 0.7,
+      "instrucciones": 27365,
+      "pct_rom": 31.85,
       "funciones": null,
-      "compilacion_s": 49.6,
+      "compilacion_s": 374.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.0,
+        "segundos": 8.1,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -251,7 +251,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.1,
+        "segundos": 6.7,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -269,15 +269,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 3092
+      "traza": 214
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 171.0,
-    "velocidad_x": 34.1,
-    "velocidad_interp_x": 29.7
+    "total_s": 700.1,
+    "velocidad_x": 35.3,
+    "velocidad_interp_x": 30.3
    }
   },
   {
@@ -335,67 +335,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.4,
-      "instrucciones": 479,
-      "pct_rom": 0.17,
+      "recomp_s": 0.7,
+      "instrucciones": 24854,
+      "pct_rom": 7.72,
       "funciones": null,
-      "compilacion_s": 24.0,
+      "compilacion_s": 385.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 56.2,
-        "recompilado_pct": 7.3,
+        "segundos": 25.8,
+        "recompilado_pct": 83.3,
         "metrica": {
-         "nativas_pct": 5.6,
-         "nativas": 597902,
+         "nativas_pct": 82.4,
+         "nativas": 8816910,
          "instrucciones": 10694971,
          "ciclos": {
-          "nativo": 7.3,
-          "rom": 92.7,
+          "nativo": 83.3,
+          "rom": 16.7,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 10445
+        "interpretadas": 2981
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 49.2,
-        "recompilado_pct": 7.3,
+        "segundos": 47.2,
+        "recompilado_pct": 72.2,
         "metrica": {
-         "nativas_pct": 4.9,
-         "nativas": 575895,
+         "nativas_pct": 69.7,
+         "nativas": 8273551,
          "instrucciones": 11867327,
          "ciclos": {
-          "nativo": 7.3,
-          "rom": 92.6,
+          "nativo": 72.2,
+          "rom": 27.8,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 9305
+        "interpretadas": 2338
        }
       ],
-      "traza": 10496
+      "traza": 3022
      },
      {
       "ronda": 2,
-      "recomp_s": 0.3,
-      "instrucciones": 22680,
-      "pct_rom": 7.65,
+      "recomp_s": 1.5,
+      "instrucciones": 39038,
+      "pct_rom": 11.77,
       "funciones": null,
-      "compilacion_s": 220.2,
+      "compilacion_s": 697.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 8.8,
+        "segundos": 9.7,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -415,7 +415,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 10.9,
+        "segundos": 11.5,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -433,15 +433,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 10496
+      "traza": 3022
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 370.0,
-    "velocidad_x": 33.3,
-    "velocidad_interp_x": 29.7
+    "total_s": 1178.9,
+    "velocidad_x": 31.3,
+    "velocidad_interp_x": 29.4
    }
   },
   {
@@ -473,67 +473,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 523,
-      "pct_rom": 0.41,
+      "recomp_s": 1.0,
+      "instrucciones": 30740,
+      "pct_rom": 20.27,
       "funciones": null,
-      "compilacion_s": 21.2,
+      "compilacion_s": 470.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 49.9,
-        "recompilado_pct": 21.4,
+        "segundos": 9.0,
+        "recompilado_pct": 94.9,
         "metrica": {
-         "nativas_pct": 20.1,
-         "nativas": 2375657,
+         "nativas_pct": 95.9,
+         "nativas": 11332649,
          "instrucciones": 11821275,
          "ciclos": {
-          "nativo": 21.4,
-          "rom": 78.5,
+          "nativo": 94.9,
+          "rom": 5.1,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3649
+        "interpretadas": 703
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 54.5,
-        "recompilado_pct": 21.3,
+        "segundos": 10.0,
+        "recompilado_pct": 94.9,
         "metrica": {
-         "nativas_pct": 19.8,
-         "nativas": 2355952,
+         "nativas_pct": 95.9,
+         "nativas": 11432881,
          "instrucciones": 11919088,
          "ciclos": {
-          "nativo": 21.3,
-          "rom": 78.7,
+          "nativo": 94.9,
+          "rom": 5.0,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3630
+        "interpretadas": 689
        }
       ],
-      "traza": 3690
+      "traza": 708
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 6948,
-      "pct_rom": 5.29,
+      "recomp_s": 1.1,
+      "instrucciones": 41901,
+      "pct_rom": 25.39,
       "funciones": null,
-      "compilacion_s": 83.2,
+      "compilacion_s": 595.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.6,
+        "segundos": 8.2,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -553,7 +553,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.5,
+        "segundos": 7.1,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -571,15 +571,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 3690
+      "traza": 708
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 217.3,
-    "velocidad_x": 31.9,
-    "velocidad_interp_x": 30.5
+    "total_s": 1101.9,
+    "velocidad_x": 35.2,
+    "velocidad_interp_x": 30.8
    }
   },
   {
@@ -611,67 +611,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 220,
-      "pct_rom": 0.33,
+      "recomp_s": 1.0,
+      "instrucciones": 28257,
+      "pct_rom": 35.09,
       "funciones": null,
-      "compilacion_s": 7.3,
+      "compilacion_s": 549.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 15.5,
-        "recompilado_pct": 72.6,
+        "segundos": 14.8,
+        "recompilado_pct": 99.6,
         "metrica": {
-         "nativas_pct": 75.5,
-         "nativas": 7981754,
+         "nativas_pct": 100.0,
+         "nativas": 10566788,
          "instrucciones": 10566858,
          "ciclos": {
-          "nativo": 72.6,
-          "rom": 26.9,
+          "nativo": 99.6,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.4,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3367
+        "interpretadas": 2
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 16.7,
-        "recompilado_pct": 72.5,
+        "segundos": 8.1,
+        "recompilado_pct": 99.6,
         "metrica": {
-         "nativas_pct": 75.4,
-         "nativas": 7962380,
+         "nativas_pct": 100.0,
+         "nativas": 10563901,
          "instrucciones": 10563965,
          "ciclos": {
-          "nativo": 72.5,
-          "rom": 27.1,
+          "nativo": 99.6,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.4,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3362
+        "interpretadas": 2
        }
       ],
-      "traza": 3370
+      "traza": 2
      },
      {
       "ronda": 2,
-      "recomp_s": 0.4,
-      "instrucciones": 20078,
-      "pct_rom": 23.72,
+      "recomp_s": 1.5,
+      "instrucciones": 28259,
+      "pct_rom": 35.09,
       "funciones": null,
-      "compilacion_s": 202.2,
+      "compilacion_s": 461.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.7,
+        "segundos": 13.7,
         "recompilado_pct": 99.6,
         "metrica": {
          "nativas_pct": 100.0,
@@ -691,7 +691,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 4.1,
+        "segundos": 9.2,
         "recompilado_pct": 99.6,
         "metrica": {
          "nativas_pct": 100.0,
@@ -709,15 +709,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 3370
+      "traza": 2
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 251.1,
-    "velocidad_x": 34.2,
-    "velocidad_interp_x": 29.8
+    "total_s": 1058.8,
+    "velocidad_x": 34.3,
+    "velocidad_interp_x": 29.9
    }
   },
   {
@@ -749,67 +749,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 1514,
-      "pct_rom": 0.39,
+      "recomp_s": 1.1,
+      "instrucciones": 39097,
+      "pct_rom": 10.01,
       "funciones": null,
-      "compilacion_s": 26.1,
+      "compilacion_s": 633.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 29.8,
-        "recompilado_pct": 31.9,
+        "segundos": 7.2,
+        "recompilado_pct": 99.9,
         "metrica": {
-         "nativas_pct": 37.6,
-         "nativas": 3973638,
+         "nativas_pct": 100.0,
+         "nativas": 10561869,
          "instrucciones": 10561909,
          "ciclos": {
-          "nativo": 31.9,
-          "rom": 68.0,
+          "nativo": 99.9,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.1,
           "otros": 0.0
          }
         },
-        "interpretadas": 6521
+        "interpretadas": 2
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 26.5,
-        "recompilado_pct": 32.8,
+        "segundos": 5.7,
+        "recompilado_pct": 99.9,
         "metrica": {
-         "nativas_pct": 38.8,
-         "nativas": 4074057,
+         "nativas_pct": 100.0,
+         "nativas": 10498785,
          "instrucciones": 10498827,
          "ciclos": {
-          "nativo": 32.8,
-          "rom": 67.1,
+          "nativo": 99.9,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.1,
           "otros": 0.0
          }
         },
-        "interpretadas": 6400
+        "interpretadas": 2
        }
       ],
-      "traza": 6528
+      "traza": 2
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 19130,
-      "pct_rom": 5.36,
+      "recomp_s": 0.7,
+      "instrucciones": 39099,
+      "pct_rom": 10.01,
       "funciones": null,
-      "compilacion_s": 153.8,
+      "compilacion_s": 625.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 6.4,
+        "segundos": 4.2,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -829,7 +829,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 5.7,
+        "segundos": 3.8,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -847,15 +847,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 6528
+      "traza": 2
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 248.7,
-    "velocidad_x": 35.3,
-    "velocidad_interp_x": 32.2
+    "total_s": 1280.8,
+    "velocidad_x": 35.9,
+    "velocidad_interp_x": 31.6
    }
   },
   {
@@ -887,67 +887,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 1338,
-      "pct_rom": 0.36,
+      "recomp_s": 0.7,
+      "instrucciones": 38406,
+      "pct_rom": 10.66,
       "funciones": null,
-      "compilacion_s": 15.5,
+      "compilacion_s": 572.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 63.3,
-        "recompilado_pct": 7.6,
+        "segundos": 7.6,
+        "recompilado_pct": 93.7,
         "metrica": {
-         "nativas_pct": 7.6,
-         "nativas": 994445,
+         "nativas_pct": 96.8,
+         "nativas": 12689710,
          "instrucciones": 13111759,
          "ciclos": {
-          "nativo": 7.6,
-          "rom": 86.1,
+          "nativo": 93.7,
+          "rom": 0.0,
           "ram": 6.3,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1976
+        "interpretadas": 2
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 52.4,
-        "recompilado_pct": 12.1,
+        "segundos": 12.7,
+        "recompilado_pct": 93.2,
         "metrica": {
-         "nativas_pct": 11.9,
-         "nativas": 1533121,
+         "nativas_pct": 96.4,
+         "nativas": 12444680,
          "instrucciones": 12911531,
          "ciclos": {
-          "nativo": 12.1,
-          "rom": 81.4,
+          "nativo": 93.2,
+          "rom": 0.3,
           "ram": 6.5,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 4035
+        "interpretadas": 178
        }
       ],
-      "traza": 4530
+      "traza": 307
      },
      {
       "ronda": 2,
-      "recomp_s": 0.4,
-      "instrucciones": 8631,
-      "pct_rom": 2.97,
+      "recomp_s": 1.0,
+      "instrucciones": 38739,
+      "pct_rom": 10.79,
       "funciones": null,
-      "compilacion_s": 89.4,
+      "compilacion_s": 696.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.3,
+        "segundos": 9.1,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -967,7 +967,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.9,
+        "segundos": 7.0,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -985,15 +985,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 4530
+      "traza": 307
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 228.3,
-    "velocidad_x": 34.7,
-    "velocidad_interp_x": 32.0
+    "total_s": 1306.8,
+    "velocidad_x": 35.3,
+    "velocidad_interp_x": 31.2
    }
   },
   {
@@ -1155,67 +1155,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.4,
-      "instrucciones": 21939,
-      "pct_rom": 12.06,
+      "recomp_s": 1.5,
+      "instrucciones": 40659,
+      "pct_rom": 21.83,
       "funciones": null,
-      "compilacion_s": 226.8,
+      "compilacion_s": 643.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 13.3,
-        "recompilado_pct": 26.7,
+        "segundos": 22.0,
+        "recompilado_pct": 28.5,
         "metrica": {
-         "nativas_pct": 71.9,
-         "nativas": 3400867,
+         "nativas_pct": 77.5,
+         "nativas": 3668667,
          "instrucciones": 4730740,
          "ciclos": {
-          "nativo": 26.7,
-          "rom": 10.4,
+          "nativo": 28.5,
+          "rom": 8.5,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 62.9,
           "otros": 0.0
          }
         },
-        "interpretadas": 6166
+        "interpretadas": 4282
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 22.0,
-        "recompilado_pct": 32.6,
+        "segundos": 28.5,
+        "recompilado_pct": 36.7,
         "metrica": {
-         "nativas_pct": 57.1,
-         "nativas": 4274072,
+         "nativas_pct": 65.4,
+         "nativas": 4896519,
          "instrucciones": 7487575,
          "ciclos": {
-          "nativo": 32.6,
-          "rom": 23.5,
+          "nativo": 36.7,
+          "rom": 19.4,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 43.9,
           "otros": 0.0
          }
         },
-        "interpretadas": 7558
+        "interpretadas": 5321
        }
       ],
-      "traza": 7561
+      "traza": 5324
      },
      {
       "ronda": 2,
-      "recomp_s": 0.6,
-      "instrucciones": 34251,
-      "pct_rom": 20.19,
+      "recomp_s": 1.6,
+      "instrucciones": 57269,
+      "pct_rom": 31.22,
       "funciones": null,
-      "compilacion_s": 358.0,
+      "compilacion_s": 1501.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 7.6,
+        "segundos": 11.5,
         "recompilado_pct": 37.1,
         "metrica": {
          "nativas_pct": 100.0,
@@ -1235,7 +1235,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 8.0,
+        "segundos": 13.8,
         "recompilado_pct": 56.1,
         "metrica": {
          "nativas_pct": 100.0,
@@ -1253,15 +1253,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 7561
+      "traza": 5324
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 636.8,
-    "velocidad_x": 32.7,
-    "velocidad_interp_x": 32.1
+    "total_s": 2224.0,
+    "velocidad_x": 29.7,
+    "velocidad_interp_x": 31.9
    }
   },
   {
@@ -1917,67 +1917,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.4,
-      "instrucciones": 26743,
-      "pct_rom": 15.53,
+      "recomp_s": 1.8,
+      "instrucciones": 30571,
+      "pct_rom": 17.64,
       "funciones": null,
-      "compilacion_s": 260.3,
+      "compilacion_s": 537.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 6.5,
-        "recompilado_pct": 95.2,
+        "segundos": 7.1,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 95.9,
-         "nativas": 11907720,
+         "nativas_pct": 100.0,
+         "nativas": 12416455,
          "instrucciones": 12416871,
          "ciclos": {
-          "nativo": 95.2,
-          "rom": 4.8,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 524
+        "interpretadas": 48
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 6.7,
-        "recompilado_pct": 93.8,
+        "segundos": 5.0,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 94.7,
-         "nativas": 11710181,
+         "nativas_pct": 100.0,
+         "nativas": 12365473,
          "instrucciones": 12365915,
          "ciclos": {
-          "nativo": 93.8,
-          "rom": 6.2,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 526
+        "interpretadas": 50
        }
       ],
-      "traza": 526
+      "traza": 50
      },
      {
       "ronda": 2,
-      "recomp_s": 0.4,
-      "instrucciones": 27367,
-      "pct_rom": 16.05,
+      "recomp_s": 1.2,
+      "instrucciones": 30621,
+      "pct_rom": 17.69,
       "funciones": null,
-      "compilacion_s": 275.3,
+      "compilacion_s": 489.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.9,
+        "segundos": 8.6,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -1997,7 +1997,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.3,
+        "segundos": 8.0,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2015,15 +2015,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 526
+      "traza": 50
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 556.9,
-    "velocidad_x": 36.9,
-    "velocidad_interp_x": 32.4
+    "total_s": 1058.3,
+    "velocidad_x": 37.4,
+    "velocidad_interp_x": 32.3
    }
   },
   {
@@ -2367,67 +2367,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 2423,
-      "pct_rom": 3.21,
+      "recomp_s": 0.5,
+      "instrucciones": 25375,
+      "pct_rom": 27.86,
       "funciones": null,
-      "compilacion_s": 22.1,
+      "compilacion_s": 283.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 2.8,
-        "recompilado_pct": 99.7,
+        "segundos": 5.5,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 99.7,
-         "nativas": 11146933,
+         "nativas_pct": 100.0,
+         "nativas": 11181237,
          "instrucciones": 11181239,
          "ciclos": {
-          "nativo": 99.7,
-          "rom": 0.3,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 354
+        "interpretadas": 2
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 2.6,
-        "recompilado_pct": 99.7,
+        "segundos": 5.2,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 99.7,
-         "nativas": 11146971,
+         "nativas_pct": 100.0,
+         "nativas": 11181275,
          "instrucciones": 11181277,
          "ciclos": {
-          "nativo": 99.7,
-          "rom": 0.3,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 354
+        "interpretadas": 2
        }
       ],
-      "traza": 354
+      "traza": 2
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 3063,
-      "pct_rom": 4.11,
+      "recomp_s": 0.5,
+      "instrucciones": 25377,
+      "pct_rom": 27.87,
       "funciones": null,
-      "compilacion_s": 25.4,
+      "compilacion_s": 419.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 2.5,
+        "segundos": 5.9,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2447,7 +2447,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 2.7,
+        "segundos": 7.7,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2465,15 +2465,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 354
+      "traza": 2
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 58.2,
-    "velocidad_x": 33.8,
-    "velocidad_interp_x": 29.3
+    "total_s": 728.2,
+    "velocidad_x": 34.1,
+    "velocidad_interp_x": 29.8
    }
   },
   {
@@ -2687,67 +2687,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.2,
-      "instrucciones": 6013,
-      "pct_rom": 4.82,
+      "recomp_s": 0.9,
+      "instrucciones": 27042,
+      "pct_rom": 16.18,
       "funciones": null,
-      "compilacion_s": 63.8,
+      "compilacion_s": 848.1,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 18.9,
-        "recompilado_pct": 61.7,
+        "segundos": 423.4,
+        "recompilado_pct": 67.8,
         "metrica": {
-         "nativas_pct": 73.2,
-         "nativas": 6600035,
+         "nativas_pct": 80.0,
+         "nativas": 7204459,
          "instrucciones": 9010617,
          "ciclos": {
-          "nativo": 61.7,
-          "rom": 6.1,
+          "nativo": 67.8,
+          "rom": 0.0,
           "ram": 15.7,
           "irq": 0.0,
           "espera": 16.4,
           "otros": 0.0
          }
         },
-        "interpretadas": 844
+        "interpretadas": 6
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 17.1,
-        "recompilado_pct": 49.7,
+        "segundos": 19.8,
+        "recompilado_pct": 55.7,
         "metrica": {
-         "nativas_pct": 68.7,
-         "nativas": 5284545,
+         "nativas_pct": 76.5,
+         "nativas": 5888874,
          "instrucciones": 7693202,
          "ciclos": {
-          "nativo": 49.7,
-          "rom": 6.1,
+          "nativo": 55.7,
+          "rom": 0.0,
           "ram": 15.7,
           "irq": 0.0,
           "espera": 28.5,
           "otros": 0.0
          }
         },
-        "interpretadas": 835
+        "interpretadas": 6
        }
       ],
-      "traza": 1419
+      "traza": 581
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 6902,
-      "pct_rom": 5.52,
+      "recomp_s": 1.1,
+      "instrucciones": 27050,
+      "pct_rom": 16.19,
       "funciones": null,
-      "compilacion_s": 61.5,
+      "compilacion_s": 608.8,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.6,
+        "segundos": 8.2,
         "recompilado_pct": 83.5,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2767,7 +2767,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.9,
+        "segundos": 8.5,
         "recompilado_pct": 71.5,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2785,15 +2785,15 @@
         "interpretadas": 1
        }
       ],
-      "traza": 1419
+      "traza": 581
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 169.3,
-    "velocidad_x": 33.7,
-    "velocidad_interp_x": 30.2
+    "total_s": 1932.1,
+    "velocidad_x": 31.9,
+    "velocidad_interp_x": 30.0
    }
   },
   {
@@ -2877,67 +2877,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 99,
-      "pct_rom": 0.14,
+      "recomp_s": 0.9,
+      "instrucciones": 28595,
+      "pct_rom": 35.8,
       "funciones": null,
-      "compilacion_s": 4.7,
+      "compilacion_s": 436.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 12.1,
-        "recompilado_pct": 74.8,
+        "segundos": 8.1,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 76.9,
-         "nativas": 8333990,
+         "nativas_pct": 100.0,
+         "nativas": 10833629,
          "instrucciones": 10833647,
          "ciclos": {
-          "nativo": 74.8,
-          "rom": 25.2,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 3969
+        "interpretadas": 2
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 10.7,
-        "recompilado_pct": 78.0,
+        "segundos": 5.0,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 80.8,
-         "nativas": 8686946,
+         "nativas_pct": 100.0,
+         "nativas": 10752708,
          "instrucciones": 10752728,
          "ciclos": {
-          "nativo": 78.0,
-          "rom": 21.9,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 2544
+        "interpretadas": 2
        }
       ],
-      "traza": 4040
+      "traza": 2
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 7541,
-      "pct_rom": 12.16,
+      "recomp_s": 1.1,
+      "instrucciones": 28597,
+      "pct_rom": 35.81,
       "funciones": null,
-      "compilacion_s": 64.9,
+      "compilacion_s": 459.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.4,
+        "segundos": 5.9,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2957,7 +2957,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.3,
+        "segundos": 6.3,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -2975,15 +2975,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 4040
+      "traza": 2
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 99.4,
-    "velocidad_x": 34.5,
-    "velocidad_interp_x": 30.8
+    "total_s": 922.6,
+    "velocidad_x": 35.0,
+    "velocidad_interp_x": 29.9
    }
   },
   {
@@ -3015,67 +3015,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 3062,
-      "pct_rom": 20.31,
+      "recomp_s": 0.9,
+      "instrucciones": 10204,
+      "pct_rom": 52.32,
       "funciones": null,
-      "compilacion_s": 43.7,
+      "compilacion_s": 192.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 11.9,
-        "recompilado_pct": 83.3,
+        "segundos": 10.7,
+        "recompilado_pct": 99.7,
         "metrica": {
-         "nativas_pct": 85.8,
-         "nativas": 9165423,
+         "nativas_pct": 99.9,
+         "nativas": 10672243,
          "instrucciones": 10684390,
          "ciclos": {
-          "nativo": 83.3,
-          "rom": 16.5,
+          "nativo": 99.7,
+          "rom": 0.1,
           "ram": 0.0,
           "irq": 0.2,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1554
+        "interpretadas": 482
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 10.0,
-        "recompilado_pct": 86.0,
+        "segundos": 7.9,
+        "recompilado_pct": 99.7,
         "metrica": {
-         "nativas_pct": 88.2,
-         "nativas": 9447539,
+         "nativas_pct": 99.9,
+         "nativas": 10697481,
          "instrucciones": 10707834,
          "ciclos": {
-          "nativo": 86.0,
-          "rom": 13.8,
+          "nativo": 99.7,
+          "rom": 0.1,
           "ram": 0.0,
           "irq": 0.2,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1318
+        "interpretadas": 304
        }
       ],
-      "traza": 1554
+      "traza": 482
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 5335,
-      "pct_rom": 34.46,
+      "recomp_s": 0.5,
+      "instrucciones": 10913,
+      "pct_rom": 57.39,
       "funciones": null,
-      "compilacion_s": 59.2,
+      "compilacion_s": 166.6,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.8,
+        "segundos": 6.7,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -3095,7 +3095,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 4.5,
+        "segundos": 6.6,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -3113,15 +3113,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 1554
+      "traza": 482
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 134.5,
-    "velocidad_x": 34.6,
-    "velocidad_interp_x": 30.4
+    "total_s": 392.4,
+    "velocidad_x": 35.4,
+    "velocidad_interp_x": 31.1
    }
   },
   {
@@ -3205,67 +3205,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 1.6,
-      "instrucciones": 5769,
-      "pct_rom": 4.19,
+      "recomp_s": 1.1,
+      "instrucciones": 13049,
+      "pct_rom": 8.16,
       "funciones": null,
-      "compilacion_s": 61.2,
+      "compilacion_s": 260.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 19.5,
-        "recompilado_pct": 27.0,
+        "segundos": 23.9,
+        "recompilado_pct": 27.2,
         "metrica": {
-         "nativas_pct": 52.5,
-         "nativas": 2949807,
+         "nativas_pct": 52.8,
+         "nativas": 2966172,
          "instrucciones": 5618774,
          "ciclos": {
-          "nativo": 27.0,
-          "rom": 19.2,
+          "nativo": 27.2,
+          "rom": 19.0,
           "ram": 2.7,
           "irq": 0.0,
           "espera": 51.1,
           "otros": 0.0
          }
         },
-        "interpretadas": 2541
+        "interpretadas": 2397
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 26.9,
-        "recompilado_pct": 33.1,
+        "segundos": 35.3,
+        "recompilado_pct": 33.4,
         "metrica": {
-         "nativas_pct": 40.0,
-         "nativas": 3689397,
+         "nativas_pct": 40.3,
+         "nativas": 3724816,
          "instrucciones": 9234534,
          "ciclos": {
-          "nativo": 33.1,
-          "rom": 44.0,
+          "nativo": 33.4,
+          "rom": 43.6,
           "ram": 2.7,
           "irq": 0.0,
           "espera": 20.2,
           "otros": 0.0
          }
         },
-        "interpretadas": 3034
+        "interpretadas": 2807
        }
       ],
-      "traza": 3540
+      "traza": 3313
      },
      {
       "ronda": 2,
-      "recomp_s": 2.9,
-      "instrucciones": 19420,
-      "pct_rom": 15.19,
+      "recomp_s": 1.0,
+      "instrucciones": 41196,
+      "pct_rom": 27.97,
       "funciones": null,
-      "compilacion_s": 214.7,
+      "compilacion_s": 454.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 6.8,
+        "segundos": 5.9,
         "recompilado_pct": 48.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -3285,7 +3285,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 5.8,
+        "segundos": 4.0,
         "recompilado_pct": 79.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -3303,15 +3303,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 3540
+      "traza": 3313
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 339.5,
-    "velocidad_x": 44.8,
-    "velocidad_interp_x": 42.8
+    "total_s": 785.8,
+    "velocidad_x": 45.0,
+    "velocidad_interp_x": 42.2
    }
   },
   {
@@ -3942,66 +3942,15 @@
      {
       "ronda": 1,
       "recomp_s": 0.2,
-      "instrucciones": 6702,
-      "pct_rom": 42.98,
+      "instrucciones": 13218,
+      "pct_rom": 67.8,
       "funciones": null,
-      "compilacion_s": 99.1,
+      "compilacion_s": 187.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.5,
-        "recompilado_pct": 100.0,
-        "metrica": {
-         "nativas_pct": 100.0,
-         "nativas": 12565678,
-         "instrucciones": 12565722,
-         "ciclos": {
-          "nativo": 100.0,
-          "rom": 0.0,
-          "ram": 0.0,
-          "irq": 0.0,
-          "espera": 0.0,
-          "otros": 0.0
-         }
-        },
-        "interpretadas": 14
-       },
-       {
-        "semilla": 2,
-        "ok": true,
-        "segundos": 3.3,
-        "recompilado_pct": 100.0,
-        "metrica": {
-         "nativas_pct": 100.0,
-         "nativas": 12582601,
-         "instrucciones": 12582634,
-         "ciclos": {
-          "nativo": 100.0,
-          "rom": 0.0,
-          "ram": 0.0,
-          "irq": 0.0,
-          "espera": 0.0,
-          "otros": 0.0
-         }
-        },
-        "interpretadas": 17
-       }
-      ],
-      "traza": 19
-     },
-     {
-      "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 6721,
-      "pct_rom": 43.14,
-      "funciones": null,
-      "compilacion_s": 69.4,
-      "semillas": [
-       {
-        "semilla": 1,
-        "ok": true,
-        "segundos": 4.6,
+        "segundos": 5.1,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4021,7 +3970,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 5.1,
+        "segundos": 4.9,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4039,15 +3988,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 19
+      "traza": 0
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 185.4,
-    "velocidad_x": 70.2,
-    "velocidad_interp_x": 49.4
+    "total_s": 197.6,
+    "velocidad_x": 70.5,
+    "velocidad_interp_x": 53.3
    }
   },
   {
@@ -4105,67 +4054,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.2,
-      "instrucciones": 9714,
-      "pct_rom": 7.13,
+      "recomp_s": 2.5,
+      "instrucciones": 56564,
+      "pct_rom": 33.25,
       "funciones": null,
-      "compilacion_s": 67.4,
+      "compilacion_s": 1507.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 17.8,
-        "recompilado_pct": 49.0,
+        "segundos": 80.1,
+        "recompilado_pct": 55.3,
         "metrica": {
-         "nativas_pct": 62.6,
-         "nativas": 5628895,
+         "nativas_pct": 71.4,
+         "nativas": 6419043,
          "instrucciones": 8988209,
          "ciclos": {
-          "nativo": 49.0,
-          "rom": 23.4,
+          "nativo": 55.3,
+          "rom": 17.1,
           "ram": 3.8,
           "irq": 0.0,
           "espera": 23.7,
           "otros": 0.0
          }
         },
-        "interpretadas": 2429
+        "interpretadas": 807
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 16.6,
-        "recompilado_pct": 50.4,
+        "segundos": 24.3,
+        "recompilado_pct": 55.5,
         "metrica": {
-         "nativas_pct": 63.9,
-         "nativas": 5756966,
+         "nativas_pct": 71.4,
+         "nativas": 6426391,
          "instrucciones": 9002702,
          "ciclos": {
-          "nativo": 50.4,
-          "rom": 22.3,
+          "nativo": 55.5,
+          "rom": 17.2,
           "ram": 3.8,
           "irq": 0.0,
           "espera": 23.5,
           "otros": 0.0
          }
         },
-        "interpretadas": 2643
+        "interpretadas": 1031
        }
       ],
-      "traza": 3307
+      "traza": 1678
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 13562,
-      "pct_rom": 9.97,
+      "recomp_s": 2.2,
+      "instrucciones": 58239,
+      "pct_rom": 34.53,
       "funciones": null,
-      "compilacion_s": 151.1,
+      "compilacion_s": 1029.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.8,
+        "segundos": 5.7,
         "recompilado_pct": 76.3,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4185,7 +4134,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 4.6,
+        "segundos": 5.2,
         "recompilado_pct": 76.4,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4203,15 +4152,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 3307
+      "traza": 1678
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 262.7,
-    "velocidad_x": 36.3,
-    "velocidad_interp_x": 33.9
+    "total_s": 2696.0,
+    "velocidad_x": 37.0,
+    "velocidad_interp_x": 33.6
    }
   },
   {
@@ -4529,67 +4478,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 360,
-      "pct_rom": 0.13,
+      "recomp_s": 0.5,
+      "instrucciones": 24428,
+      "pct_rom": 7.1,
       "funciones": null,
-      "compilacion_s": 9.9,
+      "compilacion_s": 397.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 28.1,
-        "recompilado_pct": 32.9,
+        "segundos": 5.3,
+        "recompilado_pct": 99.5,
         "metrica": {
-         "nativas_pct": 38.4,
-         "nativas": 4047766,
+         "nativas_pct": 99.8,
+         "nativas": 10511337,
          "instrucciones": 10532264,
          "ciclos": {
-          "nativo": 32.9,
-          "rom": 66.9,
+          "nativo": 99.5,
+          "rom": 0.3,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.2,
           "otros": 0.0
          }
         },
-        "interpretadas": 5032
+        "interpretadas": 127
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 35.5,
-        "recompilado_pct": 35.7,
+        "segundos": 6.0,
+        "recompilado_pct": 99.6,
         "metrica": {
-         "nativas_pct": 40.7,
-         "nativas": 4343474,
+         "nativas_pct": 99.9,
+         "nativas": 10663103,
          "instrucciones": 10677854,
          "ciclos": {
-          "nativo": 35.7,
-          "rom": 64.1,
+          "nativo": 99.6,
+          "rom": 0.2,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.2,
           "otros": 0.0
          }
         },
-        "interpretadas": 5337
+        "interpretadas": 85
        }
       ],
-      "traza": 5651
+      "traza": 127
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 7393,
-      "pct_rom": 2.76,
+      "recomp_s": 0.4,
+      "instrucciones": 24555,
+      "pct_rom": 7.15,
       "funciones": null,
-      "compilacion_s": 79.3,
+      "compilacion_s": 432.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.3,
+        "segundos": 7.5,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4609,7 +4558,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 4.6,
+        "segundos": 12.8,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4627,15 +4576,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 5651
+      "traza": 127
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 162.0,
-    "velocidad_x": 36.6,
-    "velocidad_interp_x": 32.6
+    "total_s": 862.4,
+    "velocidad_x": 37.3,
+    "velocidad_interp_x": 32.3
    }
   },
   {
@@ -4771,67 +4720,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.2,
-      "instrucciones": 7290,
-      "pct_rom": 36.01,
+      "recomp_s": 0.3,
+      "instrucciones": 16001,
+      "pct_rom": 78.88,
       "funciones": null,
-      "compilacion_s": 99.1,
+      "compilacion_s": 208.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 15.6,
-        "recompilado_pct": 77.4,
+        "segundos": 6.0,
+        "recompilado_pct": 99.4,
         "metrica": {
-         "nativas_pct": 77.1,
-         "nativas": 8586111,
+         "nativas_pct": 99.6,
+         "nativas": 11084251,
          "instrucciones": 11130355,
          "ciclos": {
-          "nativo": 77.4,
-          "rom": 22.6,
+          "nativo": 99.4,
+          "rom": 0.5,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 2480
+        "interpretadas": 198
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 19.3,
-        "recompilado_pct": 77.2,
+        "segundos": 6.5,
+        "recompilado_pct": 99.3,
         "metrica": {
-         "nativas_pct": 77.1,
-         "nativas": 8601071,
+         "nativas_pct": 99.5,
+         "nativas": 11092286,
          "instrucciones": 11151308,
          "ciclos": {
-          "nativo": 77.2,
-          "rom": 22.8,
+          "nativo": 99.3,
+          "rom": 0.7,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 2245
+        "interpretadas": 177
        }
       ],
-      "traza": 2624
+      "traza": 221
      },
      {
       "ronda": 2,
       "recomp_s": 0.3,
-      "instrucciones": 10439,
-      "pct_rom": 56.55,
+      "instrucciones": 16185,
+      "pct_rom": 80.38,
       "funciones": null,
-      "compilacion_s": 112.7,
+      "compilacion_s": 206.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.7,
+        "segundos": 6.2,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4851,7 +4800,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 5.9,
+        "segundos": 5.8,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -4869,15 +4818,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 2624
+      "traza": 221
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 257.7,
-    "velocidad_x": 32.2,
-    "velocidad_interp_x": 28.4
+    "total_s": 439.6,
+    "velocidad_x": 32.6,
+    "velocidad_interp_x": 29.1
    }
   },
   {
@@ -4987,67 +4936,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 976,
-      "pct_rom": 0.35,
+      "recomp_s": 0.5,
+      "instrucciones": 32960,
+      "pct_rom": 9.18,
       "funciones": null,
-      "compilacion_s": 25.1,
+      "compilacion_s": 556.9,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 39.4,
-        "recompilado_pct": 19.9,
+        "segundos": 12.3,
+        "recompilado_pct": 99.5,
         "metrica": {
-         "nativas_pct": 25.5,
-         "nativas": 2558750,
+         "nativas_pct": 99.8,
+         "nativas": 10025163,
          "instrucciones": 10043055,
          "ciclos": {
-          "nativo": 19.9,
-          "rom": 79.7,
+          "nativo": 99.5,
+          "rom": 0.2,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.3,
           "otros": 0.0
          }
         },
-        "interpretadas": 4426
+        "interpretadas": 400
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 42.0,
-        "recompilado_pct": 21.1,
+        "segundos": 7.4,
+        "recompilado_pct": 99.7,
         "metrica": {
-         "nativas_pct": 26.0,
-         "nativas": 2690171,
+         "nativas_pct": 99.9,
+         "nativas": 10347941,
          "instrucciones": 10355219,
          "ciclos": {
-          "nativo": 21.1,
-          "rom": 78.6,
+          "nativo": 99.7,
+          "rom": 0.1,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.2,
           "otros": 0.0
          }
         },
-        "interpretadas": 3630
+        "interpretadas": 241
        }
       ],
-      "traza": 4485
+      "traza": 400
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 5948,
-      "pct_rom": 2.31,
+      "recomp_s": 3.3,
+      "instrucciones": 33809,
+      "pct_rom": 9.5,
       "funciones": null,
-      "compilacion_s": 65.4,
+      "compilacion_s": 635.6,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.6,
+        "segundos": 6.9,
         "recompilado_pct": 99.7,
         "metrica": {
          "nativas_pct": 100.0,
@@ -5067,7 +5016,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.8,
+        "segundos": 11.2,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -5085,15 +5034,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 4485
+      "traza": 400
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 179.5,
+    "total_s": 1234.3,
     "velocidad_x": 35.9,
-    "velocidad_interp_x": 31.0
+    "velocidad_interp_x": 31.6
    }
   },
   {
@@ -6868,66 +6817,66 @@
      {
       "ronda": 1,
       "recomp_s": 0.2,
-      "instrucciones": 4422,
-      "pct_rom": 22.55,
+      "instrucciones": 14635,
+      "pct_rom": 70.32,
       "funciones": null,
-      "compilacion_s": 61.7,
+      "compilacion_s": 197.6,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.4,
-        "recompilado_pct": 98.6,
+        "segundos": 6.0,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 98.9,
-         "nativas": 12324891,
+         "nativas_pct": 100.0,
+         "nativas": 12467343,
          "instrucciones": 12467419,
          "ciclos": {
-          "nativo": 98.6,
-          "rom": 1.4,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 835
+        "interpretadas": 4
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 2.8,
-        "recompilado_pct": 99.0,
+        "segundos": 4.4,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 99.2,
-         "nativas": 12355706,
+         "nativas_pct": 100.0,
+         "nativas": 12449432,
          "instrucciones": 12449432,
          "ciclos": {
-          "nativo": 99.0,
-          "rom": 0.9,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 763
+        "interpretadas": 0
        }
       ],
-      "traza": 837
+      "traza": 4
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 5370,
-      "pct_rom": 29.32,
+      "recomp_s": 0.3,
+      "instrucciones": 14641,
+      "pct_rom": 70.37,
       "funciones": null,
-      "compilacion_s": 56.7,
+      "compilacion_s": 192.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.1,
+        "segundos": 6.7,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -6947,7 +6896,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 2.8,
+        "segundos": 6.0,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -6965,15 +6914,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 837
+      "traza": 4
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 130.8,
-    "velocidad_x": 34.7,
-    "velocidad_interp_x": 27.5
+    "total_s": 414.1,
+    "velocidad_x": 35.8,
+    "velocidad_interp_x": 30.5
    }
   },
   {
@@ -7265,67 +7214,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 6642,
-      "pct_rom": 5.42,
+      "recomp_s": 0.5,
+      "instrucciones": 27568,
+      "pct_rom": 18.06,
       "funciones": null,
-      "compilacion_s": 85.1,
+      "compilacion_s": 425.9,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 37.3,
-        "recompilado_pct": 49.2,
+        "segundos": 8.0,
+        "recompilado_pct": 99.9,
         "metrica": {
-         "nativas_pct": 47.4,
-         "nativas": 5304875,
+         "nativas_pct": 100.0,
+         "nativas": 11194999,
          "instrucciones": 11195006,
          "ciclos": {
-          "nativo": 49.2,
-          "rom": 50.8,
+          "nativo": 99.9,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1239
+        "interpretadas": 7
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 39.8,
-        "recompilado_pct": 49.3,
+        "segundos": 6.5,
+        "recompilado_pct": 99.9,
         "metrica": {
-         "nativas_pct": 47.5,
-         "nativas": 5312805,
+         "nativas_pct": 100.0,
+         "nativas": 11188303,
          "instrucciones": 11188303,
          "ciclos": {
-          "nativo": 49.3,
-          "rom": 50.7,
+          "nativo": 99.9,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1232
+        "interpretadas": 0
        }
       ],
-      "traza": 1244
+      "traza": 7
      },
      {
       "ronda": 2,
-      "recomp_s": 0.2,
-      "instrucciones": 8812,
-      "pct_rom": 7.03,
+      "recomp_s": 0.6,
+      "instrucciones": 27575,
+      "pct_rom": 18.07,
       "funciones": null,
-      "compilacion_s": 79.5,
+      "compilacion_s": 426.4,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.4,
+        "segundos": 6.8,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -7345,7 +7294,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.1,
+        "segundos": 6.0,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -7363,15 +7312,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 1244
+      "traza": 7
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 248.6,
-    "velocidad_x": 34.1,
-    "velocidad_interp_x": 28.7
+    "total_s": 880.7,
+    "velocidad_x": 34.3,
+    "velocidad_interp_x": 30.5
    }
   },
   {
@@ -7741,67 +7690,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.2,
-      "instrucciones": 16020,
-      "pct_rom": 4.64,
+      "recomp_s": 0.8,
+      "instrucciones": 29469,
+      "pct_rom": 8.98,
       "funciones": null,
-      "compilacion_s": 127.4,
+      "compilacion_s": 553.3,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 7.3,
-        "recompilado_pct": 87.5,
+        "segundos": 12.3,
+        "recompilado_pct": 94.6,
         "metrica": {
-         "nativas_pct": 90.1,
-         "nativas": 9977724,
+         "nativas_pct": 95.2,
+         "nativas": 10549022,
          "instrucciones": 11076248,
          "ciclos": {
-          "nativo": 87.5,
-          "rom": 12.4,
+          "nativo": 94.6,
+          "rom": 5.4,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1563
+        "interpretadas": 540
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 7.5,
-        "recompilado_pct": 87.7,
+        "segundos": 11.8,
+        "recompilado_pct": 94.6,
         "metrica": {
-         "nativas_pct": 90.2,
-         "nativas": 9933597,
+         "nativas_pct": 95.2,
+         "nativas": 10488962,
          "instrucciones": 11015746,
          "ciclos": {
-          "nativo": 87.7,
-          "rom": 12.3,
+          "nativo": 94.6,
+          "rom": 5.4,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1529
+        "interpretadas": 540
        }
       ],
-      "traza": 1563
+      "traza": 540
      },
      {
       "ronda": 2,
-      "recomp_s": 0.4,
-      "instrucciones": 18641,
-      "pct_rom": 5.65,
+      "recomp_s": 1.6,
+      "instrucciones": 31500,
+      "pct_rom": 9.59,
       "funciones": null,
-      "compilacion_s": 166.3,
+      "compilacion_s": 521.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 26.2,
+        "segundos": 8.4,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -7821,7 +7770,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 29.5,
+        "segundos": 6.8,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -7839,15 +7788,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 1563
+      "traza": 540
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 364.7,
-    "velocidad_x": 31.8,
-    "velocidad_interp_x": 31.1
+    "total_s": 1116.4,
+    "velocidad_x": 35.3,
+    "velocidad_interp_x": 30.4
    }
   },
   {
@@ -8087,67 +8036,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.2,
-      "instrucciones": 17806,
-      "pct_rom": 10.1,
+      "recomp_s": 0.7,
+      "instrucciones": 24222,
+      "pct_rom": 13.7,
       "funciones": null,
-      "compilacion_s": 158.8,
+      "compilacion_s": 343.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 7.9,
+        "segundos": 11.9,
         "recompilado_pct": 92.2,
         "metrica": {
          "nativas_pct": 93.2,
-         "nativas": 11092508,
+         "nativas": 11094037,
          "instrucciones": 11905478,
          "ciclos": {
           "nativo": 92.2,
-          "rom": 7.6,
+          "rom": 7.5,
           "ram": 0.0,
           "irq": 0.2,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 843
+        "interpretadas": 648
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 9.9,
+        "segundos": 11.6,
         "recompilado_pct": 92.2,
         "metrica": {
          "nativas_pct": 93.2,
-         "nativas": 11092508,
+         "nativas": 11094037,
          "instrucciones": 11905478,
          "ciclos": {
           "nativo": 92.2,
-          "rom": 7.6,
+          "rom": 7.5,
           "ram": 0.0,
           "irq": 0.2,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 843
+        "interpretadas": 648
        }
       ],
-      "traza": 843
+      "traza": 648
      },
      {
       "ronda": 2,
-      "recomp_s": 0.5,
-      "instrucciones": 19080,
-      "pct_rom": 11.07,
+      "recomp_s": 0.7,
+      "instrucciones": 35507,
+      "pct_rom": 19.44,
       "funciones": null,
-      "compilacion_s": 179.5,
+      "compilacion_s": 523.9,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 4.3,
+        "segundos": 5.4,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -8167,7 +8116,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 4.0,
+        "segundos": 5.7,
         "recompilado_pct": 99.8,
         "metrica": {
          "nativas_pct": 100.0,
@@ -8185,15 +8134,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 843
+      "traza": 648
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 365.2,
+    "total_s": 903.5,
     "velocidad_x": 34.6,
-    "velocidad_interp_x": 29.7
+    "velocidad_interp_x": 30.3
    }
   },
   {
@@ -9395,67 +9344,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.3,
-      "instrucciones": 17906,
-      "pct_rom": 5.7,
+      "recomp_s": 1.1,
+      "instrucciones": 29472,
+      "pct_rom": 9.28,
       "funciones": null,
-      "compilacion_s": 158.9,
+      "compilacion_s": 1051.0,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 28.6,
-        "recompilado_pct": 95.4,
+        "segundos": 7.8,
+        "recompilado_pct": 97.9,
         "metrica": {
-         "nativas_pct": 96.2,
-         "nativas": 12222436,
+         "nativas_pct": 98.0,
+         "nativas": 12445365,
          "instrucciones": 12702679,
          "ciclos": {
-          "nativo": 95.4,
-          "rom": 4.6,
+          "nativo": 97.9,
+          "rom": 2.1,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1731
+        "interpretadas": 891
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 29.6,
-        "recompilado_pct": 95.6,
+        "segundos": 6.5,
+        "recompilado_pct": 98.1,
         "metrica": {
-         "nativas_pct": 96.4,
-         "nativas": 12443303,
+         "nativas_pct": 98.2,
+         "nativas": 12671536,
          "instrucciones": 12901851,
          "ciclos": {
-          "nativo": 95.6,
-          "rom": 4.4,
+          "nativo": 98.1,
+          "rom": 1.9,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1720
+        "interpretadas": 899
        }
       ],
-      "traza": 1747
+      "traza": 907
      },
      {
       "ronda": 2,
-      "recomp_s": 0.3,
-      "instrucciones": 20808,
-      "pct_rom": 6.84,
+      "recomp_s": 2.7,
+      "instrucciones": 40893,
+      "pct_rom": 12.28,
       "funciones": null,
-      "compilacion_s": 212.5,
+      "compilacion_s": 623.8,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 27.0,
+        "segundos": 4.2,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -9475,7 +9424,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 28.0,
+        "segundos": 3.7,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -9493,15 +9442,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 1747
+      "traza": 907
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 485.1,
-    "velocidad_x": 33.5,
-    "velocidad_interp_x": 32.5
+    "total_s": 1703.2,
+    "velocidad_x": 35.9,
+    "velocidad_interp_x": 32.0
    }
   },
   {
@@ -10574,19 +10523,19 @@
      {
       "ronda": 1,
       "recomp_s": 0.2,
-      "instrucciones": 6747,
-      "pct_rom": 5.31,
+      "instrucciones": 11578,
+      "pct_rom": 7.71,
       "funciones": null,
-      "compilacion_s": 73.9,
+      "compilacion_s": 69.7,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 8.0,
+        "segundos": 7.3,
         "recompilado_pct": 92.3,
         "metrica": {
          "nativas_pct": 92.4,
-         "nativas": 11402395,
+         "nativas": 11402421,
          "instrucciones": 12345485,
          "ciclos": {
           "nativo": 92.3,
@@ -10597,16 +10546,16 @@
           "otros": 0.0
          }
         },
-        "interpretadas": 693
+        "interpretadas": 680
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 6.5,
+        "segundos": 6.7,
         "recompilado_pct": 93.0,
         "metrica": {
          "nativas_pct": 93.3,
-         "nativas": 11589203,
+         "nativas": 11589216,
          "instrucciones": 12426831,
          "ciclos": {
           "nativo": 93.0,
@@ -10617,18 +10566,18 @@
           "otros": 0.0
          }
         },
-        "interpretadas": 712
+        "interpretadas": 699
        }
       ],
-      "traza": 712
+      "traza": 699
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 8253,
-      "pct_rom": 6.45,
+      "recomp_s": 0.3,
+      "instrucciones": 16866,
+      "pct_rom": 10.95,
       "funciones": null,
-      "compilacion_s": 51.0,
+      "compilacion_s": 97.0,
       "semillas": [
        {
         "semilla": 1,
@@ -10653,7 +10602,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 3.7,
+        "segundos": 3.6,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -10671,15 +10620,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 712
+      "traza": 699
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 147.5,
-    "velocidad_x": 35.7,
-    "velocidad_interp_x": 30.5
+    "total_s": 188.9,
+    "velocidad_x": 35.6,
+    "velocidad_interp_x": 30.7
    }
   },
   {
@@ -10893,67 +10842,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.4,
-      "instrucciones": 14528,
-      "pct_rom": 14.83,
+      "recomp_s": 0.5,
+      "instrucciones": 17004,
+      "pct_rom": 17.0,
       "funciones": null,
-      "compilacion_s": 145.5,
+      "compilacion_s": 175.5,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 8.0,
-        "recompilado_pct": 94.4,
+        "segundos": 6.7,
+        "recompilado_pct": 94.5,
         "metrica": {
-         "nativas_pct": 93.8,
-         "nativas": 10694861,
+         "nativas_pct": 93.9,
+         "nativas": 10707077,
          "instrucciones": 11398304,
          "ciclos": {
-          "nativo": 94.4,
-          "rom": 5.5,
+          "nativo": 94.5,
+          "rom": 5.4,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1228
+        "interpretadas": 1220
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 7.2,
-        "recompilado_pct": 94.4,
+        "segundos": 6.3,
+        "recompilado_pct": 94.5,
         "metrica": {
-         "nativas_pct": 93.8,
-         "nativas": 10694860,
+         "nativas_pct": 93.9,
+         "nativas": 10707076,
          "instrucciones": 11398303,
          "ciclos": {
-          "nativo": 94.4,
-          "rom": 5.5,
+          "nativo": 94.5,
+          "rom": 5.4,
           "ram": 0.0,
           "irq": 0.1,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 1228
+        "interpretadas": 1220
        }
       ],
-      "traza": 1228
+      "traza": 1220
      },
      {
       "ronda": 2,
       "recomp_s": 0.5,
-      "instrucciones": 16389,
-      "pct_rom": 17.41,
+      "instrucciones": 18857,
+      "pct_rom": 19.56,
       "funciones": null,
-      "compilacion_s": 146.3,
+      "compilacion_s": 183.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 3.2,
+        "segundos": 3.8,
         "recompilado_pct": 99.9,
         "metrica": {
          "nativas_pct": 100.0,
@@ -10991,15 +10940,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 1228
+      "traza": 1220
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 314.5,
-    "velocidad_x": 35.1,
-    "velocidad_interp_x": 31.3
+    "total_s": 379.9,
+    "velocidad_x": 36.0,
+    "velocidad_interp_x": 31.0
    }
   },
   {
@@ -11525,67 +11474,67 @@
     "fases": [
      {
       "ronda": 1,
-      "recomp_s": 0.1,
-      "instrucciones": 3146,
-      "pct_rom": 18.55,
+      "recomp_s": 0.5,
+      "instrucciones": 20168,
+      "pct_rom": 91.57,
       "funciones": null,
-      "compilacion_s": 42.6,
+      "compilacion_s": 394.8,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 7.3,
-        "recompilado_pct": 96.2,
+        "segundos": 9.8,
+        "recompilado_pct": 99.9,
         "metrica": {
-         "nativas_pct": 96.8,
-         "nativas": 12578855,
+         "nativas_pct": 100.0,
+         "nativas": 12982421,
          "instrucciones": 12988519,
          "ciclos": {
-          "nativo": 96.2,
-          "rom": 3.8,
+          "nativo": 99.9,
+          "rom": 0.1,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 680
+        "interpretadas": 4
        },
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 8.1,
-        "recompilado_pct": 98.5,
+        "segundos": 13.6,
+        "recompilado_pct": 100.0,
         "metrica": {
-         "nativas_pct": 98.7,
-         "nativas": 12075362,
+         "nativas_pct": 100.0,
+         "nativas": 12236914,
          "instrucciones": 12239242,
          "ciclos": {
-          "nativo": 98.5,
-          "rom": 1.5,
+          "nativo": 100.0,
+          "rom": 0.0,
           "ram": 0.0,
           "irq": 0.0,
           "espera": 0.0,
           "otros": 0.0
          }
         },
-        "interpretadas": 540
+        "interpretadas": 4
        }
       ],
-      "traza": 680
+      "traza": 4
      },
      {
       "ronda": 2,
-      "recomp_s": 0.1,
-      "instrucciones": 4272,
-      "pct_rom": 26.69,
+      "recomp_s": 1.1,
+      "instrucciones": 20172,
+      "pct_rom": 91.6,
       "funciones": null,
-      "compilacion_s": 31.2,
+      "compilacion_s": 395.2,
       "semillas": [
        {
         "semilla": 1,
         "ok": true,
-        "segundos": 6.8,
+        "segundos": 14.3,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -11605,7 +11554,7 @@
        {
         "semilla": 2,
         "ok": true,
-        "segundos": 9.8,
+        "segundos": 16.5,
         "recompilado_pct": 100.0,
         "metrica": {
          "nativas_pct": 100.0,
@@ -11623,15 +11572,15 @@
         "interpretadas": 0
        }
       ],
-      "traza": 680
+      "traza": 4
      }
     ],
-    "version": "1a45ac3",
-    "fuente": "511f183",
+    "version": "aa06f50",
+    "fuente": "ee10163",
     "resultado": "ok",
-    "total_s": 106.1,
-    "velocidad_x": 33.0,
-    "velocidad_interp_x": 32.0
+    "total_s": 846.0,
+    "velocidad_x": 36.1,
+    "velocidad_interp_x": 31.4
    }
   },
   {

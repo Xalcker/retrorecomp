@@ -111,11 +111,17 @@ def main():
     # El ciclo completo (../shared/recomp_game.py: traza guionada, recompilar, difftest con dos semillas, recompilar con lo
     # que cayó al intérprete) con Dragon Blaster (make testroms). RAPIDAS=1 (el CI de cada PR) lo salta
     if not rapidas and os.path.isfile("testroms/homebrew/dragon_blaster.sms"):
-        codigo, o = rr.correr([sys.executable, "../shared/recomp_game.py", "testroms/homebrew/dragon_blaster.sms", "prueba_dragon", "900", "1", "2"])
+        # Con el almacén de trazas (RETROCOMP_TRAZAS): al terminar sin diferencias deja la traza acumulada de la ROM
+        almacen_ciclo = f"{D}/almacen_ciclo"
+        shutil.rmtree(almacen_ciclo, ignore_errors=True)
+        codigo, o = rr.correr([sys.executable, "../shared/recomp_game.py", "testroms/homebrew/dragon_blaster.sms", "prueba_dragon", "900", "1", "2"],
+                              env=dict(os.environ, RETROCOMP_TRAZAS=almacen_ciclo))
         escribir(f"{D}/ciclo_dragon.out", o.encode())
         if codigo == 0 and re.search(r"^Sin diferencias\.$", o, re.M):
             ult = [l for l in o.splitlines() if "semilla 2" in l]
             p.ok("ciclo completo con Dragon Blaster: " + (ult[-1].strip() if ult else ""))
+            p.comprobar(bool(glob.glob(f"{almacen_ciclo}/sms/*/acumulada.trace")),
+                        "el ciclo completo deja su traza en el almacén (RETROCOMP_TRAZAS)")
         else:
             p.falla("ciclo completo con Dragon Blaster")
             print("\n".join(o.rstrip("\n").split("\n")[-8:]))
@@ -216,6 +222,50 @@ def main():
         p.ok("smsrecomp rechaza un modelo desconocido")
     else:
         p.falla("smsrecomp --model sg")
+
+    # F4.4: los conteos de la traza (--counts), el almacén de trazas por SHA1 (--traces-dir, ../shared/trazas.py) y el sondeo
+    # (--probe), con waternet, que sin traza deja código sin descubrir
+    agua = "testroms/homebrew/waternet.sms"
+    sha_agua = "dfb74cda30ade0c35c409f9d72f6af2b5f30a029"
+    if os.path.isfile(agua):
+        def codemap(destino, *opciones):
+            c, o = rr.correr([S, agua, *opciones, "--codemap", destino])
+            return c, o, open(destino, "rb").read() if os.path.isfile(destino) else b""
+
+        rr.correr([exe("smstrace"), agua, f"{D}/agua_plana.trace", "--frames", "300", "--seed", "1"])
+        _, o_cuentas = rr.correr([exe("smstrace"), agua, f"{D}/agua_cuentas.trace", "--frames", "300", "--seed", "1", "--counts"])
+        plana, cuentas = lineas(f"{D}/agua_plana.trace"), lineas(f"{D}/agua_cuentas.trace")
+        rom_cuentas = [l for l in cuentas if not l.startswith("ram")]
+        p.comprobar(bool(rom_cuentas) and all(re.fullmatch(r"[0-9A-F]{2}:[0-9A-F]{4} x[0-9]+", l) for l in rom_cuentas)
+                    and not any(" x" in l for l in plana) and "Las instrucciones que más ejecutó:" in o_cuentas,
+                    "smstrace --counts: cada línea lleva su cuenta, y sin la opción la traza no cambia")
+        _, _, mapa_plano = codemap(f"{D}/agua_plano.cm", "--trace", f"{D}/agua_plana.trace")
+        _, _, mapa_cuentas = codemap(f"{D}/agua_cuentas.cm", "--trace", f"{D}/agua_cuentas.trace")
+        p.comprobar(bool(mapa_plano) and mapa_plano == mapa_cuentas, "smsrecomp --trace lee igual una traza con conteos")
+
+        # El almacén: DIR/sms/<SHA1>/acumulada.trace, que se suma sola; agregar dos veces lo mismo no cambia nada
+        almacen = f"{D}/almacen"
+        shutil.rmtree(almacen, ignore_errors=True)
+        c1, _ = rr.correr([sys.executable, "../shared/trazas.py", "agregar", "--dir", almacen, agua, f"{D}/agua_plana.trace"])
+        c2, _ = rr.correr([sys.executable, "../shared/trazas.py", "agregar", "--dir", almacen, agua, f"{D}/agua_cuentas.trace"])
+        c3, o_resumen = rr.correr([sys.executable, "../shared/trazas.py", "resumen", "--dir", almacen])
+        c4, o_almacen, mapa_almacen = codemap(f"{D}/agua_almacen.cm", "--traces-dir", almacen)
+        p.comprobar(c1 == c2 == c3 == c4 == 0 and sha_agua in o_resumen and "1 trazas del almacén" in o_almacen
+                    and mapa_almacen == mapa_plano,
+                    "el almacén de trazas por SHA1: --traces-dir da lo mismo que --trace")
+        _, o_otro = rr.correr([S, "testroms/homebrew/waternet.gg", "--traces-dir", almacen, "--codemap", f"{D}/agua_otro.cm"])
+        p.comprobar("trazas del almacén" not in o_otro, "el almacén no suma las trazas de otro juego (entra por el SHA1)")
+
+        # El sondeo: corre el juego y deja sondeo.trace en el almacén, que se suma solo
+        sondeo = f"{D}/almacen_sondeo"
+        shutil.rmtree(sondeo, ignore_errors=True)
+        c5, o_sondeo, _ = codemap(f"{D}/agua_sondeo.cm", "--probe", "200", "--traces-dir", sondeo)
+        p.comprobar(c5 == 0 and os.path.isfile(f"{sondeo}/sms/{sha_agua}/sondeo.trace") and "sondeo:" in o_sondeo
+                    and "1 trazas del almacén" in o_sondeo,
+                    "smsrecomp --probe: el sondeo deja su traza en el almacén y la suma")
+        c6, o_sin = rr.correr([S, agua, "--probe", "50", "--codemap", f"{D}/agua_sin.cm"])
+        p.comprobar(c6 != 0 and "--probe necesita" in o_sin, "smsrecomp --probe sin dónde dejar la traza falla con un mensaje")
+    p.tiempo("almacén de trazas")
 
     # smsrecomp --info con las ROMs de prueba (make testroms): SHA1, suma de la cabecera, mapper y modelo
     def info(rom, sha, mapa, modelo, *opciones):

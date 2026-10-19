@@ -50,6 +50,8 @@
 #include "ram_code.h"
 #include "z80_recomp.h"
 #include "z80_heuristicas.h"
+#include "cli.h"
+#include "trazas.h"
 #include "z80_dis.h"
 #include "embedded.h"
 
@@ -67,6 +69,11 @@ static const char usage_text[] =
     "  --trace archivo    instrucciones que ejecutó el juego (las escriben smstrace, la ventana con --trace y\n"
     "                     difftest --uncovered): se agregan como entradas, en la página y la ranura donde\n"
     "                     corrieron, y sus líneas \"ram\" dan el código de la RAM (se puede repetir)\n"
+    "  --traces-dir DIR   el almacén de trazas por SHA1: suma todas las DIR/sms/<SHA1>/*.trace de este juego (y las de\n"
+    "                     DIR/<SHA1>/) como si fueran --trace; sin la opción, la carpeta de RETROCOMP_TRAZAS\n"
+    "  --probe N          el sondeo: corre el juego N cuadros en el intérprete con entradas guionadas (las de\n"
+    "                     tests/coverage.py) y suma lo que ejecutó como una traza. Se guarda en el almacén\n"
+    "                     (DIR/sms/<SHA1>/sondeo.trace) o, sin él, en la carpeta de -o (3000 cuadros son unos segundos)\n"
     "  --coverage archivo compara lo descubierto sin traza con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron y cuáles faltan\n"
     "  --why BB:DIRECCION explica por qué esa instrucción (página y dirección como en la traza, o su\n"
@@ -443,6 +450,46 @@ static void load_trace(const char *path)
         }
     }
     fclose(f);
+}
+
+/* El almacén de trazas por SHA1 (--traces-dir, trazas.h): cada traza de este juego se suma como un --trace */
+static void load_trace_store(const char *path, void *ctx)
+{
+    (void)ctx;
+    load_trace(path);
+}
+
+/* El sondeo (--probe N): corre el juego N cuadros en el intérprete, con las mismas entradas que tests/coverage.py y la
+ * semilla 1 del mando aleatorio, y escribe en path (formato de trace_line.h) qué instrucciones ejecutó. Lo mismo que hace
+ * smstrace, sin pasos a mano: la traza se suma como un --trace y, con el almacén (--traces-dir), queda guardada para las
+ * próximas veces. Devuelve 1 si escribió la traza */
+static const char *const probe_inputs[] = {
+    "start:120-125", "start:300-305", "a:400-410", "a:500-510", "start:600-605", "right:700-1300", "a:800-805", "b:900-905",
+    "left:1300-1700", "a:1400-1405", "right:1700-2300", "b:1800-1810", "up:2300-2400", "down:2400-2500", "a:2600-2610",
+};
+
+static int probe(const u8 *data, size_t len, const char *rom_path, int model, long frames, const char *path)
+{
+    char *args[8 + sizeof probe_inputs / sizeof *probe_inputs] = { "smsrecomp", "rom", "traza", "--seed", "1" };
+    int n = 5;
+    for (size_t i = 0; i < sizeof probe_inputs / sizeof *probe_inputs; i++) args[n++] = (char *)probe_inputs[i];
+    static Cli c;
+    if (cli_parse(&c, n, args, 2, frames)) return 0;
+    Sms *g = calloc(1, sizeof *g);
+    const char *err = NULL;
+    if (!g || sms_load(g, data, len, rom_path, model, &err)) die("sondeo: %s: %s", rom_path, err ? err : "sin memoria");
+    sms_trace_start(g);
+    for (long f = 0; f < frames; f++) {
+        g->pad[0] = cli_pad(&c, f, 0);
+        g->pad[1] = cli_pad(&c, f, 1);
+        sms_run_frame(g);
+        g->audio.n = 0;
+    }
+    int ok = sms_trace_write(g, path);
+    if (ok) printf("sondeo: %zu instrucciones distintas en %ld cuadros -> %s\n", sms_trace_count(g), frames, path);
+    sms_free(g);
+    free(g);
+    return ok;
 }
 
 /* --coverage: de las instrucciones de una traza, cuántas encontró el análisis sin ayuda */
@@ -962,7 +1009,8 @@ int main(int argc, char **argv)
 {
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *name_arg = NULL, *coverage = NULL, *dis_arg = NULL;
-    const char *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
+    const char *events_path = NULL, *html_path = NULL, *codemap_path = NULL, *traces_dir = NULL;
+    long probe_frames = 0;
     const char *traces[64];
     u32 why_list[32];
     int ntraces = 0, nwhy = 0, info = 0, viz = 0, force_color = 0, model = MODEL_AUTO;
@@ -980,6 +1028,8 @@ int main(int argc, char **argv)
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
             if (!strcmp(a, "--coverage")) { coverage = argv[++i]; continue; }
+            if (!strcmp(a, "--traces-dir")) { traces_dir = argv[++i]; continue; }
+            if (!strcmp(a, "--probe")) { probe_frames = atol(argv[++i]); continue; }
             if (!strcmp(a, "--dis")) { dis_arg = argv[++i]; continue; }
             if (!strcmp(a, "--events")) { events_path = argv[++i]; continue; }
             if (!strcmp(a, "--html")) { html_path = argv[++i]; continue; }
@@ -1013,7 +1063,6 @@ int main(int argc, char **argv)
     sms = calloc(1, sizeof *sms);
     const char *err = NULL;
     if (!sms || sms_load(sms, data, len, rom_path, model, &err)) die("%s: %s", rom_path, err ? err : "sin memoria");
-    free(data);
     if (info || (!out && !analysis)) {
         print_info(rom_path, sms);
         return 0;
@@ -1040,11 +1089,27 @@ int main(int argc, char **argv)
     if (coverage) coverage_report(coverage);
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
+    if (probe_frames > 0) {
+        /* El sondeo: la traza va al almacén (DIR/sms/<SHA1>/sondeo.trace, que se suma sola abajo) o, sin almacén, a la
+         * carpeta de salida */
+        const char *almacen = trazas_dir(traces_dir);
+        char carpeta[900], ruta[1000];
+        int al_almacen = almacen && trazas_sha1_valido(cart->sha1);
+        if (al_almacen) snprintf(carpeta, sizeof carpeta, "%s/sms/%s", almacen, cart->sha1);
+        else if (out) snprintf(carpeta, sizeof carpeta, "%s", out);
+        else die("--probe necesita dónde dejar la traza: --traces-dir (o %s) o -o", TRAZAS_ENV);
+        make_dir(carpeta);
+        snprintf(ruta, sizeof ruta, "%s/sondeo.trace", carpeta);
+        if (!probe(data, len, rom_path, model, probe_frames, ruta)) die("no se pudo escribir %s", ruta);
+        if (!al_almacen) load_trace(ruta);
+    }
+    unsigned nstore = trazas_del_juego(trazas_dir(traces_dir), "sms", cart->sha1, load_trace_store, NULL);
     discover_all();
     collect();
     build_ram();
     printf("código: %u instrucciones (%u bytes, %.2f%% de la ROM)", stat_insns, stat_bytes, 100.0 * stat_bytes / (double)rom_size);
-    if (ntraces) printf(", %u por la traza (%u puntos de entrada, %u vistas más)", stat_insns - base_insns, stat_trace, stat_views_trace);
+    if (ntraces || nstore) printf(", %u por la traza (%u puntos de entrada, %u vistas más)", stat_insns - base_insns, stat_trace, stat_views_trace);
+    if (nstore) printf("; %u trazas del almacén", nstore);
     printf("; %d vistas (página y ranura)", nviews);
     if (nram) printf("; código de la RAM: %u instrucciones en %d versiones%s", ram_insns, nram,
                      ram_dropped ? " (y direcciones con demasiadas versiones, que quedan en el intérprete)" : "");

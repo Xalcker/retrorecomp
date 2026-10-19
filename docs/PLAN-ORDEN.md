@@ -291,6 +291,8 @@ Las cinco decisiones de la sección 5. No empezar trabajo transversal nuevo en l
    - un almacén de trazas por SHA1 (`--traces-dir`) que generaliza la caché de BIOS de NEO;
    - conteos en `--uncovered`;
    - un sondeo dentro del recompilador.
+   - Hecho en SMS (18 de octubre de 2026): `shared/trazas.h` y `trazas.py` (el almacén `DIR/sms/<SHA1>/*.trace`, con `--traces-dir` y `RETROCOMP_TRAZAS`), `smsrecomp --probe N` y `--counts` (en `--uncovered` y en `smstrace`); `recomp_game.py` lo usa con `RETROCOMP_TRAZAS`. Con waternet y sin traza guionada, la primera ronda pasa de 979 instrucciones y 30,9 % nativo a 7 658 y 100 % si el almacén ya tiene la corrida anterior.
+   - Falta: el almacén en GB, NES, GEN y NEO; que compat y la GUI lo usen; y el repositorio compartido de trazas del #16 (público o privado, con alias o sin él: decisiones pendientes).
 5. **Huecos puntuales:**
    - NES#10 (una función por par desplazamiento/dirección);
    - espejos de RAM en GEN y NEO;

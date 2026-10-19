@@ -146,8 +146,11 @@ static const char *preparar(const Cli *c)
     return NULL;
 }
 
+static int con_cuentas;                     /* --counts: --uncovered con cuántas veces interpretó cada instrucción */
+
 static void trazas(const Cli *c)
 {
+    con_cuentas = c->counts;
     if (c->uncovered) sms_trace_start(&B);  /* solo en B: lo que A (intérprete) ejecuta no cuenta */
     if (c->executed) sms_trace_start(&A);   /* A lo ejecuta todo con el intérprete: su traza es lo ejecutado */
 }
@@ -166,7 +169,8 @@ static void golpe(char *out, size_t size, u32 clave) { snprintf(out, size, "ROM 
 static size_t uncovered(const char *path, int *ok)
 {
     size_t cnt = sms_trace_count(&B);
-    *ok = sms_trace_write(&B, path);
+    *ok = con_cuentas ? sms_trace_write_counts(&B, path) : sms_trace_write(&B, path);
+    if (con_cuentas && *ok) sms_trace_top(&B, stdout, 10, "Las instrucciones de ROM que más interpretó el recompilado:");
     return cnt;
 }
 

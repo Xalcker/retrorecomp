@@ -9,6 +9,7 @@
  *   --profile         (genbench, neobench y su bench) en qué se va el tiempo: Z80, sonido, video y lo demás (prof.h)
  *   --save F, --save-out F   (difftest) empieza con esa partida guardada / guarda al final la del recompilado
  *   --uncovered F    (difftest) escribe lo que el intérprete tuvo que ejecutar
+ *   --counts         (con --uncovered) cada línea lleva al final cuántas veces lo ejecutó, " xN" (solo SMSRecomp por ahora)
  *   --screens DIR    (difftest) guarda una captura PNG cada --every N cuadros (600 si no se dice)
  *   --bench          (difftest) mide la velocidad del recompilado y del intérprete, sin comparar
  *   --executed F     (difftest) escribe qué bytes del programa se ejecutaron (formato de --codemap)
@@ -75,6 +76,7 @@ typedef struct {
     int use_seed; unsigned seed; RandomPad rp;
     int repeat, profile;
     const char *uncovered;
+    int counts;                         /* --counts: --uncovered con la cuenta de cada instrucción */
     const char *save, *save_out;        /* difftest: la partida con que empiezan las dos máquinas y dónde guardar la de B */
     const char *screens, *executed; long every; int bench, estricto;     /* solo difftest */
     const char *expect; int hash;                               /* solo *shot */
@@ -111,6 +113,7 @@ static inline int cli_parse(Cli *c, int argc, char **argv, int nreq, long defaul
         else if (!strcmp(a, "--profile") || !strcmp(a, "--perfil")) c->profile = 1;
         else if (!strcmp(a, "--model") && i + 1 < argc) c->model_arg = argv[++i];
         else if (!strcmp(a, "--uncovered") && i + 1 < argc) c->uncovered = argv[++i];
+        else if (!strcmp(a, "--counts")) c->counts = 1;
         else if (!strcmp(a, "--save") && i + 1 < argc) c->save = argv[++i];
         else if (!strcmp(a, "--save-out") && i + 1 < argc) c->save_out = argv[++i];
         else if (!strcmp(a, "--screens") && i + 1 < argc) c->screens = argv[++i];

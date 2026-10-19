@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """difftest --estricto con ROMs de prueba, común a los cinco (cada tests/estricto.py lo llama desde su raíz):
     python3 ../shared/estricto.py [-n ROM_SIN_TRAZA] ROM...
-- -n: esa ROM, recompilada sin traza, tiene que fallar con «ESTRICTO: código que falta» (lo detecta);
+- -n: esa ROM, recompilada sin traza, tiene que fallar con «ESTRICTO: código que falta» (lo detecta), y con --uncovered
+  dejar la traza del hueco: recompilada con ella, ya no falla en el mismo lugar;
 - cada ROM, trazada con el *trace del sistema y las mismas entradas que difftest (600 cuadros, semilla 1) y
   recompilada con esa traza, tiene que pasar: todo lo que se ejecutó de la ROM quedó recompilado (el código en RAM
   sí puede ir al intérprete).
@@ -53,13 +54,29 @@ def main(argv):
         else:
             salida = ""
             detecta = False
+            hueco = "build/estricto_hueco.trace"
+            if os.path.exists(hueco):
+                os.remove(hueco)
             if proyecto(neg):
-                codigo, salida = rr.correr([f"build/out/estricto/difftest{x}", neg, *ENTRADAS, "--estricto"])
+                codigo, salida = rr.correr([f"build/out/estricto/difftest{x}", neg, *ENTRADAS, "--estricto", "--uncovered", hueco])
                 guardar(salida)
                 detecta = codigo != 0 and re.search(r"^ESTRICTO: código que falta en \$[0-9A-F]", salida, re.M)
             if detecta:
                 donde = re.search(r"^ESTRICTO: código que falta en (\$[0-9A-F]*)", salida, re.M).group(1)
                 print(f"ok   --estricto: {n} sin traza falla en el código que falta ({donde})")
+                # --uncovered deja la traza del hueco; recompilado con ella, ese hueco ya no está (pasa o falla más adelante)
+                otra = ""
+                if re.search(r"^ESTRICTO: la traza del hueco", salida, re.M) and os.path.getsize(hueco) > 0 \
+                        and proyecto(neg, hueco):
+                    _, otra = rr.correr([f"build/out/estricto/difftest{x}", neg, *ENTRADAS, "--estricto"])
+                m = re.search(r"^ESTRICTO: código que falta en (\$[0-9A-F]*)", otra, re.M)
+                if otra and (not m or m.group(1) != donde):
+                    print(f"ok   --estricto --uncovered: con la traza del hueco, {n} ya no falla en {donde}"
+                          + (f" (ahora en {m.group(1)})" if m else ""))
+                else:
+                    sys.stdout.write(otra or salida)
+                    print(f"FALLA --estricto --uncovered: la traza del hueco de {n} no lo cubre")
+                    fallo = 1
             else:
                 sys.stdout.write(salida)
                 print(f"FALLA --estricto no detecta el código que falta en {n}")

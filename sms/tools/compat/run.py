@@ -8,6 +8,7 @@ baja la primera vez). La etapa 2 (el recompilador) llega con la fase 5 (docs/PLA
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
                                 [--categoria CATEGORIAS] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+                                [--almacen DIR]
     python3 tools/compat/report.py
 CARPETA puede tener .sms, .gg o .zip (se extraen a build/compat/roms/). Escribe docs/compat/results.json (después de
 cada ROM: si se corta, la misma orden sigue donde iba) y las miniaturas en docs/compat/thumbs/.

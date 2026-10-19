@@ -21,6 +21,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = ".exe" if os.name == "nt" else ""
 WORK = os.path.join(HERE, "build", "gui")
 STATE_FILE = os.path.join(WORK, "state.json")
+# El almacén de trazas por SHA1 (shared/trazas.h): el de RETROCOMP_TRAZAS o uno propio de la GUI. Al recompilar se suma
+# solo (--traces-dir) y el ciclo completo (recomp_game.py) guarda ahí lo que aprende de cada juego
+ALMACEN = os.path.abspath(os.environ.get("RETROCOMP_TRAZAS") or os.path.join(WORK, "almacen"))
 CELL = 256
 BANK = 0x4000
 
@@ -990,7 +993,7 @@ def make_job(p):
         traces = [t["name"] for t in list_traces(rid)]
     name = safe_name(p.get("name") or proj["name"])
     pdir = sysm.project_dir(name)
-    tflags = [x for t in trace_files(rid, traces) for x in ("--trace", t)]
+    tflags = [x for t in trace_files(rid, traces) for x in ("--trace", t)] + ["--traces-dir", ALMACEN]
     inp = resolve_input(rid, p.get("input"))
     frames = lambda d: pint(p.get("frames") or d, 1, 2000000, "cuadros")  # noqa: E731
     cwd = sysm.root
@@ -1025,6 +1028,7 @@ def make_job(p):
         return start_job("bench", [{"argv": argv}], rid, "bench", cwd)
     if kind == "recomp_game":
         env = {"NOTRACE": "1"} if p.get("notrace") and sysm.caps["notrace"] else {}
+        env["RETROCOMP_TRAZAS"] = ALMACEN
         if inp:     # unas «Entradas» elegidas (p. ej. una partida grabada) sustituyen a las guionadas del ciclo
             env.update(INPUT_TRACE=posix_path(inp), INPUT_DIFFTEST=posix_path(inp))
         return start_job(f"ciclo completo {name}", bios_steps(sysm, rp) + [{"argv": sysm.game_argv(rp, name, frames(6000)), "env": env}],

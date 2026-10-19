@@ -195,9 +195,15 @@ botones), y desde `tools/compat/report.py`, que arma el informe HTML. Usa solo l
 
 ```
 python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
-                            [--categoria A,B] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+                            [--categoria A,B] [--hilos N] [--salida DIR] [--rehacer] [--oraculos] [--almacen DIR]
 python3 tools/compat/report.py [--salida DIR]
 ```
+
+Con `--almacen DIR`, el recompilador suma desde la ronda 1 las trazas del almacén por SHA1 (`--traces-dir`,
+`shared/trazas.h`) y, si una ROM pasa sin diferencias, lo que cayó al intérprete queda guardado en
+`DIR/<sistema>/<SHA1>/acumulada.trace`: la siguiente corrida empieza con lo aprendido. Esos resultados llevan
+`"almacen": true` y no se mezclan con los de sin almacén. Sin la opción, la ronda 1 es sin traza aunque esté
+definida `RETROCOMP_TRAZAS`.
 
 Los resultados (`docs/compat/results.json` y las miniaturas) se guardan después de cada ROM de la etapa 2 (y cada 25
 de la etapa 1); la misma orden sigue donde iba y salta las ROMs que ya tienen resultado del **mismo código** del

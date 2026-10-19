@@ -11,11 +11,15 @@ Etapa 1 (todas las ROMs): el intérprete (*shot) con entradas guionadas, captura
   Detecta errores de carga, CPU detenido y pantallas en blanco; la captura más colorida va al informe.
 Etapa 2 (una selección): el ciclo del recompilador sin traza: *recomp, compilar difftest, difftest con las semillas
   1 y 2 (entradas fijas más un mando aleatorio), una segunda ronda recompilando con lo que difftest --uncovered vio
-  caer al intérprete y, al final y de una ROM a la vez, la velocidad (difftest --bench).
+  caer al intérprete y, al final y de una ROM a la vez, la velocidad (difftest --bench). Con --almacen DIR, el
+  recompilador suma desde la ronda 1 las trazas del almacén por SHA1 (--traces-dir) y lo que cae al intérprete en una
+  ROM sin diferencias se guarda ahí: repetir la corrida empieza con lo que ya se aprendió. Los resultados con almacén
+  llevan "almacen": true y no se mezclan con los de sin almacén (cada modo repite los del otro).
 
 Uso, desde la raíz del recompilador y con "make" ya hecho:
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO]
                                 [--juego TEXTO] [--categoria A,B] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+                                [--almacen DIR]
     python3 tools/compat/report.py [--salida DIR]
 
 Las carpetas (por omisión roms/) pueden tener zips de No-Intro o ROMs sueltas. Los resultados se guardan en
@@ -25,6 +29,9 @@ que esté sin commitear: un commit que solo toca docs/ no la invalida); --rehace
 """
 import argparse, concurrent.futures as cf, datetime, hashlib, html, json, os, pathlib, re, shlex, shutil, struct
 import subprocess, sys, tempfile, threading, time, zipfile, zlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "shared"))
+import trazas  # noqa: E402  (el almacén de trazas por SHA1: --almacen)
 
 EXE = ".exe" if os.name == "nt" else ""
 CUADROS1 = (450, 900, 1500)
@@ -386,6 +393,9 @@ class Prueba:
                 self.res[self.clave(r)] = r
         self.guion = self.work / "guion.txt"
         self.entradas_diff = self.work / "entradas_diff.txt"
+        self.almacen = None                 # --almacen: el almacén de trazas por SHA1 (shared/trazas.h)
+        # Sin --almacen, el recompilador no debe leer el de RETROCOMP_TRAZAS: la ronda 1 es «sin traza»
+        self.env_recomp = {k: v for k, v in os.environ.items() if k != "RETROCOMP_TRAZAS"}
 
     def agregar_prefijo(self, carpeta):
         c = str(pathlib.Path(carpeta).resolve())
@@ -529,6 +539,8 @@ class Prueba:
         carpeta.parent.mkdir(parents=True, exist_ok=True)   # nesrecomp solo crea el último nivel con rutas C:\...
         traza.write_text("")
         r = {"fases": [], "version": self.version, "fuente": self.fuente}
+        if self.almacen:
+            r["almacen"] = True
         t0 = time.time()
         for ronda in (1, 2):
             fa = {"ronda": ronda}
@@ -536,8 +548,10 @@ class Prueba:
             argv = [S.herramienta("recomp"), f["rom"], "-o", carpeta, "--name", base]
             if ronda == 2:
                 argv += ["--trace", traza]
+            if self.almacen:
+                argv += ["--traces-dir", self.almacen]
             for _ in range(3):
-                rc, o, dt = correr(argv, cwd=S.root)
+                rc, o, dt = correr(argv, cwd=S.root, env=self.env_recomp)
                 # En Windows un archivo recién borrado puede seguir «pendiente de borrar» un momento
                 if rc == 0 or "no se pudo crear" not in o:
                     break
@@ -549,6 +563,8 @@ class Prueba:
             fa["instrucciones"] = num(r"código: (\d+) instrucciones", o, int)
             fa["pct_rom"] = num(r"bytes, ([\d.]+)% (?:de la ROM|del PRG|de P)", o)
             fa["funciones"] = num(r"(\d+) funciones", o, int)
+            if self.almacen:
+                fa["almacen"] = num(r"(\d+) trazas del almacén", o, int) or 0
             rc, o, dt = make(carpeta, f"difftest{EXE}", hilos_make)
             if rc != 0 or not (carpeta / f"difftest{EXE}").exists():
                 # Con otro juego compilando al lado, gcc puede quedarse sin memoria en los archivos grandes: se
@@ -599,8 +615,24 @@ class Prueba:
                 break
         else:
             r["resultado"] = "ok"
+        if self.almacen and r.get("resultado") == "ok":
+            self.guardar_traza(f, traza, r)
         r["total_s"] = round(time.time() - t0, 1)
         return r
+
+    def guardar_traza(self, f, traza, r):
+        """--almacen: lo que cayó al intérprete en esta ROM (sin diferencias) va a DIR/<sistema>/<SHA1>/acumulada.trace,
+        para que la próxima corrida lo encuentre desde la ronda 1"""
+        if not traza.exists() or not traza.read_text().strip():
+            return
+        _, o, _ = correr([self.S.herramienta("recomp"), f["rom"], "--info"], cwd=self.S.root, timeout=60, env=self.env_recomp)
+        m = re.search(r"^SHA1:\s*([0-9a-fA-F]{40})", o, re.M)
+        if not m:
+            return
+        sha1 = m.group(1).lower()
+        with self.lock:
+            _, _, nuevas = trazas.juntar(os.path.join(self.almacen, self.S.id, sha1), [str(traza)])
+        r["almacen_nuevas"] = nuevas
 
     def velocidad(self, f, r):
         """difftest --bench del proyecto ya compilado. De una ROM a la vez: con otras compilando al lado no sirve."""
@@ -668,11 +700,17 @@ def main(S, argv=None):
     ap.add_argument("--salida", default=str(S.root / "docs" / "compat"), help="dónde van results.json y las miniaturas")
     ap.add_argument("--rehacer", action="store_true", help="repetir también las ROMs que ya tienen resultado de esta versión")
     ap.add_argument("--oraculos", action="store_true", help="comparar contra los emuladores de referencia (si la consola los tiene)")
+    ap.add_argument("--almacen", metavar="DIR", help="el almacén de trazas por SHA1 (shared/trazas.h): el recompilador suma "
+                    "las que ya hay de cada juego desde la ronda 1, y lo que cae al intérprete en una ROM sin diferencias se "
+                    "guarda ahí. Sin la opción, la ronda 1 es sin traza (no se lee RETROCOMP_TRAZAS)")
     a = ap.parse_args(argv)
     utf8()
     if a.oraculos and not S.oraculos:
         sys.exit(f"{S.nombre} no tiene oráculos para --oraculos")
     P = Prueba(S, a.salida)
+    if a.almacen:
+        P.almacen = str(pathlib.Path(a.almacen).resolve())
+        print(f"almacén de trazas: {P.almacen}", flush=True)
     guion, diff = S.guiones()
     P.work.mkdir(parents=True, exist_ok=True)
     P.guion.write_text(guion)
@@ -722,7 +760,10 @@ def main(S, argv=None):
             sel = [f for f in filas if not f.get("error")]
         else:
             sel = P.elegir(filas, a.etapa2)
-        pend = [f for f in sel if a.rehacer or (P.res[P.clave(f)].get("recompilador") or {}).get("fuente") != P.fuente]
+        def vale(rc):
+            """¿Sirve el resultado guardado? Del mismo código y con el almacén igual (con o sin él)"""
+            return rc.get("fuente") == P.fuente and bool(rc.get("almacen")) == bool(P.almacen)
+        pend = [f for f in sel if a.rehacer or not vale(P.res[P.clave(f)].get("recompilador") or {})]
         print(f"etapa 2: {len(sel)} ROMs, {len(pend)} por hacer ({len(sel) - len(pend)} ya tenían resultado de esta versión)",
               flush=True)
         hilos_make = max(2, (os.cpu_count() or 4) // max(1, a.hilos))
@@ -798,6 +839,9 @@ def informe(S, argv=None):
     if len(rutas) > 3:
         print(f"aviso: {len(rutas)} rutas locales en total; se quitan al volver a correr la prueba", file=sys.stderr)
     rs = list(datos["roms"] if isinstance(datos, dict) else datos)
+    n_almacen = sum(1 for r in rs if (r.get("recompilador") or {}).get("almacen"))
+    nota_almacen = (f" ({n_almacen} ROMs con el almacén de trazas por SHA1, <code>--almacen</code>: su primera ronda ya suma "
+                    "las trazas guardadas de corridas anteriores)") if n_almacen else ""
     meta = datos if isinstance(datos, dict) else {}
     for r in rs:
         r["estado"] = estado(S, r)
@@ -933,7 +977,7 @@ input{{width:260px;max-width:100%}}
 <p><b>Etapa 1, todas las ROMs:</b> cada ROM corre en el intérprete (<code>{e(S.id)}shot</code>) con entradas guionadas (Start, botones,
 flechas) y se toman capturas en los cuadros {", ".join(map(str, S.cuadros1))}; la miniatura es la más colorida. «Corre» significa que cargó,
 el CPU no se detuvo y la captura no es de un solo color; no garantiza que el juego se vea bien: las miniaturas hay que revisarlas a ojo.</p>
-<p><b>Etapa 2, una selección por {e(S.categoria_nombre.lower())}:</b> <code>{e(S.id)}recomp</code> sin traza (solo análisis estático),
+<p><b>Etapa 2, una selección por {e(S.categoria_nombre.lower())}:</b> <code>{e(S.id)}recomp</code> sin traza (solo análisis estático){nota_almacen},
 compilar el proyecto generado y correr <code>difftest</code> con las semillas {" y ".join(map(str, SEMILLAS))} ({CUADROS_DIFF} cuadros,
 entradas fijas más un mando aleatorio), que compara {e(S.compara)} contra el intérprete. Si algo cayó al intérprete en ROM, se recompila
 con esas direcciones (<code>--uncovered</code> → <code>--trace</code>) y se repite. «Recompilado» = sin diferencias en todas las rondas.

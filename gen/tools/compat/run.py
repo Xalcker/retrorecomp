@@ -7,6 +7,7 @@ contra Genesis Plus GX y BlastEm (tools/oracles/oracle.py, que los baja la prime
 Uso (en la raíz del repo, con todo compilado con "make"):
     python3 tools/compat/run.py [CARPETA ...] [--solo etapa1|etapa2] [--etapa2 N] [--lista ARCHIVO] [--juego TEXTO]
                                 [--categoria CATEGORIAS] [--hilos N] [--salida DIR] [--rehacer] [--oraculos]
+                                [--almacen DIR]
     python3 tools/compat/report.py
 CARPETA puede tener .bin, .md, .gen, .smd o .zip (se extraen a build/compat/roms/). Escribe docs/compat/results.json
 (después de cada ROM: si se corta, la misma orden sigue donde iba) y las miniaturas en docs/compat/thumbs/.

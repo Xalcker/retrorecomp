@@ -61,22 +61,30 @@ def destino_de(dir_, rom):
     return sis, sha1.lower(), destino
 
 
-def agregar(dir_, rom, trazas):
-    d = destino_de(dir_, rom)
-    if not d:
-        return 2
-    sis, sha1, destino = d
+def juntar(destino, trazas):
+    """Suma las trazas (rutas que existen) a destino/acumulada.trace; devuelve (ruta, líneas, nuevas)"""
+    os.makedirs(destino, exist_ok=True)
     ruta = os.path.join(destino, ACUMULADA)
     juntas = set(lineas_de(ruta)) if os.path.isfile(ruta) else set()
     antes = len(juntas)
     for t in trazas:
-        if not os.path.isfile(t):
-            print(f"no encuentro la traza {t}", file=sys.stderr)
-            return 2
         juntas.update(lineas_de(t))
     with open(ruta, "w", encoding="utf-8", newline="\n") as f:
         f.write("".join(l + "\n" for l in sorted(juntas)))
-    print(f"{sis}/{sha1}: {len(juntas)} líneas ({len(juntas) - antes} nuevas) en {ruta}")
+    return ruta, len(juntas), len(juntas) - antes
+
+
+def agregar(dir_, rom, trazas):
+    for t in trazas:
+        if not os.path.isfile(t):
+            print(f"no encuentro la traza {t}", file=sys.stderr)
+            return 2
+    d = destino_de(dir_, rom)
+    if not d:
+        return 2
+    sis, sha1, destino = d
+    ruta, total, nuevas = juntar(destino, trazas)
+    print(f"{sis}/{sha1}: {total} líneas ({nuevas} nuevas) en {ruta}")
     return 0
 
 

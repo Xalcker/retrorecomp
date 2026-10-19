@@ -89,7 +89,7 @@ valen el número de cuadros suelto y `boton:desde-hasta` (`up down left right a 
 
 | Comando | Qué hace |
 |---|---|
-| `neorecomp juego -o carpeta [--name n] [--bios archivo] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`; `--neo` exporta a `.neo`). |
+| `neorecomp juego -o carpeta [--name n] [--bios archivo] [--trace traza] [--traces-dir DIR]` | El recompilador (sin `-o` ni otras opciones, `--info`; `--neo` exporta a `.neo`). `--traces-dir` (o `RETROCOMP_TRAZAS`) suma las trazas de este juego del almacén por SHA1, `DIR/neo/<SHA1>/*.trace` (`../shared/trazas.py`). |
 | `neorecomp juego --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N] [--z80]` | Qué se descubrió, cómo y qué falta (con `--z80`, también la M1 del Z80: `--why z80:0:DIR`, `--dis z80:0:DIR:N`, y en el mapa de `--html` y en `--events`). |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `neo juego [--bios archivo] [--scale N] [--record/--play archivo] [--trace archivo]` | Ventana SDL2 con el intérprete (ver arriba). |

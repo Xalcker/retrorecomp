@@ -10,7 +10,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "shared"))
 import rr  # noqa: E402
-from pruebas import borrar, escribir, exe, lineas, texto  # noqa: E402
+from pruebas import Pruebas, almacen, borrar, escribir, exe, lineas, texto  # noqa: E402
 
 T = "testroms"
 FILTRO = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -385,6 +385,10 @@ def main():
     # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
     codigo, salida = rr.correr([sys.executable, "tests/estricto.py"])
     registrar(codigo == 0, "  difftest --estricto: " + "\n".join(l for l in salida.splitlines() if "FALLA" in l))
+    # El almacén de trazas por SHA1 (--traces-dir) y el sondeo (trazas.py sondear)
+    q = Pruebas()
+    almacen(q, "gb", "testroms/dmg-acid2/dmg-acid2.gb", "build/tests/almacen")
+    registrar(q.fallas == 0, "  almacén de trazas")
 
     total = pasa + falla
     print(f"Pasan {pasa} de {total}")

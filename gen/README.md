@@ -112,7 +112,7 @@ SRAM o EEPROM del cartucho al empezar y la guarda al terminar. `--tmss` simula u
 | Comando | Qué hace |
 |---|---|
 | `gen juego.bin` | Ventana SDL2 con el intérprete (ver arriba). |
-| `genrecomp juego.bin -o carpeta [--name n] [--trace traza]` | El recompilador (sin `-o` ni otras opciones, `--info`). |
+| `genrecomp juego.bin -o carpeta [--name n] [--trace traza] [--traces-dir DIR]` | El recompilador (sin `-o` ni otras opciones, `--info`). `--traces-dir` (o `RETROCOMP_TRAZAS`) suma las trazas de este juego del almacén por SHA1, `DIR/gen/<SHA1>/*.trace` (`../shared/trazas.py`). |
 | `genrecomp juego.bin --coverage traza [--viz] [--html archivo] [--why BB:DIRECCION] [--events/--codemap archivo] [--dis OFF:DIR:N] [--z80]` | Qué se descubrió, cómo y qué falta (con `--z80`, también el driver del Z80: `--why z80:VERSIÓN:DIR`, `--dis z80:VERSIÓN:DIR:N`, y sus versiones en el mapa de `--html` y en `--events`); `python3 tests/coverage.py` lo mide con todas las ROMs de `roms/`. |
 | `difftest`, `bench` (en el proyecto generado) | Código recompilado contra el intérprete; velocidad del recompilado. |
 | `gentrace rom traza.txt [--frames N] [--input archivo] [--seed S]` | Traza de ejecución sin ventana (líneas `BANCO:DIRECCION`, el formato común con NESRecomp, GBRecomp y NEORecomp). |

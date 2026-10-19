@@ -212,6 +212,8 @@ def main():
 
     # difftest --estricto: lo que se trazó queda recompilado (y sin traza, el código que falta se detecta)
     p.programa(sys.executable, "tests/estricto.py")
+    # El almacén de trazas por SHA1 (--traces-dir) y el sondeo (trazas.py sondear)
+    pruebas.almacen(p, "nes", "testroms/nes-test-roms/other/nestest.nes", "build/tests/almacen")
 
     # Interfaz: cada menú y cada diálogo se dibuja igual que la referencia tests/ui_golden.txt (--ui-shot, sin
     # ventana; si cambia a propósito: UI_GOLDEN_UPDATE=1 python3 tests/run_tests.py, y revisa build/shots/)

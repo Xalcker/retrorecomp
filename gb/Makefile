@@ -137,7 +137,7 @@ $(BUILD)/gen/embedded.c: $(BUILD)/embed$(EXE) $(EMBED_SRC) Makefile | $(BUILD)/g
 
 # El recompilador: un solo ejecutable, con el runtime adentro
 gbrecomp$(EXE): src/gbrecomp/gbrecomp.c src/gbrecomp/embedded.h src/gbrecomp/viz.c src/gbrecomp/viz.h \
-                src/emit/sm83_emit.c src/emit/sm83_emit.h $(SHARED)/ram_code.h $(SHARED)/visor_html.h $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
+                src/emit/sm83_emit.c src/emit/sm83_emit.h $(SHARED)/ram_code.h $(SHARED)/visor_html.h $(SHARED)/trazas.h $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
 	$(CC) $(CFLAGS) -DGBRECOMP_VERSION='"$(VERSION)"' -Isrc/gbrecomp -I$(SHARED) -o $@ \
 		src/gbrecomp/gbrecomp.c src/gbrecomp/viz.c src/emit/sm83_emit.c $(SHARED)/sha1.c $(BUILD)/gen/embedded.c
 

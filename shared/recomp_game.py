@@ -10,8 +10,7 @@ Uso (desde la raíz de un sistema): python3 ../shared/recomp_game.py ROM NOMBRE 
   NOTRACE=1: sin la traza guionada inicial (solo análisis estático y lo que descubra difftest).
   INPUT_TRACE=ARCHIVO, INPUT_DIFFTEST=ARCHIVO: otras entradas (una partida grabada con --record)
     en lugar de las guionadas de abajo; sirven cuando estas no pasan del título de un juego.
-  RETROCOMP_TRAZAS=DIR: el almacén de trazas por SHA1 (solo en los sistemas con «almacen_trazas» en el registro, hoy SMS):
-    el recompilador suma las trazas que ya hay de este juego (--traces-dir) y, si el ciclo termina sin diferencias, la
+  RETROCOMP_TRAZAS=DIR: el almacén de trazas por SHA1 (shared/trazas.h y trazas.py): el recompilador suma las trazas que ya hay de este juego (--traces-dir) y, si el ciclo termina sin diferencias, la
     traza acumulada queda guardada en DIR/<sistema>/<SHA1>/acumulada.trace (shared/trazas.py).
 
 La consola sale de qué recompilador del registro (shared/sistemas.json) hay en la carpeta. Las entradas guionadas
@@ -82,9 +81,9 @@ def main(argv):
 
     estado = {"falla": False, "ronda": 1}
 
-    # El almacén de trazas por SHA1 (shared/trazas.h): si el sistema lo tiene y hay carpeta (RETROCOMP_TRAZAS), el recompilador
-    # suma las trazas que ya hay de este juego y, al terminar sin diferencias, la traza acumulada se guarda ahí para la próxima
-    almacen = trazas.carpeta(None) if reg[con].get("almacen_trazas") else ""
+    # El almacén de trazas por SHA1 (shared/trazas.h): si hay carpeta (RETROCOMP_TRAZAS), el recompilador suma las trazas que ya
+    # hay de este juego y, al terminar sin diferencias, la traza acumulada se guarda ahí para la próxima
+    almacen = trazas.carpeta(None)
 
     def ronda():
         c, salida = rr.correr([f"./{con}recomp{x}", rom, "-o", out, "--name", nombre, "--trace", traza, *rr.opciones_pruebas(con),

@@ -46,6 +46,7 @@
 #include "m68k_ops.h"
 #include "console.h"
 #include "trace_line.h"
+#include "trazas.h"
 #include "ram_code.h"
 #include "z80_recomp.h"
 #include "z80_heuristicas.h"
@@ -67,6 +68,9 @@ static const char usage_text[] =
     "  --name nombre      nombre del ejecutable (por omisión, el de la ROM)\n"
     "  --trace archivo    instrucciones que ejecutó el juego (las escriben gentrace, la ventana con\n"
     "                     --trace y difftest --uncovered); se agregan como entradas (se puede repetir)\n"
+    "  --traces-dir DIR   el almacén de trazas por SHA1: suma todas las DIR/gen/<SHA1>/*.trace de este juego\n"
+    "                     (y las de DIR/<SHA1>/) como si fueran --trace; sin la opción, la carpeta de\n"
+    "                     RETROCOMP_TRAZAS\n"
     "  --coverage archivo compara lo descubierto sin traza con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron y cuáles faltan\n"
     "  --why BB:DIRECCION explica por qué esa instrucción (banco y dirección como en la traza, o su\n"
@@ -771,6 +775,13 @@ static void load_trace(const char *path)
             }
         } else if (rc_parse(line, &in)) add_ram_line(&in);
     fclose(f);
+}
+
+/* El almacén de trazas por SHA1 (--traces-dir, trazas.h): cada traza de este juego se suma como un --trace */
+static void load_trace_store(const char *path, void *ctx)
+{
+    (void)ctx;
+    load_trace(path);
 }
 
 /* --coverage: de las instrucciones de una traza, cuántas encontró el análisis sin ayuda */
@@ -1681,7 +1692,7 @@ int main(int argc, char **argv)
 {
     console_utf8();
     const char *rom_path = NULL, *out = NULL, *name_arg = NULL, *coverage = NULL, *dis_arg = NULL;
-    const char *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
+    const char *events_path = NULL, *html_path = NULL, *codemap_path = NULL, *traces_dir = NULL;
     const char *traces[64];
     u32 why_list[32];
     int ntraces = 0, nwhy = 0, info = 0, viz = 0, force_color = 0;
@@ -1705,6 +1716,7 @@ int main(int argc, char **argv)
             if (!strcmp(a, "-o")) { out = argv[++i]; continue; }
             if (!strcmp(a, "--name")) { name_arg = argv[++i]; continue; }
             if (!strcmp(a, "--coverage")) { coverage = argv[++i]; continue; }
+            if (!strcmp(a, "--traces-dir")) { traces_dir = argv[++i]; continue; }
             if (!strcmp(a, "--dis")) {
                 if (!strncmp(argv[i + 1], "z80:", 4)) z80_dis_arg = argv[++i] + 4, z80_on = 1;
                 else dis_arg = argv[++i];
@@ -1778,9 +1790,11 @@ int main(int argc, char **argv)
     if (coverage) coverage_report(coverage);
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
+    unsigned nstore = trazas_del_juego(trazas_dir(traces_dir), "gen", cart->sha1, load_trace_store, NULL);
     discover();
     printf("código: %u instrucciones (%u bytes, %.2f%% de la ROM)", stat_insns, stat_bytes, 100.0 * stat_bytes / (double)rom_size);
-    if (ntraces) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    if (ntraces || nstore) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    if (nstore) printf("; %u trazas del almacén", nstore);
     printf("\n");
     if (verbose) {
         unsigned overlap = 0;

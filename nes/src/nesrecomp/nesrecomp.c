@@ -47,6 +47,7 @@
 #include "console.h"
 #include "sha1.h"
 #include "trace_line.h"
+#include "trazas.h"
 #include "ram_code.h"
 #include "embedded.h"
 
@@ -63,6 +64,9 @@ static const char usage_text[] =
     "  --trace archivo    instrucciones que ejecutó el juego (las escribe nestrace o\n"
     "                     la ventana con NES_TRACE=archivo); se agregan como entradas\n"
     "                     (se puede repetir)\n"
+    "  --traces-dir DIR   el almacén de trazas por SHA1: suma todas las DIR/nes/<SHA1>/*.trace de este\n"
+    "                     juego (y las de DIR/<SHA1>/) como si fueran --trace; sin la opción, la carpeta\n"
+    "                     de RETROCOMP_TRAZAS\n"
     "  --coverage archivo compara lo descubierto con las instrucciones que ejecutó el juego\n"
     "                     (una traza): cuántas se encontraron sin ayuda y cuáles faltan\n"
     "  --why BB:DIRECCION explica por qué esa instrucción (banco y dirección como en la traza, o su\n"
@@ -648,6 +652,13 @@ static void load_trace(const char *path)
         stat_trace++;
     }
     fclose(f);
+}
+
+/* El almacén de trazas por SHA1 (--traces-dir, trazas.h): cada traza de este juego se suma como un --trace */
+static void load_trace_store(const char *path, void *ctx)
+{
+    (void)ctx;
+    load_trace(path);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1553,7 +1564,7 @@ static void print_info(const char *path)
 int main(int argc, char **argv)
 {
     console_utf8();
-    const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL;
+    const char *in_path = NULL, *out_dir = NULL, *name = NULL, *dis_arg = NULL, *traces_dir = NULL;
     const char *traces[32]; int ntraces = 0;
     const char *coverage = NULL, *events_path = NULL, *html_path = NULL, *codemap_path = NULL;
     size_t why_list[32]; int nwhy = 0, viz = 0, force_color = 0, info = 0;
@@ -1561,6 +1572,7 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "-o") && i + 1 < argc) out_dir = argv[++i];
         else if (!strcmp(argv[i], "--name") && i + 1 < argc) name = argv[++i];
         else if (!strcmp(argv[i], "--trace") && i + 1 < argc && ntraces < 32) traces[ntraces++] = argv[++i];
+        else if (!strcmp(argv[i], "--traces-dir") && i + 1 < argc) traces_dir = argv[++i];
         else if (!strcmp(argv[i], "--dis") && i + 1 < argc) dis_arg = argv[++i];
         else if (!strcmp(argv[i], "--coverage") && i + 1 < argc) coverage = argv[++i];
         else if (!strcmp(argv[i], "--why") && i + 1 < argc && nwhy < 32) why_list[nwhy++] = why_arg(argv[++i]);
@@ -1603,9 +1615,13 @@ int main(int argc, char **argv)
     if (coverage) { coverage_report(coverage); if (!out_dir && !dis_arg && !viz && !nwhy && !events_path && !html_path && !codemap_path) return 0; }
     unsigned base_insns = stat_insns;
     for (int i = 0; i < ntraces; i++) load_trace(traces[i]);
+    char sha1[41];
+    sha1_hex(rom_file, rom_file_size, sha1);
+    unsigned nstore = trazas_del_juego(trazas_dir(traces_dir), "nes", sha1, load_trace_store, NULL);
     discover();
     printf("código: %u instrucciones (%u bytes, %.2f%% del PRG)", stat_insns, stat_bytes, 100.0 * stat_bytes / prg_size);
-    if (ntraces) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    if (ntraces || nstore) printf(", %u por la traza (%u puntos de entrada)", stat_insns - base_insns, stat_trace);
+    if (nstore) printf("; %u trazas del almacén", nstore);
     printf("\n");
     if (verbose) {
         printf("saltos sin resolver: %u (especulados en todos los bancos: %u destinos, %u aceptados), "
@@ -1643,8 +1659,6 @@ int main(int argc, char **argv)
     partition();
     printf("%zu funciones\n", nfuncs);
 
-    char sha1[41];
-    sha1_hex(rom_file, rom_file_size, sha1);
     char nm[128];
     if (name) snprintf(nm, sizeof nm, "%s", name);
     else {
